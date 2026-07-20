@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roster — NERX Training Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .admin-box {
+    background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 26px; margin-bottom: 24px;
+  }
+  .admin-box label { font-weight: 600; margin-right: 8px; }
+  .admin-box input, .admin-box select {
+    padding: 9px 12px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem;
+  }
+  .admin-box input:focus, .admin-box select:focus { outline: 2px solid var(--blue-light); }
+  .btn.small { padding: 9px 16px; font-size: 0.88rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e4e6e8; }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #5f6368; }
+  .row-actions { display: flex; gap: 6px; }
+  .status-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .st-issued { background: rgba(47,144,176,0.15); color: var(--blue); }
+  .st-booked { background: rgba(40,167,69,0.15); color: #1e7e34; }
+  .st-used   { background: var(--charcoal); color: var(--white); }
+  .st-void   { background: rgba(220,53,69,0.12); color: #b02a37; }
+  .roster-summary {
+    margin-bottom: 14px; font-size: 0.95rem; color: #3c4043;
+  }
+  .roster-summary b { font-size: 1.05rem; }
+  .err { color: #b02a37; font-weight: 600; margin-top: 10px; }
+  .ok-msg { color: #1e7e34; font-weight: 600; margin-top: 10px; }
+  .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation"><ul>
+      <li><a href="ticket.html">Ticket Page</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="page-hero">
+  <div class="container"><h1>Training Roster — Admin</h1></div>
+</div>
+
+<section>
+  <div class="container">
+    <div class="admin-box flex" id="authBox">
+      <label for="tok">Admin token</label>
+      <input id="tok" type="password" style="min-width:280px">
+      <button class="btn btn-primary small" id="saveTok">Connect</button>
+      <span id="authMsg"></span>
+    </div>
+
+    <div id="adminUi" hidden>
+      <div class="admin-box flex">
+        <label for="sessSel">Session</label>
+        <select id="sessSel"></select>
+        <button class="btn btn-outline small" id="reloadBtn">Reload</button>
+        <button class="btn btn-outline small" id="csvBtn">Export CSV</button>
+        <span id="seatInfo" style="color:#5f6368"></span>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Roster</h3>
+        <p class="roster-summary" id="rosterSummary"></p>
+        <table>
+          <thead><tr><th>Student</th><th>Email</th><th>Code</th><th>Status</th>
+                     <th>Booked</th><th>Used</th><th>Actions</th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+        <p id="rosterMsg"></p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Manage selected session</h3>
+        <div class="flex">
+          <label for="eStarts">Starts (Central)</label>
+          <input id="eStarts" type="datetime-local">
+          <label for="eCap">Capacity</label>
+          <input id="eCap" type="number" min="1" style="width:80px">
+          <label for="ePrice">Price $</label>
+          <input id="ePrice" type="number" min="0" step="0.01" style="width:100px">
+          <label for="eStatus">Status</label>
+          <select id="eStatus">
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </div>
+        <div class="flex" style="margin-top:10px">
+          <label for="eLink">Meeting link</label>
+          <input id="eLink" placeholder="https://zoom.us/j/…" style="flex:1;min-width:280px">
+          <button class="btn btn-primary small" id="eSave">Save Session</button>
+        </div>
+        <p id="eMsg"></p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Add a new session date</h3>
+        <div class="flex">
+          <input id="nName" placeholder="Course name" style="min-width:220px">
+          <input id="nStarts" type="datetime-local" title="Start (Central Time)">
+          <input id="nWeeks" type="number" min="1" value="2" style="width:70px" title="Weeks">
+          <input id="nCap" type="number" min="1" value="20" style="width:80px" title="Capacity">
+          <input id="nPrice" type="number" min="0" step="0.01" placeholder="Price $" style="width:100px">
+          <button class="btn btn-primary small" id="nCreate">Add Session</button>
+        </div>
+        <p id="nMsg"></p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Manually issue a ticket</h3>
+        <div class="flex">
+          <input id="mEmail" placeholder="student@company.com" style="min-width:240px">
+          <input id="mName" placeholder="Name (optional)">
+          <button class="btn btn-primary small" id="mIssue">Issue &amp; Email Code</button>
+        </div>
+        <p id="mMsg"></p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+const _apiOverride = new URLSearchParams(location.search).get('api');
+if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
+const API = localStorage.getItem('nerx_tickets_api') || 'https://nerx-tickets.onrender.com';
+const $ = (s) => document.querySelector(s);
+const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
+const fmt = (iso) => iso ? new Date(iso).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';
+
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...tokenHdr(), ...(opts.headers || {}) } });
+  if (r.status === 401) { $('#adminUi').hidden = true; $('#authBox').hidden = false;
+                          throw new Error('Unauthorized — check the token.'); }
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.includes('json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error((data && data.detail) || 'Request failed (' + r.status + ')');
+  return data;
+}
+
+let SESSIONS = [];
+
+function centralLocalValue(iso) {
+  // Render an ISO instant as a datetime-local value in Central Time.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
+  return parts.year + '-' + parts.month + '-' + parts.day + 'T' +
+         (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute;
+}
+
+function fillEditor() {
+  const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
+  if (!s) return;
+  $('#eStarts').value = centralLocalValue(s.starts_at);
+  $('#eCap').value = s.capacity;
+  $('#ePrice').value = s.price_usd.toFixed(2);
+  $('#eStatus').value = s.status;
+  $('#eLink').value = s.meeting_link || '';
+}
+
+async function loadSessions() {
+  const sel = $('#sessSel');
+  const prev = sel.value;
+  SESSIONS = await api('/admin/sessions');
+  sel.innerHTML = '';
+  SESSIONS.forEach((s) => {
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) +
+                    ' (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
+    sel.appendChild(o);
+  });
+  if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
+  if (SESSIONS.length) { fillEditor(); loadRoster(); }
+}
+
+async function loadRoster() {
+  const sid = $('#sessSel').value;
+  const body = $('#rosterBody');
+  body.innerHTML = '<tr><td colspan="7">Loading…</td></tr>';
+  try {
+    const rows = await api('/admin/sessions/' + sid + '/roster');
+    const n = (st) => rows.filter((r) => r.status === st).length;
+    const sess = SESSIONS.find((s) => s.id === sid);
+    $('#rosterSummary').innerHTML = rows.length
+      ? '<b>' + n('booked') + '</b> booked &nbsp;·&nbsp; <b>' + n('used') +
+        '</b> used (attended) &nbsp;·&nbsp; <b>' + n('void') + '</b> void' +
+        (sess ? ' &nbsp;·&nbsp; ' + sess.seats_left + ' of ' + sess.capacity + ' seats open' : '')
+      : 'No tickets on this session yet.';
+    body.innerHTML = rows.length ? '' : '<tr><td colspan="7">No bookings yet.</td></tr>';
+    rows.forEach((t) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (t.buyer_name || '—') + '</td><td>' + t.buyer_email +
+        '</td><td style="font-family:Consolas,monospace;font-size:0.85rem;white-space:nowrap">' +
+        (t.code || t.code_hint) + '</td><td><span class="status-pill st-' + t.status + '">' +
+        t.status + '</span></td><td>' + fmt(t.booked_at) +
+        '</td><td>' + fmt(t.used_at) + '</td><td class="row-actions"></td>';
+      const actions = tr.querySelector('.row-actions');
+      if (t.status === 'booked') {
+        const useBtn = document.createElement('button');
+        useBtn.className = 'btn btn-primary small'; useBtn.textContent = 'Check In';
+        useBtn.onclick = () => api('/admin/tickets/' + t.ticket_id + '/use', {method: 'POST'})
+                                .then(loadRoster).catch((e) => alert(e.message));
+        actions.appendChild(useBtn);
+      }
+      if (t.status !== 'void') {
+        const codeBtn = document.createElement('button');
+        codeBtn.className = 'btn btn-outline small'; codeBtn.textContent = 'New Code';
+        codeBtn.title = 'Re-issue this ticket’s code: the old code stops working, ' +
+                        'the new one is shown to you and emailed to the student';
+        codeBtn.onclick = () => confirm('Re-issue the code for ' + t.buyer_email +
+            '? Their current code will stop working.') &&
+          api('/admin/tickets/' + t.ticket_id + '/recode', {method: 'POST'})
+            .then((r) => { alert('New code for ' + t.buyer_email + ':\n\n' + r.code +
+                                 '\n\n(Also emailed to the student.)'); loadRoster(); })
+            .catch((e) => alert(e.message));
+        actions.appendChild(codeBtn);
+      }
+      if (t.status === 'booked' || t.status === 'used') {
+        const relBtn = document.createElement('button');
+        relBtn.className = 'btn btn-outline small'; relBtn.textContent = 'Release';
+        relBtn.title = 'Unlock this ticket so the student can pick a new date';
+        relBtn.onclick = () => confirm('Release ticket for ' + t.buyer_email +
+            ' so they can rebook a new date?') &&
+          api('/admin/tickets/' + t.ticket_id + '/release', {method: 'POST'})
+            .then(loadSessions).catch((e) => alert(e.message));
+        actions.appendChild(relBtn);
+      }
+      if (t.status !== 'void') {
+        const voidBtn = document.createElement('button');
+        voidBtn.className = 'btn btn-outline small'; voidBtn.textContent = 'Void';
+        voidBtn.onclick = () => confirm('Void ticket for ' + t.buyer_email + '?') &&
+          api('/admin/tickets/' + t.ticket_id + '/void',
+              {method: 'POST', body: JSON.stringify({reason: 'admin'})})
+            .then(loadRoster).catch((e) => alert(e.message));
+        actions.appendChild(voidBtn);
+      }
+      body.appendChild(tr);
+    });
+  } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>'; }
+}
+
+$('#saveTok').onclick = async () => {
+  sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim());
+  $('#authMsg').textContent = '…';
+  try {
+    await api('/admin/sessions');
+    $('#authBox').hidden = true; $('#adminUi').hidden = false;
+    loadSessions();
+  } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+};
+$('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); });
+$('#eSave').onclick = async () => {
+  try {
+    await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
+      starts_at: $('#eStarts').value,           // naive => server treats as Central
+      capacity: parseInt($('#eCap').value, 10),
+      price_usd: parseFloat($('#ePrice').value),
+      status: $('#eStatus').value,
+      meeting_link: $('#eLink').value.trim() || null })});
+    $('#eMsg').textContent = 'Saved.'; $('#eMsg').className = 'ok-msg';
+    loadSessions();
+  } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
+};
+$('#nCreate').onclick = async () => {
+  try {
+    const name = $('#nName').value.trim();
+    const starts = $('#nStarts').value;
+    if (!name || !starts) throw new Error('Course name and start date are required.');
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                 + '-' + starts.slice(0, 10);
+    await api('/admin/sessions', {method: 'POST', body: JSON.stringify({
+      id: slug, course_name: name, starts_at: starts,
+      duration_wks: parseInt($('#nWeeks').value, 10) || 2,
+      capacity: parseInt($('#nCap').value, 10) || 20,
+      price_usd: parseFloat($('#nPrice').value) || 0 })});
+    $('#nMsg').textContent = 'Session added: ' + slug; $('#nMsg').className = 'ok-msg';
+    loadSessions();
+  } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
+};
+$('#reloadBtn').onclick = loadSessions;
+$('#csvBtn').onclick = async () => {
+  const text = await api('/admin/export.csv');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'}));
+  a.download = 'nerx-tickets.csv';
+  a.click();
+};
+$('#mIssue').onclick = async () => {
+  try {
+    const r = await api('/admin/tickets', {method: 'POST', body: JSON.stringify({
+      buyer_email: $('#mEmail').value.trim(), buyer_name: $('#mName').value.trim() || null })});
+    $('#mMsg').textContent = 'Issued & emailed. Code: ' + r.code;
+    $('#mMsg').className = 'ok-msg';
+  } catch (e) { $('#mMsg').textContent = e.message; $('#mMsg').className = 'err'; }
+};
+if (sessionStorage.getItem('nerx_admin_token')) $('#saveTok').click();
+</script>
+
+</body>
+</html>

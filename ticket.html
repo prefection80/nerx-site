@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Tickets — NERX Power Consultants</title>
+<meta name="description" content="Buy a NERX training module for $150, then use your ticket code to pick your session dates on the training calendar.">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="canonical" href="https://nerxpower.com/ticket.html">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .ticket-box {
+    background: var(--white);
+    border-radius: 6px;
+    border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08);
+    padding: 30px;
+    max-width: 680px;
+  }
+  .ticket-box label { font-weight: 600; display: block; margin-bottom: 8px; }
+  .code-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .code-row input {
+    flex: 1; min-width: 220px;
+    font-family: Consolas, monospace;
+    font-size: 1.05rem; letter-spacing: 0.06em;
+    padding: 12px 14px;
+    border: 1.5px solid #c3c7cb; border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .code-row input:focus { outline: 2px solid var(--blue-light); border-color: var(--blue); }
+  .btn.small { padding: 10px 18px; font-size: 0.9rem; }
+  .status-card { margin-top: 22px; padding: 20px; border-radius: 6px; background: var(--bg); }
+  .status-card h3 { margin-bottom: 6px; }
+  .status-pill {
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .st-issued { background: rgba(47,144,176,0.15); color: var(--blue); }
+  .st-booked { background: rgba(40,167,69,0.15); color: #1e7e34; }
+  .st-used   { background: rgba(108,117,125,0.18); color: #495057; }
+  .st-void   { background: rgba(220,53,69,0.12); color: #b02a37; }
+  .err { color: #b02a37; margin-top: 12px; font-weight: 600; }
+  .ok-msg { color: #1e7e34; margin-top: 12px; font-weight: 600; }
+  .meta { font-size: 0.88rem; color: #5f6368; }
+  .assign-yes { color: #1e7e34; font-weight: 700; margin: 6px 0; }
+  .assign-no  { color: #b02a37; font-weight: 700; margin: 6px 0; }
+  .howto {
+    margin-top: 12px; padding: 12px 16px;
+    background: rgba(47,144,176,0.08); border-left: 3px solid var(--blue);
+    border-radius: 0 5px 5px 0; font-size: 0.9rem;
+  }
+
+  /* ---- calendar ---- */
+  .pick-banner {
+    background: var(--blue); color: var(--white);
+    border-radius: 6px; padding: 14px 20px; margin-bottom: 18px;
+    font-weight: 600; display: none;
+  }
+  .cal-nav { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .cal-nav h3 { font-size: 1.3rem; min-width: 200px; text-align: center; }
+  .cal-nav button {
+    border: 1.5px solid #c3c7cb; background: var(--white); border-radius: 4px;
+    padding: 6px 14px; font-size: 1rem; cursor: pointer; font-weight: 700;
+  }
+  .cal-nav button:hover { border-color: var(--blue); color: var(--blue); }
+  .cal-legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; font-size: 0.85rem; }
+  .cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .lg-tue { background: #2f90b0; }
+  .lg-thu { background: #1e7e34; }
+  .lg-sat { background: #c77414; }
+  .cal-scroll { overflow-x: auto; }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    min-width: 760px;
+    border: 1px solid #dfe2e5; border-radius: 6px; overflow: hidden;
+    background: var(--white);
+  }
+  .cal-head {
+    background: var(--charcoal); color: var(--grey-light);
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 0; text-align: center;
+  }
+  .cal-day {
+    min-height: 86px; border-top: 1px solid #eceef0; border-left: 1px solid #eceef0;
+    padding: 5px 6px; font-size: 0.8rem; color: #9aa0a6;
+  }
+  .cal-day.other { background: #fafbfc; }
+  .cal-day .dnum { font-weight: 600; }
+  .cal-chip {
+    display: block; width: 100%; text-align: left;
+    margin-top: 4px; padding: 4px 7px; border-radius: 4px;
+    font-size: 0.72rem; font-weight: 600; line-height: 1.25;
+    border: none; cursor: pointer; color: var(--charcoal);
+    font-family: inherit;
+  }
+  .cal-chip small { display: block; font-weight: 400; color: #5f6368; }
+  .track-tue { background: rgba(47,144,176,0.14); border-left: 3px solid #2f90b0; }
+  .track-thu { background: rgba(40,167,69,0.13); border-left: 3px solid #1e7e34; }
+  .track-sat { background: rgba(199,116,20,0.14); border-left: 3px solid #c77414; }
+  .cal-chip.full { opacity: 0.45; cursor: not-allowed; }
+  .cal-chip.mine { background: var(--blue); color: var(--white); border-left-color: #1a5b73; }
+  .cal-chip.mine small { color: rgba(255,255,255,0.85); }
+  html.js .pickable .cal-chip:not(.full):hover { outline: 2px solid var(--blue); }
+
+  /* ---- buy ---- */
+  .buy-box {
+    background: var(--charcoal); color: var(--grey-light);
+    border-radius: 6px; padding: 30px 34px; max-width: 820px;
+  }
+  .buy-box h3 { color: var(--white); font-size: 1.25rem; margin-bottom: 10px; }
+  .buy-box h3::before { content: "// "; color: var(--blue); font-style: italic; }
+  .buy-box ol { margin: 12px 0 20px 20px; }
+  .buy-box li { margin-bottom: 6px; }
+  .buy-box .price { color: var(--white); font-weight: 800; font-size: 1.15rem; }
+  .free-note {
+    margin-top: 18px; padding: 14px 18px; border-left: 3px solid var(--blue);
+    background: var(--charcoal-2); border-radius: 0 6px 6px 0; font-size: 0.95rem;
+  }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="topbar">
+  <div class="container">
+    <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
+    <span><strong>Location:</strong> Houston, TX</span>
+    <span><strong>Hours:</strong> 8:00 am – 6:00 pm Central</span>
+  </div>
+</div>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation">
+      <ul>
+        <li><a href="index.html#services">Services</a></li>
+        <li><a href="index.html#training">Training</a></li>
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="index.html#contact" class="cta">Contact Us</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<div class="page-hero">
+  <div class="container">
+    <a class="breadcrumb" href="index.html#training">&larr; Training</a>
+    <h1>Training Tickets &amp; Calendar</h1>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+    <div class="section-head">
+      <div class="kicker">My Ticket</div>
+      <h2>Enter Your Ticket Code</h2>
+      <p>Your code arrives by email after purchase. Enter it here, then click a session on
+         the calendar to book — or to move an existing booking to a different track or
+         date. Bookings can be changed any time until your session starts.</p>
+    </div>
+
+    <div class="ticket-box">
+      <label for="code">Ticket code</label>
+      <div class="code-row">
+        <input id="code" placeholder="NERX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary small" id="lookupBtn">Look Up</button>
+      </div>
+      <div id="result" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0" id="calendarSection">
+  <div class="container">
+    <div class="section-head">
+      <div class="kicker">Fall 2026</div>
+      <h2>Training Calendar</h2>
+      <p>Every course runs three parallel tracks — <b>Tuesdays 11:00 AM</b>,
+         <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM</b> (Central). Each session
+         is a single ~90-minute meeting booked individually at <b>$150 per session</b>.
+         Two-part courses appear as Part 1 and Part 2 — one ticket per session, so take
+         both parts or just the one you need.</p>
+    </div>
+    <div class="pick-banner" id="pickBanner">
+      Your ticket is ready — click a session below to book it.
+    </div>
+    <div class="cal-legend">
+      <span><i class="lg-tue"></i>Tuesday track · 11:00 AM</span>
+      <span><i class="lg-thu"></i>Thursday track · 12:00 PM</span>
+      <span><i class="lg-sat"></i>Saturday track · 6:00 AM</span>
+      <span class="meta">Each session shows its bookings, e.g. "3/20 booked".</span>
+    </div>
+    <div class="cal-nav">
+      <button id="calPrev" aria-label="Previous month">&lsaquo;</button>
+      <h3 id="calTitle">Loading…</h3>
+      <button id="calNext" aria-label="Next month">&rsaquo;</button>
+    </div>
+    <div class="cal-scroll">
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <p class="err" id="calErr" hidden></p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="section-head">
+      <div class="kicker">Buy a Seat</div>
+      <h2>How It Works</h2>
+    </div>
+    <div class="buy-box">
+      <h3>Training sessions — <span class="price">$150 USD per 90-minute session</span></h3>
+      <ol>
+        <li><b>Pay with PayPal</b> — $150 per session, to douglas.millner@nerxpower.com.
+            One payment = one ticket = one session; buying both parts of a two-part course
+            means two payments (two tickets).</li>
+        <li><b>Get your ticket code by email</b> — treat it like a password; it's your seat.</li>
+        <li><b>Book on the calendar above</b> — click the exact session date that fits. You
+            can reschedule any time until your session starts.</li>
+        <li><b>At class time</b> — return to this page, enter your code, and your
+            "Join Training" button appears one hour before the session.</li>
+      </ol>
+      <a class="btn btn-primary" href="https://www.paypal.com/ncp/payment/CG6LCLEHWWLG8"
+         target="_blank" rel="noopener">Pay $150 with PayPal</a>
+      <div class="free-note">
+        <b>Took the second Symmetrical Components course last year?</b> The Fault Analysis
+        module is free for you — the browser toolkit we now teach with is what I'd hoped to
+        show you then. <a href="mailto:douglas.millner@nerxpower.com?subject=Free%20Fault%20Analysis%20Seat">Email me</a>
+        and I'll send your ticket code.
+      </div>
+      <p class="meta" style="margin-top:16px">
+        Flexible by design: if none of the scheduled tracks work for you,
+        <a href="mailto:douglas.millner@nerxpower.com">email Doug</a> — we'll work around
+        you, we just ask for flexibility so people can be grouped together.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <img src="nerx-logo-transparent.png" alt="NERX Power Consultants">
+    <div>&copy; 2026 NERX Power Consultants LLC. All Rights Reserved.</div>
+  </div>
+</footer>
+
+<script>
+const _apiOverride = new URLSearchParams(location.search).get('api');
+if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
+const API = localStorage.getItem('nerx_tickets_api') || 'https://nerx-tickets.onrender.com';
+const $ = (s) => document.querySelector(s);
+
+const ABBR = [
+  ['Symmetrical', 'Sym Components'], ['Fault', 'Fault Analysis'],
+  ['Relay Coordination', 'Relay Coord'], ['Differential', 'Differential'],
+  ['Forensic', 'Event Analysis'], ['Pilot', 'Pilot Schemes'],
+  ['Transfer', 'Transfer & Recl'], ['Arc Flash', 'Arc Flash'],
+  ['Transmission', 'TX Planning'],
+];
+function abbr(name) {
+  const base = (ABBR.find(([k]) => name.includes(k)) || [null, name.slice(0, 14)])[1];
+  const part = name.match(/Part\s*(\d)/);
+  return part ? base + ' P' + part[1] : base;
+}
+
+const CT = 'America/Chicago';
+function ctParts(iso) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: CT, year: 'numeric', month: '2-digit', day: '2-digit',
+    weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
+}
+const ctKey = (iso) => { const p = ctParts(iso); return p.year + '-' + p.month + '-' + p.day; };
+const ctTime = (iso) => { const p = ctParts(iso); return p.hour + ':' + p.minute + ' ' + p.dayPeriod; };
+const ctDay = (iso) => { const p = ctParts(iso); return p.weekday; };
+
+function occurrences(s) {
+  const out = [s.starts_at];
+  if (s.duration_wks >= 2) {
+    out.push(new Date(new Date(s.starts_at).getTime() + 7 * 86400e3).toISOString());
+  }
+  return out;
+}
+function trackOf(s) {
+  const d = ctDay(s.starts_at);
+  return d === 'Tue' ? 'tue' : d === 'Thu' ? 'thu' : d === 'Sat' ? 'sat' : 'tue';
+}
+function trackName(s) {
+  return { tue: 'Tuesday', thu: 'Thursday', sat: 'Saturday' }[trackOf(s)];
+}
+function sessionDates(s) {
+  const dates = occurrences(s).map((o) => {
+    const p = ctParts(o);
+    return p.weekday + ' ' + new Date(o).toLocaleDateString('en-US',
+      { timeZone: CT, month: 'short', day: 'numeric' });
+  });
+  return dates.join(' & ') + ' at ' + ctTime(s.starts_at) + ' Central';
+}
+function describe(s) {
+  return s.course_name + ' — ' + sessionDates(s);
+}
+
+let SESSIONS = [], TICKET = null, bookingMode = false, months = [], monthIdx = 0;
+
+async function api(path, body) {
+  const r = await fetch(API + path, body === undefined ? {} :
+    { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || ('Request failed (' + r.status + ')'));
+  return data;
+}
+
+// ---------------- calendar ----------------
+function buildMonths() {
+  const keys = new Set();
+  SESSIONS.forEach((s) => occurrences(s).forEach((o) => keys.add(ctKey(o).slice(0, 7))));
+  months = [...keys].sort();
+  if (monthIdx >= months.length) monthIdx = 0;
+}
+
+function renderCalendar() {
+  const grid = $('#calGrid');
+  if (!months.length) { $('#calTitle').textContent = 'No sessions'; grid.innerHTML = ''; return; }
+  const [y, m] = months[monthIdx].split('-').map(Number);
+  $('#calTitle').textContent = new Date(Date.UTC(y, m - 1, 1, 12)).toLocaleDateString(
+    'en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  $('#calPrev').disabled = monthIdx === 0;
+  $('#calNext').disabled = monthIdx === months.length - 1;
+
+  const byDay = {};
+  SESSIONS.forEach((s) => occurrences(s).forEach((o, i) => {
+    const k = ctKey(o);
+    if (k.slice(0, 7) === months[monthIdx]) (byDay[k] = byDay[k] || []).push({ s, meeting: i });
+  }));
+
+  let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    .map((d) => '<div class="cal-head">' + d + '</div>').join('');
+  const first = new Date(Date.UTC(y, m - 1, 1, 12));
+  const daysInMonth = new Date(Date.UTC(y, m, 0, 12)).getUTCDate();
+  for (let i = 0; i < first.getUTCDay(); i++) html += '<div class="cal-day other"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    html += '<div class="cal-day"><span class="dnum">' + d + '</span>';
+    (byDay[key] || []).sort((a, b) => a.s.starts_at < b.s.starts_at ? -1 : 1).forEach(({ s, meeting }) => {
+      const mine = TICKET && TICKET.session && TICKET.session.id === s.id;
+      const full = s.seats_left <= 0 && !mine;
+      const cls = 'cal-chip track-' + trackOf(s) + (mine ? ' mine' : '') + (full ? ' full' : '');
+      const booked = (s.booked !== undefined) ? s.booked + '/' + s.capacity + ' booked'
+                                              : s.seats_left + ' seats left';
+      html += '<button type="button" class="' + cls + '" data-sid="' + s.id +
+        '" data-mtg="' + meeting +
+        '" title="' + describe(s).replace(/"/g, '&quot;') + ' · ' + booked +
+        '">' + abbr(s.course_name) + (s.duration_wks >= 2 ? ' (' + (meeting + 1) + '/2)' : '') +
+        '<small>' + ctTime(s.starts_at) + '</small>' +
+        '<small>' + (mine ? 'YOUR SESSION · ' : '') + (s.seats_left <= 0 ? 'FULL · ' : '') +
+        booked + '</small></button>';
+    });
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+  grid.parentElement.classList.toggle('pickable', bookingMode);
+
+  grid.querySelectorAll('.cal-chip').forEach((chip) => {
+    chip.onclick = async () => {
+      const s = SESSIONS.find((x) => x.id === chip.dataset.sid);
+      if (!bookingMode || !TICKET) { alert(describe(s) + '\n' + s.seats_left + ' seats left · $' + s.price_usd.toFixed(0)); return; }
+      if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
+      const occ = occurrences(s)[+chip.dataset.mtg || 0];
+      const p = ctParts(occ);
+      const clicked = p.weekday + ' ' + new Date(occ).toLocaleDateString('en-US',
+        { timeZone: CT, month: 'short', day: 'numeric' });
+      const clickedNote = s.duration_wks >= 2
+        ? '\n\nYou clicked the ' + clicked + ' meeting - booking covers both meetings of this track.'
+        : '';
+      const moving = TICKET.session && TICKET.session.id !== s.id;
+      const q = moving
+        ? 'Move your ticket?\n\nFROM: ' + describe(TICKET.session) +
+          '\nTO: ' + describe(s) +
+          '\n\nA ticket holds one session at a time - your current seat will be released.' + clickedNote
+        : 'Book ' + describe(s) + '?' + clickedNote;
+      if (!confirm(q)) return;
+      try {
+        await api('/tickets/book', { code: TICKET.code, session_id: s.id });
+        bookingMode = false;
+        await refreshSessions();
+        await renderTicket(TICKET.code);
+        $('#result').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (e) { alert(e.message); }
+    };
+  });
+}
+
+$('#calPrev').onclick = () => { monthIdx--; renderCalendar(); };
+$('#calNext').onclick = () => { monthIdx++; renderCalendar(); };
+
+async function refreshSessions() {
+  SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
+  buildMonths();
+  renderCalendar();
+}
+
+// ---------------- ticket ----------------
+function pill(status) { return '<span class="status-pill st-' + status + '">' + status + '</span>'; }
+
+function enterBookingMode(msg) {
+  bookingMode = true;
+  const b = $('#pickBanner');
+  b.textContent = msg;
+  b.style.display = 'block';
+  renderCalendar();
+  $('#calendarSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function renderTicket(code) {
+  const box = $('#result');
+  box.innerHTML = '<p class="ok-msg">Looking up…</p>';
+  $('#pickBanner').style.display = 'none';
+  bookingMode = false;
+  try {
+    const t = await api('/tickets/lookup', { code });
+    TICKET = { code, ...t };
+    let html = '<div class="status-card"><h3>Ticket …' + t.code_hint + ' ' + pill(t.status) + '</h3>';
+
+    if (t.status === 'void') {
+      html += '<p>This ticket was cancelled' +
+        (t.void_reason === 'refunded' ? ' following a refund' :
+         t.void_reason === 'expired' ? ' because it expired' : '') +
+        '. <a href="mailto:douglas.millner@nerxpower.com">Contact us</a> with questions.</p>';
+    } else if (t.status === 'used') {
+      html += '<p class="assign-yes">&#10004; This ticket was used for: <b>' +
+              t.session.course_name + ' — ' + trackName(t.session) + ' track</b></p>' +
+              '<p class="meta">' + describe(t.session) + '. Thanks for attending!</p>';
+      if (t.link_available) html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
+    } else if (t.status === 'booked') {
+      html += '<p class="assign-yes">&#10004; This ticket IS assigned to a session:</p>' +
+              '<p><b>' + t.session.course_name + ' — ' + trackName(t.session) + ' track</b><br>' +
+              'Meets ' + sessionDates(t.session) + '</p>';
+      if (t.link_available) {
+        html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
+      } else {
+        html += '<p class="meta">Your join button appears here one hour before class.</p>';
+      }
+      if (t.can_rebook) {
+        html += '<div class="howto"><b>Want a different session?</b> Click the Reschedule button, ' +
+                'then click your new session on the calendar below (your current one is ' +
+                'highlighted in blue). You can change freely until your first session starts.</div>' +
+                '<button class="btn btn-outline small" id="rebookLink" style="margin-top:12px">Reschedule</button>';
+      } else {
+        html += '<div class="howto"><b>This session has started, so the ticket is locked.</b> ' +
+                'To be moved to another date, ' +
+                '<a href="mailto:douglas.millner@nerxpower.com?subject=Move%20my%20training%20ticket">email Doug</a> ' +
+                'and he can release your ticket for rebooking.</div>';
+      }
+    } else {
+      html += '<p class="assign-no">&#9888; This ticket is NOT yet assigned to a session.</p>' +
+              '<div class="howto"><b>To assign it:</b> click the session date you want on the ' +
+              'calendar below. One ticket books one session; for a two-part course, each part ' +
+              'takes its own ticket.</div>';
+    }
+    html += '</div>';
+    box.innerHTML = html;
+    renderCalendar();
+
+    if (t.status === 'issued') enterBookingMode('Your ticket is ready — click a session on the calendar to book it.');
+    if ($('#joinBtn')) $('#joinBtn').onclick = async () => {
+      try { const r = await api('/tickets/link', { code }); window.location.href = r.meeting_link; }
+      catch (e) { box.insertAdjacentHTML('beforeend', '<p class="err">' + e.message + '</p>'); }
+    };
+    if ($('#rebookLink')) $('#rebookLink').onclick = (ev) => {
+      ev.preventDefault();
+      enterBookingMode('Rescheduling — click your new session on the calendar. Your current booking is highlighted in blue.');
+    };
+  } catch (e) {
+    TICKET = null;
+    box.innerHTML = '<p class="err">' + e.message + '</p>';
+    renderCalendar();
+  }
+}
+
+$('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) renderTicket(c); };
+$('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lookupBtn').click(); });
+
+refreshSessions().catch((e) => {
+  $('#calErr').hidden = false;
+  $('#calErr').textContent = 'Could not load the schedule (' + e.message +
+    '). Email douglas.millner@nerxpower.com to register.';
+  $('#calTitle').textContent = 'Schedule unavailable';
+});
+
+// Live enrollment: re-pull session counts every 10 s (paused while the tab is hidden).
+setInterval(() => {
+  if (!document.hidden) refreshSessions().catch(() => {});
+}, 10000);
+</script>
+
+</body>
+</html>

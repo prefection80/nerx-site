@@ -141,7 +141,7 @@
 <script>
 const _apiOverride = new URLSearchParams(location.search).get('api');
 if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
-const API = localStorage.getItem('nerx_tickets_api') || 'https://nerx-tickets.onrender.com';
+const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
 const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
 const fmt = (iso) => iso ? new Date(iso).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';

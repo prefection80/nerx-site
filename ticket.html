@@ -129,6 +129,11 @@
     font-size: 1.35rem; font-weight: 800; margin: 10px 0 14px;
   }
   .buy-card .note { font-size: 0.83rem; color: #5f6368; margin-top: 12px; }
+  .buy-card .qty-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .buy-card .qty-row select {
+    padding: 6px 10px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem;
+  }
+  .buy-card .qty-row .meta { flex: 1; min-width: 180px; font-size: 0.78rem; }
   #ppButtons { min-height: 45px; }
 
   /* ---- buy ---- */
@@ -260,9 +265,11 @@
         <li><b>Click your session's date on the calendar above</b> — that's how you
             first reserve and pay for a session. Each date shows its own price and
             seats remaining.</li>
-        <li><b>Pay with PayPal right there</b> — secure checkout in the popup. If your
-            PayPal account payment has issues, try paying with a debit or credit card
-            instead (no PayPal account needed).</li>
+        <li><b>Pay with PayPal right there</b> — secure checkout in the popup. Buying
+            for a team? Pick the number of seats in the popup and pay once — you'll get
+            one ticket code per person, all in one email, to hand out to your engineers.
+            If your PayPal account payment has issues, try paying with a debit or credit
+            card instead (no PayPal account needed).</li>
         <li><b>Done</b> — after the payment is processed, your ticket code is sent to
             the email address you submitted at checkout (usually within ~2 minutes) and
             your seat is reserved automatically. Your ticket also lets you change to a
@@ -294,6 +301,12 @@
     <h3 id="buyTitle">Session</h3>
     <div class="meta" id="buyWhen"></div>
     <div class="meta" id="buySeats"></div>
+    <div class="qty-row">
+      <label for="buyQty"><b>Seats:</b></label>
+      <select id="buyQty" aria-label="Number of seats"></select>
+      <span class="meta">Buying for a team? Each seat gets its own ticket code —
+        all emailed to you to hand out.</span>
+    </div>
     <div class="price-line" id="buyPrice"></div>
     <div id="ppButtons"></div>
     <div id="ppFallback" hidden>
@@ -549,7 +562,20 @@ async function openBuyModal(s) {
   $('#buyTitle').textContent = s.course_name;
   $('#buyWhen').textContent = sessionDates(s);
   $('#buySeats').textContent = s.seats_left + ' of ' + s.capacity + ' seats available';
-  $('#buyPrice').textContent = '$' + s.price_usd.toFixed(2) + ' USD';
+  const qtySel = $('#buyQty');
+  qtySel.innerHTML = '';
+  for (let i = 1; i <= Math.max(1, s.seats_left); i++) {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = i;
+    qtySel.appendChild(o);
+  }
+  const qty = () => parseInt(qtySel.value, 10) || 1;
+  const updPrice = () => {
+    $('#buyPrice').textContent = '$' + (s.price_usd * qty()).toFixed(2) + ' USD' +
+      (qty() > 1 ? ' (' + qty() + ' seats x $' + s.price_usd.toFixed(2) + ')' : '');
+  };
+  qtySel.onchange = updPrice;
+  updPrice();
   $('#buySuccess').hidden = true;
   $('#ppButtons').innerHTML = '';
   $('#ppFallback').hidden = true;
@@ -561,15 +587,20 @@ async function openBuyModal(s) {
     style: { layout: 'vertical', height: 45 },
     createOrder: (_d, actions) => actions.order.create({
       purchase_units: [{
-        description: 'NERX Training: ' + s.course_name,
-        custom_id: s.id,
-        amount: { currency_code: 'USD', value: s.price_usd.toFixed(2) },
+        description: 'NERX Training: ' + s.course_name +
+          (qty() > 1 ? ' x' + qty() + ' seats' : ''),
+        custom_id: s.id + (qty() > 1 ? '|' + qty() : ''),
+        amount: { currency_code: 'USD', value: (s.price_usd * qty()).toFixed(2) },
       }],
     }),
     onApprove: (_d, actions) => actions.order.capture().then(() => {
       $('#ppButtons').innerHTML = '';
-      $('#buySuccess').textContent = 'Payment received! Your seat is being reserved - ' +
-        'your ticket code is on its way to your email (check spam too). See you in class!';
+      $('#buySuccess').textContent = qty() > 1
+        ? 'Payment received! Your ' + qty() + ' seats are being reserved - all ' + qty() +
+          ' ticket codes are on their way to your email (check spam too). Hand one code ' +
+          'to each attendee.'
+        : 'Payment received! Your seat is being reserved - your ticket code is on its ' +
+          'way to your email (check spam too). See you in class!';
       $('#buySuccess').hidden = false;
       setTimeout(() => { refreshSessions().catch(() => {}); }, 4000);
     }),

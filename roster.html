@@ -244,7 +244,10 @@
         <div class="flex">
           <input id="mEmail" placeholder="student@company.com" style="min-width:240px">
           <input id="mName" placeholder="Name (optional)">
-          <button class="btn btn-primary small" id="mIssue">Issue &amp; Email Code</button>
+          <label for="mCount">Seats</label>
+          <input id="mCount" type="number" min="1" max="50" value="1" style="width:70px"
+                 title="Issue several codes at once (e.g. a company buying for its engineers) — all emailed together">
+          <button class="btn btn-primary small" id="mIssue">Issue &amp; Email Code(s)</button>
         </div>
         <p id="mMsg"></p>
       </div>
@@ -623,10 +626,14 @@ $('#csvBtn').onclick = async () => {
 };
 $('#mIssue').onclick = async () => {
   try {
+    const n = parseInt($('#mCount').value, 10) || 1;
     const r = await api('/admin/tickets', {method: 'POST', body: JSON.stringify({
-      buyer_email: $('#mEmail').value.trim(), buyer_name: $('#mName').value.trim() || null })});
-    $('#mMsg').textContent = 'Issued & emailed. Code: ' + r.code +
-      ' — it now appears under Unassigned tickets; use Assign to place it.';
+      buyer_email: $('#mEmail').value.trim(), buyer_name: $('#mName').value.trim() || null,
+      count: n })});
+    const codes = r.codes || [r.code];
+    $('#mMsg').textContent = 'Issued & emailed ' + codes.length + ' code' +
+      (codes.length > 1 ? 's' : '') + ': ' + codes.join(', ') +
+      ' — now under Unassigned tickets; use Assign to place them.';
     $('#mMsg').className = 'ok-msg';
     loadSessions();
   } catch (e) { $('#mMsg').textContent = e.message; $('#mMsg').className = 'err'; }

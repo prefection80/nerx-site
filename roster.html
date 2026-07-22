@@ -19,10 +19,11 @@
   }
   .admin-box input:focus, .admin-box select:focus { outline: 2px solid var(--blue-light); }
   .btn.small { padding: 9px 16px; font-size: 0.88rem; }
+  .btn.tiny { padding: 4px 10px; font-size: 0.78rem; }
   table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e4e6e8; }
   th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #5f6368; }
-  .row-actions { display: flex; gap: 6px; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .status-pill {
     display: inline-block; padding: 2px 10px; border-radius: 999px;
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
@@ -31,13 +32,84 @@
   .st-booked { background: rgba(40,167,69,0.15); color: #1e7e34; }
   .st-used   { background: var(--charcoal); color: var(--white); }
   .st-void   { background: rgba(220,53,69,0.12); color: #b02a37; }
-  .roster-summary {
-    margin-bottom: 14px; font-size: 0.95rem; color: #3c4043;
-  }
+  .roster-summary { margin-bottom: 14px; font-size: 0.95rem; color: #3c4043; }
   .roster-summary b { font-size: 1.05rem; }
   .err { color: #b02a37; font-weight: 600; margin-top: 10px; }
   .ok-msg { color: #1e7e34; font-weight: 600; margin-top: 10px; }
   .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .mono { font-family: Consolas, monospace; font-size: 0.85rem; white-space: nowrap; }
+
+  /* ---- stats strip ---- */
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat {
+    flex: 1; min-width: 150px; background: var(--charcoal); color: var(--grey-light);
+    border-radius: 6px; padding: 16px 20px; border-left: 3px solid var(--blue);
+  }
+  .stat b { display: block; color: var(--white); font-size: 1.5rem; }
+  .stat span { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ---- admin calendar ---- */
+  .cal-nav { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .cal-nav h3 { font-size: 1.25rem; min-width: 190px; text-align: center; }
+  .cal-nav button {
+    border: 1.5px solid #c3c7cb; background: var(--white); border-radius: 4px;
+    padding: 6px 14px; font-size: 1rem; cursor: pointer; font-weight: 700;
+  }
+  .cal-nav button:hover { border-color: var(--blue); color: var(--blue); }
+  .cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 12px; font-size: 0.82rem; }
+  .cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .lg-tue { background: #2f90b0; } .lg-thu { background: #1e7e34; }
+  .lg-sat { background: #c77414; } .lg-other { background: #6c757d; }
+  .cal-scroll { overflow-x: auto; }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); min-width: 820px;
+    border: 1px solid #dfe2e5; border-radius: 6px; overflow: hidden; background: var(--white);
+  }
+  .cal-head {
+    background: var(--charcoal); color: var(--grey-light);
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 0; text-align: center;
+  }
+  .cal-day {
+    min-height: 92px; border-top: 1px solid #eceef0; border-left: 1px solid #eceef0;
+    padding: 4px 5px; font-size: 0.8rem; color: #9aa0a6; position: relative;
+  }
+  .cal-day.other-mo { background: #fafbfc; }
+  .cal-day .dnum { font-weight: 600; }
+  .cal-day .day-add {
+    position: absolute; top: 3px; right: 4px; border: none; background: none;
+    color: #c3c7cb; font-size: 1rem; font-weight: 700; cursor: pointer;
+    padding: 0 5px; border-radius: 3px; line-height: 1.2;
+  }
+  .cal-day:hover .day-add { color: var(--blue); }
+  .cal-day .day-add:hover { background: rgba(47,144,176,0.12); }
+  .cal-chip {
+    display: block; width: 100%; text-align: left;
+    margin-top: 3px; padding: 3px 6px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600; line-height: 1.25;
+    border: none; cursor: pointer; color: var(--charcoal); font-family: inherit;
+  }
+  .cal-chip small { display: block; font-weight: 400; color: #5f6368; }
+  .track-tue { background: rgba(47,144,176,0.14); border-left: 3px solid #2f90b0; }
+  .track-thu { background: rgba(40,167,69,0.13); border-left: 3px solid #1e7e34; }
+  .track-sat { background: rgba(199,116,20,0.14); border-left: 3px solid #c77414; }
+  .track-other { background: rgba(108,117,125,0.13); border-left: 3px solid #6c757d; }
+  .cal-chip.cancelled { opacity: 0.45; text-decoration: line-through; }
+  .cal-chip.sel { outline: 2.5px solid var(--charcoal); }
+  .cal-chip:hover { outline: 2px solid var(--blue); }
+  .cal-chip .cnt-full { color: #b02a37; font-weight: 700; }
+
+  /* ---- move mode banner ---- */
+  .move-banner {
+    background: #c77414; color: var(--white); border-radius: 6px;
+    padding: 12px 18px; margin-bottom: 12px; font-weight: 600;
+    display: none; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .move-banner.on { display: flex; }
+  .move-banner button {
+    border: 2px solid var(--white); background: none; color: var(--white);
+    border-radius: 4px; padding: 5px 14px; font-weight: 700; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -68,6 +140,30 @@
     </div>
 
     <div id="adminUi" hidden>
+
+      <div class="stats" id="statsRow"></div>
+
+      <div class="admin-box">
+        <div class="move-banner" id="moveBanner">
+          <span id="moveLabel"></span>
+          <button id="moveCancel">Cancel move</button>
+        </div>
+        <div class="cal-nav">
+          <button id="calPrev" aria-label="Previous month">&larr;</button>
+          <h3 id="calTitle"></h3>
+          <button id="calNext" aria-label="Next month">&rarr;</button>
+          <span style="color:#5f6368;font-size:0.85rem">Click a session to manage it ·
+            click a day's <b>+</b> to add a session on that date</span>
+        </div>
+        <div class="cal-legend">
+          <span><i class="lg-tue"></i>Tuesday track</span>
+          <span><i class="lg-thu"></i>Thursday track</span>
+          <span><i class="lg-sat"></i>Saturday track</span>
+          <span><i class="lg-other"></i>Other day</span>
+        </div>
+        <div class="cal-scroll"><div class="cal-grid" id="calGrid"></div></div>
+      </div>
+
       <div class="admin-box flex">
         <label for="sessSel">Session</label>
         <select id="sessSel"></select>
@@ -85,6 +181,19 @@
           <tbody id="rosterBody"></tbody>
         </table>
         <p id="rosterMsg"></p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Unassigned tickets <span id="unCount"
+            style="font-weight:400;color:#5f6368;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
+          Paid or issued tickets not yet on any session date. Use <b>Assign</b> to place
+          one on the calendar.</p>
+        <table>
+          <thead><tr><th>Student</th><th>Email</th><th>Code</th><th>Paid</th>
+                     <th>Issued</th><th>Actions</th></tr></thead>
+          <tbody id="unassignedBody"></tbody>
+        </table>
       </div>
 
       <div class="admin-box">
@@ -109,11 +218,15 @@
           <label for="eLink">Meeting link</label>
           <input id="eLink" placeholder="https://zoom.us/j/…" style="flex:1;min-width:280px">
           <button class="btn btn-primary small" id="eSave">Save Session</button>
+          <button class="btn btn-outline small" id="eClone"
+                  title="Prefill the add-session form below with this session's details">Duplicate…</button>
+          <button class="btn btn-outline small" id="eDelete"
+                  title="Remove this session date (only when no seats are held)">Delete</button>
         </div>
         <p id="eMsg"></p>
       </div>
 
-      <div class="admin-box">
+      <div class="admin-box" id="addBox">
         <h3 style="margin-bottom:12px">Add a new session date</h3>
         <div class="flex">
           <input id="nName" placeholder="Course name" style="min-width:220px">
@@ -161,17 +274,181 @@ async function api(path, opts = {}) {
 }
 
 let SESSIONS = [];
+let TICKETS = [];        // all tickets, for stats + unassigned panel
+let MOVING = null;       // {ticket_id, label, from} while picking a destination on the calendar
+let calMonth = null;     // {y, m} currently displayed
 
-function centralLocalValue(iso) {
-  // Render an ISO instant as a datetime-local value in Central Time.
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Chicago', year: 'numeric', month: '2-digit',
-    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+// ---- Central-time helpers -------------------------------------------------
+function centralParts(iso) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
   }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
-  return parts.year + '-' + parts.month + '-' + parts.day + 'T' +
-         (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute;
+}
+function centralLocalValue(iso) {
+  const p = centralParts(iso);
+  return p.year + '-' + p.month + '-' + p.day + 'T' +
+         (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
+}
+function centralDateKey(iso) {
+  const p = centralParts(iso);
+  return p.year + '-' + p.month + '-' + p.day;
+}
+function centralClock(iso) {
+  return new Date(iso).toLocaleTimeString([], {
+    timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' });
+}
+function trackOf(s) {
+  const wd = centralParts(s.starts_at).weekday;
+  return wd === 'Tue' ? 'tue' : wd === 'Thu' ? 'thu' : wd === 'Sat' ? 'sat' : 'other';
 }
 
+// ---- calendar -------------------------------------------------------------
+function renderCalendar() {
+  if (!calMonth) {
+    const first = SESSIONS.find((s) => new Date(s.starts_at) > new Date()) || SESSIONS[0];
+    const base = first ? new Date(first.starts_at) : new Date();
+    const p = centralParts(base.toISOString());
+    calMonth = { y: +p.year, m: +p.month - 1 };
+  }
+  const { y, m } = calMonth;
+  $('#calTitle').textContent = new Date(y, m, 1).toLocaleString([], {month:'long', year:'numeric'});
+  const byDay = {};
+  SESSIONS.forEach((s) => {
+    (byDay[centralDateKey(s.starts_at)] = byDay[centralDateKey(s.starts_at)] || []).push(s);
+  });
+  const grid = $('#calGrid');
+  grid.innerHTML = '';
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach((d) => {
+    const h = document.createElement('div');
+    h.className = 'cal-head'; h.textContent = d; grid.appendChild(h);
+  });
+  const start = new Date(y, m, 1);
+  start.setDate(1 - start.getDay());
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+                '-' + String(d.getDate()).padStart(2, '0');
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (d.getMonth() !== m ? ' other-mo' : '');
+    cell.innerHTML = '<span class="dnum">' + d.getDate() + '</span>';
+    const add = document.createElement('button');
+    add.className = 'day-add'; add.textContent = '+';
+    add.title = 'Add a session on ' + key;
+    add.onclick = () => prefillAdd(key);
+    cell.appendChild(add);
+    (byDay[key] || []).sort((a, b) => a.starts_at < b.starts_at ? -1 : 1).forEach((s) => {
+      const chip = document.createElement('button');
+      chip.className = 'cal-chip track-' + trackOf(s) +
+        (s.status === 'cancelled' ? ' cancelled' : '') +
+        (s.id === $('#sessSel').value ? ' sel' : '');
+      const cnt = s.booked + '/' + s.capacity;
+      chip.innerHTML = s.course_name +
+        '<small>' + centralClock(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
+        ' · <span class="' + (s.booked >= s.capacity ? 'cnt-full' : '') + '">' +
+        cnt + ' booked</span>' + (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
+      chip.title = s.id;
+      chip.onclick = () => MOVING ? moveTo(s) : selectSession(s.id);
+      cell.appendChild(chip);
+    });
+    grid.appendChild(cell);
+  }
+}
+$('#calPrev').onclick = () => { calMonth.m--; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y--; } renderCalendar(); };
+$('#calNext').onclick = () => { calMonth.m++; if (calMonth.m > 11) { calMonth.m = 0; calMonth.y++; } renderCalendar(); };
+
+function prefillAdd(dateKey) {
+  $('#nStarts').value = dateKey + 'T11:00';
+  $('#nMsg').textContent = 'Date set to ' + dateKey + ' 11:00 AM Central — adjust and fill in the rest.';
+  $('#nMsg').className = 'ok-msg';
+  $('#addBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#nName').focus();
+}
+
+function selectSession(sid) {
+  $('#sessSel').value = sid;
+  fillEditor(); loadRoster(); renderCalendar();
+}
+
+// ---- move / assign --------------------------------------------------------
+function startMove(t) {
+  MOVING = { ticket_id: t.ticket_id, from: t.session_id || null,
+             label: (t.buyer_name || t.buyer_email) + ' (' + (t.code || t.code_hint) + ')' };
+  $('#moveLabel').textContent = 'Moving ' + MOVING.label +
+    ' — click the destination session on the calendar.';
+  $('#moveBanner').classList.add('on');
+  $('#moveBanner').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function endMove() { MOVING = null; $('#moveBanner').classList.remove('on'); }
+$('#moveCancel').onclick = endMove;
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') endMove(); });
+
+async function moveTo(s) {
+  if (s.id === MOVING.from) { alert('That ticket is already on this session.'); return; }
+  const when = centralParts(s.starts_at);
+  let force = false;
+  if (s.booked >= s.capacity) {
+    if (!confirm(s.course_name + ' is FULL (' + s.booked + '/' + s.capacity +
+                 '). Overbook it anyway?')) return;
+    force = true;
+  } else if (!confirm('Move ' + MOVING.label + ' to:\n\n' + s.course_name + '\n' +
+                      when.weekday + ' ' + when.month + '/' + when.day + '/' + when.year +
+                      ' at ' + centralClock(s.starts_at) + ' Central\n\nThe student will be ' +
+                      'emailed their new session details.')) return;
+  try {
+    await api('/admin/tickets/' + MOVING.ticket_id + '/move', { method: 'POST',
+      body: JSON.stringify({ session_id: s.id, force: force, notify: true }) });
+    endMove();
+    await loadSessions();
+    selectSession(s.id);
+  } catch (e) { alert(e.message); }
+}
+
+// ---- stats + unassigned ---------------------------------------------------
+function renderStats() {
+  const live = TICKETS.filter((t) => t.status !== 'void');
+  const revenue = live.reduce((a, t) => a + t.amount_usd, 0);
+  const upcoming = SESSIONS.filter((s) => s.status === 'open' && new Date(s.starts_at) > new Date());
+  const seatsSold = TICKETS.filter((t) => t.status === 'booked' || t.status === 'used').length;
+  const next = upcoming[0];
+  $('#statsRow').innerHTML =
+    '<div class="stat"><b>$' + revenue.toFixed(0) + '</b><span>revenue (non-void)</span></div>' +
+    '<div class="stat"><b>' + live.length + '</b><span>active tickets</span></div>' +
+    '<div class="stat"><b>' + seatsSold + '</b><span>seats booked/used</span></div>' +
+    '<div class="stat"><b>' + upcoming.length + '</b><span>upcoming sessions</span></div>' +
+    '<div class="stat"><b style="font-size:1rem;line-height:1.9">' +
+      (next ? next.course_name + '<br>' + fmt(next.starts_at) : '—') +
+      '</b><span>next session</span></div>';
+}
+
+function renderUnassigned() {
+  const rows = TICKETS.filter((t) => t.status === 'issued');
+  $('#unCount').textContent = rows.length ? '· ' + rows.length + ' waiting' : '';
+  const body = $('#unassignedBody');
+  body.innerHTML = rows.length ? '' :
+    '<tr><td colspan="6">None — every active ticket has a session.</td></tr>';
+  rows.forEach((t) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (t.buyer_name || '—') + '</td><td>' + t.buyer_email +
+      '</td><td class="mono">' + t.code + '</td><td>$' + t.amount_usd.toFixed(2) +
+      '</td><td>' + fmt(t.issued_at) + '</td><td class="row-actions"></td>';
+    const actions = tr.querySelector('.row-actions');
+    const assign = document.createElement('button');
+    assign.className = 'btn btn-primary tiny'; assign.textContent = 'Assign';
+    assign.onclick = () => startMove(t);
+    actions.appendChild(assign);
+    const voidBtn = document.createElement('button');
+    voidBtn.className = 'btn btn-outline tiny'; voidBtn.textContent = 'Void';
+    voidBtn.onclick = () => confirm('Void ticket for ' + t.buyer_email + '?') &&
+      api('/admin/tickets/' + t.ticket_id + '/void',
+          {method: 'POST', body: JSON.stringify({reason: 'admin'})})
+        .then(loadSessions).catch((e) => alert(e.message));
+    actions.appendChild(voidBtn);
+    body.appendChild(tr);
+  });
+}
+
+// ---- session editor / dropdown -------------------------------------------
 function fillEditor() {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
@@ -185,8 +462,8 @@ function fillEditor() {
 
 async function loadSessions() {
   const sel = $('#sessSel');
-  const prev = sel.value;
-  SESSIONS = await api('/admin/sessions');
+  [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
+  const prev = sel.value;   // read after the fetch so a chip click made meanwhile isn't lost
   sel.innerHTML = '';
   SESSIONS.forEach((s) => {
     const o = document.createElement('option');
@@ -196,6 +473,7 @@ async function loadSessions() {
     sel.appendChild(o);
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
+  renderCalendar(); renderStats(); renderUnassigned();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
@@ -216,21 +494,26 @@ async function loadRoster() {
     rows.forEach((t) => {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td>' + (t.buyer_name || '—') + '</td><td>' + t.buyer_email +
-        '</td><td style="font-family:Consolas,monospace;font-size:0.85rem;white-space:nowrap">' +
-        (t.code || t.code_hint) + '</td><td><span class="status-pill st-' + t.status + '">' +
+        '</td><td class="mono">' + (t.code || t.code_hint) +
+        '</td><td><span class="status-pill st-' + t.status + '">' +
         t.status + '</span></td><td>' + fmt(t.booked_at) +
         '</td><td>' + fmt(t.used_at) + '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
       if (t.status === 'booked') {
         const useBtn = document.createElement('button');
-        useBtn.className = 'btn btn-primary small'; useBtn.textContent = 'Check In';
+        useBtn.className = 'btn btn-primary tiny'; useBtn.textContent = 'Check In';
         useBtn.onclick = () => api('/admin/tickets/' + t.ticket_id + '/use', {method: 'POST'})
                                 .then(loadRoster).catch((e) => alert(e.message));
         actions.appendChild(useBtn);
+        const mvBtn = document.createElement('button');
+        mvBtn.className = 'btn btn-outline tiny'; mvBtn.textContent = 'Move';
+        mvBtn.title = 'Move this student to a different session date';
+        mvBtn.onclick = () => startMove({ ...t, session_id: sid });
+        actions.appendChild(mvBtn);
       }
       if (t.status !== 'void') {
         const codeBtn = document.createElement('button');
-        codeBtn.className = 'btn btn-outline small'; codeBtn.textContent = 'New Code';
+        codeBtn.className = 'btn btn-outline tiny'; codeBtn.textContent = 'New Code';
         codeBtn.title = 'Re-issue this ticket’s code: the old code stops working, ' +
                         'the new one is shown to you and emailed to the student';
         codeBtn.onclick = () => confirm('Re-issue the code for ' + t.buyer_email +
@@ -243,7 +526,7 @@ async function loadRoster() {
       }
       if (t.status === 'booked' || t.status === 'used') {
         const relBtn = document.createElement('button');
-        relBtn.className = 'btn btn-outline small'; relBtn.textContent = 'Release';
+        relBtn.className = 'btn btn-outline tiny'; relBtn.textContent = 'Release';
         relBtn.title = 'Unlock this ticket so the student can pick a new date';
         relBtn.onclick = () => confirm('Release ticket for ' + t.buyer_email +
             ' so they can rebook a new date?') &&
@@ -253,7 +536,7 @@ async function loadRoster() {
       }
       if (t.status !== 'void') {
         const voidBtn = document.createElement('button');
-        voidBtn.className = 'btn btn-outline small'; voidBtn.textContent = 'Void';
+        voidBtn.className = 'btn btn-outline tiny'; voidBtn.textContent = 'Void';
         voidBtn.onclick = () => confirm('Void ticket for ' + t.buyer_email + '?') &&
           api('/admin/tickets/' + t.ticket_id + '/void',
               {method: 'POST', body: JSON.stringify({reason: 'admin'})})
@@ -265,6 +548,7 @@ async function loadRoster() {
   } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>'; }
 }
 
+// ---- wiring ---------------------------------------------------------------
 $('#saveTok').onclick = async () => {
   sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim());
   $('#authMsg').textContent = '…';
@@ -274,7 +558,7 @@ $('#saveTok').onclick = async () => {
     loadSessions();
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
 };
-$('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); });
+$('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); renderCalendar(); });
 $('#eSave').onclick = async () => {
   try {
     await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
@@ -285,6 +569,30 @@ $('#eSave').onclick = async () => {
       status: $('#eStatus').value,
       meeting_link: $('#eLink').value.trim() || null })});
     $('#eMsg').textContent = 'Saved.'; $('#eMsg').className = 'ok-msg';
+    loadSessions();
+  } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
+};
+$('#eClone').onclick = () => {
+  const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
+  if (!s) return;
+  $('#nName').value = s.course_name;
+  $('#nMins').value = s.duration_min || 90;
+  $('#nCap').value = s.capacity;
+  $('#nPrice').value = s.price_usd.toFixed(2);
+  $('#nMsg').textContent = 'Copied "' + s.course_name + '" — now pick the new date (or a + on the calendar).';
+  $('#nMsg').className = 'ok-msg';
+  $('#addBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#nStarts').focus();
+};
+$('#eDelete').onclick = async () => {
+  const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
+  if (!s) return;
+  if (!confirm('Delete session "' + s.course_name + '" on ' + fmt(s.starts_at) +
+               '?\n\nThis removes the date from the calendar entirely. It will be ' +
+               'refused if any student still holds a seat on it.')) return;
+  try {
+    await api('/admin/sessions/' + s.id, { method: 'DELETE' });
+    $('#eMsg').textContent = 'Session deleted.'; $('#eMsg').className = 'ok-msg';
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };
@@ -301,7 +609,8 @@ $('#nCreate').onclick = async () => {
       capacity: parseInt($('#nCap').value, 10) || 20,
       price_usd: parseFloat($('#nPrice').value) || 0 })});
     $('#nMsg').textContent = 'Session added: ' + slug; $('#nMsg').className = 'ok-msg';
-    loadSessions();
+    await loadSessions();
+    selectSession(slug);
   } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
 };
 $('#reloadBtn').onclick = loadSessions;
@@ -316,10 +625,25 @@ $('#mIssue').onclick = async () => {
   try {
     const r = await api('/admin/tickets', {method: 'POST', body: JSON.stringify({
       buyer_email: $('#mEmail').value.trim(), buyer_name: $('#mName').value.trim() || null })});
-    $('#mMsg').textContent = 'Issued & emailed. Code: ' + r.code;
+    $('#mMsg').textContent = 'Issued & emailed. Code: ' + r.code +
+      ' — it now appears under Unassigned tickets; use Assign to place it.';
     $('#mMsg').className = 'ok-msg';
+    loadSessions();
   } catch (e) { $('#mMsg').textContent = e.message; $('#mMsg').className = 'err'; }
 };
+
+// Background refresh: keep calendar counts / stats / rosters current without
+// touching the editor form fields the admin may be typing in.
+setInterval(async () => {
+  if ($('#adminUi').hidden || MOVING) return;
+  try {
+    const sel = $('#sessSel'); const prev = sel.value;
+    [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
+    if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
+    renderCalendar(); renderStats(); renderUnassigned();
+  } catch (e) { /* transient network errors are fine */ }
+}, 15000);
+
 if (sessionStorage.getItem('nerx_admin_token')) $('#saveTok').click();
 </script>
 

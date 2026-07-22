@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Training Order — NERX Power Consultants</title>
+<meta name="robots" content="noindex, nofollow">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .order-box {
+    background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 26px; margin-bottom: 24px;
+  }
+  .order-line {
+    border: 1px solid #e4e6e8; border-left: 3px solid var(--blue);
+    border-radius: 4px; padding: 14px 16px; margin-top: 12px;
+  }
+  .order-line .ol-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .order-line .ol-head b { font-size: 1.05rem; }
+  .order-line .ol-price { font-weight: 800; white-space: nowrap; }
+  .order-line .ol-x {
+    border: none; background: none; color: #b02a37; font-weight: 700;
+    cursor: pointer; font-size: 1rem; padding: 2px 6px;
+  }
+  .order-line .meta { margin: 4px 0 10px; }
+  .assign-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .assign-row label { font-size: 0.8rem; font-weight: 700; color: #5f6368; }
+  .assign-row input {
+    flex: 1; min-width: 180px; padding: 8px 10px; border: 1.5px solid #c3c7cb;
+    border-radius: 4px; font-size: 0.9rem;
+  }
+  .assign-for {
+    font-size: 0.85rem; margin-top: 8px; font-weight: 600;
+  }
+  .assign-for.me { color: var(--blue); }
+  .assign-for.other { color: #1e7e34; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  .summary-table td { padding: 6px 0; }
+  .summary-table td:last-child { text-align: right; }
+  .summary-table tr.total td {
+    border-top: 2px solid var(--charcoal); font-size: 1.25rem; font-weight: 800;
+    padding-top: 10px;
+  }
+  .err { color: #b02a37; font-weight: 600; margin-top: 10px; }
+  .ok-msg { color: #1e7e34; font-weight: 600; margin-top: 10px; }
+  .info-list { margin: 0 0 0 18px; font-size: 0.92rem; color: #3c4043; }
+  .info-list li { margin-bottom: 8px; }
+  #ppButtons { min-height: 45px; margin-top: 14px; max-width: 430px; }
+  .empty-note { color: #5f6368; margin: 12px 0 18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation"><ul>
+      <li><a href="ticket.html">Calendar &amp; Tickets</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="page-hero">
+  <div class="container">
+    <a class="breadcrumb" href="ticket.html">&larr; Back to the Training Calendar</a>
+    <h1>Your Training Order</h1>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+
+    <div class="order-box">
+      <h3 style="margin-bottom:6px">Seats in this order</h3>
+      <p class="meta">Each line is one seat on one session. Every seat gets its own
+        single-use ticket code after payment.</p>
+      <div id="orderLines"></div>
+      <p class="empty-note" id="emptyNote" hidden>Your cart is empty.
+        <a href="ticket.html">Pick a session on the calendar</a> and choose
+        "Add to Cart".</p>
+      <p class="err" id="loadErr" hidden></p>
+    </div>
+
+    <div class="order-box" id="summaryBox" hidden>
+      <h3 style="margin-bottom:10px">Order summary</h3>
+      <table class="summary-table" id="summaryTable"></table>
+      <p class="err" id="cartErr" hidden></p>
+      <div id="ppButtons"></div>
+      <div id="ppFallback" hidden>
+        <p class="meta" style="margin-top:10px">Online checkout isn't available right
+        now. To reserve these seats, email
+        <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
+        and we'll send you a PayPal invoice and your ticket codes.</p>
+      </div>
+      <p class="ok-msg" id="paySuccess" hidden></p>
+    </div>
+
+    <div class="order-box">
+      <h3 style="margin-bottom:10px">How this order works</h3>
+      <ul class="info-list">
+        <li><b>The purchaser</b> is whoever pays at checkout — the PayPal account (or
+          debit/credit card) used. The receipt and the full list of ticket codes go to
+          that email address. If a PayPal account payment has issues, use the debit or
+          credit card option instead.</li>
+        <li><b>Two emails to the purchaser:</b> a <b>receipt</b> for the full order
+          (every training, price, and the PayPal transaction number), and a separate
+          <b>ticket codes</b> email listing every code and who each one is assigned
+          to.</li>
+        <li><b>Seats marked for someone else</b> are registered to that person: their
+          name appears on the class roster and their ticket code is emailed to them
+          directly.</li>
+        <li><b>Seats reserve automatically.</b> Each seat books onto its session the
+          moment payment completes. If a session fills up first, that code still
+          arrives — unassigned — and can be placed on any other date.</li>
+        <li><b>Rescheduling:</b> any ticket can be moved to a different session at
+          <a href="ticket.html">the calendar page</a> up to one hour before its
+          session starts.</li>
+        <li><b>Questions, changes, or refunds:</b> contact Doug Millner at
+          <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>.
+          A PayPal refund automatically cancels the order's ticket codes.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+</main>
+
+<script>
+const _apiOverride = new URLSearchParams(location.search).get('api');
+if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
+const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+const $ = (s) => document.querySelector(s);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CT = 'America/Chicago';
+
+function ctParts(iso) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: CT, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
+}
+function sessionWhen(s) {
+  const p = ctParts(s.starts_at);
+  return p.weekday + ' ' + p.month + ' ' + p.day + ', ' + p.year + ' at ' +
+    p.hour + ':' + p.minute + ' ' + p.dayPeriod + ' Central (' +
+    (s.duration_min || 90) + ' min)';
+}
+
+async function api(path, body) {
+  const r = await fetch(API + path, body === undefined ? {} :
+    { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || ('Request failed (' + r.status + ')'));
+  return data;
+}
+
+let SESSIONS = [], CART = [];
+try { CART = JSON.parse(localStorage.getItem('nerx_cart') || '[]'); } catch (e) { CART = []; }
+const saveCart = () => localStorage.setItem('nerx_cart', JSON.stringify(CART));
+const sessionById = (id) => SESSIONS.find((x) => x.id === id);
+
+function renderOrder() {
+  const wrap = $('#orderLines');
+  wrap.innerHTML = '';
+  CART = CART.filter((l) => sessionById(l.sid));   // drop closed/removed sessions
+  saveCart();
+  $('#emptyNote').hidden = CART.length > 0;
+  $('#summaryBox').hidden = CART.length === 0;
+  let total = 0;
+  CART.forEach((l, i) => {
+    const s = sessionById(l.sid);
+    total += s.price_usd;
+    const div = document.createElement('div');
+    div.className = 'order-line';
+    div.innerHTML =
+      '<div class="ol-head"><b>' + s.course_name + '</b>' +
+      '<span class="ol-price">$' + s.price_usd.toFixed(2) +
+      ' <button class="ol-x" title="Remove this seat">&times; remove</button></span></div>' +
+      '<p class="meta">' + sessionWhen(s) + ' &nbsp;·&nbsp; ' + s.seats_left +
+      ' of ' + s.capacity + ' seats left</p>' +
+      '<div class="assign-row"><label>Ticket goes to:</label>' +
+      '<input class="r-name" placeholder="Attendee name (blank = you)" autocomplete="off">' +
+      '<input class="r-email" type="email" placeholder="attendee@company.com (blank = you)" autocomplete="off">' +
+      '</div><p class="assign-for" data-for></p>';
+    const nameIn = div.querySelector('.r-name');
+    const emailIn = div.querySelector('.r-email');
+    nameIn.value = l.name || '';
+    emailIn.value = l.email || '';
+    const updFor = () => {
+      const el = div.querySelector('[data-for]');
+      const n = (l.name || '').trim(), e = (l.email || '').trim();
+      if (!n && !e) {
+        el.textContent = 'This ticket will be assigned to YOU, the purchaser, and ' +
+          'emailed to your PayPal email address.';
+        el.className = 'assign-for me';
+      } else if (n && EMAIL_RE.test(e)) {
+        el.textContent = 'This ticket will be registered to ' + n + ' and emailed to ' +
+          e + ' (you also get a copy of the code).';
+        el.className = 'assign-for other';
+      } else {
+        el.textContent = 'Enter both a name and a valid email — or leave both blank ' +
+          'to keep this seat yourself.';
+        el.className = 'assign-for err';
+      }
+    };
+    nameIn.oninput = (e) => { l.name = e.target.value; saveCart(); updFor(); };
+    emailIn.oninput = (e) => { l.email = e.target.value; saveCart(); updFor(); };
+    updFor();
+    div.querySelector('.ol-x').onclick = () => {
+      CART.splice(i, 1); saveCart(); renderOrder(); renderSummary();
+    };
+    wrap.appendChild(div);
+  });
+  return total;
+}
+
+function renderSummary() {
+  const tbl = $('#summaryTable');
+  let total = 0;
+  const bySid = {};
+  CART.forEach((l) => { bySid[l.sid] = (bySid[l.sid] || 0) + 1; });
+  const rows = Object.entries(bySid).map(([sid, n]) => {
+    const s = sessionById(sid);
+    total += s.price_usd * n;
+    const p = ctParts(s.starts_at);
+    return '<tr><td>' + s.course_name + ' — ' + p.month + ' ' + p.day +
+      (n > 1 ? ' × ' + n + ' seats' : '') + '</td><td>$' +
+      (s.price_usd * n).toFixed(2) + '</td></tr>';
+  });
+  tbl.innerHTML = rows.join('') +
+    '<tr class="total"><td>Total (' + CART.length + ' seat' +
+    (CART.length > 1 ? 's' : '') + ')</td><td>$' + total.toFixed(2) + ' USD</td></tr>';
+}
+
+let sdkPromise = null;
+function loadPayPalSdk() {
+  if (sdkPromise) return sdkPromise;
+  sdkPromise = api('/config').then((cfg) => {
+    if (!cfg.paypal_client_id) return null;
+    return new Promise((resolve) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://www.paypal.com/sdk/js?client-id=' +
+        encodeURIComponent(cfg.paypal_client_id) + '&currency=USD&intent=capture';
+      sc.onload = () => resolve(window.paypal || null);
+      sc.onerror = () => resolve(null);
+      document.head.appendChild(sc);
+    });
+  }).catch(() => null);
+  return sdkPromise;
+}
+
+async function setupCheckout() {
+  if (!CART.length) return;
+  const pp = await loadPayPalSdk();
+  if (!pp) { $('#ppFallback').hidden = false; return; }
+  pp.Buttons({
+    style: { layout: 'vertical', height: 45 },
+    onClick: (_d, actions) => {
+      if (!CART.length) return actions.reject();
+      const bad = CART.some((l) => {
+        const n = (l.name || '').trim(), e = (l.email || '').trim();
+        return (n || e) && !(n && EMAIL_RE.test(e));
+      });
+      if (bad) {
+        $('#cartErr').textContent = 'One of the seats has an incomplete attendee — ' +
+          'enter both a name and a valid email, or leave both blank to keep the seat.';
+        $('#cartErr').hidden = false;
+        return actions.reject();
+      }
+      $('#cartErr').hidden = true;
+      return actions.resolve();
+    },
+    createOrder: async (_d, actions) => {
+      const items = CART.map((l) => {
+        const n = (l.name || '').trim(), e = (l.email || '').trim();
+        return n && e ? { session_id: l.sid, name: n, email: e } : { session_id: l.sid };
+      });
+      const reg = await api('/cart/register', { items });
+      return actions.order.create({
+        purchase_units: [{
+          description: 'NERX Training order (' + items.length + ' seat' +
+            (items.length > 1 ? 's' : '') + ')',
+          custom_id: 'cart|' + reg.reg_id,
+          amount: { currency_code: 'USD', value: reg.total_usd.toFixed(2) },
+        }],
+      });
+    },
+    onApprove: (_d, actions) => actions.order.capture().then(() => {
+      $('#ppButtons').innerHTML = '';
+      $('#orderLines').innerHTML = '';
+      $('#summaryTable').innerHTML = '';
+      CART = [];
+      saveCart();
+      $('#paySuccess').textContent = 'Payment received! Your receipt and a separate ' +
+        'email with every ticket code are on their way to your email, and each ' +
+        'attendee you named is being emailed their own code (check spam too).';
+      $('#paySuccess').hidden = false;
+    }),
+    onError: () => { $('#ppFallback').hidden = false; },
+  }).render('#ppButtons');
+}
+
+(async () => {
+  try {
+    SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
+  } catch (e) {
+    $('#loadErr').textContent = 'Could not load the schedule (' + e.message + ').';
+    $('#loadErr').hidden = false;
+    return;
+  }
+  renderOrder();
+  renderSummary();
+  setupCheckout();
+})();
+</script>
+
+</body>
+</html>

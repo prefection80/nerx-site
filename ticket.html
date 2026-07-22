@@ -171,6 +171,7 @@
   .cart-total { font-size: 1.2rem; font-weight: 800; margin: 14px 0 10px; text-align: right; }
   #cartPp { min-height: 45px; }
   .cart-empty { color: #5f6368; margin: 10px 0; }
+  #cartLines { max-height: 45vh; overflow-y: auto; padding-right: 4px; }
   #ppButtons { min-height: 45px; }
 
   /* ---- buy ---- */
@@ -384,7 +385,7 @@
     <h3>Your Training Cart</h3>
     <p class="meta">Each line is one seat. Leave name &amp; email blank if the seat is
       for <b>you</b> — or enter the attendee and their ticket code will be emailed to
-      them directly.</p>
+      them directly. <a href="cart.html">Open the full order page &rarr;</a></p>
     <div id="cartLines"></div>
     <p class="cart-empty" id="cartEmpty" hidden>Your cart is empty — click a session on
       the calendar and choose "Add to Cart".</p>
@@ -853,7 +854,7 @@ async function openCart() {
   }).render('#cartPp');
 }
 
-$('#cartFab').onclick = openCart;
+$('#cartFab').onclick = () => { location.href = 'cart.html'; };
 $('#cartClose').onclick = () => $('#cartOverlay').classList.remove('open');
 $('#cartOverlay').addEventListener('click', (e) => {
   if (e.target === $('#cartOverlay')) $('#cartOverlay').classList.remove('open');

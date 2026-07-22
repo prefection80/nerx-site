@@ -104,6 +104,30 @@
   .cal-chip.mine small { color: rgba(255,255,255,0.85); }
   html.js .pickable .cal-chip:not(.full):hover { outline: 2px solid var(--blue); }
 
+  /* ---- buy modal ---- */
+  .buy-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(26,28,31,0.65);
+    display: none; align-items: center; justify-content: center; padding: 18px;
+  }
+  .buy-overlay.open { display: flex; }
+  .buy-card {
+    background: var(--white); border-radius: 8px; border-top: 4px solid var(--blue);
+    max-width: 430px; width: 100%; padding: 26px 28px; position: relative;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  }
+  .buy-card .close-x {
+    position: absolute; top: 10px; right: 14px; border: none; background: none;
+    font-size: 1.4rem; cursor: pointer; color: #5f6368;
+  }
+  .buy-card h3 { font-size: 1.15rem; margin-bottom: 4px; padding-right: 24px; }
+  .buy-card .meta { margin-bottom: 4px; }
+  .buy-card .price-line {
+    font-size: 1.35rem; font-weight: 800; margin: 10px 0 14px;
+  }
+  .buy-card .note { font-size: 0.83rem; color: #5f6368; margin-top: 12px; }
+  #ppButtons { min-height: 45px; }
+
   /* ---- buy ---- */
   .buy-box {
     background: var(--charcoal); color: var(--grey-light);
@@ -185,9 +209,10 @@
       <h2>Training Calendar</h2>
       <p>Every course runs three parallel tracks — <b>Tuesdays 11:00 AM</b>,
          <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM</b> (Central). Each session
-         is a single ~90-minute meeting booked individually at <b>$150 per session</b>.
-         Two-part courses appear as Part 1 and Part 2 — one ticket per session, so take
-         both parts or just the one you need.</p>
+         is a single meeting with its own price shown on the calendar.
+         <b>Click any session to buy your seat with PayPal</b> — your ticket code is
+         emailed and your seat is reserved automatically. Already have a ticket code?
+         Enter it above to manage your booking instead.</p>
     </div>
     <div class="pick-banner" id="pickBanner">
       Your ticket is ready — click a session below to book it.
@@ -217,19 +242,20 @@
       <h2>How It Works</h2>
     </div>
     <div class="buy-box">
-      <h3>Training sessions — <span class="price">$150 USD per 90-minute session</span></h3>
+      <h3>How buying works</h3>
       <ol>
-        <li><b>Pay with PayPal</b> — $150 per session, to douglas.millner@nerxpower.com.
-            One payment = one ticket = one session; buying both parts of a two-part course
-            means two payments (two tickets).</li>
-        <li><b>Get your ticket code by email</b> — treat it like a password; it's your seat.</li>
-        <li><b>Book on the calendar above</b> — click the exact session date that fits. You
-            can reschedule any time until your session starts.</li>
+        <li><b>Click your session on the calendar above</b> — each date shows its own
+            price and seats remaining.</li>
+        <li><b>Pay with PayPal right there</b> — card or PayPal balance, secure checkout
+            in the popup.</li>
+        <li><b>Done</b> — your seat is reserved automatically and your ticket code
+            arrives by email within ~2 minutes. Buying both parts of a two-part course
+            means two purchases (two seats).</li>
         <li><b>At class time</b> — return to this page, enter your code, and your
-            "Join Training" button appears one hour before the session.</li>
+            "Join Training" button appears one hour before the session. Need a different
+            date later? Your code lets you reschedule any time until the session starts.</li>
       </ol>
-      <a class="btn btn-primary" href="https://www.paypal.com/ncp/payment/CG6LCLEHWWLG8"
-         target="_blank" rel="noopener">Pay $150 with PayPal</a>
+      <a class="btn btn-primary" href="#calendarSection">Pick a Session on the Calendar</a>
       <div class="free-note">
         <b>Took the second Symmetrical Components course last year?</b> The Fault Analysis
         module is free for you — the browser toolkit we now teach with is what I'd hoped to
@@ -244,6 +270,26 @@
     </div>
   </div>
 </section>
+
+<div class="buy-overlay" id="buyOverlay" role="dialog" aria-modal="true" aria-label="Buy this session">
+  <div class="buy-card">
+    <button class="close-x" id="buyClose" aria-label="Close">&times;</button>
+    <h3 id="buyTitle">Session</h3>
+    <div class="meta" id="buyWhen"></div>
+    <div class="meta" id="buySeats"></div>
+    <div class="price-line" id="buyPrice"></div>
+    <div id="ppButtons"></div>
+    <div id="ppFallback" hidden>
+      <p class="meta">Online checkout isn't available right now. To reserve this session,
+      email <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
+      and we'll send you a PayPal invoice and your ticket code.</p>
+    </div>
+    <p class="note">Pay securely with PayPal. Your ticket code arrives by email within
+       ~2 minutes and your seat on this session is reserved automatically. You can
+       reschedule any time until the session starts.</p>
+    <p class="ok-msg" id="buySuccess" hidden></p>
+  </div>
+</div>
 
 </main>
 
@@ -374,7 +420,8 @@ function renderCalendar() {
   grid.querySelectorAll('.cal-chip').forEach((chip) => {
     chip.onclick = async () => {
       const s = SESSIONS.find((x) => x.id === chip.dataset.sid);
-      if (!bookingMode || !TICKET) { alert(describe(s) + '\n' + s.seats_left + ' seats left · $' + s.price_usd.toFixed(0)); return; }
+      if (!TICKET) { openBuyModal(s); return; }
+      if (!bookingMode) { alert(describe(s) + '\n' + s.seats_left + ' seats left · $' + s.price_usd.toFixed(0)); return; }
       if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
       const occ = occurrences(s)[+chip.dataset.mtg || 0];
       const p = ctParts(occ);
@@ -486,6 +533,62 @@ async function renderTicket(code) {
     box.innerHTML = '<p class="err">' + e.message + '</p>';
     renderCalendar();
   }
+}
+
+// ---------------- buy-at-booking (PayPal Smart Buttons) ----------------
+let sdkPromise = null;
+function loadPayPalSdk() {
+  if (sdkPromise) return sdkPromise;
+  sdkPromise = fetch(API + '/config').then((r) => r.json()).then((cfg) => {
+    if (!cfg.paypal_client_id) return null;
+    return new Promise((resolve) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://www.paypal.com/sdk/js?client-id=' +
+               encodeURIComponent(cfg.paypal_client_id) + '&currency=USD&intent=capture';
+      sc.onload = () => resolve(window.paypal || null);
+      sc.onerror = () => resolve(null);
+      document.head.appendChild(sc);
+    });
+  }).catch(() => null);
+  return sdkPromise;
+}
+
+function closeBuyModal() { $('#buyOverlay').classList.remove('open'); }
+$('#buyClose').onclick = closeBuyModal;
+$('#buyOverlay').addEventListener('click', (e) => { if (e.target === $('#buyOverlay')) closeBuyModal(); });
+
+async function openBuyModal(s) {
+  $('#buyTitle').textContent = s.course_name;
+  $('#buyWhen').textContent = sessionDates(s);
+  $('#buySeats').textContent = s.seats_left + ' of ' + s.capacity + ' seats available';
+  $('#buyPrice').textContent = '$' + s.price_usd.toFixed(2) + ' USD';
+  $('#buySuccess').hidden = true;
+  $('#ppButtons').innerHTML = '';
+  $('#ppFallback').hidden = true;
+  $('#buyOverlay').classList.add('open');
+
+  const pp = await loadPayPalSdk();
+  if (!pp) { $('#ppFallback').hidden = false; return; }
+  pp.Buttons({
+    style: { layout: 'vertical', height: 45 },
+    createOrder: (_d, actions) => actions.order.create({
+      purchase_units: [{
+        description: 'NERX Training: ' + s.course_name,
+        custom_id: s.id,
+        amount: { currency_code: 'USD', value: s.price_usd.toFixed(2) },
+      }],
+    }),
+    onApprove: (_d, actions) => actions.order.capture().then(() => {
+      $('#ppButtons').innerHTML = '';
+      $('#buySuccess').textContent = 'Payment received! Your seat is being reserved - ' +
+        'your ticket code is on its way to your email (check spam too). See you in class!';
+      $('#buySuccess').hidden = false;
+      setTimeout(() => { refreshSessions().catch(() => {}); }, 4000);
+    }),
+    onError: () => {
+      $('#ppFallback').hidden = false;
+    },
+  }).render('#ppButtons');
 }
 
 $('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) renderTicket(c); };

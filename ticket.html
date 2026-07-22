@@ -111,13 +111,21 @@
   .buy-overlay {
     position: fixed; inset: 0; z-index: 300;
     background: rgba(26,28,31,0.65);
-    display: none; align-items: center; justify-content: center; padding: 18px;
+    display: none; justify-content: center; padding: 18px;
+    overflow-y: auto;                 /* PayPal's card form can grow past the screen */
+    -webkit-overflow-scrolling: touch;
   }
   .buy-overlay.open { display: flex; }
   .buy-card {
     background: var(--white); border-radius: 8px; border-top: 4px solid var(--blue);
     max-width: 430px; width: 100%; padding: 26px 28px; position: relative;
     box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    margin: auto;                     /* centers when short, scrolls when tall */
+    height: fit-content;
+  }
+  @media (max-width: 480px) {
+    .buy-overlay { padding: 10px; }
+    .buy-card { padding: 20px 16px; }
   }
   .buy-card .close-x {
     position: absolute; top: 10px; right: 14px; border: none; background: none;

@@ -151,6 +151,26 @@
     align-self: center; font-size: 0.75rem; font-weight: 700; color: #5f6368;
     min-width: 18px; text-align: right;
   }
+
+  /* ---- cart ---- */
+  .cart-fab {
+    position: fixed; right: 18px; bottom: 18px; z-index: 250;
+    background: var(--charcoal); color: var(--white); border: none;
+    border-radius: 999px; padding: 14px 22px; font-weight: 800; font-size: 0.95rem;
+    cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.35); display: none;
+  }
+  .cart-fab.show { display: block; }
+  .cart-fab .n { background: var(--blue); border-radius: 999px; padding: 2px 9px; margin-left: 4px; }
+  .cart-line {
+    border: 1px solid #e4e6e8; border-left: 3px solid var(--blue);
+    border-radius: 4px; padding: 10px 12px; margin-top: 10px;
+  }
+  .cart-line .cl-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+  .cart-line .cl-x { border: none; background: none; color: #b02a37; font-weight: 700; cursor: pointer; font-size: 1.05rem; }
+  .cart-line .meta { margin: 2px 0 6px; }
+  .cart-total { font-size: 1.2rem; font-weight: 800; margin: 14px 0 10px; text-align: right; }
+  #cartPp { min-height: 45px; }
+  .cart-empty { color: #5f6368; margin: 10px 0; }
   #ppButtons { min-height: 45px; }
 
   /* ---- buy ---- */
@@ -282,12 +302,13 @@
         <li><b>Click your session's date on the calendar above</b> — that's how you
             first reserve and pay for a session. Each date shows its own price and
             seats remaining.</li>
-        <li><b>Pay with PayPal right there</b> — secure checkout in the popup. Buying
-            for a team? Pick the number of seats, enter each attendee's name and email,
-            and pay once — every person gets their own ticket code by email, and you get
-            a summary listing who was assigned each code. If your PayPal account payment
-            has issues, try paying with a debit or credit card instead (no PayPal
-            account needed).</li>
+        <li><b>Pay with PayPal right there</b> — secure checkout in the popup. Signing
+            up for several trainings, or buying for your team? Use <b>Add to Cart</b> to
+            collect seats across any sessions, name the attendee for each seat (or leave
+            it blank for yourself), and check out once. You get one receipt listing every
+            ticket code and who it's for, and each named attendee is emailed their own
+            code. If your PayPal account payment has issues, try paying with a debit or
+            credit card instead (no PayPal account needed).</li>
         <li><b>Done</b> — after the payment is processed, your ticket code is sent to
             the email address you submitted at checkout (usually within ~2 minutes) and
             your seat is reserved automatically. Your ticket also lets you change to a
@@ -339,12 +360,46 @@
       email <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
       and we'll send you a PayPal invoice and your ticket code.</p>
     </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-outline small" id="addCartBtn">Add to Cart</button>
+      <span class="meta" style="font-size:0.78rem">to combine several trainings —
+        for yourself or others — into one checkout</span>
+    </div>
     <p class="note">Pay securely with PayPal — if your PayPal account payment has
        issues, try the debit or credit card option instead. After the payment is
        processed, your ticket code is sent to the email address you submitted and your
        seat on this session is reserved automatically. Your ticket lets you reschedule
        up to one hour before the session starts.</p>
     <p class="ok-msg" id="buySuccess" hidden></p>
+  </div>
+</div>
+
+<button class="cart-fab" id="cartFab" aria-label="Open training cart">
+  Cart <span class="n" id="cartN">0</span>
+</button>
+
+<div class="buy-overlay" id="cartOverlay" role="dialog" aria-modal="true" aria-label="Your training cart">
+  <div class="buy-card" style="max-width:540px">
+    <button class="close-x" id="cartClose" aria-label="Close">&times;</button>
+    <h3>Your Training Cart</h3>
+    <p class="meta">Each line is one seat. Leave name &amp; email blank if the seat is
+      for <b>you</b> — or enter the attendee and their ticket code will be emailed to
+      them directly.</p>
+    <div id="cartLines"></div>
+    <p class="cart-empty" id="cartEmpty" hidden>Your cart is empty — click a session on
+      the calendar and choose "Add to Cart".</p>
+    <div class="cart-total" id="cartTotal"></div>
+    <p class="err" id="cartErr" hidden style="font-size:0.85rem"></p>
+    <div id="cartPp"></div>
+    <div id="cartFallback" hidden>
+      <p class="meta">Online checkout isn't available right now. To reserve these
+      seats, email <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
+      and we'll send you a PayPal invoice and your ticket codes.</p>
+    </div>
+    <p class="ok-msg" id="cartSuccess" hidden></p>
+    <p class="note">One PayPal payment covers the whole order. Your receipt email lists
+      every ticket code and who it's for; attendees you named are also emailed their
+      own codes directly.</p>
   </div>
 </div>
 
@@ -626,6 +681,17 @@ async function openBuyModal(s) {
   qtySel.onchange = () => { updPrice(); renderRecips(); };
   updPrice();
   renderRecips();
+  $('#addCartBtn').onclick = () => {
+    const rs = qty() > 1 ? recipients() : [];
+    for (let i = 0; i < qty(); i++) {
+      const r = rs[i] || {};
+      CART.push(r.name && EMAIL_RE.test(r.email || '')
+        ? { sid: s.id, name: r.name, email: r.email } : { sid: s.id });
+    }
+    saveCart();
+    closeBuyModal();
+    openCart();
+  };
   $('#buySuccess').hidden = true;
   $('#ppButtons').innerHTML = '';
   $('#ppFallback').hidden = true;
@@ -677,6 +743,121 @@ async function openBuyModal(s) {
     },
   }).render('#ppButtons');
 }
+
+// ---------------- cart ----------------
+let CART = [];
+try { CART = JSON.parse(localStorage.getItem('nerx_cart') || '[]'); } catch (e) { CART = []; }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function saveCart() {
+  localStorage.setItem('nerx_cart', JSON.stringify(CART));
+  updateCartFab();
+}
+function updateCartFab() {
+  $('#cartN').textContent = CART.length;
+  $('#cartFab').classList.toggle('show', CART.length > 0);
+}
+const sessionById = (id) => SESSIONS.find((x) => x.id === id);
+
+function renderCartLines() {
+  const wrap = $('#cartLines');
+  wrap.innerHTML = '';
+  const before = CART.length;
+  CART = CART.filter((l) => sessionById(l.sid));   // drop closed/removed sessions
+  if (CART.length !== before) saveCart();
+  $('#cartEmpty').hidden = CART.length > 0;
+  let total = 0;
+  CART.forEach((l, i) => {
+    const s = sessionById(l.sid);
+    total += s.price_usd;
+    const div = document.createElement('div');
+    div.className = 'cart-line';
+    div.innerHTML = '<div class="cl-head"><span>' + s.course_name + '</span>' +
+      '<span>$' + s.price_usd.toFixed(2) +
+      ' <button class="cl-x" title="Remove this seat">&times;</button></span></div>' +
+      '<p class="meta">' + sessionDates(s) + ' · ' + s.seats_left + ' seats left</p>' +
+      '<div class="recip-row">' +
+      '<input class="r-name" placeholder="Attendee name (blank = you)" autocomplete="off">' +
+      '<input class="r-email" type="email" placeholder="attendee@company.com (blank = you)" autocomplete="off">' +
+      '</div>';
+    div.querySelector('.r-name').value = l.name || '';
+    div.querySelector('.r-email').value = l.email || '';
+    div.querySelector('.r-name').oninput = (e) => { l.name = e.target.value; saveCart(); };
+    div.querySelector('.r-email').oninput = (e) => { l.email = e.target.value; saveCart(); };
+    div.querySelector('.cl-x').onclick = () => { CART.splice(i, 1); saveCart(); renderCartLines(); };
+    wrap.appendChild(div);
+  });
+  $('#cartTotal').textContent = CART.length
+    ? 'Total: $' + total.toFixed(2) + ' USD (' + CART.length + ' seat' +
+      (CART.length > 1 ? 's' : '') + ')' : '';
+}
+
+async function openCart() {
+  $('#cartSuccess').hidden = true;
+  $('#cartErr').hidden = true;
+  $('#cartFallback').hidden = true;
+  $('#cartPp').innerHTML = '';
+  renderCartLines();
+  $('#cartOverlay').classList.add('open');
+  if (!CART.length) return;
+
+  const pp = await loadPayPalSdk();
+  if (!pp) { $('#cartFallback').hidden = false; return; }
+  pp.Buttons({
+    style: { layout: 'vertical', height: 45 },
+    onClick: (_d, actions) => {
+      if (!CART.length) return actions.reject();
+      const bad = CART.some((l) => {
+        const n = (l.name || '').trim(), e = (l.email || '').trim();
+        return (n || e) && !(n && EMAIL_RE.test(e));
+      });
+      if (bad) {
+        $('#cartErr').textContent = 'For seats you are giving to someone else, enter ' +
+          'both a name and a valid email — or leave both blank to keep the seat yourself.';
+        $('#cartErr').hidden = false;
+        return actions.reject();
+      }
+      $('#cartErr').hidden = true;
+      return actions.resolve();
+    },
+    createOrder: async (_d, actions) => {
+      const items = CART.map((l) => {
+        const n = (l.name || '').trim(), e = (l.email || '').trim();
+        return n && e ? { session_id: l.sid, name: n, email: e } : { session_id: l.sid };
+      });
+      const reg = await api('/cart/register', { items });
+      return actions.order.create({
+        purchase_units: [{
+          description: 'NERX Training order (' + items.length + ' seat' +
+            (items.length > 1 ? 's' : '') + ')',
+          custom_id: 'cart|' + reg.reg_id,
+          amount: { currency_code: 'USD', value: reg.total_usd.toFixed(2) },
+        }],
+      });
+    },
+    onApprove: (_d, actions) => actions.order.capture().then(() => {
+      $('#cartPp').innerHTML = '';
+      $('#cartLines').innerHTML = '';
+      $('#cartTotal').textContent = '';
+      $('#cartEmpty').hidden = true;
+      CART = [];
+      saveCart();
+      $('#cartSuccess').textContent = 'Payment received! Your receipt with every ' +
+        'ticket code is on its way to your email, and each attendee you named is ' +
+        'being emailed their own code (check spam too).';
+      $('#cartSuccess').hidden = false;
+      setTimeout(() => { refreshSessions().catch(() => {}); }, 4000);
+    }),
+    onError: () => { $('#cartFallback').hidden = false; },
+  }).render('#cartPp');
+}
+
+$('#cartFab').onclick = openCart;
+$('#cartClose').onclick = () => $('#cartOverlay').classList.remove('open');
+$('#cartOverlay').addEventListener('click', (e) => {
+  if (e.target === $('#cartOverlay')) $('#cartOverlay').classList.remove('open');
+});
+updateCartFab();
 
 $('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) renderTicket(c); };
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lookupBtn').click(); });

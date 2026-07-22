@@ -262,7 +262,12 @@ if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
 const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
 const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
-const fmt = (iso) => iso ? new Date(iso).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';
+// Escape any server/buyer-controlled string before putting it in innerHTML. Buyer
+// names/emails come from attendee fields typed at checkout, so an un-escaped value
+// like <img onerror=...> would run in this authenticated admin page. Never remove.
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (iso) => iso ? new Date(iso).toLocaleString([], {timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';
 
 async function api(path, opts = {}) {
   const r = await fetch(API + path, {
@@ -346,7 +351,7 @@ function renderCalendar() {
         (s.status === 'cancelled' ? ' cancelled' : '') +
         (s.id === $('#sessSel').value ? ' sel' : '');
       const cnt = s.booked + '/' + s.capacity;
-      chip.innerHTML = s.course_name +
+      chip.innerHTML = esc(s.course_name) +
         '<small>' + centralClock(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
         ' · <span class="' + (s.booked >= s.capacity ? 'cnt-full' : '') + '">' +
         cnt + ' booked</span>' + (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
@@ -420,7 +425,7 @@ function renderStats() {
     '<div class="stat"><b>' + seatsSold + '</b><span>seats booked/used</span></div>' +
     '<div class="stat"><b>' + upcoming.length + '</b><span>upcoming sessions</span></div>' +
     '<div class="stat"><b style="font-size:1rem;line-height:1.9">' +
-      (next ? next.course_name + '<br>' + fmt(next.starts_at) : '—') +
+      (next ? esc(next.course_name) + '<br>' + fmt(next.starts_at) : '—') +
       '</b><span>next session</span></div>';
 }
 
@@ -432,8 +437,8 @@ function renderUnassigned() {
     '<tr><td colspan="6">None — every active ticket has a session.</td></tr>';
   rows.forEach((t) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + (t.buyer_name || '—') + '</td><td>' + t.buyer_email +
-      '</td><td class="mono">' + t.code + '</td><td>$' + t.amount_usd.toFixed(2) +
+    tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
+      '</td><td class="mono">' + esc(t.code) + '</td><td>$' + t.amount_usd.toFixed(2) +
       '</td><td>' + fmt(t.issued_at) + '</td><td class="row-actions"></td>';
     const actions = tr.querySelector('.row-actions');
     const assign = document.createElement('button');
@@ -496,10 +501,10 @@ async function loadRoster() {
     body.innerHTML = rows.length ? '' : '<tr><td colspan="7">No bookings yet.</td></tr>';
     rows.forEach((t) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + (t.buyer_name || '—') + '</td><td>' + t.buyer_email +
-        '</td><td class="mono">' + (t.code || t.code_hint) +
-        '</td><td><span class="status-pill st-' + t.status + '">' +
-        t.status + '</span></td><td>' + fmt(t.booked_at) +
+      tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
+        '</td><td class="mono">' + esc(t.code || t.code_hint) +
+        '</td><td><span class="status-pill st-' + esc(t.status) + '">' +
+        esc(t.status) + '</span></td><td>' + fmt(t.booked_at) +
         '</td><td>' + fmt(t.used_at) + '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
       if (t.status === 'booked') {
@@ -548,7 +553,7 @@ async function loadRoster() {
       }
       body.appendChild(tr);
     });
-  } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>'; }
+  } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 
 // ---- wiring ---------------------------------------------------------------

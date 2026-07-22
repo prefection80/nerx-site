@@ -151,6 +151,7 @@
     align-self: center; font-size: 0.75rem; font-weight: 700; color: #5f6368;
     min-width: 18px; text-align: right;
   }
+  #recipList { max-height: 34vh; overflow-y: auto; padding-right: 4px; }
 
   /* ---- cart ---- */
   .cart-fab {
@@ -350,7 +351,8 @@
     <div id="recipBox" hidden>
       <p class="meta" style="margin-top:10px"><b>Who is each seat for?</b>
         Each attendee's ticket code is emailed to them directly, and you receive a
-        receipt plus a ticket-codes email listing every code with its name.</p>
+        receipt plus a ticket-codes email listing every code with its name.
+        <a href="#" id="recipToCart">More room to fill these in? Use the full order page &rarr;</a></p>
       <div id="recipList"></div>
       <p class="err" id="recipErr" hidden style="font-size:0.83rem"></p>
     </div>
@@ -511,7 +513,10 @@ function renderCalendar() {
   grid.querySelectorAll('.cal-chip').forEach((chip) => {
     chip.onclick = async () => {
       const s = SESSIONS.find((x) => x.id === chip.dataset.sid);
-      if (!TICKET) { openBuyModal(s); return; }
+      if (!TICKET) {
+        if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
+        openBuyModal(s); return;
+      }
       if (!bookingMode) { alert(describe(s) + '\n' + s.seats_left + ' seats left · $' + s.price_usd.toFixed(0)); return; }
       if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
       const moving = TICKET.session && TICKET.session.id !== s.id;
@@ -683,7 +688,7 @@ async function openBuyModal(s) {
   qtySel.onchange = () => { updPrice(); renderRecips(); };
   updPrice();
   renderRecips();
-  $('#addCartBtn').onclick = () => {
+  const pushSeatsToCart = () => {
     const rs = qty() > 1 ? recipients() : [];
     for (let i = 0; i < qty(); i++) {
       const r = rs[i] || {};
@@ -691,8 +696,12 @@ async function openBuyModal(s) {
         ? { sid: s.id, name: r.name, email: r.email } : { sid: s.id });
     }
     saveCart();
-    closeBuyModal();
-    openCart();
+  };
+  $('#addCartBtn').onclick = () => { pushSeatsToCart(); closeBuyModal(); openCart(); };
+  $('#recipToCart').onclick = (ev) => {
+    ev.preventDefault();
+    pushSeatsToCart();
+    location.href = 'cart.html';
   };
   $('#buySuccess').hidden = true;
   $('#ppButtons').innerHTML = '';

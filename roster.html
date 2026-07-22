@@ -92,9 +92,11 @@
         <div class="flex">
           <label for="eStarts">Starts (Central)</label>
           <input id="eStarts" type="datetime-local">
-          <label for="eCap">Capacity</label>
+          <label for="eCap">Seats</label>
           <input id="eCap" type="number" min="1" style="width:80px">
-          <label for="ePrice">Price $</label>
+          <label for="eMins">Length (min)</label>
+          <input id="eMins" type="number" min="15" step="5" style="width:80px">
+          <label for="ePrice">PayPal price $</label>
           <input id="ePrice" type="number" min="0" step="0.01" style="width:100px">
           <label for="eStatus">Status</label>
           <select id="eStatus">
@@ -116,9 +118,9 @@
         <div class="flex">
           <input id="nName" placeholder="Course name" style="min-width:220px">
           <input id="nStarts" type="datetime-local" title="Start (Central Time)">
-          <input id="nWeeks" type="number" min="1" value="2" style="width:70px" title="Weeks">
-          <input id="nCap" type="number" min="1" value="20" style="width:80px" title="Capacity">
-          <input id="nPrice" type="number" min="0" step="0.01" placeholder="Price $" style="width:100px">
+          <input id="nMins" type="number" min="15" step="5" value="90" style="width:80px" title="Length in minutes">
+          <input id="nCap" type="number" min="1" value="20" style="width:80px" title="Seats">
+          <input id="nPrice" type="number" min="0" step="0.01" placeholder="PayPal price $" style="width:130px">
           <button class="btn btn-primary small" id="nCreate">Add Session</button>
         </div>
         <p id="nMsg"></p>
@@ -175,6 +177,7 @@ function fillEditor() {
   if (!s) return;
   $('#eStarts').value = centralLocalValue(s.starts_at);
   $('#eCap').value = s.capacity;
+  $('#eMins').value = s.duration_min || 90;
   $('#ePrice').value = s.price_usd.toFixed(2);
   $('#eStatus').value = s.status;
   $('#eLink').value = s.meeting_link || '';
@@ -188,8 +191,8 @@ async function loadSessions() {
   SESSIONS.forEach((s) => {
     const o = document.createElement('option');
     o.value = s.id;
-    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) +
-                    ' (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
+    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) + ' — $' + s.price_usd.toFixed(0) +
+                    ' · ' + (s.duration_min || 90) + 'min (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
     sel.appendChild(o);
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
@@ -277,6 +280,7 @@ $('#eSave').onclick = async () => {
     await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
       starts_at: $('#eStarts').value,           // naive => server treats as Central
       capacity: parseInt($('#eCap').value, 10),
+      duration_min: parseInt($('#eMins').value, 10) || 90,
       price_usd: parseFloat($('#ePrice').value),
       status: $('#eStatus').value,
       meeting_link: $('#eLink').value.trim() || null })});
@@ -293,7 +297,7 @@ $('#nCreate').onclick = async () => {
                  + '-' + starts.slice(0, 10);
     await api('/admin/sessions', {method: 'POST', body: JSON.stringify({
       id: slug, course_name: name, starts_at: starts,
-      duration_wks: parseInt($('#nWeeks').value, 10) || 2,
+      duration_min: parseInt($('#nMins').value, 10) || 90,
       capacity: parseInt($('#nCap').value, 10) || 20,
       price_usd: parseFloat($('#nPrice').value) || 0 })});
     $('#nMsg').textContent = 'Session added: ' + slug; $('#nMsg').className = 'ok-msg';

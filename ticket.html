@@ -304,7 +304,7 @@ function sessionDates(s) {
     return p.weekday + ' ' + new Date(o).toLocaleDateString('en-US',
       { timeZone: CT, month: 'short', day: 'numeric' });
   });
-  return dates.join(' & ') + ' at ' + ctTime(s.starts_at) + ' Central';
+  return dates.join(' & ') + ' at ' + ctTime(s.starts_at) + ' Central (' + (s.duration_min || 90) + ' min)';
 }
 function describe(s) {
   return s.course_name + ' — ' + sessionDates(s);

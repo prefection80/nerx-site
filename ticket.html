@@ -253,7 +253,7 @@
             means two purchases (two seats).</li>
         <li><b>At class time</b> — return to this page, enter your code, and your
             "Join Training" button appears one hour before the session. Need a different
-            date later? Your code lets you reschedule any time until the session starts.</li>
+            date later? Your code lets you reschedule up to one hour before the session starts.</li>
       </ol>
       <a class="btn btn-primary" href="#calendarSection">Pick a Session on the Calendar</a>
       <div class="free-note">
@@ -286,7 +286,7 @@
     </div>
     <p class="note">Pay securely with PayPal. Your ticket code arrives by email within
        ~2 minutes and your seat on this session is reserved automatically. You can
-       reschedule any time until the session starts.</p>
+       reschedule up to one hour before the session starts.</p>
     <p class="ok-msg" id="buySuccess" hidden></p>
   </div>
 </div>
@@ -501,11 +501,11 @@ async function renderTicket(code) {
       if (t.can_rebook) {
         html += '<div class="howto"><b>Want a different session?</b> Click the Reschedule button, ' +
                 'then click your new session on the calendar below (your current one is ' +
-                'highlighted in blue). You can change freely until your first session starts.</div>' +
+                'highlighted in blue). You can change freely up to one hour before your session starts.</div>' +
                 '<button class="btn btn-outline small" id="rebookLink" style="margin-top:12px">Reschedule</button>';
       } else {
-        html += '<div class="howto"><b>This session has started, so the ticket is locked.</b> ' +
-                'To be moved to another date, ' +
+        html += '<div class="howto"><b>This ticket is locked</b> — rescheduling closes one hour ' +
+                'before class starts. To be moved to another date, ' +
                 '<a href="mailto:douglas.millner@nerxpower.com?subject=Move%20my%20training%20ticket">email Doug</a> ' +
                 'and he can release your ticket for rebooking.</div>';
       }

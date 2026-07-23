@@ -198,6 +198,10 @@
 
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Manage selected session</h3>
+        <div class="flex" style="margin-bottom:10px">
+          <label for="eName">Course name</label>
+          <input id="eName" placeholder="Course name" style="flex:1;min-width:280px">
+        </div>
         <div class="flex">
           <label for="eStarts">Starts (Central)</label>
           <input id="eStarts" type="datetime-local">
@@ -460,6 +464,7 @@ function renderUnassigned() {
 function fillEditor() {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
+  $('#eName').value = s.course_name;
   $('#eStarts').value = centralLocalValue(s.starts_at);
   $('#eCap').value = s.capacity;
   $('#eMins').value = s.duration_min || 90;
@@ -569,7 +574,10 @@ $('#saveTok').onclick = async () => {
 $('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); renderCalendar(); });
 $('#eSave').onclick = async () => {
   try {
+    const name = $('#eName').value.trim();
+    if (!name) throw new Error('Course name cannot be empty.');
     const r = await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
+      course_name: name,
       starts_at: $('#eStarts').value,           // naive => server treats as Central
       capacity: parseInt($('#eCap').value, 10),
       duration_min: parseInt($('#eMins').value, 10) || 90,

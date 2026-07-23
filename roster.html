@@ -558,7 +558,7 @@ async function loadRoster() {
 
 // ---- wiring ---------------------------------------------------------------
 $('#saveTok').onclick = async () => {
-  sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim());
+  try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {}
   $('#authMsg').textContent = '…';
   try {
     await api('/admin/sessions');
@@ -569,14 +569,17 @@ $('#saveTok').onclick = async () => {
 $('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); renderCalendar(); });
 $('#eSave').onclick = async () => {
   try {
-    await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
+    const r = await api('/admin/sessions/' + $('#sessSel').value, {method: 'PATCH', body: JSON.stringify({
       starts_at: $('#eStarts').value,           // naive => server treats as Central
       capacity: parseInt($('#eCap').value, 10),
       duration_min: parseInt($('#eMins').value, 10) || 90,
       price_usd: parseFloat($('#ePrice').value),
       status: $('#eStatus').value,
       meeting_link: $('#eLink').value.trim() || null })});
-    $('#eMsg').textContent = 'Saved.'; $('#eMsg').className = 'ok-msg';
+    let msg = 'Saved.';
+    if (r.released) msg += ' ' + r.released + ' ticket(s) released back to their holders.';
+    if (r.notified) msg += ' ' + r.notified + ' student(s) emailed about the change.';
+    $('#eMsg').textContent = msg; $('#eMsg').className = 'ok-msg';
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };

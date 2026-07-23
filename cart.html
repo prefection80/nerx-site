@@ -132,8 +132,10 @@
 
 <script>
 const _apiOverride = new URLSearchParams(location.search).get('api');
-if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
-const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+if (_apiOverride) lsSet('nerx_tickets_api', _apiOverride);
+const API = lsGet('nerx_tickets_api') || 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CT = 'America/Chicago';
@@ -161,8 +163,8 @@ async function api(path, body) {
 }
 
 let SESSIONS = [], CART = [];
-try { CART = JSON.parse(localStorage.getItem('nerx_cart') || '[]'); } catch (e) { CART = []; }
-const saveCart = () => localStorage.setItem('nerx_cart', JSON.stringify(CART));
+try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
+const saveCart = () => lsSet('nerx_cart', JSON.stringify(CART));
 const sessionById = (id) => SESSIONS.find((x) => x.id === id);
 
 function renderOrder() {

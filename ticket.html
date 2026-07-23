@@ -417,10 +417,15 @@
 </footer>
 
 <script>
+// Storage helpers that no-op if storage is unavailable (private mode / disabled).
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const _apiOverride = new URLSearchParams(location.search).get('api');
-if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
-const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+if (_apiOverride) lsSet('nerx_tickets_api', _apiOverride);
+const API = lsGet('nerx_tickets_api') || 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const CT = 'America/Chicago';
 function ctParts(iso) {
@@ -609,8 +614,13 @@ async function renderTicket(code) {
 
     if (t.status === 'issued') enterBookingMode('Your ticket is ready — click a session on the calendar to book it.');
     if ($('#joinBtn')) $('#joinBtn').onclick = async () => {
-      try { const r = await api('/tickets/link', { code }); window.location.href = r.meeting_link; }
-      catch (e) { box.insertAdjacentHTML('beforeend', '<p class="err">' + e.message + '</p>'); }
+      try {
+        const r = await api('/tickets/link', { code });
+        if (/^https?:\/\//i.test(r.meeting_link || '')) window.location.href = r.meeting_link;
+        else box.insertAdjacentHTML('beforeend', '<p class="err">The meeting link looks ' +
+          'invalid — please email douglas.millner@nerxpower.com.</p>');
+      }
+      catch (e) { box.insertAdjacentHTML('beforeend', '<p class="err">' + esc(e.message) + '</p>'); }
     };
     if ($('#rebookLink')) $('#rebookLink').onclick = (ev) => {
       ev.preventDefault();
@@ -757,11 +767,11 @@ async function openBuyModal(s) {
 
 // ---------------- cart ----------------
 let CART = [];
-try { CART = JSON.parse(localStorage.getItem('nerx_cart') || '[]'); } catch (e) { CART = []; }
+try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function saveCart() {
-  localStorage.setItem('nerx_cart', JSON.stringify(CART));
+  lsSet('nerx_cart', JSON.stringify(CART));
   updateCartFab();
 }
 function updateCartFab() {

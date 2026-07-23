@@ -411,8 +411,56 @@
       <a class="btn btn-outline" href="ticket.html">Manage My Ticket</a>
       <a class="btn btn-outline" href="services/power-engineering-training.html">Course Details</a>
     </div>
+    <div class="signup reveal" id="signup">
+      <h3>Get training updates</h3>
+      <p>New course dates, the live Fall series, and hands-on NERX-PFSA sessions —
+         straight to your inbox. No spam; unsubscribe any time.</p>
+      <form id="signupForm" novalidate>
+        <input id="signupEmail" type="email" required autocomplete="email"
+               placeholder="you@company.com" aria-label="Your email address">
+        <button class="btn btn-primary" type="submit" id="signupBtn">Join the List</button>
+      </form>
+      <p class="signup-msg" id="signupMsg" role="status" aria-live="polite"></p>
+    </div>
   </div>
 </section>
+
+<script>
+(function () {
+  var API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+  var form = document.getElementById('signupForm');
+  if (!form) return;
+  var email = document.getElementById('signupEmail');
+  var btn = document.getElementById('signupBtn');
+  var msg = document.getElementById('signupMsg');
+  var RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = email.value.trim();
+    if (!RE.test(v)) {
+      msg.textContent = 'Please enter a valid email address.';
+      msg.className = 'signup-msg err';
+      return;
+    }
+    btn.disabled = true;
+    msg.textContent = 'Signing you up…';
+    msg.className = 'signup-msg';
+    fetch(API + '/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: v })
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
+      if (!r.ok) throw new Error((d && d.detail) || 'Something went wrong.');
+      msg.textContent = (d && d.message) || 'Thanks! You’re on the list.';
+      msg.className = 'signup-msg ok';
+      form.reset();
+    }); }).catch(function (err) {
+      msg.textContent = err.message + ' You can also email douglas.millner@nerxpower.com.';
+      msg.className = 'signup-msg err';
+    }).finally(function () { btn.disabled = false; });
+  });
+})();
+</script>
 
 <div class="wave-divider" aria-hidden="true">
   <svg viewBox="0 0 1200 40" preserveAspectRatio="none">

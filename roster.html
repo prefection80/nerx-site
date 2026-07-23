@@ -255,6 +255,21 @@
         </div>
         <p id="mMsg"></p>
       </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">Training mailing list <span id="subCount"
+            style="font-weight:400;color:#5f6368;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
+          People who signed up for training updates from the website.</p>
+        <div class="flex" style="margin-bottom:12px">
+          <button class="btn btn-outline small" id="subReload">Reload</button>
+          <button class="btn btn-outline small" id="subCsv">Export CSV</button>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th>Status</th><th>Source</th><th>Joined</th></tr></thead>
+          <tbody id="subBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </section>
@@ -569,7 +584,36 @@ $('#saveTok').onclick = async () => {
     await api('/admin/sessions');
     $('#authBox').hidden = true; $('#adminUi').hidden = false;
     loadSessions();
+    loadSubscribers();
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+};
+
+async function loadSubscribers() {
+  const body = $('#subBody');
+  body.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
+  try {
+    const rows = await api('/admin/subscribers');
+    const active = rows.filter((r) => r.status === 'active').length;
+    $('#subCount').textContent = rows.length
+      ? '· ' + active + ' active' + (rows.length !== active ? ' / ' + rows.length + ' total' : '')
+      : '';
+    body.innerHTML = rows.length ? '' : '<tr><td colspan="4">No signups yet.</td></tr>';
+    rows.forEach((s) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + esc(s.email) + '</td><td><span class="status-pill st-' +
+        (s.status === 'active' ? 'booked' : 'void') + '">' + esc(s.status) +
+        '</span></td><td>' + esc(s.source || '—') + '</td><td>' + fmt(s.created_at) + '</td>';
+      body.appendChild(tr);
+    });
+  } catch (e) { body.innerHTML = '<tr><td colspan="4" class="err">' + esc(e.message) + '</td></tr>'; }
+}
+$('#subReload').onclick = loadSubscribers;
+$('#subCsv').onclick = async () => {
+  const text = await api('/admin/subscribers.csv');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'}));
+  a.download = 'nerx-subscribers.csv';
+  a.click();
 };
 $('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); renderCalendar(); });
 $('#eSave').onclick = async () => {

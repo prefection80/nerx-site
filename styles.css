@@ -502,6 +502,8 @@ section { padding: 76px 0; }
 }
 .ohm-row input:focus { outline: 2px solid var(--blue-light); }
 .ohm-unit { color: #58c0e0; font-weight: 700; font-size: 1rem; }
+.ohm-hint { color: #9aa0a6; font-size: 0.8rem; margin: 8px 0 0; }
+.ohm-hint b { color: #58c0e0; font-weight: 700; letter-spacing: 0.03em; }
 .ohm-new {
   margin-left: auto; background: none; border: none; color: #9aa0a6; cursor: pointer;
   font-size: 0.8rem; padding: 4px 6px; font-family: inherit;

@@ -458,6 +458,8 @@ section { padding: 76px 0; }
 }
 .signup h3 { color: var(--white); font-size: 1.35rem; margin-bottom: 8px; }
 .signup p { color: #c3c7cb; font-size: 0.95rem; margin-bottom: 18px; }
+.signup-instr { color: #dfe2e5; font-size: 0.9rem; margin: -6px auto 18px; max-width: 440px; }
+.signup-instr b { color: #58c0e0; }
 .signup form {
   display: flex; flex-direction: column; gap: 14px; align-items: stretch;
   max-width: 440px; margin: 0 auto;

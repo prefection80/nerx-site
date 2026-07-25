@@ -418,6 +418,28 @@
       <form id="signupForm" novalidate>
         <input id="signupEmail" type="email" required autocomplete="email"
                placeholder="you@company.com" aria-label="Your email address">
+
+        <!-- honeypot: hidden from people, tempting to bots -->
+        <div class="hp" aria-hidden="true">
+          <label>Website<input id="signupWebsite" name="website" type="text"
+                 tabindex="-1" autocomplete="off"></label>
+        </div>
+
+        <div class="ohm" id="ohm">
+          <div class="ohm-diagram" id="ohmDiagram" role="img"
+               aria-label="Circuit: a voltage source and a resistor in a loop"></div>
+          <div class="ohm-q">
+            <p class="ohm-prompt" id="ohmPrompt">Loading a quick check…</p>
+            <div class="ohm-row">
+              <input id="ohmInput" type="text" inputmode="decimal" autocomplete="off"
+                     placeholder="?" aria-label="Your answer">
+              <span class="ohm-unit" id="ohmUnit"></span>
+              <button type="button" class="ohm-new" id="ohmNew"
+                      aria-label="Get a new problem">&#8635; new</button>
+            </div>
+          </div>
+        </div>
+
         <button class="btn btn-primary" type="submit" id="signupBtn">Join the List</button>
       </form>
       <p class="signup-msg" id="signupMsg" role="status" aria-live="polite"></p>
@@ -431,32 +453,109 @@
   var form = document.getElementById('signupForm');
   if (!form) return;
   var email = document.getElementById('signupEmail');
+  var hp = document.getElementById('signupWebsite');
   var btn = document.getElementById('signupBtn');
   var msg = document.getElementById('signupMsg');
+  var diagram = document.getElementById('ohmDiagram');
+  var prompt = document.getElementById('ohmPrompt');
+  var ansInput = document.getElementById('ohmInput');
+  var unitEl = document.getElementById('ohmUnit');
   var RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var challenge = null, loaded = false;
+
+  // ---- themed circuit schematic (SVG) ----
+  function esc(s) { return String(s); }
+  function circuitSVG(values, solveFor) {
+    // Two-line label: symbol on top, value (or highlighted "?") below.
+    function label(x, sym, key, unit) {
+      var v = values[key];
+      var val = (v === null || v === undefined)
+        ? '<tspan class="ohm-unknown">?</tspan>'
+        : esc(v) + ' ' + unit;
+      return '<text x="' + x + '" y="86" text-anchor="middle" class="ohm-sym">' + sym + '</text>' +
+             '<text x="' + x + '" y="103" text-anchor="middle" class="ohm-val">' + val + '</text>';
+    }
+    return '' +
+    '<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">' +
+      '<g class="ohm-wire" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+        // wire loop (left source gap + right resistor gap)
+        '<path class="ohm-flow" d="M80,40 H240 M80,140 H240 ' +
+              'M80,40 V82 M80,90 V140 M240,40 V66 M240,110 V140"/>' +
+        // battery cell (long + short plate)
+        '<path d="M62,82 H98" stroke-width="2.5"/>' +
+        '<path d="M70,90 H90" stroke-width="5"/>' +
+        // resistor zigzag
+        '<polyline points="240,66 253,71 227,79 253,87 227,95 253,103 240,110"/>' +
+        // current arrowhead on the top wire (clockwise)
+        '<path class="ohm-arrow" d="M158,35 L170,40 L158,45 Z" stroke="none"/>' +
+        // corner nodes
+        '<circle cx="80" cy="40" r="3"/><circle cx="240" cy="40" r="3"/>' +
+        '<circle cx="80" cy="140" r="3"/><circle cx="240" cy="140" r="3"/>' +
+      '</g>' +
+      // labels: V at source (left), R at resistor (right), I at current (top)
+      label(38, 'V', 'V', 'V') +
+      label(283, 'R', 'R', '&#8486;') +
+      '<text x="160" y="18" text-anchor="middle" class="ohm-sym">I</text>' +
+      '<text x="160" y="30" text-anchor="middle" class="ohm-val">' +
+        (values.I === null ? '<tspan class="ohm-unknown">?</tspan>' : esc(values.I) + ' A') +
+      '</text>' +
+    '</svg>';
+  }
+
+  function setMsg(t, cls) { msg.textContent = t; msg.className = 'signup-msg' + (cls ? ' ' + cls : ''); }
+
+  function loadChallenge() {
+    prompt.textContent = 'Loading a quick check…';
+    diagram.innerHTML = '';
+    ansInput.value = '';
+    fetch(API + '/subscribe/challenge').then(function (r) { return r.json(); })
+      .then(function (c) {
+        challenge = c;
+        diagram.innerHTML = circuitSVG(c.values, c.solve_for);
+        prompt.textContent = c.prompt;
+        unitEl.textContent = c.answer_unit;
+      }).catch(function () {
+        prompt.textContent = 'Solve the circuit to join (couldn’t load — refresh to retry).';
+      });
+  }
+
+  // Load the challenge the first time the signup box scrolls into view.
+  function ensureLoaded() { if (!loaded) { loaded = true; loadChallenge(); } }
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { ensureLoaded(); io.disconnect(); } });
+    }, { rootMargin: '120px' });
+    io.observe(document.getElementById('signup'));
+  } else { ensureLoaded(); }
+  email.addEventListener('focus', ensureLoaded);
+  document.getElementById('ohmNew').addEventListener('click', function () {
+    setMsg(''); loadChallenge(); ansInput.focus();
+  });
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var v = email.value.trim();
-    if (!RE.test(v)) {
-      msg.textContent = 'Please enter a valid email address.';
-      msg.className = 'signup-msg err';
-      return;
-    }
+    if (!RE.test(v)) { setMsg('Please enter a valid email address.', 'err'); email.focus(); return; }
+    if (!challenge) { ensureLoaded(); setMsg('One sec — loading the quick check…', 'err'); return; }
+    if (!ansInput.value.trim()) { setMsg('Solve the circuit below to prove you’re human.', 'err'); ansInput.focus(); return; }
     btn.disabled = true;
-    msg.textContent = 'Signing you up…';
-    msg.className = 'signup-msg';
+    setMsg('Signing you up…');
     fetch(API + '/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: v })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: v, challenge_id: challenge.id,
+                             answer: ansInput.value.trim(), website: hp.value })
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
+      if (r.status === 400) {
+        // wrong answer or expired challenge — give them a fresh one
+        setMsg((d && d.detail) || 'That’s not the right value — try the new circuit.', 'err');
+        loadChallenge(); ansInput.focus();
+        return;
+      }
       if (!r.ok) throw new Error((d && d.detail) || 'Something went wrong.');
-      msg.textContent = (d && d.message) || 'Thanks! You’re on the list.';
-      msg.className = 'signup-msg ok';
-      form.reset();
+      setMsg((d && d.message) || 'Thanks! You’re on the list.', 'ok');
+      form.reset(); challenge = null; loadChallenge();
     }); }).catch(function (err) {
-      msg.textContent = err.message + ' You can also email douglas.millner@nerxpower.com.';
-      msg.className = 'signup-msg err';
+      setMsg(err.message + ' You can also email douglas.millner@nerxpower.com.', 'err');
     }).finally(function () { btn.disabled = false; });
   });
 })();

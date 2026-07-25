@@ -458,21 +458,58 @@ section { padding: 76px 0; }
 }
 .signup h3 { color: var(--white); font-size: 1.35rem; margin-bottom: 8px; }
 .signup p { color: #c3c7cb; font-size: 0.95rem; margin-bottom: 18px; }
-.signup form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.signup form {
+  display: flex; flex-direction: column; gap: 14px; align-items: stretch;
+  max-width: 440px; margin: 0 auto;
+}
 .signup input[type="email"] {
-  flex: 1; min-width: 220px; max-width: 320px;
-  padding: 12px 14px; border: 1.5px solid #4a4e55; border-radius: 6px;
+  width: 100%; padding: 12px 14px; border: 1.5px solid #4a4e55; border-radius: 6px;
   background: var(--white); color: var(--charcoal); font-size: 1rem;
 }
 .signup input[type="email"]:focus { outline: 2px solid var(--blue-light); }
-.signup .btn { padding: 12px 22px; }
+.signup .btn { padding: 12px 22px; align-self: center; }
 .signup-msg { margin: 14px 0 0; font-weight: 600; min-height: 1.2em; }
 .signup-msg.ok { color: #7ee0a1; }
 .signup-msg.err { color: #ffb3b3; }
+
+/* honeypot: off-screen, unfocusable, invisible to real users */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Ohm's law challenge */
+.ohm {
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center;
+  background: var(--charcoal-3); border: 1px solid #43474e; border-radius: 8px;
+  padding: 14px 16px; text-align: left;
+}
+.ohm-diagram { flex: 0 0 auto; width: 190px; }
+.ohm-diagram svg { width: 100%; height: auto; display: block; }
+.ohm-wire { stroke: #58c0e0; stroke-width: 2.5px; }
+.ohm-wire circle { fill: #58c0e0; stroke: none; }
+.ohm-arrow { fill: #58c0e0; }
+.ohm-sym { fill: #58c0e0; font-weight: 700; font-size: 15px; font-family: inherit; }
+.ohm-val { fill: #ffffff; font-size: 13px; font-family: inherit; }
+.ohm-unknown { fill: #f4b942; font-weight: 800; }
+.ohm-flow { stroke-dasharray: 6 7; animation: ohmflow 1.1s linear infinite; }
+@keyframes ohmflow { to { stroke-dashoffset: -26; } }
+.ohm-q { flex: 1; min-width: 180px; }
+.ohm-prompt { color: #dfe2e5; font-size: 0.9rem; margin: 0 0 10px; }
+.ohm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ohm-row input {
+  width: 90px; padding: 9px 11px; border: 1.5px solid #4a4e55; border-radius: 6px;
+  background: var(--white); color: var(--charcoal); font-size: 1rem; text-align: center;
+}
+.ohm-row input:focus { outline: 2px solid var(--blue-light); }
+.ohm-unit { color: #58c0e0; font-weight: 700; font-size: 1rem; }
+.ohm-new {
+  margin-left: auto; background: none; border: none; color: #9aa0a6; cursor: pointer;
+  font-size: 0.8rem; padding: 4px 6px; font-family: inherit;
+}
+.ohm-new:hover { color: #58c0e0; }
+@media (prefers-reduced-motion: reduce) { .ohm-flow { animation: none; } }
 @media (max-width: 480px) {
-  .signup form { flex-direction: column; }
-  .signup input[type="email"] { max-width: none; }
   .signup .btn { width: 100%; }
+  .ohm { flex-direction: column; }
+  .ohm-diagram { width: 220px; }
 }
 .btn-outline {
   color: var(--charcoal);

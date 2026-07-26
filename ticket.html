@@ -241,11 +241,12 @@
          code is emailed to the address you submitted and your seat is reserved
          automatically. Already have a ticket code? Enter it below to manage your
          booking instead.</p>
-      <p class="buy-later-note">
-        Not ready to pick a date — or buying for others? You can
-        <a href="cart.html"><b>buy training seats now and schedule later</b></a>: pay once
-        for yourself or a team, everyone gets a code, and each person books their own date
-        whenever they're ready.</p>
+      <div class="buy-later-note">
+        <p style="margin:0 0 10px">Not ready to pick a date — or buying for others?
+          Buy training seats now and schedule later: pay once for yourself or a team,
+          everyone gets a code, and each person books their own date whenever they're ready.</p>
+        <button class="btn btn-primary small" id="addOpenSeatBtn">+ Add an open seat to cart</button>
+      </div>
     </div>
   </div>
 </section>
@@ -395,7 +396,10 @@
       them directly. <a href="cart.html">Open the full order page &rarr;</a></p>
     <div id="cartLines"></div>
     <p class="cart-empty" id="cartEmpty" hidden>Your cart is empty — click a session on
-      the calendar and choose "Add to Cart".</p>
+      the calendar and choose "Add to Cart", or add an open seat below.</p>
+    <div style="margin-top:10px">
+      <button class="btn btn-outline small" id="cartAddOpen">+ Add an open seat (choose the date later)</button>
+    </div>
     <div class="cart-total" id="cartTotal"></div>
     <p class="err" id="cartErr" hidden style="font-size:0.85rem"></p>
     <div id="cartPp"></div>
@@ -771,9 +775,13 @@ async function openBuyModal(s) {
 }
 
 // ---------------- cart ----------------
-let CART = [];
+let CART = [], OPEN_PRICE = 150;
 try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isOpen = (l) => !l.sid;                       // no session = open seat
+const priceOf = (l) => isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd;
+// keep the open-seat price in sync (used for cart display; server is authoritative)
+api('/config').then((c) => { if (c && c.open_ticket_price_usd) OPEN_PRICE = c.open_ticket_price_usd; }).catch(() => {});
 
 function saveCart() {
   lsSet('nerx_cart', JSON.stringify(CART));
@@ -789,19 +797,21 @@ function renderCartLines() {
   const wrap = $('#cartLines');
   wrap.innerHTML = '';
   const before = CART.length;
-  CART = CART.filter((l) => sessionById(l.sid));   // drop closed/removed sessions
+  CART = CART.filter((l) => isOpen(l) || sessionById(l.sid));   // keep open; drop vanished sessions
   if (CART.length !== before) saveCart();
   $('#cartEmpty').hidden = CART.length > 0;
   let total = 0;
   CART.forEach((l, i) => {
-    const s = sessionById(l.sid);
-    total += s.price_usd;
+    const open = isOpen(l);
+    const s = open ? null : sessionById(l.sid);
+    total += priceOf(l);
     const div = document.createElement('div');
     div.className = 'cart-line';
-    div.innerHTML = '<div class="cl-head"><span>' + s.course_name + '</span>' +
-      '<span>$' + s.price_usd.toFixed(2) +
+    div.innerHTML = '<div class="cl-head"><span>' + (open ? 'Open training seat' : s.course_name) + '</span>' +
+      '<span>$' + priceOf(l).toFixed(2) +
       ' <button class="cl-x" title="Remove this seat">&times;</button></span></div>' +
-      '<p class="meta">' + sessionDates(s) + ' · ' + s.seats_left + ' seats left</p>' +
+      '<p class="meta">' + (open ? 'Choose your date later — book any session with this code.'
+                                 : sessionDates(s) + ' · ' + s.seats_left + ' seats left') + '</p>' +
       '<div class="recip-row">' +
       '<input class="r-name" placeholder="Attendee name (blank = you)" autocomplete="off">' +
       '<input class="r-email" type="email" placeholder="attendee@company.com (blank = you)" autocomplete="off">' +
@@ -849,7 +859,9 @@ async function openCart() {
     createOrder: async (_d, actions) => {
       const items = CART.map((l) => {
         const n = (l.name || '').trim(), e = (l.email || '').trim();
-        return n && e ? { session_id: l.sid, name: n, email: e } : { session_id: l.sid };
+        const base = isOpen(l) ? {} : { session_id: l.sid };   // open seat => no session
+        if (n && e) { base.name = n; base.email = e; }
+        return base;
       });
       const reg = await api('/cart/register', { items });
       return actions.order.create({
@@ -878,6 +890,9 @@ async function openCart() {
   }).render('#cartPp');
 }
 
+function addOpenSeat() { CART.push({}); saveCart(); openCart(); }
+$('#addOpenSeatBtn') && ($('#addOpenSeatBtn').onclick = addOpenSeat);
+$('#cartAddOpen') && ($('#cartAddOpen').onclick = addOpenSeat);
 $('#cartFab').onclick = () => { location.href = 'cart.html'; };
 $('#cartClose').onclick = () => $('#cartOverlay').classList.remove('open');
 $('#cartOverlay').addEventListener('click', (e) => {

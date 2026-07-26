@@ -668,5 +668,21 @@
   }
 </script>
 
+<!-- floating cart button: shows what's in the training cart (shared via localStorage) -->
+<button class="cart-fab" id="cartFab" aria-label="Open training cart">
+  Cart <span class="n" id="cartN">0</span>
+</button>
+<script>
+(function () {
+  var fab = document.getElementById('cartFab');
+  if (!fab) return;
+  var n = 0;
+  try { n = (JSON.parse(localStorage.getItem('nerx_cart') || '[]') || []).length; } catch (e) {}
+  document.getElementById('cartN').textContent = n;
+  fab.classList.toggle('show', n > 0);
+  fab.onclick = function () { location.href = 'cart.html'; };
+})();
+</script>
+
 </body>
 </html>

@@ -464,6 +464,15 @@ section { padding: 76px 0; }
   margin-top: 16px; padding: 12px 16px; border-left: 3px solid var(--blue);
   background: #f2f8fb; border-radius: 4px; font-size: 0.95rem; color: #3c4043;
 }
+/* floating cart button (shared across the training/purchase pages) */
+.cart-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 250;
+  background: var(--charcoal); color: var(--white); border: none;
+  border-radius: 999px; padding: 14px 22px; font-weight: 800; font-size: 0.95rem;
+  cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.35); display: none;
+}
+.cart-fab.show { display: block; }
+.cart-fab .n { background: var(--blue); border-radius: 999px; padding: 2px 9px; margin-left: 4px; }
 .signup form {
   display: flex; flex-direction: column; gap: 14px; align-items: stretch;
   max-width: 440px; margin: 0 auto;

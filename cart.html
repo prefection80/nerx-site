@@ -17,6 +17,7 @@
     border: 1px solid #e4e6e8; border-left: 3px solid var(--blue);
     border-radius: 4px; padding: 14px 16px; margin-top: 12px;
   }
+  .order-line.order-open { border-left-color: #c77414; background: #fffaf3; }
   .order-line .ol-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   .order-line .ol-head b { font-size: 1.05rem; }
   .order-line .ol-price { font-weight: 800; white-space: nowrap; }
@@ -77,12 +78,17 @@
 
     <div class="order-box">
       <h3 style="margin-bottom:6px">Seats in this order</h3>
-      <p class="meta">Each line is one seat on one session. Every seat gets its own
-        single-use ticket code after payment.</p>
+      <p class="meta">Each line is one seat, for you or a named attendee. Every seat gets
+        its own single-use ticket code after payment. A dated seat is booked on its
+        session automatically; an <b>open seat</b> lets the holder pick their date later.</p>
       <div id="orderLines"></div>
       <p class="empty-note" id="emptyNote" hidden>Your cart is empty.
-        <a href="ticket.html">Pick a session on the calendar</a> and choose
-        "Add to Cart".</p>
+        <a href="ticket.html">Pick a session on the calendar</a>, or add an open seat
+        below to schedule later.</p>
+      <div style="margin-top:14px">
+        <button class="btn btn-outline" id="addOpenBtn">+ Add a seat (choose the date later)</button>
+        <p class="meta" id="openPriceNote" style="margin-top:6px"></p>
+      </div>
       <p class="err" id="loadErr" hidden></p>
     </div>
 
@@ -162,30 +168,36 @@ async function api(path, body) {
   return data;
 }
 
-let SESSIONS = [], CART = [];
+let SESSIONS = [], CART = [], OPEN_PRICE = 150;
 try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
 const saveCart = () => lsSet('nerx_cart', JSON.stringify(CART));
 const sessionById = (id) => SESSIONS.find((x) => x.id === id);
+const isOpen = (l) => !l.sid;                       // no session = open seat
+const priceOf = (l) => isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd;
 
 function renderOrder() {
   const wrap = $('#orderLines');
   wrap.innerHTML = '';
-  CART = CART.filter((l) => sessionById(l.sid));   // drop closed/removed sessions
+  // keep open seats; drop only dated seats whose session vanished
+  CART = CART.filter((l) => isOpen(l) || sessionById(l.sid));
   saveCart();
   $('#emptyNote').hidden = CART.length > 0;
   $('#summaryBox').hidden = CART.length === 0;
   let total = 0;
   CART.forEach((l, i) => {
-    const s = sessionById(l.sid);
-    total += s.price_usd;
+    const open = isOpen(l);
+    const s = open ? null : sessionById(l.sid);
+    total += priceOf(l);
     const div = document.createElement('div');
-    div.className = 'order-line';
+    div.className = 'order-line' + (open ? ' order-open' : '');
     div.innerHTML =
-      '<div class="ol-head"><b>' + s.course_name + '</b>' +
-      '<span class="ol-price">$' + s.price_usd.toFixed(2) +
+      '<div class="ol-head"><b>' + (open ? 'Open training seat' : s.course_name) + '</b>' +
+      '<span class="ol-price">$' + priceOf(l).toFixed(2) +
       ' <button class="ol-x" title="Remove this seat">&times; remove</button></span></div>' +
-      '<p class="meta">' + sessionWhen(s) + ' &nbsp;·&nbsp; ' + s.seats_left +
-      ' of ' + s.capacity + ' seats left</p>' +
+      '<p class="meta">' + (open
+        ? 'Choose your date later — book any session with this code.'
+        : sessionWhen(s) + ' &nbsp;·&nbsp; ' + s.seats_left + ' of ' + s.capacity + ' seats left') +
+      '</p>' +
       '<div class="assign-row"><label>Ticket goes to:</label>' +
       '<input class="r-name" placeholder="Attendee name (blank = you)" autocomplete="off">' +
       '<input class="r-email" type="email" placeholder="attendee@company.com (blank = you)" autocomplete="off">' +
@@ -215,7 +227,7 @@ function renderOrder() {
     emailIn.oninput = (e) => { l.email = e.target.value; saveCart(); updFor(); };
     updFor();
     div.querySelector('.ol-x').onclick = () => {
-      CART.splice(i, 1); saveCart(); renderOrder(); renderSummary();
+      CART.splice(i, 1); saveCart(); renderOrder(); renderSummary(); setupCheckout();
     };
     wrap.appendChild(div);
   });
@@ -224,9 +236,11 @@ function renderOrder() {
 
 function renderSummary() {
   const tbl = $('#summaryTable');
-  let total = 0;
+  let total = 0, openN = 0;
   const bySid = {};
-  CART.forEach((l) => { bySid[l.sid] = (bySid[l.sid] || 0) + 1; });
+  CART.forEach((l) => {
+    if (isOpen(l)) { openN++; } else { bySid[l.sid] = (bySid[l.sid] || 0) + 1; }
+  });
   const rows = Object.entries(bySid).map(([sid, n]) => {
     const s = sessionById(sid);
     total += s.price_usd * n;
@@ -235,6 +249,12 @@ function renderSummary() {
       (n > 1 ? ' × ' + n + ' seats' : '') + '</td><td>$' +
       (s.price_usd * n).toFixed(2) + '</td></tr>';
   });
+  if (openN) {
+    total += OPEN_PRICE * openN;
+    rows.push('<tr><td>Open seat (date chosen later)' +
+      (openN > 1 ? ' × ' + openN : '') + '</td><td>$' +
+      (OPEN_PRICE * openN).toFixed(2) + '</td></tr>');
+  }
   tbl.innerHTML = rows.join('') +
     '<tr class="total"><td>Total (' + CART.length + ' seat' +
     (CART.length > 1 ? 's' : '') + ')</td><td>$' + total.toFixed(2) + ' USD</td></tr>';
@@ -258,6 +278,7 @@ function loadPayPalSdk() {
 }
 
 async function setupCheckout() {
+  $('#ppButtons').innerHTML = '';
   if (!CART.length) return;
   const pp = await loadPayPalSdk();
   if (!pp) { $('#ppFallback').hidden = false; return; }
@@ -281,7 +302,9 @@ async function setupCheckout() {
     createOrder: async (_d, actions) => {
       const items = CART.map((l) => {
         const n = (l.name || '').trim(), e = (l.email || '').trim();
-        return n && e ? { session_id: l.sid, name: n, email: e } : { session_id: l.sid };
+        const base = isOpen(l) ? {} : { session_id: l.sid };   // open seat => no session
+        if (n && e) { base.name = n; base.email = e; }
+        return base;
       });
       const reg = await api('/cart/register', { items });
       return actions.order.create({
@@ -308,14 +331,26 @@ async function setupCheckout() {
   }).render('#ppButtons');
 }
 
+$('#addOpenBtn').onclick = () => {
+  CART.push({});                       // {} = an open seat (no session)
+  saveCart();
+  renderOrder(); renderSummary(); setupCheckout();
+  $('#orderLines').lastElementChild &&
+    $('#orderLines').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
 (async () => {
   try {
-    SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
+    const [sess, cfg] = await Promise.all([api('/sessions'), api('/config').catch(() => ({}))]);
+    SESSIONS = sess.filter((s) => s.status === 'open');
+    if (cfg && cfg.open_ticket_price_usd) OPEN_PRICE = cfg.open_ticket_price_usd;
   } catch (e) {
     $('#loadErr').textContent = 'Could not load the schedule (' + e.message + ').';
     $('#loadErr').hidden = false;
     return;
   }
+  $('#openPriceNote').textContent = 'Each open seat is $' + OPEN_PRICE.toFixed(0) +
+    ' — usable on any session at that price. Great for gifts or buying ahead of the schedule.';
   renderOrder();
   renderSummary();
   setupCheckout();

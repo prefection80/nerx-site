@@ -675,12 +675,22 @@
 <script>
 (function () {
   var fab = document.getElementById('cartFab');
+  var training = document.getElementById('training');
   if (!fab) return;
   var n = 0;
   try { n = (JSON.parse(localStorage.getItem('nerx_cart') || '[]') || []).length; } catch (e) {}
   document.getElementById('cartN').textContent = n;
-  fab.classList.toggle('show', n > 0);
   fab.onclick = function () { location.href = 'cart.html'; };
+  if (n <= 0) return;                       // empty cart -> never show
+  // Only surface the cart while the training/purchase section is in view — not up
+  // in the hero/services, where a "Cart" button would feel out of place.
+  if (training && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (es) {
+      fab.classList.toggle('show', es[0].isIntersecting);
+    }, { rootMargin: '0px 0px -15% 0px' }).observe(training);
+  } else {
+    fab.classList.add('show');              // fallback: show whenever cart has items
+  }
 })();
 </script>
 

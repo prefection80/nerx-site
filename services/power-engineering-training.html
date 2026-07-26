@@ -116,7 +116,7 @@
         </div>
       </div>
     </div>
-    <div class="schedule">
+    <div class="schedule" id="buy-section">
       <div class="schedule-head">
         <h3>Live Online Series — Fall 2026 Schedule</h3>
         <p>Each course runs three parallel tracks — <b>Tuesdays 11:00 AM</b>, <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM</b> (Central). Every session is a single ~90-minute meeting at <b>$150 per session</b>, booked individually; two-part courses run as Part 1 and Part 2 on consecutive weeks. <a href="../ticket.html">Buy a seat and book your dates on the training calendar</a>.</p>
@@ -229,6 +229,30 @@
       if (p) p.catch(function () {});
     });
   }
+</script>
+
+<!-- floating cart button: shows what's in the training cart while the buy section is in view -->
+<button class="cart-fab" id="cartFab" aria-label="Open training cart">
+  Cart <span class="n" id="cartN">0</span>
+</button>
+<script>
+(function () {
+  var fab = document.getElementById('cartFab');
+  var buy = document.getElementById('buy-section');
+  if (!fab) return;
+  var n = 0;
+  try { n = (JSON.parse(localStorage.getItem('nerx_cart') || '[]') || []).length; } catch (e) {}
+  document.getElementById('cartN').textContent = n;
+  fab.onclick = function () { location.href = '../cart.html'; };
+  if (n <= 0) return;                       // empty cart -> never show
+  if (buy && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (es) {
+      fab.classList.toggle('show', es[0].isIntersecting);
+    }, { rootMargin: '0px 0px -15% 0px' }).observe(buy);
+  } else {
+    fab.classList.add('show');              // fallback: show whenever cart has items
+  }
+})();
 </script>
 
 </body>

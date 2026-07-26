@@ -76,6 +76,19 @@
 <section>
   <div class="container">
 
+    <div class="order-box" id="testBox" hidden style="border-top-color:#c77414">
+      <h3 style="margin-bottom:6px">🔧 Test mode</h3>
+      <p class="meta">Paste your admin token to price this order at <b>$1 per seat</b>
+        for a live payment test. Only requests with a valid token get the $1 price —
+        the public always pays the normal price.</p>
+      <div class="flex" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <input id="testToken" type="password" placeholder="Admin token"
+               style="flex:1;min-width:240px;padding:9px 11px;border:1.5px solid #c3c7cb;border-radius:4px">
+        <button class="btn btn-outline" id="testApply">Apply $1 pricing</button>
+      </div>
+      <p class="ok-msg" id="testMsg" hidden></p>
+    </div>
+
     <div class="order-box">
       <h3 style="margin-bottom:6px">Seats in this order</h3>
       <p class="meta">Each line is one seat, for you or a named attendee. Every seat gets
@@ -159,9 +172,10 @@ function sessionWhen(s) {
     (s.duration_min || 90) + ' min)';
 }
 
-async function api(path, body) {
+async function api(path, body, extraHeaders) {
   const r = await fetch(API + path, body === undefined ? {} :
-    { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    { method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, extraHeaders || {}),
       body: JSON.stringify(body) });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.detail || ('Request failed (' + r.status + ')'));
@@ -169,11 +183,15 @@ async function api(path, body) {
 }
 
 let SESSIONS = [], CART = [], OPEN_PRICE = 150;
+const TEST_MODE = new URLSearchParams(location.search).get('test') === '1';
+let TEST_TOKEN = '';                                // set when admin token applied
 try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
 const saveCart = () => lsSet('nerx_cart', JSON.stringify(CART));
 const sessionById = (id) => SESSIONS.find((x) => x.id === id);
 const isOpen = (l) => !l.sid;                       // no session = open seat
-const priceOf = (l) => isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd;
+const testOn = () => TEST_MODE && !!TEST_TOKEN;
+const priceOf = (l) => testOn() ? 1
+  : (isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd);
 
 function renderOrder() {
   const wrap = $('#orderLines');
@@ -236,6 +254,13 @@ function renderOrder() {
 
 function renderSummary() {
   const tbl = $('#summaryTable');
+  if (testOn()) {   // $1-per-seat test order
+    tbl.innerHTML = '<tr><td>Test seat × ' + CART.length + '</td><td>$' +
+      CART.length.toFixed(2) + '</td></tr>' +
+      '<tr class="total"><td>Total (TEST — ' + CART.length + ' seat' +
+      (CART.length > 1 ? 's' : '') + ')</td><td>$' + CART.length.toFixed(2) + ' USD</td></tr>';
+    return;
+  }
   let total = 0, openN = 0;
   const bySid = {};
   CART.forEach((l) => {
@@ -306,7 +331,9 @@ async function setupCheckout() {
         if (n && e) { base.name = n; base.email = e; }
         return base;
       });
-      const reg = await api('/cart/register', { items });
+      const reg = await api('/cart/register',
+        { items, test: testOn() },
+        testOn() ? { 'Authorization': 'Bearer ' + TEST_TOKEN } : undefined);
       return actions.order.create({
         purchase_units: [{
           description: 'NERX Training order (' + items.length + ' seat' +
@@ -351,6 +378,16 @@ $('#addOpenBtn').onclick = () => {
   }
   $('#openPriceNote').textContent = 'Each open seat is $' + OPEN_PRICE.toFixed(0) +
     ' — usable on any session at that price. Great for gifts or buying ahead of the schedule.';
+  if (TEST_MODE) {
+    $('#testBox').hidden = false;
+    $('#testApply').onclick = () => {
+      TEST_TOKEN = ($('#testToken').value || '').trim();
+      $('#testMsg').hidden = !TEST_TOKEN;
+      $('#testMsg').textContent = TEST_TOKEN
+        ? '$1-per-seat pricing applied. Add a seat and check out.' : '';
+      renderOrder(); renderSummary(); setupCheckout();
+    };
+  }
   renderOrder();
   renderSummary();
   setupCheckout();

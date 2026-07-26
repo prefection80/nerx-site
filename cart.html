@@ -98,10 +98,12 @@
       <p class="empty-note" id="emptyNote" hidden>Your cart is empty.
         <a href="ticket.html">Pick a session on the calendar</a>, or add an open seat
         below to schedule later.</p>
-      <div style="margin-top:14px">
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
         <button class="btn btn-outline" id="addOpenBtn">+ Add a seat (choose the date later)</button>
-        <p class="meta" id="openPriceNote" style="margin-top:6px"></p>
+        <span class="meta" style="color:#9aa0a6">or</span>
+        <a class="btn btn-primary" href="ticket.html">&larr; Pick specific dates on the training calendar</a>
       </div>
+      <p class="meta" id="openPriceNote" style="margin-top:8px"></p>
       <p class="err" id="loadErr" hidden></p>
     </div>
 

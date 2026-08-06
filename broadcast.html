@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email the List — NERX Training Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .admin-box {
+    background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 26px; margin-bottom: 24px;
+  }
+  .admin-box label { font-weight: 600; display: block; margin-bottom: 6px; }
+  .admin-box input, .admin-box textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #c3c7cb; border-radius: 4px;
+    font-size: 0.95rem; font-family: inherit;
+  }
+  .admin-box textarea { min-height: 220px; resize: vertical; line-height: 1.5; }
+  .admin-box input:focus, .admin-box textarea:focus { outline: 2px solid var(--blue-light); }
+  .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn.small { padding: 9px 16px; font-size: 0.88rem; }
+  .btn.danger { background: #b02a37; color: #fff; }
+  .btn.danger:hover { background: #952330; }
+  .hint { font-size: 0.85rem; color: #5f6368; margin: 6px 0 0; }
+  .err { color: #b02a37; font-weight: 600; margin-top: 10px; }
+  .ok-msg { color: #1e7e34; font-weight: 600; margin-top: 10px; }
+  .count-pill {
+    display: inline-block; background: var(--charcoal); color: #fff; border-radius: 999px;
+    padding: 4px 14px; font-weight: 700; margin-left: 4px;
+  }
+  code { background: #eef1f3; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation"><ul>
+      <li><a href="roster.html">Roster</a></li>
+      <li><a href="ticket.html">Ticket Page</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="page-hero">
+  <div class="container"><h1>Email the Training List</h1></div>
+</div>
+
+<section>
+  <div class="container">
+    <div class="admin-box flex" id="authBox">
+      <label for="tok" style="margin:0">Admin token</label>
+      <input id="tok" type="password" style="max-width:280px">
+      <button class="btn btn-primary small" id="saveTok">Connect</button>
+      <span id="authMsg"></span>
+    </div>
+
+    <div id="adminUi" hidden>
+      <div class="admin-box">
+        <p style="margin:0">Sending to <b id="subCount">…</b> active subscriber(s) on the
+          training list. Emails go out from <b>training@nerxpower.com</b> and include a
+          one-click unsubscribe link. <a href="roster.html">Manage the list</a>.</p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:14px">Compose</h3>
+        <label for="subj">Subject</label>
+        <input id="subj" placeholder="e.g. New Fall training dates just posted">
+        <p class="hint">Tip: use <code>{name}</code> anywhere and it becomes the
+          recipient's name (or “there” if we don't have one).</p>
+
+        <label for="msgBody" style="margin-top:16px">Message</label>
+        <textarea id="msgBody" placeholder="Hi {name},&#10;&#10;We've just posted the Fall 2026 training schedule…&#10;&#10;Doug Millner&#10;NERX Power Consultants LLC"></textarea>
+        <p class="hint">Plain text. A “do not reply / contact Doug” footer and an
+          unsubscribe link are added automatically.</p>
+      </div>
+
+      <div class="admin-box">
+        <h3 style="margin-bottom:12px">1. Send yourself a test first</h3>
+        <div class="flex">
+          <input id="testTo" type="email" placeholder="your@email.com" style="max-width:280px">
+          <button class="btn btn-outline small" id="sendTest">Send test</button>
+        </div>
+        <p id="testMsg"></p>
+      </div>
+
+      <div class="admin-box" style="border-top-color:#b02a37">
+        <h3 style="margin-bottom:12px">2. Send to everyone</h3>
+        <p class="hint" style="margin-bottom:12px">This emails the whole active list and
+          can't be undone. Send a test first.</p>
+        <button class="btn danger" id="sendAll">Send to all subscribers</button>
+        <p id="sendMsg"></p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+const _apiOverride = new URLSearchParams(location.search).get('api');
+if (_apiOverride) { try { localStorage.setItem('nerx_tickets_api', _apiOverride); } catch (e) {} }
+let API = 'https://tickets.nerxpower.com';
+try { API = localStorage.getItem('nerx_tickets_api') || API; } catch (e) {}
+const $ = (s) => document.querySelector(s);
+const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
+
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, { ...opts,
+    headers: { 'Content-Type': 'application/json', ...tokenHdr(), ...(opts.headers || {}) } });
+  if (r.status === 401) { $('#adminUi').hidden = true; $('#authBox').hidden = false;
+                          throw new Error('Unauthorized — check the token.'); }
+  const data = (r.headers.get('content-type') || '').includes('json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error((data && data.detail) || ('Request failed (' + r.status + ')'));
+  return data;
+}
+
+let ACTIVE = 0;
+async function loadCount() {
+  const rows = await api('/admin/subscribers');
+  ACTIVE = rows.filter((s) => s.status === 'active').length;
+  $('#subCount').textContent = ACTIVE;
+  $('#sendAll').textContent = 'Send to all ' + ACTIVE + ' subscriber' + (ACTIVE === 1 ? '' : 's');
+}
+
+function payload() {
+  const subject = $('#subj').value.trim();
+  const body = $('#msgBody').value.trim();
+  if (!subject) throw new Error('Enter a subject.');
+  if (!body) throw new Error('Enter a message.');
+  return { subject, body };
+}
+
+$('#saveTok').onclick = async () => {
+  try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {}
+  $('#authMsg').textContent = '…';
+  try {
+    await loadCount();
+    $('#authBox').hidden = true; $('#adminUi').hidden = false; $('#authMsg').textContent = '';
+  } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+};
+
+$('#sendTest').onclick = async () => {
+  const to = $('#testTo').value.trim();
+  $('#testMsg').textContent = '';
+  try {
+    if (!to) throw new Error('Enter an email to send the test to.');
+    const p = payload(); p.test_to = to;
+    $('#sendTest').disabled = true; $('#testMsg').textContent = 'Sending test…'; $('#testMsg').className = '';
+    const r = await api('/admin/broadcast', { method: 'POST', body: JSON.stringify(p) });
+    $('#testMsg').textContent = r.sent ? 'Test sent to ' + to + ' — check your inbox (and spam).'
+                                       : 'Test failed to send. Check the server logs.';
+    $('#testMsg').className = r.sent ? 'ok-msg' : 'err';
+  } catch (e) { $('#testMsg').textContent = e.message; $('#testMsg').className = 'err'; }
+  finally { $('#sendTest').disabled = false; }
+};
+
+$('#sendAll').onclick = async () => {
+  $('#sendMsg').textContent = '';
+  try {
+    const p = payload();
+    if (!confirm('Send this email to all ' + ACTIVE + ' active subscriber(s)? This cannot be undone.')) return;
+    $('#sendAll').disabled = true; $('#sendMsg').textContent = 'Sending to ' + ACTIVE + ' subscriber(s)…'; $('#sendMsg').className = '';
+    const r = await api('/admin/broadcast', { method: 'POST', body: JSON.stringify(p) });
+    $('#sendMsg').textContent = 'Sent to ' + r.sent + ' of ' + r.total + ' subscriber(s)' +
+      (r.failed ? ' — ' + r.failed + ' failed (check logs).' : '. Done!');
+    $('#sendMsg').className = r.failed ? 'err' : 'ok-msg';
+  } catch (e) { $('#sendMsg').textContent = e.message; $('#sendMsg').className = 'err'; }
+  finally { $('#sendAll').disabled = false; }
+};
+
+if (sessionStorage.getItem('nerx_admin_token')) $('#saveTok').click();
+</script>
+
+</body>
+</html>

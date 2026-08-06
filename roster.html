@@ -283,6 +283,19 @@
           <thead><tr><th>Email</th><th>Status</th><th>Source</th><th>Joined</th></tr></thead>
           <tbody id="subBody"></tbody>
         </table>
+        <details style="margin-top:16px">
+          <summary style="cursor:pointer;font-weight:600;color:var(--blue)">Import emails (paste a list)</summary>
+          <p style="font-size:0.85rem;color:#5f6368;margin:8px 0">
+            Paste emails in any format — commas, semicolons, one per line, or Outlook
+            "Name &lt;email&gt;". Duplicates and anyone already on the list are skipped;
+            opted-out addresses are re-activated.</p>
+          <textarea id="subImport" style="width:100%;min-height:120px;padding:10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit;font-size:0.9rem"
+                    placeholder='"Jane" <jane@company.com>; bob@utility.com, ...'></textarea>
+          <div class="flex" style="margin-top:8px">
+            <button class="btn btn-primary small" id="subImportBtn">Import to list</button>
+          </div>
+          <p id="subImportMsg"></p>
+        </details>
       </div>
     </div>
   </div>
@@ -642,6 +655,22 @@ async function loadSubscribers() {
   } catch (e) { body.innerHTML = '<tr><td colspan="4" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 $('#subReload').onclick = loadSubscribers;
+$('#subImportBtn').onclick = async () => {
+  const text = $('#subImport').value.trim();
+  const msg = $('#subImportMsg');
+  if (!text) { msg.textContent = 'Paste some emails first.'; msg.className = 'err'; return; }
+  try {
+    $('#subImportBtn').disabled = true;
+    msg.textContent = 'Importing…'; msg.className = '';
+    const r = await api('/admin/subscribers/import', {method: 'POST', body: JSON.stringify({text})});
+    msg.textContent = 'Found ' + r.found + ' email(s): added ' + r.added +
+      ', re-activated ' + r.reactivated + ', already on list ' + r.skipped + '.';
+    msg.className = 'ok-msg';
+    $('#subImport').value = '';
+    loadSubscribers();
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+  finally { $('#subImportBtn').disabled = false; }
+};
 $('#subCsv').onclick = async () => {
   const text = await api('/admin/subscribers.csv');
   const a = document.createElement('a');

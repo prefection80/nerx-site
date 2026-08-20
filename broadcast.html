@@ -173,9 +173,9 @@ $('#sendAll').onclick = async () => {
     if (!confirm('Send this email to all ' + ACTIVE + ' active subscriber(s)? This cannot be undone.')) return;
     $('#sendAll').disabled = true; $('#sendMsg').textContent = 'Sending to ' + ACTIVE + ' subscriber(s)…'; $('#sendMsg').className = '';
     const r = await api('/admin/broadcast', { method: 'POST', body: JSON.stringify(p) });
-    $('#sendMsg').textContent = 'Sent to ' + r.sent + ' of ' + r.total + ' subscriber(s)' +
-      (r.failed ? ' — ' + r.failed + ' failed (check logs).' : '. Done!');
-    $('#sendMsg').className = r.failed ? 'err' : 'ok-msg';
+    $('#sendMsg').textContent = 'Queued ' + r.queued + ' of ' + r.total +
+      ' subscriber(s) — they’re being delivered in the background now.';
+    $('#sendMsg').className = 'ok-msg';
   } catch (e) { $('#sendMsg').textContent = e.message; $('#sendMsg').className = 'err'; }
   finally { $('#sendAll').disabled = false; }
 };

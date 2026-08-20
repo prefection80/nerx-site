@@ -113,6 +113,7 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 
 <header>
   <div class="nav">
@@ -333,9 +334,14 @@
 </main>
 
 <script>
-const _apiOverride = new URLSearchParams(location.search).get('api');
-if (_apiOverride) localStorage.setItem('nerx_tickets_api', _apiOverride);
-const API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+// Only honor an ?api= override that points at localhost. A public/prod page must
+// never let a crafted link repoint requests (and the admin token) at another origin.
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
 const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
 // Escape any server/buyer-controlled string before putting it in innerHTML. Buyer

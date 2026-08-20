@@ -53,6 +53,7 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 
 <header>
   <div class="nav">
@@ -152,11 +153,16 @@
 </main>
 
 <script>
-const _apiOverride = new URLSearchParams(location.search).get('api');
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-if (_apiOverride) lsSet('nerx_tickets_api', _apiOverride);
-const API = lsGet('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+// Only honor an ?api= override that points at localhost (dev). A public page must
+// never let a crafted link repoint requests at another origin.
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
+const _stApi = lsGet('nerx_tickets_api');
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CT = 'America/Chicago';

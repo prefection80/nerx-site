@@ -45,7 +45,7 @@
   --charcoal: #212327;
   --charcoal-2: #2a2d32;
   --charcoal-3: #34383e;
-  --blue: #2f90b0;
+  --blue: #1a7690;  /* darkened from #2f90b0 to meet WCAG AA (4.5:1) for text on white */
   --blue-light: #4db3d4;
   --white: #ffffff;
   --grey: #9aa0a6;

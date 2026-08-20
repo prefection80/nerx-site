@@ -244,6 +244,17 @@
       </div>
 
       <div class="admin-box">
+        <h3 style="margin-bottom:12px">Weekly Sunday 7 PM sections</h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
+          Adds a <b>Sunday 7:00 PM (Central)</b> section of whatever course runs that week
+          — a 4th time slot alongside the Tue/Thu/Sat dates, with the same price and length.
+          Only fills in weeks that don't already have a Sunday session, so it's safe to
+          re-run as you schedule more training. ($1 test-only weeks are skipped.)</p>
+        <button class="btn btn-primary small" id="sunGen">Add Sunday 7 PM section to every training week</button>
+        <p id="sunMsg"></p>
+      </div>
+
+      <div class="admin-box">
         <h3 style="margin-bottom:12px">Open ticket price</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
           The price of a seat bought <b>without a date</b> ("Buy Seats — Schedule Later").
@@ -288,7 +299,7 @@
           <p style="font-size:0.85rem;color:#5f6368;margin:8px 0">
             Paste emails in any format — commas, semicolons, one per line, or Outlook
             "Name &lt;email&gt;". Duplicates and anyone already on the list are skipped;
-            opted-out addresses are re-activated.</p>
+            anyone who previously unsubscribed is left opted-out.</p>
           <textarea id="subImport" style="width:100%;min-height:120px;padding:10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit;font-size:0.9rem"
                     placeholder='"Jane" <jane@company.com>; bob@utility.com, ...'></textarea>
           <div class="flex" style="margin-top:8px">
@@ -355,6 +366,44 @@ function centralClock(iso) {
 function trackOf(s) {
   const wd = centralParts(s.starts_at).weekday;
   return wd === 'Tue' ? 'tue' : wd === 'Thu' ? 'thu' : wd === 'Sat' ? 'sat' : 'other';
+}
+
+// ---- weekly Sunday 7 PM section generator ---------------------------------
+function _sundayKeyOf(iso) {   // 'YYYY-MM-DD' of the Sunday that ends this Mon..Sun week
+  const p = centralParts(iso);
+  const wd = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6}[p.weekday];
+  const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
+  d.setUTCDate(d.getUTCDate() + ((7 - wd) % 7));   // forward to Sunday (a Sunday maps to itself)
+  return d.toISOString().slice(0, 10);
+}
+function planSundaySections() {
+  const taken = new Set(SESSIONS.map((s) => s.id));
+  const byWeek = {};
+  SESSIONS.forEach((s) => { (byWeek[_sundayKeyOf(s.starts_at)] = byWeek[_sundayKeyOf(s.starts_at)] || []).push(s); });
+  const plan = [];
+  Object.keys(byWeek).sort().forEach((sun) => {
+    const list = byWeek[sun];
+    const hasSun7 = list.some((s) => { const p = centralParts(s.starts_at);
+                                       return p.weekday === 'Sun' && p.hour === '19'; });
+    if (hasSun7) return;                                  // week already has a Sunday 7 PM slot
+    const real = list.filter((s) => String(s.course_name).trim().toLowerCase() !== 'test'
+                                    && Number(s.price_usd) > 1);
+    if (!real.length) return;                            // $1 test-only week — skip
+    const counts = {};                                   // pick the week's predominant course
+    real.forEach((s) => { counts[s.course_name] = (counts[s.course_name] || 0) + 1; });
+    const course = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    const rep = real.filter((s) => s.course_name === course)
+                    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
+    let id = rep.id.replace(/-(sun|mon|tue|wed|thu|fri|sat)$/i, '') + '-sun';
+    if (taken.has(id)) id += '-' + sun.slice(5);          // disambiguate the rare id collision
+    if (taken.has(id)) return;
+    taken.add(id);
+    plan.push({ id, sunday: sun, course_name: rep.course_name, starts_at: sun + 'T19:00',
+                duration_wks: rep.duration_wks || 1, duration_min: rep.duration_min || 90,
+                capacity: rep.capacity || 20, price_usd: rep.price_usd || 0,
+                meeting_link: rep.meeting_link || null });
+  });
+  return plan;
 }
 
 // ---- calendar -------------------------------------------------------------
@@ -664,7 +713,8 @@ $('#subImportBtn').onclick = async () => {
     msg.textContent = 'Importing…'; msg.className = '';
     const r = await api('/admin/subscribers/import', {method: 'POST', body: JSON.stringify({text})});
     msg.textContent = 'Found ' + r.found + ' email(s): added ' + r.added +
-      ', re-activated ' + r.reactivated + ', already on list ' + r.skipped + '.';
+      ', already on list ' + r.skipped +
+      (r.opted_out ? ', skipped ' + r.opted_out + ' who previously unsubscribed' : '') + '.';
     msg.className = 'ok-msg';
     $('#subImport').value = '';
     loadSubscribers();
@@ -738,6 +788,36 @@ $('#nCreate').onclick = async () => {
     await loadSessions();
     selectSession(slug);
   } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
+};
+$('#sunGen').onclick = async () => {
+  const msg = $('#sunMsg');
+  try {
+    const plan = planSundaySections();
+    if (!plan.length) {
+      msg.textContent = 'Every training week already has a Sunday 7 PM section — nothing to add.';
+      msg.className = 'ok-msg'; return;
+    }
+    const preview = plan.map((p) => '• ' + p.sunday + ' 7:00 PM  —  ' +
+      p.course_name + '  ($' + p.price_usd + ')').join('\n');
+    if (!confirm('Add ' + plan.length + ' Sunday 7 PM session(s)?\n\n' + preview)) return;
+    $('#sunGen').disabled = true; msg.textContent = 'Adding…'; msg.className = '';
+    let added = 0, failed = 0;
+    for (const p of plan) {
+      try {
+        await api('/admin/sessions', { method: 'POST', body: JSON.stringify({
+          id: p.id, course_name: p.course_name, starts_at: p.starts_at,
+          duration_wks: p.duration_wks, duration_min: p.duration_min,
+          capacity: p.capacity, price_usd: p.price_usd,
+          meeting_link: p.meeting_link, status: 'open' }) });
+        added++;
+      } catch (e) { failed++; }
+    }
+    msg.textContent = 'Added ' + added + ' Sunday session' + (added === 1 ? '' : 's') +
+      (failed ? ', ' + failed + ' failed (check the calendar)' : '') + '.';
+    msg.className = failed ? 'err' : 'ok-msg';
+    await loadSessions();
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+  finally { $('#sunGen').disabled = false; }
 };
 $('#reloadBtn').onclick = loadSessions;
 $('#csvBtn').onclick = async () => {

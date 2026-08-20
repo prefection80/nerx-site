@@ -665,7 +665,36 @@ function loadPayPalSdk() {
   return sdkPromise;
 }
 
-function closeBuyModal() { $('#buyOverlay').classList.remove('open'); }
+// --- accessible modal helpers: focus-trap, Esc-to-close, background scroll-lock ---
+function _focusables(el) {
+  return [...el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),' +
+    'select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter((n) => n.offsetParent !== null);   // visible only (skips hidden sub-sections)
+}
+function activateModal(overlay, closeFn) {
+  overlay._prevFocus = document.activeElement;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';     // lock background scroll
+  overlay._onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeFn(); return; }
+    if (e.key !== 'Tab') return;
+    const f = _focusables(overlay);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  overlay.addEventListener('keydown', overlay._onKey);
+  (_focusables(overlay)[0] || overlay).focus();
+}
+function deactivateModal(overlay) {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  if (overlay._onKey) { overlay.removeEventListener('keydown', overlay._onKey); overlay._onKey = null; }
+  if (overlay._prevFocus && overlay._prevFocus.focus) overlay._prevFocus.focus();
+}
+
+function closeBuyModal() { deactivateModal($('#buyOverlay')); }
 $('#buyClose').onclick = closeBuyModal;
 $('#buyOverlay').addEventListener('click', (e) => { if (e.target === $('#buyOverlay')) closeBuyModal(); });
 
@@ -730,7 +759,7 @@ async function openBuyModal(s) {
   $('#buySuccess').hidden = true;
   $('#ppButtons').innerHTML = '';
   $('#ppFallback').hidden = true;
-  $('#buyOverlay').classList.add('open');
+  activateModal($('#buyOverlay'), closeBuyModal);
 
   const pp = await loadPayPalSdk();
   if (!pp) { $('#ppFallback').hidden = false; return; }
@@ -839,7 +868,7 @@ async function openCart() {
   $('#cartFallback').hidden = true;
   $('#cartPp').innerHTML = '';
   renderCartLines();
-  $('#cartOverlay').classList.add('open');
+  activateModal($('#cartOverlay'), closeCart);
   if (!CART.length) return;
 
   const pp = await loadPayPalSdk();
@@ -899,9 +928,10 @@ function addOpenSeat() { CART.push({}); saveCart(); openCart(); }
 $('#addOpenSeatBtn') && ($('#addOpenSeatBtn').onclick = addOpenSeat);
 $('#cartAddOpen') && ($('#cartAddOpen').onclick = addOpenSeat);
 $('#cartFab').onclick = () => { location.href = 'cart.html'; };
-$('#cartClose').onclick = () => $('#cartOverlay').classList.remove('open');
+function closeCart() { deactivateModal($('#cartOverlay')); }
+$('#cartClose').onclick = closeCart;
 $('#cartOverlay').addEventListener('click', (e) => {
-  if (e.target === $('#cartOverlay')) $('#cartOverlay').classList.remove('open');
+  if (e.target === $('#cartOverlay')) closeCart();
 });
 updateCartFab();
 

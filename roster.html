@@ -244,14 +244,33 @@
       </div>
 
       <div class="admin-box">
-        <h3 style="margin-bottom:12px">Weekly Sunday 7 PM sections</h3>
+        <h3 style="margin-bottom:12px">Weekly section generator</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
-          Adds a <b>Sunday 7:00 PM (Central)</b> section of whatever course runs that week
-          — a 4th time slot alongside the Tue/Thu/Sat dates, with the same price and length.
-          Only fills in weeks that don't already have a Sunday session, so it's safe to
-          re-run as you schedule more training. ($1 test-only weeks are skipped.)</p>
-        <button class="btn btn-primary small" id="sunGen">Add Sunday 7 PM section to every training week</button>
-        <p id="sunMsg"></p>
+          Adds a recurring <b>weekly section</b> of whatever course runs that week — an
+          extra time slot with the same price, length and meeting link as that week's
+          course. Pick the day, time (Central) and date range; it fills every training
+          week in range that doesn't already have that slot. ($1 test-only weeks are
+          skipped, and it's safe to re-run.)</p>
+        <div class="flex">
+          <label for="wkDow">Every</label>
+          <select id="wkDow" style="padding:9px 10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+          <label for="wkTime">at</label>
+          <input id="wkTime" type="time" value="19:00" style="width:120px">
+          <label for="wkFrom">from</label>
+          <input id="wkFrom" type="date" style="width:160px" title="First date to add (Central)">
+          <label for="wkTo">to</label>
+          <input id="wkTo" type="date" style="width:160px" title="Last date to add (Central)">
+          <button class="btn btn-primary small" id="wkGen">Add weekly sections</button>
+        </div>
+        <p id="wkMsg"></p>
       </div>
 
       <div class="admin-box">
@@ -368,24 +387,56 @@ function trackOf(s) {
   return wd === 'Tue' ? 'tue' : wd === 'Thu' ? 'thu' : wd === 'Sat' ? 'sat' : 'other';
 }
 
-// ---- weekly Sunday 7 PM section generator ---------------------------------
-function _sundayKeyOf(iso) {   // 'YYYY-MM-DD' of the Sunday that ends this Mon..Sun week
+// ---- weekly section generator ---------------------------------------------
+const DOW_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DOW_NAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const _DOW_IDX = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6};
+
+function centralClockKey(iso) {     // 'HH:MM' (24h) in Central
   const p = centralParts(iso);
-  const wd = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6}[p.weekday];
-  const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
-  d.setUTCDate(d.getUTCDate() + ((7 - wd) % 7));   // forward to Sunday (a Sunday maps to itself)
+  return (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
+}
+function _addDaysKey(key, n) {       // shift a 'YYYY-MM-DD' by n days
+  const d = new Date(key + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-function planSundaySections() {
+function _prettyTime(hhmm) {          // '19:00' -> '7:00 PM'
+  const [h, m] = hhmm.split(':').map(Number);
+  return (((h + 11) % 12) + 1) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
+}
+// 'YYYY-MM-DD' of weekday `dow` (0=Sun) in the same Mon..Sun week as this Central date
+function _weekTargetDate(iso, dow) {
+  const p = centralParts(iso);
+  const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
+  const fromMon = (_DOW_IDX[p.weekday] + 6) % 7;   // days this session sits after Monday
+  const targetFromMon = (dow + 6) % 7;             // days the chosen day sits after Monday
+  d.setUTCDate(d.getUTCDate() - fromMon + targetFromMon);
+  return d.toISOString().slice(0, 10);
+}
+// Pre-fill the date range to span the current schedule (+6 days so an end-of-week
+// Sunday is included by default). Only sets empty fields, so it won't fight typing.
+function prefillWeeklyRange() {
+  if (!SESSIONS.length) return;
+  const keys = SESSIONS.map((s) => centralDateKey(s.starts_at)).sort();
+  if (!$('#wkFrom').value) $('#wkFrom').value = keys[0];
+  if (!$('#wkTo').value)   $('#wkTo').value = _addDaysKey(keys[keys.length - 1], 6);
+}
+function planWeeklySections(dow, hhmm, fromKey, toKey) {
   const taken = new Set(SESSIONS.map((s) => s.id));
   const byWeek = {};
-  SESSIONS.forEach((s) => { (byWeek[_sundayKeyOf(s.starts_at)] = byWeek[_sundayKeyOf(s.starts_at)] || []).push(s); });
+  SESSIONS.forEach((s) => {
+    const k = _weekTargetDate(s.starts_at, dow);
+    (byWeek[k] = byWeek[k] || []).push(s);
+  });
   const plan = [];
-  Object.keys(byWeek).sort().forEach((sun) => {
-    const list = byWeek[sun];
-    const hasSun7 = list.some((s) => { const p = centralParts(s.starts_at);
-                                       return p.weekday === 'Sun' && p.hour === '19'; });
-    if (hasSun7) return;                                  // week already has a Sunday 7 PM slot
+  Object.keys(byWeek).sort().forEach((target) => {
+    if (fromKey && target < fromKey) return;
+    if (toKey && target > toKey) return;
+    const list = byWeek[target];
+    const clash = list.some((s) => centralDateKey(s.starts_at) === target &&
+                                   centralClockKey(s.starts_at) === hhmm);
+    if (clash) return;                                   // that day+time already exists
     const real = list.filter((s) => String(s.course_name).trim().toLowerCase() !== 'test'
                                     && Number(s.price_usd) > 1);
     if (!real.length) return;                            // $1 test-only week — skip
@@ -394,11 +445,11 @@ function planSundaySections() {
     const course = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
     const rep = real.filter((s) => s.course_name === course)
                     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
-    let id = rep.id.replace(/-(sun|mon|tue|wed|thu|fri|sat)$/i, '') + '-sun';
-    if (taken.has(id)) id += '-' + sun.slice(5);          // disambiguate the rare id collision
+    let id = rep.id.replace(/-(sun|mon|tue|wed|thu|fri|sat)$/i, '') + '-' + DOW_ABBR[dow];
+    if (taken.has(id)) id += '-' + target.slice(5);       // disambiguate the rare id collision
     if (taken.has(id)) return;
     taken.add(id);
-    plan.push({ id, sunday: sun, course_name: rep.course_name, starts_at: sun + 'T19:00',
+    plan.push({ id, date: target, course_name: rep.course_name, starts_at: target + 'T' + hhmm,
                 duration_wks: rep.duration_wks || 1, duration_min: rep.duration_min || 90,
                 capacity: rep.capacity || 20, price_usd: rep.price_usd || 0,
                 meeting_link: rep.meeting_link || null });
@@ -577,7 +628,7 @@ async function loadSessions() {
     sel.appendChild(o);
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
-  renderCalendar(); renderStats(); renderUnassigned();
+  renderCalendar(); renderStats(); renderUnassigned(); prefillWeeklyRange();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
@@ -789,18 +840,25 @@ $('#nCreate').onclick = async () => {
     selectSession(slug);
   } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
 };
-$('#sunGen').onclick = async () => {
-  const msg = $('#sunMsg');
+$('#wkGen').onclick = async () => {
+  const msg = $('#wkMsg');
   try {
-    const plan = planSundaySections();
+    const dow = +$('#wkDow').value;
+    const hhmm = $('#wkTime').value || '19:00';
+    const fromKey = $('#wkFrom').value || '';
+    const toKey = $('#wkTo').value || '';
+    if (fromKey && toKey && fromKey > toKey) throw new Error('The "from" date is after the "to" date.');
+    const label = DOW_NAME[dow] + ' ' + _prettyTime(hhmm);
+    const plan = planWeeklySections(dow, hhmm, fromKey, toKey);
     if (!plan.length) {
-      msg.textContent = 'Every training week already has a Sunday 7 PM section — nothing to add.';
+      msg.textContent = 'Nothing to add — every training week in that range already has a ' +
+        label + ' slot (or there is no training in that range).';
       msg.className = 'ok-msg'; return;
     }
-    const preview = plan.map((p) => '• ' + p.sunday + ' 7:00 PM  —  ' +
+    const preview = plan.map((p) => '• ' + p.date + ' ' + _prettyTime(hhmm) + '  —  ' +
       p.course_name + '  ($' + p.price_usd + ')').join('\n');
-    if (!confirm('Add ' + plan.length + ' Sunday 7 PM session(s)?\n\n' + preview)) return;
-    $('#sunGen').disabled = true; msg.textContent = 'Adding…'; msg.className = '';
+    if (!confirm('Add ' + plan.length + ' ' + label + ' section(s)?\n\n' + preview)) return;
+    $('#wkGen').disabled = true; msg.textContent = 'Adding…'; msg.className = '';
     let added = 0, failed = 0;
     for (const p of plan) {
       try {
@@ -812,12 +870,12 @@ $('#sunGen').onclick = async () => {
         added++;
       } catch (e) { failed++; }
     }
-    msg.textContent = 'Added ' + added + ' Sunday session' + (added === 1 ? '' : 's') +
+    msg.textContent = 'Added ' + added + ' ' + label + ' section' + (added === 1 ? '' : 's') +
       (failed ? ', ' + failed + ' failed (check the calendar)' : '') + '.';
     msg.className = failed ? 'err' : 'ok-msg';
     await loadSessions();
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
-  finally { $('#sunGen').disabled = false; }
+  finally { $('#wkGen').disabled = false; }
 };
 $('#reloadBtn').onclick = loadSessions;
 $('#csvBtn').onclick = async () => {

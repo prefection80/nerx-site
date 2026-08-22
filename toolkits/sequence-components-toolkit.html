@@ -1,0 +1,1498 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sequence Components Toolkit</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-bottom: 20px;
+      background-color: #f4f4f8;
+      color: #333;
+    }
+    
+    #sticky-controls-panel {
+      position: sticky;
+      top: 0;
+      z-index: 1000; 
+      background-color: #f4f4f8; 
+      padding-top: 20px; 
+      padding-bottom: 10px; 
+      border-bottom: 1px solid #ccc; 
+      margin-left: -20px; 
+      margin-right: -20px;
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+
+    .header-container {
+      position: sticky;
+      top: 0; 
+      z-index: 100; 
+      background: white;
+      display: flex;
+      align-items: center;
+      padding: 10px 20px;
+      border-bottom: 1px solid #ccc;
+    }
+    .title-block {
+      font-size: 14px;
+      background: #eee;
+      padding: 10px 20px;
+      flex-grow: 1;
+    }
+    
+    .top-buttons {
+      margin-bottom: 15px;
+    }
+    button {
+      padding: 8px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background-color: #f8f8f8;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #e8e8e8;
+    }
+    button.active {
+      background-color: #ffeb3b;
+      border-color: #ffc107;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      margin-bottom: 20px; 
+    }
+    .control-group {
+      margin-right: 40px;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    input[type=range] {
+      width: 300px;
+    }
+    
+    .top-row-container {
+      display: flex; 
+      justify-content: flex-start; /* Changed from center to flex-start */
+      gap: 20px;
+      flex-wrap: wrap; 
+      margin-top: 20px; 
+    }
+    .canvases { 
+      display: grid;
+      grid-template-columns: repeat(3, 300px);
+      grid-gap: 10px;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      background: #fafafa;
+    }
+    .plot-label {
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    
+    .head-to-tail-row {
+      display: flex;
+      justify-content: flex-start; /* Added for left justification */
+      flex-wrap: wrap; 
+      gap: 40px;
+      margin-top: 30px;
+    }
+    .phasor-sum-container {
+      position: relative;
+      display: inline-block; 
+      width: auto; 
+      max-width: 100%; 
+    }
+    .phasor-sum-legend {
+      display: inline-block; 
+      vertical-align: top;
+      margin-left: 20px; 
+      background: white;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+      font-size: 0.9em;
+      line-height: 1.3em;
+      min-width: 100px; 
+    }
+    .phasor-sum-legend strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .phasor-sum-legend .legend-line {
+      margin-bottom: 4px;
+      display: flex; 
+      align-items: center; 
+    }
+    .phasor-sum-legend .legend-sample {
+      display: inline-block;
+      width: 40px;
+      height: 2px; 
+      border-bottom-width: 2px; 
+      margin-right: 8px; 
+      vertical-align: middle;
+    }
+    
+    .bottom-partials {
+      display: flex;
+      justify-content: flex-start; /* Added for left justification */
+      flex-wrap: wrap; 
+      gap: 40px;
+      margin-top: 20px;
+    }
+    .bottom-partial-container {
+      width: 620px; 
+      max-width: 100%;
+    }
+
+    .line-phase-phasor-plot-row {
+        margin-top: 30px;
+        padding-bottom: 20px; 
+    }
+    .line-phase-phasor-plot-container {
+        display: flex; 
+        flex-wrap: wrap; 
+        align-items: flex-start; 
+        gap: 20px; 
+        justify-content: flex-start; /* Changed from center to flex-start */
+    }
+    #canvasLinePhasePhasorPlot {
+        max-width: 600px; 
+        width: calc(100% - 170px); 
+        min-width: 300px; 
+        aspect-ratio: 1 / 1; 
+        display: block; 
+        flex-shrink: 0; 
+    }
+     #linePhasePhasorLegend {
+      background: white;
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+      font-size: 0.9em;
+      line-height: 1.4em;
+      min-width: 150px; 
+    }
+    #linePhasePhasorLegend strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+    #linePhasePhasorLegend .legend-line {
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+    }
+    #linePhasePhasorLegend .legend-sample {
+      display: inline-block;
+      width: 35px;
+      height: 2px;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    
+    .phasor-values {
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      font-size: 0.85em;
+      line-height: 1.3em;
+      background: #f9f9f9;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      color: #555;
+    }
+    .phasor-values .value-line {
+      margin-bottom: 2px;
+    }
+    .phasor-values .value-line:last-child {
+      margin-bottom: 0;
+    }
+    
+    .educational-section {
+      margin-top: 40px;
+      padding: 20px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .educational-section h2 {
+      color: #2c3e50;
+      border-bottom: 3px solid #3498db;
+      padding-bottom: 10px;
+      margin-bottom: 25px;
+      font-size: 1.8em;
+    }
+    
+    .calc-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 4px solid #3498db;
+    }
+    
+    .calc-section h3 {
+      color: #2c3e50;
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 1.4em;
+    }
+    
+    .calc-subsection {
+      margin-bottom: 20px;
+    }
+    
+    .calc-subsection h4 {
+      color: #34495e;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+      border-bottom: 1px solid #bdc3c7;
+      padding-bottom: 5px;
+    }
+    
+    .formula-box {
+      background: white;
+      border: 1px solid #e1e8ed;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .formula-box p {
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+    
+    .formula-box strong {
+      color: #2c3e50;
+      font-weight: bold;
+    }
+    
+    .note-box {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 10px 0;
+      border-left: 4px solid #f39c12;
+    }
+    
+    .note-box p {
+      margin: 0;
+      color: #856404;
+      font-weight: 500;
+    }
+    
+    .educational-section p {
+      line-height: 1.6;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    
+    .educational-section sup {
+      font-size: 0.8em;
+      vertical-align: super;
+    }
+    
+    .educational-section sub {
+      font-size: 0.8em;
+      vertical-align: sub;
+    }
+    
+  </style>
+</head>
+<body>
+
+  <div id="sticky-controls-panel">
+    <div class="top-buttons">
+      <button id="phaseModeBtn" class="active">Phase Sliders</button>
+      <button id="seqModeBtn">Sequence Sliders</button>
+
+      <button id="slgBtn">SLG Fault</button>
+      <button id="ppBtn">Phase-Phase Fault</button>
+      <button id="balancedBtn">Balanced 3-Phase</button>
+
+      <button id="abcBtn" class="active">A-B-C Rotation</button>
+      <button id="cbaBtn">C-B-A Rotation</button>
+
+      <button id="degBtn" class="active">Degrees</button>
+      <button id="radBtn">Radians</button>
+
+      <button id="playBtn" class="active">▶ Play</button>
+      <button id="pauseBtn">⏸ Pause</button>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label id="slider1Label">Phase A Current Magnitude</label>
+        <input type="range" id="slider1Mag" min="0" max="1" step="0.01" value="1">
+        <span id="slider1MagVal">1.00</span>
+
+        <label id="slider1AngLabel">Phase A Current Angle (°)</label>
+        <input type="range" id="slider1Ang" min="0" max="360" step="1" value="0">
+        <span id="slider1AngVal">0°</span>
+      </div>
+
+      <div class="control-group">
+        <label id="slider2Label">Phase B Current Magnitude</label>
+        <input type="range" id="slider2Mag" min="0" max="1" step="0.01" value="1">
+        <span id="slider2MagVal">1.00</span>
+
+        <label id="slider2AngLabel">Phase B Current Angle (°)</label>
+        <input type="range" id="slider2Ang" min="0" max="360" step="1" value="240">
+        <span id="slider2AngVal">240°</span>
+      </div>
+
+      <div class="control-group">
+        <label id="slider3Label">Phase C Current Magnitude</label>
+        <input type="range" id="slider3Mag" min="0" max="1" step="0.01" value="1">
+        <span id="slider3MagVal">1.00</span>
+
+        <label id="slider3AngLabel">Phase C Current Angle (°)</label>
+        <input type="range" id="slider3Ang" min="0" max="360" step="1" value="120">
+        <span id="slider3AngVal">120°</span>
+      </div>
+    </div>
+  </div> 
+  
+  <div class="top-row-container">
+    <div class="canvases"> <div>
+        <canvas id="canvasA" width="300" height="300"></canvas>
+        <div class="plot-label">Phase A</div>
+        <div class="phasor-values" id="valuesA"></div>
+      </div>
+      <div>
+        <canvas id="canvasB" width="300" height="300"></canvas>
+        <div class="plot-label">Phase B</div>
+        <div class="phasor-values" id="valuesB"></div>
+      </div>
+      <div>
+        <canvas id="canvasC" width="300" height="300"></canvas>
+        <div class="plot-label">Phase C</div>
+        <div class="phasor-values" id="valuesC"></div>
+      </div>
+
+      <div>
+        <canvas id="canvas0" width="300" height="300"></canvas>
+        <div class="plot-label">Zero Seq</div>
+        <div class="phasor-values" id="values0"></div>
+      </div>
+      <div>
+        <canvas id="canvas1" width="300" height="300"></canvas>
+        <div class="plot-label">Positive Seq</div>
+        <div class="phasor-values" id="values1"></div>
+      </div>
+      <div>
+        <canvas id="canvas2" width="300" height="300"></canvas>
+        <div class="plot-label">Negative Seq</div>
+        <div class="phasor-values" id="values2"></div>
+      </div>
+    </div>
+
+    </div>
+
+  <div class="head-to-tail-row">
+    <div class="phasor-sum-container">
+      <canvas id="canvasAphasorSum" width="500" height="500"></canvas>
+      <div class="phasor-sum-legend">
+        <strong>A Phase:</strong>
+        <div class="legend-line">
+          <span class="legend-sample" style="border-bottom: 2px dotted red;"></span> Zero
+        </div>
+        <div class="legend-line">
+          <span class="legend-sample" style="border-bottom: 2px dashed red;"></span> Pos
+        </div>
+        <div class="legend-line">
+          <span class="legend-sample" style="border-image: linear-gradient(to right, red 50%, transparent 50%) 100% 1; border-image-slice: 1; border-style: dashed; border-width: 0 0 2px 0; -moz-border-image: linear-gradient(to right, red 50%, transparent 50%) 100% 1; -webkit-border-image: linear-gradient(to right, red 50%, transparent 50%) 100% 1; border-bottom-style: dashed; border-bottom-color: red; border-bottom-pattern: dot-dash;"></span> Neg
+        </div>
+        <div class="legend-line">
+          <span class="legend-sample" style="border-bottom: 2px solid red;"></span> Sum
+        </div>
+      </div>
+       <div class="plot-label">Phase A head-to-tail</div>
+       <div class="phasor-values" id="valuesAphasorSum"></div>
+     </div>
+
+     <div class="phasor-sum-container">
+       <canvas id="canvasBphasorSum" width="500" height="500"></canvas>
+       <div class="phasor-sum-legend">
+         <strong>B Phase:</strong>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px dotted blue;"></span> Zero
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px dashed blue;"></span> Pos
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-image: linear-gradient(to right, blue 50%, transparent 50%) 100% 1; border-image-slice: 1; border-style: dashed; border-width: 0 0 2px 0; -moz-border-image: linear-gradient(to right, blue 50%, transparent 50%) 100% 1; -webkit-border-image: linear-gradient(to right, blue 50%, transparent 50%) 100% 1; border-bottom-style: dashed; border-bottom-color: blue; border-bottom-pattern: dot-dash;"></span> Neg
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px solid blue;"></span> Sum
+         </div>
+       </div>
+       <div class="plot-label">Phase B head-to-tail</div>
+       <div class="phasor-values" id="valuesBphasorSum"></div>
+     </div>
+
+     <div class="phasor-sum-container">
+       <canvas id="canvasCphasorSum" width="500" height="500"></canvas>
+        <div class="phasor-sum-legend">
+         <strong>C Phase:</strong>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px dotted green;"></span> Zero
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px dashed green;"></span> Pos
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-image: linear-gradient(to right, green 50%, transparent 50%) 100% 1; border-image-slice: 1; border-style: dashed; border-width: 0 0 2px 0; -moz-border-image: linear-gradient(to right, green 50%, transparent 50%) 100% 1; -webkit-border-image: linear-gradient(to right, green 50%, transparent 50%) 100% 1; border-bottom-style: dashed; border-bottom-color: green; border-bottom-pattern: dot-dash;"></span> Neg
+         </div>
+         <div class="legend-line">
+           <span class="legend-sample" style="border-bottom: 2px solid green;"></span> Sum
+         </div>
+       </div>
+       <div class="plot-label">Phase C head-to-tail</div>
+       <div class="phasor-values" id="valuesCphasorSum"></div>
+     </div>
+  </div>
+
+  <div class="bottom-partials">
+    <div class="bottom-partial-container">
+      <canvas id="canvasAseqTime" width="500" height="300"></canvas>
+      <div class="plot-label">Phase A with IA0, IA1, IA2</div>
+    </div>
+    <div class="bottom-partial-container">
+      <canvas id="canvasBseqTime" width="500" height="300"></canvas>
+      <div class="plot-label">Phase B with IB0, IB1, IB2</div>
+    </div>
+    <div class="bottom-partial-container">
+      <canvas id="canvasCseqTime" width="500" height="300"></canvas>
+      <div class="plot-label">Phase C with IC0, IC1, IC2</div>
+    </div>
+  </div>
+
+  <div class="line-phase-phasor-plot-row">
+      <div class="line-phase-phasor-plot-container">
+          <canvas id="canvasLinePhasePhasorPlot"></canvas> 
+          <div id="linePhasePhasorLegend">
+            <strong>Phasors:</strong>
+            <div class="legend-line">
+              <span class="legend-sample" style="background-color: red;"></span> Ia
+            </div>
+            <div class="legend-line">
+              <span class="legend-sample" style="background-color: blue;"></span> Ib
+            </div>
+            <div class="legend-line">
+              <span class="legend-sample" style="background-color: green;"></span> Ic
+            </div>
+            <div class="legend-line">
+              <span class="legend-sample" style="border-bottom: 2px dashed orange;"></span> Iab (Ia-Ib)
+            </div>
+            <div class="legend-line">
+              <span class="legend-sample" style="border-bottom: 2px dashed purple;"></span> Ibc (Ib-Ic)
+            </div>
+            <div class="legend-line">
+              <span class="legend-sample" style="border-bottom: 2px dashed saddlebrown;"></span> Ica (Ic-Ia)
+            </div>
+          </div>
+      </div>
+      <div class="plot-label" style="width:100%; text-align:center;">Line & Phase Current Phasors</div>
+      <div class="phasor-values" id="valuesLinePhasePhasor" style="width:100%; text-align:center;"></div>
+  </div>
+
+  <!-- Educational Section -->
+  <div class="educational-section">
+    <h2>Mathematical Calculations and Theory</h2>
+    
+    <div class="calc-section">
+      <h3>1. Sequence Component Transformations</h3>
+      
+      <div class="calc-subsection">
+        <h4>Phase Domain to Sequence Domain (Forward Transform)</h4>
+        <p>The sequence components are calculated from phase currents using the alpha operator method:</p>
+        
+        <div class="formula-box">
+          <p><strong>Alpha Operators:</strong></p>
+          <p>α = e<sup>j2π/3</sup> = cos(120°) + j·sin(120°) = -0.5 + j0.866</p>
+          <p>α² = e<sup>j4π/3</sup> = cos(240°) + j·sin(240°) = -0.5 - j0.866</p>
+          <p>α³ = 1</p>
+        </div>
+        
+        <div class="formula-box">
+          <p><strong>Sequence Component Equations:</strong></p>
+          <p>I₀ = (1/3) × (I<sub>A</sub> + I<sub>B</sub> + I<sub>C</sub>)</p>
+          <p>I₁ = (1/3) × (I<sub>A</sub> + α·I<sub>B</sub> + α²·I<sub>C</sub>)</p>
+          <p>I₂ = (1/3) × (I<sub>A</sub> + α²·I<sub>B</sub> + α·I<sub>C</sub>)</p>
+        </div>
+        
+        <div class="note-box">
+          <p><strong>Note:</strong> I₀ = Zero sequence, I₁ = Positive sequence, I₂ = Negative sequence</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>Sequence Domain to Phase Domain (Inverse Transform)</h4>
+        <p>Phase currents are reconstructed from sequence components:</p>
+        
+        <div class="formula-box">
+          <p><strong>Phase Current Equations:</strong></p>
+          <p>I<sub>A</sub> = I₀ + I₁ + I₂</p>
+          <p>I<sub>B</sub> = I₀ + α²·I₁ + α·I₂</p>
+          <p>I<sub>C</sub> = I₀ + α·I₁ + α²·I₂</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calc-section">
+      <h3>2. Phase Rotation (ABC vs CBA)</h3>
+      
+      <div class="calc-subsection">
+        <h4>ABC Rotation (Standard)</h4>
+        <p>In ABC rotation, phases follow the sequence A → B → C with 120° separation:</p>
+        <div class="formula-box">
+          <p>Phase A: 0°</p>
+          <p>Phase B: -120° (or 240°)</p>
+          <p>Phase C: +120°</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>CBA Rotation (Reverse)</h4>
+        <p>In CBA rotation, phases follow the sequence C → B → A with 120° separation:</p>
+        <div class="formula-box">
+          <p>Phase A: 0°</p>
+          <p>Phase B: +120°</p>
+          <p>Phase C: -120° (or 240°)</p>
+        </div>
+        <div class="note-box">
+          <p><strong>Important:</strong> In CBA rotation, positive and negative sequence components are swapped in the user interface while maintaining ABC calculation standards internally.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calc-section">
+      <h3>3. Angle Unit Conversions</h3>
+      
+      <div class="calc-subsection">
+        <h4>Degrees to Radians</h4>
+        <div class="formula-box">
+          <p>radians = degrees × (π/180)</p>
+          <p>Example: 180° = 180 × (π/180) = π radians</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>Radians to Degrees</h4>
+        <div class="formula-box">
+          <p>degrees = radians × (180/π)</p>
+          <p>Example: π radians = π × (180/π) = 180°</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>π Radians Display Format</h4>
+        <p>This toolkit displays radians as multiples of π for easier interpretation:</p>
+        <div class="formula-box">
+          <p>π_multiplier = degrees ÷ 180</p>
+          <p>Display: π_multiplier + "π"</p>
+          <p>Examples: 90° = 0.5π, 180° = 1.0π, 270° = 1.5π, 360° = 2.0π</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calc-section">
+      <h3>4. Fault Condition Calculations</h3>
+      
+      <div class="calc-subsection">
+        <h4>Single Line-to-Ground (SLG) Fault</h4>
+        <p>Only one phase carries current, typically phase A:</p>
+        <div class="formula-box">
+          <p>I<sub>A</sub> = I<sub>fault</sub> ∠ 0°</p>
+          <p>I<sub>B</sub> = 0 ∠ 0°</p>
+          <p>I<sub>C</sub> = 0 ∠ 0°</p>
+        </div>
+        <div class="formula-box">
+          <p><strong>Resulting Sequence Components:</strong></p>
+          <p>I₀ = I₁ = I₂ = I<sub>fault</sub>/3</p>
+          <p>All sequence components are equal in magnitude and phase</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>Phase-to-Phase Fault</h4>
+        <p>Two phases carry equal and opposite currents (B and C phases):</p>
+        <div class="formula-box">
+          <p>I<sub>A</sub> = 0 ∠ 0°</p>
+          <p>I<sub>B</sub> = I<sub>fault</sub> ∠ 0°</p>
+          <p>I<sub>C</sub> = I<sub>fault</sub> ∠ 180°</p>
+        </div>
+        <div class="formula-box">
+          <p><strong>Resulting Sequence Components:</strong></p>
+          <p>I₀ = 0 (no zero sequence)</p>
+          <p>I₁ = -I₂ (positive and negative sequences are equal and opposite)</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>Balanced 3-Phase Condition</h4>
+        <p>All phases carry equal magnitude currents with 120° phase separation:</p>
+        <div class="formula-box">
+          <p><strong>ABC Rotation:</strong></p>
+          <p>I<sub>A</sub> = I ∠ 0°</p>
+          <p>I<sub>B</sub> = I ∠ 240° (or -120°)</p>
+          <p>I<sub>C</sub> = I ∠ 120°</p>
+        </div>
+        <div class="formula-box">
+          <p><strong>CBA Rotation:</strong></p>
+          <p>I<sub>A</sub> = I ∠ 0°</p>
+          <p>I<sub>B</sub> = I ∠ 120°</p>
+          <p>I<sub>C</sub> = I ∠ 240° (or -120°)</p>
+        </div>
+        <div class="formula-box">
+          <p><strong>Resulting Sequence Components:</strong></p>
+          <p>I₀ = 0, I₂ = 0 (only positive sequence exists)</p>
+          <p>I₁ = I (positive sequence equals phase magnitude)</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calc-section">
+      <h3>5. Complex Number Operations</h3>
+      
+      <div class="calc-subsection">
+        <h4>Polar to Rectangular Conversion</h4>
+        <div class="formula-box">
+          <p>Given: Magnitude |I| and Angle θ</p>
+          <p>Real part: Re = |I| × cos(θ)</p>
+          <p>Imaginary part: Im = |I| × sin(θ)</p>
+          <p>Complex form: I = Re + j·Im</p>
+        </div>
+      </div>
+      
+      <div class="calc-subsection">
+        <h4>Rectangular to Polar Conversion</h4>
+        <div class="formula-box">
+          <p>Given: Real part Re and Imaginary part Im</p>
+          <p>Magnitude: |I| = √(Re² + Im²)</p>
+          <p>Angle: θ = arctan(Im/Re)</p>
+          <p>Polar form: I = |I| ∠ θ</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calc-section">
+      <h3>6. Line Current Calculations</h3>
+      
+      <div class="calc-subsection">
+        <h4>Line-to-Line Currents</h4>
+        <p>Line currents are the differences between phase currents:</p>
+        <div class="formula-box">
+          <p>I<sub>AB</sub> = I<sub>A</sub> - I<sub>B</sub></p>
+          <p>I<sub>BC</sub> = I<sub>B</sub> - I<sub>C</sub></p>
+          <p>I<sub>CA</sub> = I<sub>C</sub> - I<sub>A</sub></p>
+        </div>
+        <div class="note-box">
+          <p><strong>Note:</strong> Line currents form a closed triangle: I<sub>AB</sub> + I<sub>BC</sub> + I<sub>CA</sub> = 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /************************************************
+     * Basic Math / Complex
+     ************************************************/
+    function degToRad(deg){ return deg*Math.PI/180; }
+    function radToDeg(rad){ return rad*180/Math.PI; }
+    function piToDeg(pi){ return pi*180; }
+    function degToPi(deg){ return deg/180; }
+    
+    function cFromMagAng(m,aDeg){
+      const a= degToRad(aDeg);
+      return { re:m*Math.cos(a), im:m*Math.sin(a) };
+    }
+    function cToMagAng(c){
+      const mag= Math.sqrt(c.re*c.re + c.im*c.im);
+      let ang= Math.atan2(c.im,c.re)*180/Math.PI;
+      while(ang<0)   ang+=360;
+      while(ang>=360)ang-=360;
+      return { mag,ang };
+    }
+    function cAdd(a,b){ return { re:a.re+b.re, im:a.im+b.im }; }
+    function cSub(a,b){ return { re:a.re-b.re, im:a.im-b.im }; }
+    function cMul(a,b){
+      return {
+        re:a.re*b.re - a.im*b.im,
+        im:a.re*b.im + a.im*b.re
+      };
+    }
+    const alphaOp = { re:Math.cos(2*Math.PI/3),  im:Math.sin(2*Math.PI/3) }; 
+    const alpha2Op = { re:Math.cos(4*Math.PI/3), im:Math.sin(4*Math.PI/3) }; 
+
+    function computeSequenceComponents(Ia,Ib,Ic){
+      const I0= { re:(Ia.re+Ib.re+Ic.re)/3, im:(Ia.im+Ib.im+Ic.im)/3 };
+      const alphaIb= cMul(alphaOp,Ib);
+      const alpha2Ic= cMul(alpha2Op,Ic);
+      const I1= {
+        re:(Ia.re+alphaIb.re+alpha2Ic.re)/3,
+        im:(Ia.im+alphaIb.im+alpha2Ic.im)/3
+      };
+      const alpha2Ib2= cMul(alpha2Op,Ib);
+      const alphaIc= cMul(alphaOp,Ic);
+      const I2= {
+        re:(Ia.re+alpha2Ib2.re+alphaIc.re)/3,
+        im:(Ia.im+alpha2Ib2.im+alphaIc.im)/3
+      };
+      return { I0,I1,I2 };
+    }
+    function computePhaseFromSequence(I0,I1,I2){
+      const Ia= cAdd(cAdd(I0,I1), I2);
+      const Ib= cAdd(cAdd(I0, cMul(alpha2Op,I1)), cMul(alphaOp,I2));
+      const Ic= cAdd(cAdd(I0, cMul(alphaOp,I1)),  cMul(alpha2Op,I2));
+      return { Ia,Ib,Ic };
+    }
+
+    /************************************************
+     * partial expansions
+     ************************************************/
+    function getZeroPart(I0){ return { A:I0, B:I0, C:I0 }; }
+    function getPositivePart(I1){ 
+      return { A:I1, B:cMul(alpha2Op,I1), C:cMul(alphaOp,I1) };
+    }
+    function getNegativePart(I2){ 
+      return { A:I2, B:cMul(alphaOp,I2), C:cMul(alpha2Op,I2) };
+    }
+
+    function swapBC(obj){
+      const tmp= obj.B;
+      obj.B= obj.C;
+      obj.C= tmp;
+    }
+
+    /************************************************
+     * Canvas drawing
+     ************************************************/
+    function drawPolar(ctx,magnitude,angleRad,color){
+      const w=ctx.canvas.width, h=ctx.canvas.height;
+      ctx.clearRect(0,0,w,h);
+      const cx=w/2, cy=h/2;
+      const r=Math.min(cx,cy)-10; 
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); 
+      ctx.strokeStyle="#ddd"; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy);
+      ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r);
+      ctx.strokeStyle="#eee"; ctx.stroke();
+      const x= cx + magnitude*r*Math.cos(angleRad);
+      const y= cy - magnitude*r*Math.sin(angleRad); 
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y);
+      ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x,y,4,0,2*Math.PI);
+      ctx.fillStyle=color; ctx.fill();
+    }
+
+    function drawMultipleWaveforms(ctx, times, dataSeries, yMin, yMax){
+      const w= ctx.canvas.width, h= ctx.canvas.height;
+      ctx.clearRect(0,0,w,h);
+      if(yMin<0 && yMax>0){
+        ctx.beginPath(); const y0= mapY(0,yMin,yMax,h);
+        ctx.moveTo(0,y0); ctx.lineTo(w,y0);
+        ctx.strokeStyle="#ccc"; ctx.setLineDash([]); ctx.lineWidth=1; ctx.stroke();
+      }
+      dataSeries.forEach(ser=>{
+        ctx.beginPath(); ctx.setLineDash(ser.dash||[]);
+        for(let i=0;i<times.length;i++){
+          const xC= mapX(times[i], times[0], times[times.length-1], w);
+          const yC= mapY(ser.data[i], yMin,yMax,h);
+          if(i===0) ctx.moveTo(xC,yC); else ctx.lineTo(xC,yC);
+        }
+        ctx.strokeStyle= ser.color; ctx.lineWidth=2; ctx.stroke();
+      });
+      function mapX(t,t0,t1,W){ return ((t-t0)/(t1-t0))*W; }
+      function mapY(v,minV,maxV,H){
+        if (maxV === minV) return H / 2; 
+        const frac= (v-minV)/(maxV-minV); return (1-frac)*H; 
+      }
+    }
+
+    function drawSeqPartialVectorsSecondRow(ctx, partialObj, lineDash){
+      const w=ctx.canvas.width, h=ctx.canvas.height;
+      ctx.clearRect(0,0,w,h);
+      const cx=w/2, cy=h/2;
+      const rBase=Math.min(cx,cy)-10; 
+      ctx.beginPath(); ctx.arc(cx,cy,rBase,0,2*Math.PI);
+      ctx.strokeStyle="#ddd"; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-rBase,cy); ctx.lineTo(cx+rBase,cy);
+      ctx.moveTo(cx,cy-rBase); ctx.lineTo(cx,cy+rBase);
+      ctx.strokeStyle="#eee"; ctx.stroke();
+      if(mode==="sequence" && rotation==="CBA"){
+        drawOne(partialObj.A, "red",   lineDash, rBase);
+        drawOne(partialObj.B, "green", lineDash, rBase);
+        drawOne(partialObj.C, "blue",  lineDash, rBase);
+      } else {
+        drawOne(partialObj.A, "red",   lineDash, rBase);
+        drawOne(partialObj.B, "blue",  lineDash, rBase);
+        drawOne(partialObj.C, "green", lineDash, rBase);
+      }
+      function drawOne(phasor,color,dash, plotRadius){
+        const { mag,ang }= cToMagAng(phasor); const th= degToRad(ang);
+        const x= cx + mag*plotRadius*Math.cos(th);
+        const y= cy - mag*plotRadius*Math.sin(th); 
+        ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(cx,cy); ctx.lineTo(x,y);
+        ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+        ctx.beginPath(); ctx.setLineDash([]); ctx.arc(x,y,4,0,2*Math.PI);
+        ctx.fillStyle=color; ctx.fill();
+      }
+    }
+    
+    function drawAllPhasorsOnOnePlot(ctx, phasorItems, maxExpectedMag) {
+        const w = ctx.canvas.width, h = ctx.canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const cx = w / 2, cy = h / 2;
+        const rPlot = Math.min(cx, cy) - 15; 
+
+        ctx.beginPath(); ctx.arc(cx, cy, rPlot, 0, 2 * Math.PI);
+        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 1; ctx.stroke();
+
+        if (maxExpectedMag > 0) {
+            const MagsToMark = [0.5, 1.0]; 
+            if (maxExpectedMag > 1.0) MagsToMark.push(1.5); 
+            if (maxExpectedMag > 1.5) MagsToMark.push(2.0); 
+            MagsToMark.forEach(magLevel => {
+                if (magLevel < maxExpectedMag) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, (magLevel / maxExpectedMag) * rPlot, 0, 2 * Math.PI);
+                    ctx.strokeStyle = "#ddd"; ctx.stroke();
+                }
+            });
+        }
+
+        ctx.beginPath(); ctx.moveTo(cx - rPlot, cy); ctx.lineTo(cx + rPlot, cy);
+        ctx.moveTo(cx, cy - rPlot); ctx.lineTo(cx, cy + rPlot);
+        ctx.strokeStyle = "#ccc"; ctx.stroke();
+
+        phasorItems.forEach(item => {
+            const { color, dash } = item;
+            ctx.strokeStyle = color; ctx.setLineDash(dash || []); ctx.lineWidth = 2;
+
+            if (item.type === "phase") {
+                const { phasor_val } = item;
+                const { mag, ang } = cToMagAng(phasor_val);
+                const angleRad = degToRad(ang);
+                const vectorLength = (mag / maxExpectedMag) * rPlot;
+                const xEnd = cx + vectorLength * Math.cos(angleRad);
+                const yEnd = cy - vectorLength * Math.sin(angleRad);
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(xEnd, yEnd); ctx.stroke();
+                ctx.beginPath(); ctx.setLineDash([]); ctx.arc(xEnd, yEnd, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = color; ctx.fill();
+            } else if (item.type === "line") {
+                const { from_phasor_val, to_phasor_val } = item;
+                const fromMA = cToMagAng(from_phasor_val);
+                const fromAngleRad = degToRad(fromMA.ang);
+                const fromVectorLength = (fromMA.mag / maxExpectedMag) * rPlot;
+                const xStart = cx + fromVectorLength * Math.cos(fromAngleRad);
+                const yStart = cy - fromVectorLength * Math.sin(fromAngleRad);
+                const toMA = cToMagAng(to_phasor_val);
+                const toAngleRad = degToRad(toMA.ang);
+                const toVectorLength = (toMA.mag / maxExpectedMag) * rPlot;
+                const xEnd = cx + toVectorLength * Math.cos(toAngleRad);
+                const yEnd = cy - toVectorLength * Math.sin(toAngleRad);
+                ctx.beginPath(); ctx.moveTo(xStart, yStart); ctx.lineTo(xEnd, yEnd); ctx.stroke();
+                const angleLine = Math.atan2(yEnd - yStart, xEnd - xStart);
+                const arrowLength = 8;
+                ctx.beginPath(); ctx.setLineDash([]); ctx.moveTo(xEnd, yEnd);
+                ctx.lineTo(xEnd - arrowLength * Math.cos(angleLine - Math.PI / 6), yEnd - arrowLength * Math.sin(angleLine - Math.PI / 6));
+                ctx.moveTo(xEnd, yEnd);
+                ctx.lineTo(xEnd - arrowLength * Math.cos(angleLine + Math.PI / 6), yEnd - arrowLength * Math.sin(angleLine + Math.PI / 6));
+                ctx.stroke();
+            }
+        });
+    }
+
+    function drawHeadToTailPhasorSum(ctx, partials, color){
+      const w=ctx.canvas.width, h=ctx.canvas.height;
+      ctx.clearRect(0,0,w,h); const cx=w/2, cy=h/2; const r=Math.min(cx,cy)-10; 
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.strokeStyle="#ddd"; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r);
+      ctx.strokeStyle="#eee"; ctx.stroke();
+      let current= { re:0, im:0 };
+      drawPartial(ctx,cx,cy,r,current, partials[0], color, [2,4]); current= cAdd(current, partials[0]);
+      drawPartial(ctx,cx,cy,r,current, partials[1], color, [8,4]); current= cAdd(current, partials[1]);
+      drawPartial(ctx,cx,cy,r,current, partials[2], color, [6,3,2,3]); current= cAdd(current, partials[2]);
+      ctx.beginPath(); const sumMA= cToMagAng(current); const sumTh= degToRad(sumMA.ang);
+      const sumR= sumMA.mag*r; const x2= cx + sumR*Math.cos(sumTh); const y2= cy - sumR*Math.sin(sumTh); 
+      ctx.moveTo(cx,cy); ctx.lineTo(x2,y2); ctx.setLineDash([]); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x2,y2,4,0,2*Math.PI); ctx.fillStyle=color; ctx.fill();
+    }
+    function drawPartial(ctx,cx,cy,r,start,phasor,color,dash){
+      ctx.beginPath(); ctx.setLineDash(dash); const tip= cAdd(start, phasor);
+      const sMA= cToMagAng(start); const tMA= cToMagAng(tip);
+      const sR= sMA.mag*r, sTh= degToRad(sMA.ang);
+      const xS= cx + sR*Math.cos(sTh), yS= cy - sR*Math.sin(sTh); 
+      const tR= tMA.mag*r, tTh= degToRad(tMA.ang);
+      const xT= cx + tR*Math.cos(tTh), yT= cy - tR*Math.sin(tTh); 
+      ctx.moveTo(xS,yS); ctx.lineTo(xT,yT); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.setLineDash([]); ctx.arc(xT,yT,4,0,2*Math.PI); ctx.fillStyle=color; ctx.fill();
+    }
+
+    function getPhaseBPar(I0,I1,I2){ 
+      if(rotation==="ABC"){ return [ I0, cMul(alpha2Op,I1), cMul(alphaOp,I2) ]; } 
+      else { return [ I0, cMul(alphaOp,I1), cMul(alpha2Op,I2) ]; }
+    }
+    function getPhaseCPar(I0,I1,I2){ 
+      if(rotation==="ABC"){ return [ I0, cMul(alphaOp,I1),  cMul(alpha2Op,I2) ]; } 
+      else { return [ I0, cMul(alpha2Op,I1), cMul(alphaOp,I2) ]; }
+    }
+
+    let mode="phase"; let rotation="ABC"; let angleUnit="degrees"; let startTime=null;
+    let animationPaused=false; let pausedTime=0; let animationId=null;
+    let phaseData={ slider1:{ mag:1, ang:0 }, slider2:{ mag:1, ang:240 }, slider3:{ mag:1, ang:120 } };
+    let seqData={ slider1:{ mag:0, ang:0 }, slider2:{ mag:1, ang:0 }, slider3:{ mag:0, ang:0 } };
+    function initializeData() { updatePhaseDataFromSeqData(); }
+    function resetAnimationClock(){ startTime=null; }
+
+    function formatPhasorValue(phasor, label) {
+      const { mag, ang } = cToMagAng(phasor);
+      const angleSymbol = angleUnit === "radians" ? "π" : "°";
+      let displayAngle;
+      
+      if (angleUnit === "radians") {
+        displayAngle = (degToPi(ang)).toFixed(2) + angleSymbol;
+      } else {
+        displayAngle = Math.round(ang) + angleSymbol;
+      }
+      
+      return `<div class="value-line"><strong>${label}:</strong> ${mag.toFixed(2)} ∠ ${displayAngle}</div>`;
+    }
+
+    function updatePhasorValueDisplays(Ia, Ib, Ic, I0_disp, I1_disp, I2_disp) {
+      // Phase values
+      document.getElementById("valuesA").innerHTML = formatPhasorValue(Ia, "IA");
+      document.getElementById("valuesB").innerHTML = formatPhasorValue(Ib, "IB");
+      document.getElementById("valuesC").innerHTML = formatPhasorValue(Ic, "IC");
+      
+      // Sequence values
+      document.getElementById("values0").innerHTML = formatPhasorValue(I0_disp, "I0");
+      document.getElementById("values1").innerHTML = formatPhasorValue(I1_disp, "I1");
+      document.getElementById("values2").innerHTML = formatPhasorValue(I2_disp, "I2");
+      
+      // Head-to-tail sum values (same as phase values)
+      document.getElementById("valuesAphasorSum").innerHTML = formatPhasorValue(Ia, "IA Sum");
+      document.getElementById("valuesBphasorSum").innerHTML = formatPhasorValue(Ib, "IB Sum");
+      document.getElementById("valuesCphasorSum").innerHTML = formatPhasorValue(Ic, "IC Sum");
+      
+      // Line current values
+      const Iab = cSub(Ia, Ib);
+      const Ibc = cSub(Ib, Ic);
+      const Ica = cSub(Ic, Ia);
+      
+      const linePhasorValues =
+        formatPhasorValue(Ia, "Ia") +
+        formatPhasorValue(Ib, "Ib") +
+        formatPhasorValue(Ic, "Ic") +
+        formatPhasorValue(Iab, "Iab") +
+        formatPhasorValue(Ibc, "Ibc") +
+        formatPhasorValue(Ica, "Ica");
+      
+      document.getElementById("valuesLinePhasePhasor").innerHTML = linePhasorValues;
+    }
+
+    function updatePhasorDisplaysFromCurrentData() {
+      // Calculate current phasor values from stored data
+      const ang1_deg = angleUnit === "radians" ? piToDeg(phaseData.slider1.ang) : phaseData.slider1.ang;
+      const ang2_deg = angleUnit === "radians" ? piToDeg(phaseData.slider2.ang) : phaseData.slider2.ang;
+      const ang3_deg = angleUnit === "radians" ? piToDeg(phaseData.slider3.ang) : phaseData.slider3.ang;
+      
+      const Ia = cFromMagAng(phaseData.slider1.mag, ang1_deg);
+      const Ib = cFromMagAng(phaseData.slider2.mag, ang2_deg);
+      const Ic = cFromMagAng(phaseData.slider3.mag, ang3_deg);
+      
+      const sc_calc = computeSequenceComponents(Ia, Ib, Ic);
+      let I0_disp = sc_calc.I0;
+      let I1_disp = (rotation === "ABC") ? sc_calc.I1 : sc_calc.I2;
+      let I2_disp = (rotation === "ABC") ? sc_calc.I2 : sc_calc.I1;
+      
+      if (mode === "sequence") {
+        const seqAng1_deg = angleUnit === "radians" ? piToDeg(seqData.slider1.ang) : seqData.slider1.ang;
+        const seqAng2_deg = angleUnit === "radians" ? piToDeg(seqData.slider2.ang) : seqData.slider2.ang;
+        const seqAng3_deg = angleUnit === "radians" ? piToDeg(seqData.slider3.ang) : seqData.slider3.ang;
+        
+        I0_disp = cFromMagAng(seqData.slider1.mag, seqAng1_deg);
+        I1_disp = cFromMagAng(seqData.slider2.mag, seqAng2_deg);
+        I2_disp = cFromMagAng(seqData.slider3.mag, seqAng3_deg);
+      }
+      
+      updatePhasorValueDisplays(Ia, Ib, Ic, I0_disp, I1_disp, I2_disp);
+    }
+
+    function updateSeqDataFromPhaseData(){
+      // Convert angles to degrees for calculations
+      const ang1_deg = angleUnit === "radians" ? piToDeg(phaseData.slider1.ang) : phaseData.slider1.ang;
+      const ang2_deg = angleUnit === "radians" ? piToDeg(phaseData.slider2.ang) : phaseData.slider2.ang;
+      const ang3_deg = angleUnit === "radians" ? piToDeg(phaseData.slider3.ang) : phaseData.slider3.ang;
+      
+      const Ia= cFromMagAng(phaseData.slider1.mag, ang1_deg);
+      const Ib= cFromMagAng(phaseData.slider2.mag, ang2_deg);
+      const Ic= cFromMagAng(phaseData.slider3.mag, ang3_deg);
+      const sc= computeSequenceComponents(Ia,Ib,Ic);
+      let I0_val = sc.I0, I1_val = sc.I1, I2_val = sc.I2;
+      // For CBA rotation, positive sequence becomes what was negative in ABC, and vice versa
+      if (rotation === "CBA") {
+        const temp = I1_val;
+        I1_val = I2_val;
+        I2_val = temp;
+      }
+      const i0MA= cToMagAng(I0_val), i1MA= cToMagAng(I1_val), i2MA= cToMagAng(I2_val);
+      seqData.slider1.mag= i0MA.mag; seqData.slider1.ang= i0MA.ang;
+      seqData.slider2.mag= i1MA.mag; seqData.slider2.ang= i1MA.ang;
+      seqData.slider3.mag= i2MA.mag; seqData.slider3.ang= i2MA.ang;
+    }
+    function updatePhaseDataFromSeqData(){
+      // Convert angles to degrees for calculations
+      const ang1_deg = angleUnit === "radians" ? piToDeg(seqData.slider1.ang) : seqData.slider1.ang;
+      const ang2_deg = angleUnit === "radians" ? piToDeg(seqData.slider2.ang) : seqData.slider2.ang;
+      const ang3_deg = angleUnit === "radians" ? piToDeg(seqData.slider3.ang) : seqData.slider3.ang;
+      
+      let I0_input = cFromMagAng(seqData.slider1.mag, ang1_deg);
+      let I1_input = cFromMagAng(seqData.slider2.mag, ang2_deg);
+      let I2_input = cFromMagAng(seqData.slider3.mag, ang3_deg);
+      let I1_for_ABC = I1_input, I2_for_ABC = I2_input;
+      // For CBA rotation, swap the sequence components back to ABC convention for calculation
+      if (rotation === "CBA") {
+        I1_for_ABC = I2_input;
+        I2_for_ABC = I1_input;
+      }
+      const ph= computePhaseFromSequence(I0_input, I1_for_ABC, I2_for_ABC);
+      const aMA= cToMagAng(ph.Ia), bMA= cToMagAng(ph.Ib), cMA= cToMagAng(ph.Ic);
+      phaseData.slider1.mag= aMA.mag; phaseData.slider1.ang= aMA.ang;
+      phaseData.slider2.mag= bMA.mag; phaseData.slider2.ang= bMA.ang;
+      phaseData.slider3.mag= cMA.mag; phaseData.slider3.ang= cMA.ang;
+    }
+
+    function setMode(newMode){
+      if(newMode===mode) return;
+      if(newMode==="phase"){ updatePhaseDataFromSeqData(); mode="phase";
+        document.getElementById("phaseModeBtn").classList.add("active");
+        document.getElementById("seqModeBtn").classList.remove("active");
+      } else { updateSeqDataFromPhaseData(); mode="sequence";
+        document.getElementById("phaseModeBtn").classList.remove("active");
+        document.getElementById("seqModeBtn").classList.add("active");
+      }
+      resetAnimationClock(); refreshSlidersFromData();
+      updatePhasorDisplaysFromCurrentData();
+    }
+    function setRotation(newRot){
+      if(newRot===rotation) return;
+      rotation = newRot; 
+      if (rotation === "CBA") {
+        document.getElementById("abcBtn").classList.remove("active");
+        document.getElementById("cbaBtn").classList.add("active");
+      } else { 
+        document.getElementById("abcBtn").classList.add("active");
+        document.getElementById("cbaBtn").classList.remove("active");
+      }
+      updateSeqDataFromPhaseData();
+      resetAnimationClock(); refreshSlidersFromData();
+      updatePhasorDisplaysFromCurrentData();
+    }
+    function setAngleUnit(newUnit){
+      if(newUnit===angleUnit) return;
+      
+      // Convert current angle values
+      if(newUnit==="radians"){
+        // Convert from degrees to pi radians (0-2π becomes 0-2)
+        phaseData.slider1.ang = degToPi(phaseData.slider1.ang);
+        phaseData.slider2.ang = degToPi(phaseData.slider2.ang);
+        phaseData.slider3.ang = degToPi(phaseData.slider3.ang);
+        seqData.slider1.ang = degToPi(seqData.slider1.ang);
+        seqData.slider2.ang = degToPi(seqData.slider2.ang);
+        seqData.slider3.ang = degToPi(seqData.slider3.ang);
+      } else {
+        // Convert from pi radians to degrees
+        phaseData.slider1.ang = piToDeg(phaseData.slider1.ang);
+        phaseData.slider2.ang = piToDeg(phaseData.slider2.ang);
+        phaseData.slider3.ang = piToDeg(phaseData.slider3.ang);
+        seqData.slider1.ang = piToDeg(seqData.slider1.ang);
+        seqData.slider2.ang = piToDeg(seqData.slider2.ang);
+        seqData.slider3.ang = piToDeg(seqData.slider3.ang);
+      }
+      
+      angleUnit = newUnit;
+      if (angleUnit === "radians") {
+        document.getElementById("degBtn").classList.remove("active");
+        document.getElementById("radBtn").classList.add("active");
+      } else {
+        document.getElementById("degBtn").classList.add("active");
+        document.getElementById("radBtn").classList.remove("active");
+      }
+      
+      resetAnimationClock(); refreshSlidersFromData();
+      updatePhasorDisplaysFromCurrentData();
+    }
+    
+    function playAnimation(){
+      if(animationPaused){
+        animationPaused = false;
+        // Resume from where we paused
+        startTime = performance.now() - pausedTime;
+        document.getElementById("playBtn").classList.add("active");
+        document.getElementById("pauseBtn").classList.remove("active");
+        if(!animationId) {
+          animationId = requestAnimationFrame(animate);
+        }
+      }
+    }
+    
+    function pauseAnimation(){
+      if(!animationPaused){
+        animationPaused = true;
+        // Store the current elapsed time
+        pausedTime = performance.now() - (startTime || 0);
+        document.getElementById("playBtn").classList.remove("active");
+        document.getElementById("pauseBtn").classList.add("active");
+        if(animationId) {
+          cancelAnimationFrame(animationId);
+          animationId = null;
+        }
+      }
+    }
+
+    function setSLGFault(){
+      phaseData.slider1.mag=1; phaseData.slider1.ang=0;
+      phaseData.slider2.mag=0; phaseData.slider2.ang=0;
+      phaseData.slider3.mag=0; phaseData.slider3.ang=0;
+      updateSeqDataFromPhaseData(); refreshSlidersFromData(); resetAnimationClock();
+      updatePhasorDisplaysFromCurrentData();
+    }
+    function setPhasePhaseFault(){
+      phaseData.slider1.mag=0; phaseData.slider1.ang=0;  
+      phaseData.slider2.mag=1; phaseData.slider2.ang=0;  
+      phaseData.slider3.mag=1; phaseData.slider3.ang=180;
+      updateSeqDataFromPhaseData(); refreshSlidersFromData(); resetAnimationClock();
+      updatePhasorDisplaysFromCurrentData();
+    }
+    function setBalanced(){
+      if(rotation==="ABC"){
+        phaseData.slider1.mag=1; phaseData.slider1.ang=0;
+        phaseData.slider2.mag=1; phaseData.slider2.ang=240;
+        phaseData.slider3.mag=1; phaseData.slider3.ang=120;
+      } else {
+        // For CBA rotation: A=0°, B=120°, C=240° (C leads B leads A)
+        phaseData.slider1.mag=1; phaseData.slider1.ang=0;   // Phase A
+        phaseData.slider2.mag=1; phaseData.slider2.ang=120; // Phase B
+        phaseData.slider3.mag=1; phaseData.slider3.ang=240; // Phase C
+      }
+      updateSeqDataFromPhaseData(); refreshSlidersFromData(); resetAnimationClock();
+      updatePhasorDisplaysFromCurrentData();
+    }
+
+    function refreshSlidersFromData(){
+      const angleSymbol = angleUnit === "radians" ? "π" : "°";
+      const angleLabel = angleUnit === "radians" ? "(π rad)" : "(°)";
+      
+      if(mode==="phase"){
+        document.getElementById("slider1Label").textContent="Phase A Current Magnitude";
+        document.getElementById("slider1AngLabel").textContent="Phase A Current Angle " + angleLabel;
+        document.getElementById("slider2Label").textContent="Phase B Current Magnitude";
+        document.getElementById("slider2AngLabel").textContent="Phase B Current Angle " + angleLabel;
+        document.getElementById("slider3Label").textContent="Phase C Current Magnitude";
+        document.getElementById("slider3AngLabel").textContent="Phase C Current Angle " + angleLabel;
+        
+        // Update slider ranges and step sizes
+        if(angleUnit === "radians"){
+          document.getElementById("slider1Ang").min = "0";
+          document.getElementById("slider1Ang").max = "2";
+          document.getElementById("slider1Ang").step = "0.01";
+          document.getElementById("slider2Ang").min = "0";
+          document.getElementById("slider2Ang").max = "2";
+          document.getElementById("slider2Ang").step = "0.01";
+          document.getElementById("slider3Ang").min = "0";
+          document.getElementById("slider3Ang").max = "2";
+          document.getElementById("slider3Ang").step = "0.01";
+        } else {
+          document.getElementById("slider1Ang").min = "0";
+          document.getElementById("slider1Ang").max = "360";
+          document.getElementById("slider1Ang").step = "1";
+          document.getElementById("slider2Ang").min = "0";
+          document.getElementById("slider2Ang").max = "360";
+          document.getElementById("slider2Ang").step = "1";
+          document.getElementById("slider3Ang").min = "0";
+          document.getElementById("slider3Ang").max = "360";
+          document.getElementById("slider3Ang").step = "1";
+        }
+        
+        document.getElementById("slider1Mag").value= phaseData.slider1.mag.toFixed(2);
+        document.getElementById("slider1Ang").value= angleUnit === "radians" ? phaseData.slider1.ang.toFixed(2) : Math.round(phaseData.slider1.ang);
+        document.getElementById("slider2Mag").value= phaseData.slider2.mag.toFixed(2);
+        document.getElementById("slider2Ang").value= angleUnit === "radians" ? phaseData.slider2.ang.toFixed(2) : Math.round(phaseData.slider2.ang);
+        document.getElementById("slider3Mag").value= phaseData.slider3.mag.toFixed(2);
+        document.getElementById("slider3Ang").value= angleUnit === "radians" ? phaseData.slider3.ang.toFixed(2) : Math.round(phaseData.slider3.ang);
+        document.getElementById("slider1MagVal").textContent= phaseData.slider1.mag.toFixed(2);
+        document.getElementById("slider1AngVal").textContent= (angleUnit === "radians" ? phaseData.slider1.ang.toFixed(2) + angleSymbol : Math.round(phaseData.slider1.ang) + angleSymbol);
+        document.getElementById("slider2MagVal").textContent= phaseData.slider2.mag.toFixed(2);
+        document.getElementById("slider2AngVal").textContent= (angleUnit === "radians" ? phaseData.slider2.ang.toFixed(2) + angleSymbol : Math.round(phaseData.slider2.ang) + angleSymbol);
+        document.getElementById("slider3MagVal").textContent= phaseData.slider3.mag.toFixed(2);
+        document.getElementById("slider3AngVal").textContent= (angleUnit === "radians" ? phaseData.slider3.ang.toFixed(2) + angleSymbol : Math.round(phaseData.slider3.ang) + angleSymbol);
+      } else {
+        const i1L = (rotation === "ABC")?"I1 (Pos ABC) Mag":"I1 (Pos CBA) Mag";
+        const i1AL= (rotation === "ABC")?"I1 (Pos ABC) Ang" + angleLabel:"I1 (Pos CBA) Ang" + angleLabel;
+        const i2L = (rotation === "ABC")?"I2 (Neg ABC) Mag":"I2 (Neg CBA) Mag";
+        const i2AL= (rotation === "ABC")?"I2 (Neg ABC) Ang" + angleLabel:"I2 (Neg CBA) Ang" + angleLabel;
+        document.getElementById("slider1Label").textContent="I0 Magnitude";
+        document.getElementById("slider1AngLabel").textContent="I0 Angle " + angleLabel;
+        document.getElementById("slider2Label").textContent=i1L;
+        document.getElementById("slider2AngLabel").textContent=i1AL;
+        document.getElementById("slider3Label").textContent=i2L;
+        document.getElementById("slider3AngLabel").textContent=i2AL;
+        
+        // Update slider ranges and step sizes for sequence mode
+        if(angleUnit === "radians"){
+          document.getElementById("slider1Ang").min = "0";
+          document.getElementById("slider1Ang").max = "2";
+          document.getElementById("slider1Ang").step = "0.01";
+          document.getElementById("slider2Ang").min = "0";
+          document.getElementById("slider2Ang").max = "2";
+          document.getElementById("slider2Ang").step = "0.01";
+          document.getElementById("slider3Ang").min = "0";
+          document.getElementById("slider3Ang").max = "2";
+          document.getElementById("slider3Ang").step = "0.01";
+        } else {
+          document.getElementById("slider1Ang").min = "0";
+          document.getElementById("slider1Ang").max = "360";
+          document.getElementById("slider1Ang").step = "1";
+          document.getElementById("slider2Ang").min = "0";
+          document.getElementById("slider2Ang").max = "360";
+          document.getElementById("slider2Ang").step = "1";
+          document.getElementById("slider3Ang").min = "0";
+          document.getElementById("slider3Ang").max = "360";
+          document.getElementById("slider3Ang").step = "1";
+        }
+        
+        document.getElementById("slider1Mag").value= seqData.slider1.mag.toFixed(2);
+        document.getElementById("slider1Ang").value= angleUnit === "radians" ? seqData.slider1.ang.toFixed(2) : Math.round(seqData.slider1.ang);
+        document.getElementById("slider2Mag").value= seqData.slider2.mag.toFixed(2);
+        document.getElementById("slider2Ang").value= angleUnit === "radians" ? seqData.slider2.ang.toFixed(2) : Math.round(seqData.slider2.ang);
+        document.getElementById("slider3Mag").value= seqData.slider3.mag.toFixed(2);
+        document.getElementById("slider3Ang").value= angleUnit === "radians" ? seqData.slider3.ang.toFixed(2) : Math.round(seqData.slider3.ang);
+        document.getElementById("slider1MagVal").textContent= seqData.slider1.mag.toFixed(2);
+        document.getElementById("slider1AngVal").textContent= (angleUnit === "radians" ? seqData.slider1.ang.toFixed(2) + angleSymbol : Math.round(seqData.slider1.ang) + angleSymbol);
+        document.getElementById("slider2MagVal").textContent= seqData.slider2.mag.toFixed(2);
+        document.getElementById("slider2AngVal").textContent= (angleUnit === "radians" ? seqData.slider2.ang.toFixed(2) + angleSymbol : Math.round(seqData.slider2.ang) + angleSymbol);
+        document.getElementById("slider3MagVal").textContent= seqData.slider3.mag.toFixed(2);
+        document.getElementById("slider3AngVal").textContent= (angleUnit === "radians" ? seqData.slider3.ang.toFixed(2) + angleSymbol : Math.round(seqData.slider3.ang) + angleSymbol);
+      }
+    }
+    function onSliderChange(){
+      const s1m=parseFloat(document.getElementById("slider1Mag").value), s1a=parseFloat(document.getElementById("slider1Ang").value);
+      const s2m=parseFloat(document.getElementById("slider2Mag").value), s2a=parseFloat(document.getElementById("slider2Ang").value);
+      const s3m=parseFloat(document.getElementById("slider3Mag").value), s3a=parseFloat(document.getElementById("slider3Ang").value);
+      
+      // Convert angles to degrees for internal calculations if in radian mode
+      const s1a_deg = angleUnit === "radians" ? piToDeg(s1a) : s1a;
+      const s2a_deg = angleUnit === "radians" ? piToDeg(s2a) : s2a;
+      const s3a_deg = angleUnit === "radians" ? piToDeg(s3a) : s3a;
+      
+      if(mode==="phase"){
+        phaseData.slider1.mag=s1m; phaseData.slider1.ang=angleUnit === "radians" ? s1a : s1a_deg;
+        phaseData.slider2.mag=s2m; phaseData.slider2.ang=angleUnit === "radians" ? s2a : s2a_deg;
+        phaseData.slider3.mag=s3m; phaseData.slider3.ang=angleUnit === "radians" ? s3a : s3a_deg;
+        updateSeqDataFromPhaseData();
+      } else {
+        seqData.slider1.mag=s1m; seqData.slider1.ang=angleUnit === "radians" ? s1a : s1a_deg;
+        seqData.slider2.mag=s2m; seqData.slider2.ang=angleUnit === "radians" ? s2a : s2a_deg;
+        seqData.slider3.mag=s3m; seqData.slider3.ang=angleUnit === "radians" ? s3a : s3a_deg;
+        updatePhaseDataFromSeqData();
+      }
+      resetAnimationClock(); refreshSlidersFromData();
+      // Update displays immediately for paused state
+      updatePhasorDisplaysFromCurrentData();
+    }
+
+    document.getElementById("phaseModeBtn").addEventListener("click",()=>setMode("phase"));
+    document.getElementById("seqModeBtn").addEventListener("click",()=>setMode("sequence"));
+    document.getElementById("slgBtn").addEventListener("click",setSLGFault);
+    document.getElementById("ppBtn").addEventListener("click",setPhasePhaseFault);
+    document.getElementById("balancedBtn").addEventListener("click",setBalanced);
+    document.getElementById("abcBtn").addEventListener("click",()=>setRotation("ABC"));
+    document.getElementById("cbaBtn").addEventListener("click",()=>setRotation("CBA"));
+    document.getElementById("degBtn").addEventListener("click",()=>setAngleUnit("degrees"));
+    document.getElementById("radBtn").addEventListener("click",()=>setAngleUnit("radians"));
+    document.getElementById("playBtn").addEventListener("click",playAnimation);
+    document.getElementById("pauseBtn").addEventListener("click",pauseAnimation);
+    ["slider1Mag","slider1Ang","slider2Mag","slider2Ang","slider3Mag","slider3Ang"]
+      .forEach(id=>document.getElementById(id).addEventListener("input",onSliderChange));
+    
+    const canvasLinePhasePhasor = document.getElementById("canvasLinePhasePhasorPlot"); 
+    const linePhasePhasorContainer = document.querySelector(".line-phase-phasor-plot-container");
+    function resizePhasorCanvas() {
+        const containerStyle = getComputedStyle(linePhasePhasorContainer);
+        const legend = document.getElementById('linePhasePhasorLegend');
+        const legendWidth = legend ? legend.offsetWidth : 0;
+        const gap = 20; // From CSS gap property
+        
+        let availableWidth = linePhasePhasorContainer.clientWidth - parseFloat(containerStyle.paddingLeft) - parseFloat(containerStyle.paddingRight);
+        if (window.innerWidth > 700) { // Approximate breakpoint where legend is side-by-side
+             availableWidth -= (legendWidth + gap);
+        }
+
+        const canvasSize = Math.min(600, availableWidth); // Cap at 600px or available width
+
+        canvasLinePhasePhasor.width = canvasSize > 0 ? canvasSize : 300; // Ensure positive width
+        canvasLinePhasePhasor.height = canvasLinePhasePhasor.width; 
+        resetAnimationClock(); 
+    }
+    window.addEventListener('resize', resizePhasorCanvas);
+    
+    initializeData(); setBalanced(); refreshSlidersFromData();
+    setTimeout(resizePhasorCanvas, 100);
+    // Initialize phasor value displays
+    setTimeout(updatePhasorDisplaysFromCurrentData, 150);
+
+
+    const rotationSpeedDegPerSec = 36; 
+    const rotationSpeedRadPerSec = degToRad(rotationSpeedDegPerSec);
+
+    function animate(timestamp){
+      if(!animationPaused) {
+        animationId = requestAnimationFrame(animate);
+      }
+      if(!startTime) startTime = timestamp;
+      const elapsedSec = (timestamp - startTime)/1000;
+      const rotAng = rotationSpeedRadPerSec * elapsedSec;
+
+      // Convert angles to degrees for calculations
+      const ang1_deg = angleUnit === "radians" ? piToDeg(phaseData.slider1.ang) : phaseData.slider1.ang;
+      const ang2_deg = angleUnit === "radians" ? piToDeg(phaseData.slider2.ang) : phaseData.slider2.ang;
+      const ang3_deg = angleUnit === "radians" ? piToDeg(phaseData.slider3.ang) : phaseData.slider3.ang;
+      
+      let IaBase = cFromMagAng(phaseData.slider1.mag, ang1_deg);
+      let IbBase = cFromMagAng(phaseData.slider2.mag, ang2_deg);
+      let IcBase = cFromMagAng(phaseData.slider3.mag, ang3_deg);
+      
+      const eRot= { re:Math.cos(rotAng), im:Math.sin(rotAng) };
+      const Ia= cMul(IaBase,eRot), Ib= cMul(IbBase,eRot), Ic= cMul(IcBase,eRot); 
+
+      const Aang= cToMagAng(Ia); drawPolar(document.getElementById("canvasA").getContext("2d"), Aang.mag, degToRad(Aang.ang), "red");
+      const Bang= cToMagAng(Ib); drawPolar(document.getElementById("canvasB").getContext("2d"), Bang.mag, degToRad(Bang.ang), "blue");
+      const Cang= cToMagAng(Ic); drawPolar(document.getElementById("canvasC").getContext("2d"), Cang.mag, degToRad(Cang.ang), "green");
+
+      const sc_calc = computeSequenceComponents(Ia,Ib,Ic); 
+      let I0_disp = sc_calc.I0;
+      let I1_disp = (rotation === "ABC") ? sc_calc.I1 : sc_calc.I2; 
+      let I2_disp = (rotation === "ABC") ? sc_calc.I2 : sc_calc.I1; 
+      if (mode === "sequence") {
+          const seqAng1_deg = angleUnit === "radians" ? piToDeg(seqData.slider1.ang) : seqData.slider1.ang;
+          const seqAng2_deg = angleUnit === "radians" ? piToDeg(seqData.slider2.ang) : seqData.slider2.ang;
+          const seqAng3_deg = angleUnit === "radians" ? piToDeg(seqData.slider3.ang) : seqData.slider3.ang;
+          
+          I0_disp = cMul(cFromMagAng(seqData.slider1.mag, seqAng1_deg), eRot);
+          I1_disp = cMul(cFromMagAng(seqData.slider2.mag, seqAng2_deg), eRot);
+          I2_disp = cMul(cFromMagAng(seqData.slider3.mag, seqAng3_deg), eRot);
+      }
+
+      const zeroPart= getZeroPart(I0_disp), posPart= getPositivePart(I1_disp), negPart= getNegativePart(I2_disp);
+      const zero2= {...zeroPart}, pos2={...posPart}, neg2={...negPart};
+      if(rotation==="CBA"){ swapBC(zero2); swapBC(pos2); swapBC(neg2); }
+      drawSeqPartialVectorsSecondRow(document.getElementById("canvas0").getContext("2d"), zero2, [2,4]);
+      drawSeqPartialVectorsSecondRow(document.getElementById("canvas1").getContext("2d"), pos2,  [8,4]);
+      drawSeqPartialVectorsSecondRow(document.getElementById("canvas2").getContext("2d"), neg2,  [6,3,2,3]);
+
+      const plotWindowDuration = 2 * (360 / rotationSpeedDegPerSec); 
+      const Tstart = elapsedSec, N_points= 200, times= [];
+      const phA_re=[], phB_re=[], phC_re=[];
+      const zA_re=[], zB_re=[], zC_re=[], pA_re=[], pB_re=[], pC_re=[], nA_re=[], nB_re=[], nC_re=[];
+      const Aall_re=[], Ball_re=[], Call_re=[];
+
+      for(let i=0; i<N_points; i++){
+        const t_plot = Tstart + (i * plotWindowDuration / (N_points-1)); times.push(t_plot); 
+        let iAb_w = cFromMagAng(phaseData.slider1.mag, phaseData.slider1.ang);
+        let iBb_w = cFromMagAng(phaseData.slider2.mag, phaseData.slider2.ang);
+        let iCb_w = cFromMagAng(phaseData.slider3.mag, phaseData.slider3.ang);
+        const eRot_plot = { re:Math.cos(rotationSpeedRadPerSec*t_plot), im:Math.sin(rotationSpeedRadPerSec*t_plot) };
+        const iA_t = cMul(iAb_w, eRot_plot), iB_t = cMul(iBb_w, eRot_plot), iC_t = cMul(iCb_w, eRot_plot);
+        phA_re.push(iA_t.re); phB_re.push(iB_t.re); phC_re.push(iC_t.re);
+        const sc_plot = computeSequenceComponents(iA_t, iB_t, iC_t);
+        let I0_w = sc_plot.I0, I1_w = (rotation === "ABC")?sc_plot.I1:sc_plot.I2, I2_w = (rotation === "ABC")?sc_plot.I2:sc_plot.I1;
+        if (mode === "sequence") {
+            I0_w = cMul(cFromMagAng(seqData.slider1.mag, seqData.slider1.ang), eRot_plot);
+            I1_w = cMul(cFromMagAng(seqData.slider2.mag, seqData.slider2.ang), eRot_plot);
+            I2_w = cMul(cFromMagAng(seqData.slider3.mag, seqData.slider3.ang), eRot_plot);
+        }
+        const zP_w = getZeroPart(I0_w), pP_w = getPositivePart(I1_w), nP_w = getNegativePart(I2_w);
+        zA_re.push(zP_w.A.re); pA_re.push(pP_w.A.re); nA_re.push(nP_w.A.re);
+        zB_re.push(zP_w.B.re); pB_re.push(pP_w.B.re); nB_re.push(nP_w.B.re);
+        zC_re.push(zP_w.C.re); pC_re.push(pP_w.C.re); nC_re.push(nP_w.C.re);
+        Aall_re.push(iA_t.re); Ball_re.push(iB_t.re); Call_re.push(iC_t.re);
+      }
+      
+      const partialsA_htt = [ I0_disp, I1_disp, I2_disp ]; 
+      let Bpartials_htt = getPhaseBPar(I0_disp, I1_disp, I2_disp), Cpartials_htt = getPhaseCPar(I0_disp, I1_disp, I2_disp);
+      if(mode==="sequence" && rotation==="CBA"){ const temp_htt = Bpartials_htt; Bpartials_htt = Cpartials_htt; Cpartials_htt = temp_htt; }
+      drawHeadToTailPhasorSum(document.getElementById("canvasAphasorSum").getContext("2d"), partialsA_htt,"red");
+      drawHeadToTailPhasorSum(document.getElementById("canvasBphasorSum").getContext("2d"), Bpartials_htt,"blue");
+      drawHeadToTailPhasorSum(document.getElementById("canvasCphasorSum").getContext("2d"), Cpartials_htt,"green");
+      
+      drawMultipleWaveforms(document.getElementById("canvasAseqTime").getContext("2d"), times, 
+        [ 
+          { data:zA_re, color:"darkred",    dash:[2,4]}, 
+          { data:pA_re, color:"indianred",  dash:[8,4]}, 
+          { data:nA_re, color:"lightcoral", dash:[6,3,2,3]}, 
+          { data:Aall_re, color:"red",      dash:[]} 
+        ], -1.5,1.5 );
+      drawMultipleWaveforms(document.getElementById("canvasBseqTime").getContext("2d"), times,
+        [ 
+          { data:zB_re, color:"darkblue",   dash:[2,4]}, 
+          { data:pB_re, color:"cornflowerblue",dash:[8,4]}, 
+          { data:nB_re, color:"lightblue",  dash:[6,3,2,3]}, 
+          { data:Ball_re, color:"blue",     dash:[]} 
+        ], -1.5,1.5 );
+      drawMultipleWaveforms(document.getElementById("canvasCseqTime").getContext("2d"), times,
+        [ 
+          { data:zC_re, color:"darkgreen",  dash:[2,4]}, 
+          { data:pC_re, color:"mediumseagreen",dash:[8,4]}, 
+          { data:nC_re, color:"lightgreen", dash:[6,3,2,3]}, 
+          { data:Call_re, color:"green",    dash:[]} 
+        ], -1.5,1.5 );
+
+      const phasorsToPlot = [
+          { phasor_val: Ia, color: "red",    dash: [],    type: "phase", label: "Ia" },
+          { phasor_val: Ib, color: "blue",   dash: [],    type: "phase", label: "Ib" },
+          { phasor_val: Ic, color: "green",  dash: [],    type: "phase", label: "Ic" },
+          { from_phasor_val: Ib, to_phasor_val: Ia, color: "orange", dash: [5,3], type: "line", label: "Iab (Ia-Ib)" },
+          { from_phasor_val: Ic, to_phasor_val: Ib, color: "purple", dash: [5,3], type: "line", label: "Ibc (Ib-Ic)" },
+          { from_phasor_val: Ia, to_phasor_val: Ic, color: "saddlebrown",  dash: [5,3], type: "line", label: "Ica (Ic-Ia)" }
+      ];
+      drawAllPhasorsOnOnePlot(canvasLinePhasePhasor.getContext("2d"), phasorsToPlot, 1.5);
+      
+      // Update phasor value displays
+      updatePhasorValueDisplays(Ia, Ib, Ic, I0_disp, I1_disp, I2_disp);
+    }
+    animationId = requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Educational Toolkits — NERX Power Consultants</title>
+<meta name="description" content="Free interactive power-engineering toolkits from NERX Power Consultants — including a Sequence Components Toolkit for visualizing symmetrical components, phasors, and unbalanced faults.">
+<script>document.documentElement.classList.add('js');</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="canonical" href="https://www.nerxpower.com/toolkits.html">
+<link rel="stylesheet" href="styles.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Educational Toolkits — NERX Power Consultants">
+<meta property="og:description" content="Free interactive power-engineering toolkits, including a Sequence Components Toolkit for visualizing symmetrical components and unbalanced faults.">
+<style>
+  .tk-intro { max-width: 62ch; font-size: 1.06rem; color: #414851; }
+  .toolkit { background: var(--white); border: 1px solid #e0e5eb; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 1px 4px rgba(33,35,39,.06); margin-top: 26px; }
+  .toolkit-figure { background: linear-gradient(180deg,#f3f6f8,#e9eef2); border-bottom: 1px solid #e0e5eb;
+    padding: 24px 20px; }
+  .toolkit-figure svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; }
+  .toolkit-body { padding: 26px 28px 30px; }
+  .toolkit-body .kicker { color: var(--blue); }
+  .toolkit-body h2 { font-size: 1.5rem; margin: 4px 0 12px; }
+  .toolkit-body p { color: #414851; max-width: 68ch; }
+  .chips { list-style: none; padding: 0; margin: 18px 0 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips li { font-size: 0.85rem; background: #eef3f5; color: #2c4a53; border: 1px solid #d6e2e6;
+    border-radius: 999px; padding: 6px 13px; font-weight: 500; }
+  .toolkit-cta { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+  .toolkit-cta .note { font-size: 0.86rem; color: #6b7278; }
+  .tk-legend { display: flex; gap: 18px; justify-content: center; margin-top: 6px; font-size: .8rem;
+    color: #5f6368; flex-wrap: wrap; }
+  .tk-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .tk-legend i { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="topbar">
+  <div class="container">
+    <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
+    <span><strong>Location:</strong> Houston, TX</span>
+    <span><strong>Hours:</strong> 8:00 am – 6:00 pm Central</span>
+  </div>
+</div>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation">
+      <ul>
+        <li><a href="index.html#services">Services</a></li>
+        <li><a href="index.html#training">Training</a></li>
+        <li><a href="toolkits.html" aria-current="page">Toolkits</a></li>
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="index.html#approach">Our Approach</a></li>
+        <li><a href="index.html#contact" class="cta">Contact Us</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<div class="page-hero">
+  <div class="container">
+    <a class="breadcrumb" href="index.html">&larr; Home</a>
+    <h1>Educational Toolkits</h1>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+    <p class="tk-intro">Free, interactive tools built by a practicing protection engineer to make the
+      hard-to-picture parts of power systems tangible. They run entirely in your browser — nothing to
+      install, nothing to sign up for.</p>
+
+    <article class="toolkit">
+      <div class="toolkit-figure">
+        <svg viewBox="0 0 900 300" role="img" xmlns="http://www.w3.org/2000/svg"
+             aria-label="Any unbalanced three-phase set equals the sum of balanced positive-sequence, negative-sequence, and zero-sequence components.">
+          <defs>
+            <marker id="ahA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1a7690"/></marker>
+            <marker id="ahB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#d98a3d"/></marker>
+            <marker id="ahC" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#4f9e83"/></marker>
+          </defs>
+
+          <!-- guide circles (equal-magnitude reference) -->
+          <circle cx="150" cy="150" r="78" fill="none" stroke="#cfd7dd" stroke-dasharray="3 5"/>
+          <circle cx="430" cy="150" r="49" fill="none" stroke="#cfd7dd" stroke-dasharray="3 5"/>
+          <circle cx="620" cy="150" r="49" fill="none" stroke="#cfd7dd" stroke-dasharray="3 5"/>
+
+          <!-- operators -->
+          <text x="283" y="164" font-family="Georgia,serif" font-size="42" fill="#2a2f34">=</text>
+          <text x="521" y="162" font-family="Georgia,serif" font-size="38" fill="#2a2f34">+</text>
+          <text x="706" y="162" font-family="Georgia,serif" font-size="38" fill="#2a2f34">+</text>
+
+          <!-- UNBALANCED set -->
+          <g stroke-width="4.5" stroke-linecap="round" fill="none">
+            <path d="M150,150 L147.3,72"    stroke="#1a7690" marker-end="url(#ahA)"/>
+            <path d="M150,150 L190.6,181.7" stroke="#d98a3d" marker-end="url(#ahB)"/>
+            <path d="M150,150 L113.5,167.8" stroke="#4f9e83" marker-end="url(#ahC)"/>
+          </g>
+
+          <!-- POSITIVE sequence -->
+          <g stroke-width="3.5" stroke-linecap="round" fill="none">
+            <path d="M430,150 L430,100.7"   stroke="#1a7690" marker-end="url(#ahA)"/>
+            <path d="M430,150 L472.7,174.7" stroke="#d98a3d" marker-end="url(#ahB)"/>
+            <path d="M430,150 L387.3,174.7" stroke="#4f9e83" marker-end="url(#ahC)"/>
+          </g>
+
+          <!-- NEGATIVE sequence -->
+          <g stroke-width="3.5" stroke-linecap="round" fill="none">
+            <path d="M620,150 L620,100.7"   stroke="#1a7690" marker-end="url(#ahA)"/>
+            <path d="M620,150 L577.3,174.7" stroke="#d98a3d" marker-end="url(#ahB)"/>
+            <path d="M620,150 L662.7,174.7" stroke="#4f9e83" marker-end="url(#ahC)"/>
+          </g>
+
+          <!-- ZERO sequence (three in phase) -->
+          <g stroke-width="3.5" stroke-linecap="round" fill="none">
+            <path d="M784,150 L784,100.7" stroke="#1a7690" marker-end="url(#ahA)"/>
+            <path d="M800,150 L800,100.7" stroke="#d98a3d" marker-end="url(#ahB)"/>
+            <path d="M816,150 L816,100.7" stroke="#4f9e83" marker-end="url(#ahC)"/>
+          </g>
+
+          <!-- origin dots -->
+          <g fill="#2a2f34">
+            <circle cx="150" cy="150" r="3.2"/><circle cx="430" cy="150" r="3"/>
+            <circle cx="620" cy="150" r="3"/><circle cx="800" cy="150" r="3"/>
+          </g>
+
+          <!-- captions -->
+          <g font-family="'IBM Plex Sans',Arial,sans-serif" font-size="14" fill="#5f6368"
+             text-anchor="middle" letter-spacing="0.4">
+            <text x="150" y="250">Unbalanced set</text>
+            <text x="430" y="250">Positive</text>
+            <text x="620" y="250">Negative</text>
+            <text x="800" y="250">Zero</text>
+          </g>
+        </svg>
+        <div class="tk-legend">
+          <span><i style="background:#1a7690"></i> Phase A</span>
+          <span><i style="background:#d98a3d"></i> Phase B</span>
+          <span><i style="background:#4f9e83"></i> Phase C</span>
+        </div>
+      </div>
+
+      <div class="toolkit-body">
+        <div class="kicker">Interactive tool</div>
+        <h2>Sequence Components Toolkit</h2>
+        <p>A hands-on visualizer for <strong>symmetrical (sequence) components</strong> — the analytical
+          backbone of unbalanced fault analysis. Drag the phase or sequence sliders and watch the phasors
+          respond in real time, then see any unbalanced three-phase set resolve into its
+          <strong>positive-, negative-, and zero-sequence</strong> networks. Step through worked fault
+          conditions with the underlying math shown right alongside the diagram — the picture and the
+          equations, finally in one place.</p>
+
+        <ul class="chips">
+          <li>Real-time phase &amp; sequence sliders</li>
+          <li>Positive / negative / zero decomposition</li>
+          <li>ABC &amp; CBA rotation</li>
+          <li>Single line-to-ground &amp; phase-to-phase faults</li>
+          <li>Polar ↔ rectangular · degree ↔ radian tools</li>
+          <li>Runs in your browser — nothing to install</li>
+        </ul>
+
+        <div class="toolkit-cta">
+          <a class="btn btn-primary" href="toolkits/sequence-components-toolkit.html"
+             target="_blank" rel="noopener">Launch the toolkit &rarr;</a>
+          <span class="note">Opens in a new tab · free to use · best on desktop or tablet</span>
+        </div>
+      </div>
+    </article>
+
+    <p class="tk-intro" style="margin-top:30px">More toolkits are on the way. Have one you'd find useful,
+      or spotted something to improve? <a href="mailto:douglas.millner@nerxpower.com">Email Doug Millner</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <img src="nerx-logo-transparent.png" alt="NERX Power Consultants">
+    <div>&copy; 2026 NERX Power Consultants LLC. All Rights Reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>

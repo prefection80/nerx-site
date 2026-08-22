@@ -35,6 +35,19 @@
     color: #5f6368; flex-wrap: wrap; }
   .tk-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .tk-legend i { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
+  .sc-section { border-top: 1px solid #e0e5eb; margin-top: 40px; padding-top: 34px; }
+  .sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; margin-top: 24px; }
+  .sc-tk { display: flex; flex-direction: column; background: var(--white); color: var(--charcoal);
+    border: 1px solid #e0e5eb; border-radius: 10px; padding: 20px 22px 18px; text-decoration: none;
+    box-shadow: 0 1px 4px rgba(33,35,39,.06); transition: border-color .15s, box-shadow .15s, transform .15s; }
+  .sc-tk:hover { border-color: var(--blue); box-shadow: 0 6px 18px rgba(33,35,39,.12); transform: translateY(-2px); }
+  .sc-tk .sc-n { font-family: "IBM Plex Mono", Consolas, monospace; font-size: .8rem; font-weight: 600;
+    color: var(--blue); letter-spacing: .04em; }
+  .sc-tk h3 { font-size: 1.04rem; margin: 6px 0 8px; color: var(--charcoal); line-height: 1.25; }
+  .sc-tk p { font-size: .9rem; color: #5a6b7b; line-height: 1.5; flex: 1; margin: 0 0 14px; }
+  .sc-tk .sc-go { font-weight: 600; color: var(--blue); font-size: .9rem; }
+  .sc-tk:hover .sc-go { text-decoration: underline; }
+  .sc-note { font-size: .84rem; color: #6b7278; margin-top: 18px; }
 </style>
 </head>
 <body>
@@ -179,7 +192,62 @@
       </div>
     </article>
 
-    <p class="tk-intro" style="margin-top:30px">More toolkits are on the way. Have one you'd find useful,
+    <div class="sc-section">
+      <div class="kicker" style="color:var(--blue)">Training session · interactive figures</div>
+      <h2 style="font-size:1.5rem; margin:4px 0 12px; color:var(--charcoal)">Symmetrical Components — Session Toolkits</h2>
+      <p class="tk-intro">The interactive figures from the live <b>Symmetrical Components</b> tutorial, each on its
+        own page so you can drive it yourself. Every picture is computed by the same engine used in class —
+        so it can never disagree with the math. Best on a desktop or tablet.</p>
+
+      <div class="sc-grid">
+        <a class="sc-tk" href="toolkits/sc/01-decomposition.html" target="_blank" rel="noopener">
+          <span class="sc-n">01 · Transformation</span>
+          <h3>See the decomposition happen</h3>
+          <p>Watch a fault current resolve into positive-, negative-, and zero-sequence sets. Switch the
+            disturbance — balanced, single line-to-ground, line-to-line, open phase — and see which sets survive.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+        <a class="sc-tk" href="toolkits/sc/02-unbalanced-set.html" target="_blank" rel="noopener">
+          <span class="sc-n">02 · Build it</span>
+          <h3>One unbalanced set = three balanced sets</h3>
+          <p>Drive the three phase phasors with the sliders and watch the balanced positive, negative, and zero
+            sets that add up to make them — Fortescue's theorem, live.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+        <a class="sc-tk" href="toolkits/sc/03-sequence-lab.html" target="_blank" rel="noopener">
+          <span class="sc-n">03 · The lab</span>
+          <h3>Sequence lab — drive it yourself</h3>
+          <p>The full sandbox: set the magnitude and angle of each sequence component and read the phase
+            currents that result — or work it the other way around.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+        <a class="sc-tk" href="toolkits/sc/04-line-to-line.html" target="_blank" rel="noopener">
+          <span class="sc-n">04 · What the CT sees</span>
+          <h3>Line-to-line quantities can't see zero sequence</h3>
+          <p>Drive the phase currents and watch line-to-line quantities stay blind to the zero-sequence set —
+            the reason a delta winding hides ground current.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+        <a class="sc-tk" href="toolkits/sc/05-zero-seq-paths.html" target="_blank" rel="noopener">
+          <span class="sc-n">05 · Transformers</span>
+          <h3>Where zero sequence can go through a bank</h3>
+          <p>Pick a transformer winding connection and impedance, and see whether zero-sequence current passes
+            through, sources from, or is blocked by the bank.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+        <a class="sc-tk" href="toolkits/sc/06-bank-decides.html" target="_blank" rel="noopener">
+          <span class="sc-n">06 · Solved live</span>
+          <h3>The bank decides — with real numbers</h3>
+          <p>The engine solves it in real time: choose HV/LV connections, clock hour, neutral impedance and core
+            type, and read the verdict off the zero-sequence current on each side.</p>
+          <span class="sc-go">Open the toolkit &rarr;</span>
+        </a>
+      </div>
+      <p class="sc-note">These open in a new tab and run entirely in your browser. From the Symmetrical
+        Components — Part&nbsp;1 session; more toolkits will be added as further sessions are built.</p>
+    </div>
+
+    <p class="tk-intro" style="margin-top:34px">More toolkits are on the way. Have one you'd find useful,
       or spotted something to improve? <a href="mailto:douglas.millner@nerxpower.com">Email Doug Millner</a>.</p>
   </div>
 </section>

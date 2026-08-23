@@ -161,6 +161,25 @@
     const SEQ = { pos: '#2e7dd1', neg: '#c9482f', zero: '#6a8f2f', ref: '#9aa8b4', a: '#2e7dd1', b: '#c9482f', c: '#6a8f2f' };
     const seqColor = k => SEQ[k] || SEQ.ref;
 
+    /* ---------- log scale (for TCC / spectrum axes) ---------- */
+    const logScale = (min, max, px0, px1) => {
+      const l0 = Math.log10(min), l1 = Math.log10(max), span = (l1 - l0) || 1;
+      return {
+        min, max,
+        toPx: v => px0 + (Math.log10(v) - l0) / span * (px1 - px0),
+        fromPx: x => Math.pow(10, l0 + (x - px0) / (px1 - px0) * span),
+        ticks() { const out = []; for (let d = Math.floor(l0); d <= Math.ceil(l1); d++) for (let m = 1; m <= 9; m++) { const v = m * Math.pow(10, d); if (v >= min * 0.999 && v <= max * 1.001) out.push({ v, major: m === 1 }); } return out; },
+      };
+    };
+
+    /* ---------- overcurrent time-current curves ---------- */
+    // IEEE C37.112: t = TD·(A/(Mᵖ−1) + B).  IEC 60255: t = TD·A/(Mᵖ−1) (B=0).  M = I/Ipickup.
+    const OC_CURVES = {
+      'IEEE-MI': { A: 0.0515, B: 0.1140, p: 0.02 }, 'IEEE-VI': { A: 19.61, B: 0.491, p: 2.0 }, 'IEEE-EI': { A: 28.2, B: 0.1217, p: 2.0 },
+      'IEC-SI': { A: 0.14, B: 0, p: 0.02 }, 'IEC-VI': { A: 13.5, B: 0, p: 1.0 }, 'IEC-EI': { A: 80, B: 0, p: 2.0 },
+    };
+    const ocTime = (curve, M, TD) => { const k = OC_CURVES[curve] || OC_CURVES['IEEE-MI']; return M <= 1.0001 ? Infinity : (TD == null ? 1 : TD) * (k.A / (Math.pow(M, k.p) - 1) + k.B); };
+
     return {
       TAU, D2R, R2D,
       cx, j, polar, Z, add, sub, mul, div, neg, conj, scale, abs, ang, rot, par,
@@ -172,6 +191,7 @@
       series, parallel, line,
       vectorShift, xfmrZeroSeq,
       phasorOf, waveform, rms, thd,
+      logScale, ocTime, OC_CURVES,
       fmt, fmtC, fmtA, fmtPu, fmtDeg, SEQ, seqColor,
     };
   })();
@@ -417,6 +437,188 @@
     }
     requestAnimationFrame(frame);
     return { p, canvas, ctx, fit };
+  };
+
+  const D = NS.draw;          // shorthand for the plot components below
+
+  /* ======================================================================
+   *  Impedance — R–X plane with distance zones + a live impedance point
+   * ==================================================================== */
+  NS.Impedance = function (canvas, cfg) {
+    cfg = cfg || {}; const cal = C, TAU = C.TAU, D2R = C.D2R;
+    function draw(ctx, t) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const ox = cfg.origin ? cfg.origin[0] : W * 0.44;
+      const oy = cfg.origin ? cfg.origin[1] : H * 0.62;
+      const s = cfg.scale || (Math.min(W, H) * 0.34 / (cfg.range || 1));   // px per pu/ohm
+      const grid = cfg.grid || '#c9d4dd', mut = cfg.muted || '#5a6b78';
+      ctx.strokeStyle = grid; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(16, oy); ctx.lineTo(W - 12, oy); ctx.moveTo(ox, 12); ctx.lineTo(ox, H - 12); ctx.stroke();
+      D.label(ctx, 'R', W - 20, oy + 13, mut, 13, true); D.label(ctx, 'X', ox + 11, 18, mut, 13, true);
+      const zones = typeof cfg.zones === 'function' ? cfg.zones() : (cfg.zones || []);
+      zones.forEach(z => {
+        const col = z.color || cal.SEQ.pos, mta = (z.angle == null ? 75 : z.angle) * D2R;
+        ctx.strokeStyle = col; ctx.lineWidth = z.w || 2; ctx.setLineDash(z.dash || []); ctx.globalAlpha = z.alpha || 1;
+        if (z.type === 'quad') {
+          const X = z.reach * s, Rr = (z.rRight != null ? z.rRight : z.reach * 0.8) * s, Rl = (z.rLeft != null ? z.rLeft : -z.reach * 0.2) * s;
+          const tilt = Math.tan((90 - (z.angle == null ? 75 : z.angle)) * D2R);
+          ctx.beginPath(); ctx.moveTo(ox + Rl, oy); ctx.lineTo(ox + Rr, oy);
+          ctx.lineTo(ox + Rr - X * tilt, oy - X); ctx.lineTo(ox + Rl - X * tilt, oy - X); ctx.closePath(); ctx.stroke();
+        } else {   // mho circle through the origin, diameter along the MTA
+          const d = z.reach * s, ccx = ox + Math.cos(mta) * d / 2, ccy = oy - Math.sin(mta) * d / 2;
+          ctx.beginPath(); ctx.arc(ccx, ccy, d / 2, 0, TAU); ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+        if (z.label) D.label(ctx, z.label, ox + Math.cos(mta) * z.reach * s * 0.62, oy - Math.sin(mta) * z.reach * s * 0.62, col, 12, true);
+      });
+      const pt = typeof cfg.point === 'function' ? cfg.point(t) : cfg.point;
+      if (pt) {
+        const r = pt.re != null ? pt.re : pt.r, x = pt.im != null ? pt.im : pt.x;
+        const px = ox + r * s, py = oy - x * s;
+        if (cfg.trail) { cfg._tr = cfg._tr || []; cfg._tr.push([px, py]); if (cfg._tr.length > (cfg.trailLen || 140)) cfg._tr.shift();
+          ctx.strokeStyle = cfg.trailColor || cal.SEQ.neg; ctx.globalAlpha = 0.4; ctx.lineWidth = 1.6; ctx.beginPath(); cfg._tr.forEach((p, k) => k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.globalAlpha = 1; }
+        ctx.strokeStyle = mut; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = cfg.pointColor || cal.SEQ.neg; ctx.beginPath(); ctx.arc(px, py, 5, 0, TAU); ctx.fill();
+        if (cfg.pointLabel) D.label(ctx, cfg.pointLabel, px + 9, py - 3, cfg.pointColor || cal.SEQ.neg, 13, true);
+      }
+    }
+    return { draw, config: cfg };
+  };
+
+  /* ======================================================================
+   *  Coordination — log-log time-current curves with a fault sweep
+   * ==================================================================== */
+  NS.Coordination = function (canvas, cfg) {
+    cfg = cfg || {}; const cal = C;
+    function draw(ctx, t) {
+      const W = ctx.canvas.width, H = ctx.canvas.height, x0 = 56, x1 = W - 14, y0 = 14, y1 = H - 34;
+      const Ix = cal.logScale(cfg.iMin || 100, cfg.iMax || 100000, x0, x1);
+      const Ty = cal.logScale(cfg.tMin || 0.01, cfg.tMax || 100, y1, y0);   // t grows upward
+      const grid = cfg.grid || '#dbe3ea', mut = cfg.muted || '#5a6b78';
+      ctx.lineWidth = 1;
+      Ix.ticks().forEach(tk => { const x = Ix.toPx(tk.v); ctx.strokeStyle = grid; ctx.globalAlpha = tk.major ? 0.9 : 0.3; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); if (tk.major) { ctx.globalAlpha = 1; D.label(ctx, tk.v >= 1000 ? (tk.v / 1000) + 'k' : '' + tk.v, x, y1 + 12, mut, 10.5, false, 'center'); } });
+      Ty.ticks().forEach(tk => { const y = Ty.toPx(tk.v); ctx.strokeStyle = grid; ctx.globalAlpha = tk.major ? 0.9 : 0.3; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); if (tk.major) { ctx.globalAlpha = 1; D.label(ctx, tk.v < 1 ? tk.v.toFixed(2) : '' + tk.v, x0 - 6, y, mut, 10.5, false, 'right'); } });
+      ctx.globalAlpha = 1;
+      D.label(ctx, 'Current (A)', (x0 + x1) / 2, H - 6, mut, 12, true, 'center');
+      const devs = typeof cfg.devices === 'function' ? cfg.devices() : (cfg.devices || []);
+      devs.forEach(dv => {
+        ctx.strokeStyle = dv.color || cal.SEQ.pos; ctx.lineWidth = dv.w || 2.4; ctx.beginPath(); let go = false, lastPx = 0, lastPy = 0;
+        for (let px = x0; px <= x1; px += 2) { const I = Ix.fromPx(px), tt = dv.curve(I); if (tt == null || !isFinite(tt) || tt > (cfg.tMax || 100) || tt < (cfg.tMin || 0.01)) { go = false; continue; } const py = Ty.toPx(tt); go ? ctx.lineTo(px, py) : ctx.moveTo(px, py); go = true; lastPx = px; lastPy = py; }
+        ctx.stroke(); if (dv.label && lastPy) D.label(ctx, dv.label, Math.min(lastPx + 6, x1 - 40), lastPy, dv.color || cal.SEQ.pos, 12, true);
+      });
+      if (cfg.faultCurrent) { const If = typeof cfg.faultCurrent === 'function' ? cfg.faultCurrent(t) : cfg.faultCurrent; const x = Ix.toPx(If);
+        ctx.strokeStyle = cfg.faultColor || cal.SEQ.neg; ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); ctx.setLineDash([]);
+        D.label(ctx, 'fault ' + (If >= 1000 ? (If / 1000).toFixed(1) + ' kA' : If + ' A'), x + 6, y0 + 9, cfg.faultColor || cal.SEQ.neg, 12, true); }
+    }
+    return { draw, config: cfg };
+  };
+
+  /* ======================================================================
+   *  Stability — power-angle curve + equal-area criterion
+   * ==================================================================== */
+  NS.Stability = function (canvas, cfg) {
+    cfg = cfg || {}; const cal = C, TAU = C.TAU;
+    function draw(ctx, t) {
+      const W = ctx.canvas.width, H = ctx.canvas.height, x0 = 40, x1 = W - 14, y0 = 16, y1 = H - 32;
+      const dmax = Math.PI, Pmax = cfg.pmax || 1.8, Pf = cfg.pmaxFault != null ? cfg.pmaxFault : 0.5, Pp = cfg.pmaxPost != null ? cfg.pmaxPost : 1.5, Pm = cfg.pm || 1.0;
+      const px = d => x0 + d / dmax * (x1 - x0), py = p => y1 - p / (Pmax * 1.05) * (y1 - y0);
+      const grid = cfg.grid || '#dbe3ea', mut = cfg.muted || '#5a6b78';
+      ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); ctx.stroke();
+      [0, 45, 90, 135, 180].forEach(deg => { const x = px(deg * C.D2R); D.label(ctx, deg + '°', x, y1 + 12, mut, 10.5, false, 'center'); });
+      D.label(ctx, 'P', x0 - 2, y0 + 4, mut, 13, true, 'right'); D.label(ctx, 'δ', x1, y1 + 12, mut, 13, true, 'right');
+      const d0 = Math.asin(Math.min(0.999, Pm / Pmax));
+      const dc = cfg.clearAngle != null ? cfg.clearAngle : 1.15;              // clearing angle (rad)
+      const dmx = Math.PI - Math.asin(Math.min(0.999, Pm / Pp));              // far post-fault crossing
+      // accelerating area: Pm above the fault curve, δ0→δc
+      ctx.fillStyle = cal.SEQ.neg; ctx.globalAlpha = 0.16; ctx.beginPath(); ctx.moveTo(px(d0), py(Pm));
+      for (let d = d0; d <= dc; d += 0.01) ctx.lineTo(px(d), py(Pm)); for (let d = dc; d >= d0; d -= 0.01) ctx.lineTo(px(d), py(Pf * Math.sin(d))); ctx.closePath(); ctx.fill();
+      // decelerating area: post curve above Pm, δc→δmax
+      ctx.fillStyle = cal.SEQ.zero; ctx.beginPath(); ctx.moveTo(px(dc), py(Pm));
+      for (let d = dc; d <= dmx; d += 0.01) ctx.lineTo(px(d), py(Pp * Math.sin(d))); for (let d = dmx; d >= dc; d -= 0.01) ctx.lineTo(px(d), py(Pm)); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      const curve = (Pk, col, dash) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineWidth = 2.2; ctx.beginPath(); for (let d = 0; d <= dmax; d += 0.02) { const X = px(d), Y = py(Pk * Math.sin(d)); d ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); } ctx.stroke(); ctx.setLineDash([]); };
+      curve(Pmax, cal.SEQ.pos); curve(Pf, cal.SEQ.neg, [6, 4]); curve(Pp, cal.SEQ.zero, [2, 4]);
+      ctx.strokeStyle = mut; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x0, py(Pm)); ctx.lineTo(x1, py(Pm)); ctx.stroke(); ctx.setLineDash([]);
+      D.label(ctx, 'Pₘ', x1 - 6, py(Pm) - 9, mut, 12, true, 'right');
+      // swinging operating point: δ0 → δc (fault) → δmx → back, looping
+      const swing = typeof cfg.swing === 'function' ? cfg.swing(t) : (function () { const T = cfg.period || 4, u = (t % T) / T; return u < 0.5 ? d0 + (dmx - d0) * (u * 2) : dmx - (dmx - d0) * ((u - 0.5) * 2); })();
+      const onCurve = swing < dc ? Pf * Math.sin(swing) : Pp * Math.sin(swing);
+      ctx.fillStyle = '#0f1c26'; ctx.beginPath(); ctx.arc(px(swing), py(onCurve), 5, 0, TAU); ctx.fill();
+      D.label(ctx, 'accel', px((d0 + dc) / 2), py(Pm) + 12, cal.SEQ.neg, 11, true, 'center');
+      D.label(ctx, 'decel', px((dc + dmx) / 2), py(Pm) - 14, cal.SEQ.zero, 11, true, 'center');
+    }
+    return { draw, config: cfg };
+  };
+
+  /* ======================================================================
+   *  Spectrum — harmonic bar chart, optionally linked to its waveform
+   * ==================================================================== */
+  NS.Spectrum = function (canvas, cfg) {
+    cfg = cfg || {}; const cal = C, TAU = C.TAU, D2R = C.D2R;
+    function draw(ctx, t) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const harm = typeof cfg.harmonics === 'function' ? cfg.harmonics() : (cfg.harmonics || []);
+      const grid = cfg.grid || '#dbe3ea', mut = cfg.muted || '#5a6b78';
+      const splitY = cfg.showWave === false ? 0 : Math.round(H * 0.44);
+      const fund = harm.find(h => h.n === 1), base = fund ? Math.abs(fund.mag) : (Math.max(1e-9, ...harm.map(h => Math.abs(h.mag || 0))));
+      if (cfg.showWave !== false) {
+        const wx0 = 12, wx1 = W - 12, midY = splitY * 0.5 + 6, amp = splitY * 0.5 - 14, cyc = cfg.cycles || 2;
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(wx0, midY); ctx.lineTo(wx1, midY); ctx.stroke();
+        const norm = harm.reduce((s, h) => s + Math.abs(h.mag || 0), 0) || 1;
+        const scroll = cfg.scroll === false ? 0 : t * TAU * 0.25;
+        ctx.strokeStyle = cfg.waveColor || cal.SEQ.pos; ctx.lineWidth = 2.3; ctx.beginPath();
+        for (let x = wx0; x <= wx1; x += 2) { const ph = (x - wx0) / (wx1 - wx0) * cyc * TAU; let v = 0; harm.forEach(h => v += (h.mag || 0) * Math.sin((h.n || 1) * (ph + scroll) + (h.ang || 0) * D2R)); const y = midY - v / norm * amp; x === wx0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+        ctx.stroke();
+      }
+      const bx0 = 44, bx1 = W - 14, by0 = splitY + 16, by1 = H - 26, maxN = cfg.maxOrder || Math.max(9, ...harm.map(h => h.n || 1));
+      ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx0, by1); ctx.lineTo(bx1, by1); ctx.moveTo(bx0, by0); ctx.lineTo(bx0, by1); ctx.stroke();
+      const bw = (bx1 - bx0) / (maxN + 0.5), full = cfg.fullScalePct || 100;
+      for (let n = 1; n <= maxN; n++) {
+        const h = harm.find(x => x.n === n), pctv = h ? Math.abs(h.mag) / base * 100 : 0, x = bx0 + (n - 0.5) * bw;
+        const barH = Math.max(0, Math.min(1, pctv / full)) * (by1 - by0);
+        ctx.fillStyle = n === 1 ? (cfg.fundColor || cal.SEQ.pos) : (cfg.harmColor || cal.SEQ.neg);
+        ctx.fillRect(x - bw * 0.32, by1 - barH, bw * 0.64, barH);
+        D.label(ctx, '' + n, x, by1 + 12, mut, 10.5, false, 'center');
+      }
+      const mags = []; harm.forEach(h => (mags[h.n] = cal.cx(Math.abs(h.mag || 0), 0))); for (let i = 0; i <= maxN; i++) mags[i] = mags[i] || cal.cx(0, 0);
+      D.label(ctx, 'THD = ' + cal.thd(mags).toFixed(1) + '%', bx1, by0 + 4, mut, 13, true, 'right');
+      D.label(ctx, 'harmonic order', (bx0 + bx1) / 2, H - 6, mut, 12, true, 'center');
+    }
+    return { draw, config: cfg };
+  };
+
+  /* ======================================================================
+   *  OneLine — schematic one-line with animated power/current flow
+   * ==================================================================== */
+  NS.OneLine = function (canvas, cfg) {
+    cfg = cfg || {}; const cal = C, TAU = C.TAU;
+    function sym(ctx, n, ink, mut) {
+      ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 2;
+      if (n.type === 'bus') { ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(n.x - (n.w || 40), n.y); ctx.lineTo(n.x + (n.w || 40), n.y); ctx.stroke(); }
+      else if (n.type === 'source') { ctx.beginPath(); ctx.arc(n.x, n.y, 15, 0, TAU); ctx.stroke(); D.label(ctx, '∼', n.x, n.y, ink, 20, true, 'center'); }
+      else if (n.type === 'xfmr') { ctx.beginPath(); ctx.arc(n.x, n.y - 9, 12, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(n.x, n.y + 9, 12, 0, TAU); ctx.stroke(); }
+      else if (n.type === 'load') { ctx.beginPath(); ctx.moveTo(n.x - 10, n.y); ctx.lineTo(n.x + 10, n.y); ctx.lineTo(n.x, n.y + 17); ctx.closePath(); ctx.stroke(); }
+      else if (n.type === 'breaker') { ctx.strokeRect(n.x - 7, n.y - 7, 14, 14); }
+      if (n.label) D.label(ctx, n.label, n.x + (n.lx != null ? n.lx : 24), n.y + (n.ly || 0), mut, 12.5, true);
+    }
+    function draw(ctx, t) {
+      const nodes = cfg.nodes || {}, edges = typeof cfg.edges === 'function' ? cfg.edges() : (cfg.edges || []);
+      const ink = cfg.ink || '#0f1c26', mut = cfg.muted || '#5a6b78';
+      edges.forEach(e => {
+        const a = nodes[e.from], b = nodes[e.to]; if (!a || !b) return;
+        ctx.strokeStyle = e.color || ink; ctx.lineWidth = e.w || (2 + Math.min(4, Math.abs(e.flow || 0) * 1.4));
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        const flow = e.flow || 0;
+        if (flow !== 0) {
+          const len = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len, dir = Math.sign(flow);
+          const spacing = 22, off = ((t * (cfg.flowSpeed || 46)) % spacing);
+          ctx.fillStyle = e.flowColor || cal.SEQ.pos;
+          for (let d = off; d < len - 4; d += spacing) { const dd = dir > 0 ? d : (len - d); const x = a.x + ux * dd, y = a.y + uy * dd; ctx.beginPath(); ctx.arc(x, y, 2.6, 0, TAU); ctx.fill(); }
+        }
+      });
+      Object.keys(nodes).forEach(id => sym(ctx, nodes[id], ink, mut));
+    }
+    return { draw, config: cfg };
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = NS;

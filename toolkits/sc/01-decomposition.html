@@ -1215,7 +1215,7 @@ window.PWR = (function () {
 window.PFASX = (function () {
   'use strict';
 
-  const BASE = 'https://fault-analysis-backend.onrender.com';
+  const BASE = 'http://localhost:8018';
   const DEBOUNCE = 120;          // ms — a drag becomes one request
   const TIMEOUT = 4000;          // ms — past this the badge goes amber and the slide keeps drawing
   const CACHE_MAX = 400;
@@ -5902,7 +5902,47 @@ deck.anim.register('xfmr0', function (c, t, a, p) {
       ],
     };
 
-    const res = deck.pfas.analyze(model, 'bankdecides');
+    const res = (function () {
+      // ---- local zero-sequence transformer solver (replaces the PFAS engine) ----
+      // A single-line-to-ground fault on the 13.8 kV bus. Whether zero-sequence
+      // current flows on each side is fixed by the winding connections, the LV
+      // neutral grounding impedance and the core type — the classic transformer
+      // zero-sequence connection rules. Positive/negative sequence always flow to
+      // the source through the bank; the vector-group clock shifts them by ±30°×hour.
+      const CX = (re, im) => ({ re, im }), ZC = CX(0, 0);
+      const cadd = (x, y) => CX(x.re + y.re, x.im + y.im);
+      const cmul = (x, y) => CX(x.re * y.re - x.im * y.im, x.re * y.im + x.im * y.re);
+      const cdiv = (x, y) => { const dd = y.re * y.re + y.im * y.im; return CX((x.re * y.re + x.im * y.im) / dd, (x.im * y.re - x.re * y.im) / dd); };
+      const crot = (z, deg) => { const r = deg * Math.PI / 180, co = Math.cos(r), si = Math.sin(r); return CX(z.re * co - z.im * si, z.re * si + z.im * co); };
+      const z1tx = CX(ztx / 10, ztx), z0tx = CX(ztx / 10, ztx);
+      const zsrc1 = CX(0.0013, 0.02), zsrc0 = CX(0.006, 0.09), znc = CX(0, +p.zn || 0), ZMc = CX(0, ZM0);
+      // zero-sequence path seen from the LV fault bus
+      let path = false, passesHV = false, Zz = null;
+      if (p.lv === 'Wye-G') {
+        const base = cadd(z0tx, cmul(CX(3, 0), znc));                       // ztx0 + 3·Zn
+        if (p.hv === 'Wye-G') { path = true; passesHV = true; Zz = cadd(base, zsrc0); }   // ties both nets
+        else if (p.hv === 'Delta') { path = true; passesHV = false; Zz = base; }          // delta grounds it locally
+        else if (p.core === '3-Legged') { path = true; passesHV = false; Zz = cadd(base, ZMc); }  // phantom via the tank
+        // HV ungrounded-wye on a 5-legged core: no path (blocks)
+      }
+      // LV delta or ungrounded-wye: no zero-sequence path from the LV bus
+      const Zp = cadd(zsrc1, z1tx);                                          // Z1 = Z2
+      const I0 = path ? cdiv(CX(1, 0), cadd(cadd(Zp, Zp), Zz)) : ZC;
+      const I1 = I0, I2 = I0;                                                // LG fault: |I1| = |I2| = |I0|
+      const lvSeq = { zero: path ? I0 : ZC, pos: I1, neg: I2 };
+      const hvSeq = { zero: passesHV ? I0 : ZC, pos: crot(I1, -30 * hour), neg: crot(I2, 30 * hour) };
+      const A = crot(CX(1, 0), 120), A2 = crot(CX(1, 0), 240);
+      const seqPh = s => ({
+        a: cadd(cadd(s.zero, s.pos), s.neg),
+        b: cadd(cadd(s.zero, cmul(A2, s.pos)), cmul(A, s.neg)),
+        c: cadd(cadd(s.zero, cmul(A, s.pos)), cmul(A2, s.neg)),
+      });
+      return { state: 'local', data: {
+        branchCurrents: [{ elementId: 'TX1', sequenceCurrents: hvSeq, toSequenceCurrents: lvSeq,
+                           phaseCurrents: seqPh(hvSeq), toPhaseCurrents: seqPh(lvSeq) }],
+        faultCurrent: cmul(CX(3, 0), I0),
+      } };
+    })();
     const d = res.data, m = z => (z ? Math.hypot(z.re, z.im) : 0), agl = z => Math.atan2(z.im, z.re);
     const tx = d && (d.branchCurrents || []).find(b => b.elementId === 'TX1');
     const hvI = tx && (QUANT === 'sequence' ? tx.sequenceCurrents : tx.phaseCurrents);

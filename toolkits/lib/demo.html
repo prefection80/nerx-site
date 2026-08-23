@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nerx-signals — component demo</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{ --bg:#0d141c; --panel:#131d27; --line:#243441; --ink:#e7edf3; --mut:#8fa1b1; --acc:#5aa9e0; }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.55}
+  .wrap{max-width:1000px; margin:0 auto; padding:26px 20px 70px}
+  h1{font-size:1.5rem; margin:0 0 4px} .sub{color:var(--mut); margin:0 0 26px; font-size:.95rem}
+  .demo{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px 20px; margin-bottom:22px}
+  .demo h2{font-size:1.05rem; margin:0 0 2px} .demo p{color:var(--mut); font-size:.88rem; margin:0 0 14px}
+  canvas{display:block; width:100%; background:#0a121a; border-radius:8px; border:1px solid #1b2833}
+  .controls{display:flex; flex-wrap:wrap; gap:14px 22px; margin-top:14px}
+  .ns-ctrl{display:inline-flex; align-items:center; gap:8px; font-size:.85rem; color:var(--mut)}
+  .ns-ctrl .ns-lab{white-space:nowrap}
+  .ns-ctrl input[type=range]{width:120px; accent-color:var(--acc)}
+  .ns-ctrl select{background:#0f1a24; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:3px 7px; font:inherit}
+  .ns-ctrl .ns-val{font-family:"IBM Plex Mono",Consolas,monospace; color:var(--ink); min-width:34px}
+  .readout{font-family:"IBM Plex Mono",Consolas,monospace; font-size:.82rem; color:var(--mut); margin-top:12px}
+  .readout b{color:var(--ink)}
+  code{font-family:Consolas,monospace; background:#0f1a24; padding:1px 5px; border-radius:4px; font-size:.85em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>nerx-signals</h1>
+  <p class="sub">Live component demo — phasor animation, oscillography, and the calc engine that feeds them. One 20&nbsp;KB script, no dependencies.</p>
+
+  <div class="demo">
+    <h2>1 · Phasor — rotating, with waveform projection</h2>
+    <p>Three-phase set. Drag <code>|Iₐ|</code> and <code>∠Iₐ</code>; the arrows and the sine traces follow. The spinning arrow <em>is</em> the waveform.</p>
+    <canvas id="cv1"></canvas>
+    <div class="controls" id="ctl1"></div>
+  </div>
+
+  <div class="demo">
+    <h2>2 · Scope — a relay event record</h2>
+    <p>Phase currents on a cycle grid; <code>3I₀</code> is a derived residual — dead flat until the ground fault at the trigger, then the whole story. The <code>X/R</code> slider changes the DC-offset decay.</p>
+    <canvas id="cv2"></canvas>
+    <div class="controls" id="ctl2"></div>
+  </div>
+
+  <div class="demo">
+    <h2>3 · Calc &rarr; Phasor — a fault, solved and drawn</h2>
+    <p>An SLG fault's phase currents, computed by <code>calc.faults()</code> and drawn as phasors. Change <code>Z₀</code> and watch the ground path open up.</p>
+    <canvas id="cv3"></canvas>
+    <div class="controls" id="ctl3"></div>
+    <div class="readout" id="ro3"></div>
+  </div>
+</div>
+
+<script src="nerx-signals.js"></script>
+<script>
+const S = NS.calc.SEQ, TAU = NS.calc.TAU;
+
+/* 1 — Phasor */
+let ui1;
+const ph1 = NS.Phasor(null, {
+  origin: [130, 150], radius: 96, refCircle: true, waveform: 'right', wavePixels: 150, freq: 0.16,
+  phasors: () => { const m = ui1.p.mag, a = ui1.p.ang; return [
+    { mag: m, ang: a,       color: S.a, label: 'a' },
+    { mag: 1, ang: a - 120, color: S.b, label: 'b' },
+    { mag: 1, ang: a + 120, color: S.c, label: 'c' },
+  ]; }
+});
+ui1 = NS.mount('#cv1', '#ctl1', { aspect: 0.33,
+  params: { mag: { label: '|Iₐ|', min: 0.2, max: 1.6, step: 0.05, value: 1 },
+            ang: { label: '∠Iₐ', min: -180, max: 180, step: 5, value: 0 },
+            spin:{ label: 'rotate', choices: ['on','off'], value: 'on' } },
+  view: (ctx, t) => { ph1.config.rotate = ui1.p.spin === 'on' ? 'ccw' : false; ph1.draw(ctx, t); }
+});
+
+/* 2 — Scope */
+let ui2;
+const tF = 0.08;
+const scope = NS.Scope(null, {
+  window: 0.25, freq: 60, trigger: tF, motion: 'sweep',
+  channels: () => {
+    const xr = ui2.p.xr, tau = xr / (TAU * 60);
+    const ia = t => t < tF ? 0.7 * Math.sin(TAU*60*t) : 4.0 * Math.sin(TAU*60*t + 0.4) + 3.0 * Math.exp(-(t - tF) / tau);
+    const ib = t => 0.7 * Math.sin(TAU*60*t - 2.094);
+    const ic = t => 0.7 * Math.sin(TAU*60*t + 2.094);
+    return [
+      { name: 'Iₐ', color: S.a, signal: ia },
+      { name: 'I_b', color: S.b, signal: ib },
+      { name: 'I_c', color: S.c, signal: ic },
+      { name: '3I₀', color: S.zero, derived: 'residual' },
+    ];
+  }
+});
+ui2 = NS.mount('#cv2', '#ctl2', { aspect: 0.42, gain: 1,
+  params: { xr: { label: 'X/R', min: 2, max: 30, step: 1, value: 12 } },
+  view: (ctx, t) => { scope.config.gain = 6; scope.draw(ctx, t); }
+});
+
+/* 3 — Calc -> Phasor */
+let ui3;
+const ph3 = NS.Phasor(null, {
+  origin: [150, 150], radius: 100, refCircle: true, waveform: false, rotate: false, scale: 'fit',
+  phasors: () => {
+    const f = NS.calc.faults({ z1: NS.calc.j(0.1), z2: NS.calc.j(0.1), z0: NS.calc.j(ui3.p.z0) }).slg;
+    return [
+      { mag: NS.calc.abs(f.phase.a), ang: NS.calc.ang(f.phase.a), color: S.a, label: 'Iₐ' },
+      { mag: NS.calc.abs(f.phase.b), ang: NS.calc.ang(f.phase.b), color: S.b, label: 'I_b' },
+      { mag: NS.calc.abs(f.phase.c), ang: NS.calc.ang(f.phase.c), color: S.c, label: 'I_c' },
+    ];
+  }
+});
+ui3 = NS.mount('#cv3', '#ctl3', { aspect: 0.4,
+  params: { z0: { label: 'Z₀ (pu)', min: 0.02, max: 0.6, step: 0.01, value: 0.05 } },
+  view: (ctx, t) => {
+    ph3.draw(ctx, t);
+    const f = NS.calc.faults({ z1: NS.calc.j(0.1), z0: NS.calc.j(ui3.p.z0) }).slg;
+    document.getElementById('ro3').innerHTML =
+      'SLG fault &nbsp;·&nbsp; Iₐ = <b>' + NS.calc.fmtPu(NS.calc.abs(f.phase.a)) + '</b>' +
+      ' &nbsp;·&nbsp; 3I₀ = <b>' + NS.calc.fmtPu(NS.calc.abs(f.ig)) + '</b>';
+  }
+});
+</script>
+</body>
+</html>

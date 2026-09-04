@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Sync Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* Basic styles */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; /* Dark background */
+            color: #fff; /* White text */
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw; /* Fill viewport width */
+            height: 100vh; /* Fill viewport height */
+            display: flex; /* Use flex to center canvas */
+            justify-content: center;
+            align-items: center;
+            padding: 10px; /* Add a little padding around the container */
+            box-sizing: border-box; /* Include padding in width/height */
+        }
+        canvas#gameCanvas {
+            border: 2px solid #444; /* Default border */
+            display: block;
+            max-width: 100%; /* Ensure it doesn't overflow container */
+            max-height: 100%; /* Ensure it doesn't overflow container */
+            object-fit: contain; /* Scale canvas while maintaining aspect ratio */
+            background-color: #000; /* Black canvas background */
+            box-shadow: 0 0 15px rgba(0, 150, 255, 0.3); /* Subtle glow */
+        }
+
+        /* Overlay styles */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Semi-transparent black */
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20; /* Ensure overlays are on top */
+            padding: 25px; /* Increased padding */
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow scrolling if content overflows */
+            backdrop-filter: blur(5px); /* Optional blur effect */
+        }
+        .overlay h2 {
+             margin-bottom: 20px;
+             font-size: clamp(1.8em, 5vw, 2.8em); /* Responsive title */
+             color: #eee;
+             text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+        .overlay p {
+            margin-bottom: 18px;
+            line-height: 1.6; /* Improved readability */
+            max-width: 650px; /* Limit width for readability */
+            font-size: clamp(1em, 2.5vw, 1.2em);
+            color: #ddd;
+        }
+        .overlay button {
+            padding: 14px 30px; /* Larger buttons */
+            font-size: clamp(1em, 3vw, 1.3em);
+            cursor: pointer;
+            margin-top: 30px; /* More space above button */
+            border-radius: 8px; /* More rounded */
+            background: linear-gradient(145deg, #5cb85c, #4cae4c); /* Green gradient */
+            color: #fff;
+            border: none;
+            transition: all 0.2s ease-out;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .overlay button:hover {
+            background: linear-gradient(145deg, #4cae4c, #449d44);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px); /* Slight lift on hover */
+        }
+         .overlay button:active {
+             transform: translateY(0px);
+             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+         }
+        #initialsInput { /* Style for high score input */
+            width: 90px;
+            padding: 10px;
+            text-align: center;
+            font-size: 1.2em;
+            margin: 0 15px;
+            border-radius: 5px;
+            color: #333;
+            background-color: #eee;
+            border: 1px solid #aaa;
+            text-transform: uppercase;
+        }
+        /* Specific button style for score submit */
+        #submitScoreBtn {
+             background: linear-gradient(145deg, #337ab7, #2e6da4); /* Blue gradient */
+        }
+         #submitScoreBtn:hover {
+             background: linear-gradient(145deg, #2e6da4, #286090);
+         }
+
+
+        /* UI Elements positioned absolutely on game screen */
+        .hud-element {
+            position: absolute;
+            font-size: clamp(1.2em, 3.5vw, 2em); /* Larger HUD font */
+            color: #fff;
+            z-index: 5;
+            background-color: rgba(0, 0, 0, 0.7); /* Darker background */
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace; /* Monospace font */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        #scoreDisplay { top: 20px; left: 20px; }
+        #timerDisplay { top: 75px; right: 20px; color: #ffcc00; font-size: clamp(1em, 3vw, 1.6em); } /* Yellow timer, smaller */
+        #inertiaDisplay { top: 20px; left: 250px; font-size: clamp(1.2em, 3.5vw, 2em); color: #1ef4ff; font-weight: bold;} /* Prominently displayed effective inertia */
+        #slipDisplay {
+            top: 115px; /* Position below inertia */
+            left: 20px;
+            font-size: clamp(1em, 3vw, 1.6em);
+            color: #ff8c00; /* Orange color for slip */
+         }
+         #angleDisplay {
+            top: 155px; /* Position below slip */
+            left: 20px;
+            font-size: clamp(1em, 3vw, 1.6em);
+            color: #00bcd4; /* Cyan color for angle */
+         }
+         /* Requirements Display */
+         #requirementsDisplay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(0.9em, 2.5vw, 1.3em);
+            color: #0f0; /* Green text */
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: center;
+            z-index: 5;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+         }
+         /* High Scores Display */
+         #highScoresDiv {
+            position: absolute;
+            top: 300px; /* Below Timer */
+            right: 20px;
+            z-index: 5;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            max-height: 250px; /* Limit height and allow scroll */
+            overflow-y: auto;
+            font-size: clamp(0.8em, 2vw, 1.1em); /* Slightly larger high score text */
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #ccc;
+         }
+         #highScoresDiv h3 {
+             margin-top: 0;
+             margin-bottom: 8px;
+             color: #fff;
+             text-align: center;
+             font-size: 1.1em;
+         }
+         #highScoresDiv ol {
+             padding-left: 25px; /* Indent list */
+             margin: 0;
+             list-style-type: decimal; /* Use numbers */
+         }
+         #highScoresDiv li {
+             margin-bottom: 5px;
+             white-space: nowrap; /* Prevent wrapping */
+         }
+          #highScoresDiv li span { /* For spacing */
+             display: inline-block;
+             min-width: 40px; /* Adjust as needed for score alignment */
+             text-align: right;
+             margin-left: 10px;
+             color: #fff;
+         }
+
+
+        /* Temporary Sync Status Message */
+        #syncStatusDisplay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(1.8em, 5vw, 3em); /* Larger status message */
+            font-weight: bold;
+            padding: 20px 40px;
+            border-radius: 12px;
+            z-index: 10;
+            display: none; /* Hidden initially */
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,255,255,0.5);
+            text-align: center;
+        }
+        .sync-success { background-color: rgba(0, 200, 0, 0.9); color: white; }
+        .sync-failure { background-color: rgba(220, 0, 0, 0.9); color: white; }
+
+        /* Sound Toggle */
+        #soundToggleBtn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 15;
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: rgba(100, 100, 100, 0.5);
+            border: 1px solid #aaa;
+            color: #fff;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        /* Mobile-responsive layout adjustments */
+        @media (max-width: 768px) {
+            #soundToggleBtn {
+                bottom: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                font-size: 0.9em;
+            }
+            
+            .hud-element {
+                padding: 8px 12px;
+                font-size: clamp(0.9em, 3vw, 1.5em);
+            }
+            
+            #highScoresDiv {
+                top: 250px;
+                max-height: 180px;
+            }
+        }
+         #soundToggleBtn:hover { background-color: rgba(140, 140, 140, 0.7); }
+
+       /* Mobile Control Buttons */
+       #mobileControls {
+           position: fixed;
+           bottom: 70px;
+           left: 50%;
+           transform: translateX(-50%);
+           width: 90%;
+           max-width: 600px;
+           display: flex;
+           justify-content: space-around;
+           padding: 10px;
+           z-index: 10;
+           background-color: rgba(0, 0, 0, 0.6);
+           border-radius: 15px;
+           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+       }
+
+       .mobileBtn {
+           width: 30%;
+           padding: 15px 0;
+           margin: 0 5px;
+           font-size: clamp(0.9em, 3vw, 1.3em);
+           font-weight: bold;
+           border-radius: 12px;
+           color: white;
+           text-align: center;
+           border: 2px solid rgba(255, 255, 255, 0.3);
+           background-color: rgba(60, 60, 60, 0.8);
+           cursor: pointer;
+           user-select: none;
+           -webkit-tap-highlight-color: transparent;
+           touch-action: manipulation;
+           transition: all 0.15s ease;
+       }
+
+       .mobileBtn:hover {
+           border-color: rgba(255, 255, 255, 0.5);
+       }
+
+       .mobileBtn:active {
+           transform: scale(0.95);
+           background-color: rgba(100, 100, 100, 0.8);
+       }
+
+       #btnClockwise {
+           background-color: rgba(76, 175, 80, 0.8); /* Green */
+       }
+
+       #btnCounterClockwise {
+           background-color: rgba(33, 150, 243, 0.8); /* Blue */
+       }
+
+       #btnSync {
+           background-color: rgba(233, 30, 99, 0.8); /* Pink */
+       }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="scoreDisplay" class="hud-element">Score: 0</div>
+        <div id="timerDisplay" class="hud-element">Time Left: 20</div>
+        <div id="inertiaDisplay" class="hud-element">Inertia: 10.0</div>
+        <div id="slipDisplay" class="hud-element">Slip: 0.0 deg/s</div>
+        <div id="angleDisplay" class="hud-element">Angle: 0°</div>
+        <div id="requirementsDisplay">Sync: Angle 355°-5°, Slip ±5.0°/s</div>
+        <div id="highScoresDiv">
+            <h3>High Scores</h3>
+            <ol id="highScoreList"></ol> </div>
+
+
+        <div id="syncStatusDisplay"></div>
+
+        <button id="soundToggleBtn">Sound: ON</button>
+
+        <!-- Mobile Control Buttons -->
+        <div id="mobileControls">
+            <div id="btnClockwise" class="mobileBtn">A<br>Clockwise</div>
+            <div id="btnCounterClockwise" class="mobileBtn">L<br>Counter</div>
+            <div id="btnSync" class="mobileBtn">SPACE<br>Sync</div>
+        </div>
+
+        <div id="welcomeScreen" class="overlay" style="display: flex;">
+            <h2>Generator Synchronization Challenge by Doug Millner</h2>
+            <p>Synchronize as many generators to the grid as possible. You have 20 seconds for each generator, plus any time remaining from the previous successful sync! Get bonus points for accuracy (closer to 0° angle and 0°/s slip).</p>
+            <p>Use 'A' to accelerate Clockwise.<br>Use 'L' to brake.<br>Press SPACE when the needle is within the green target lines (±5° of 12 o'clock) AND the slip speed is low (±5 deg/s).</p>
+            <p>Hold 'A' or 'L' for greater acceleration! Each successful sync makes the game more challenging in multiple ways:</p>
+            <ul style="text-align: left; margin: 0 auto; width: fit-content;">
+                <li>HALVED INERTIA: Generator inertia is divided by 2 each time!</li>
+                <li>DOUBLE CONTROL POWER: Controls are TWICE as responsive each time!</li>
+                <li>HIGHER SLIP SPEEDS: Initial speed varies more widely</li>
+                <li>NO SPEED LIMIT: The needle can reach EXTREME rotation speeds!</li>
+            </ul>
+            <p>Good luck - you'll DEFINITELY need it!</p>
+            <button id="startGameBtn">Start Game</button>
+        </div>
+
+        <div id="gameOverScreen" class="overlay">
+            <h2>Sync Failed!</h2>
+            <p id="gameOverStats">You synchronized 0 generators.</p>
+            <button id="restartGameBtn">Play Again</button>
+        </div>
+
+        <div id="scorePrompt" class="overlay">
+           <h2>High Score!</h2>
+            <p>Enter Initials (3 chars max):</p>
+           <div>
+               <input type="text" id="initialsInput" maxlength="3">
+                <button id="submitScoreBtn">Submit</button>
+           </div>
+        </div>
+
+
+        </div> <script>
+        // ==========================================================
+        // == GENERATOR SYNC GAME JAVASCRIPT v1.21
+        // == Added High Scores, Bonus Points, Game Over on Fail
+        // ==========================================================
+
+        // --- Constants ---
+        const CANVAS_INTERNAL_WIDTH = 1000; // Logical width for drawing calculations
+        const CANVAS_INTERNAL_HEIGHT = 750; // Logical height for drawing calculations
+
+        // Game Mechanics
+        const TIME_PER_GENERATOR = 20;      // Base seconds allowed for each generator sync attempt
+        const INITIAL_INERTIA = 10.0;      // Starting inertia value (>= MIN_INERTIA)
+        const MIN_INERTIA = 0.01;          // Allow inertia to get extremely low (but prevent negatives/zeros)
+        const SPEED_ADJUSTMENT_RATE = 15.0; // Base acceleration rate (degrees/sec^2 adjusted by inertia)
+        const ACCELERATION_RAMP_FACTOR = 0.75; // How quickly acceleration increases per second held (0 = constant accel)
+        const MAX_ACCELERATION_MULTIPLIER = 4.0; // Maximum multiplier for acceleration (e.g., 4x base rate)
+        // No maximum speed limit!
+        const INITIAL_SPEED_VARIANCE = 30; // Initial random speed range (+/- degrees/sec) for new generators
+        const SPEED_VARIANCE_INCREASE = 10; // How much to increase speed variance after each successful sync
+        const CONTROL_SENSITIVITY_INCREASE = 1.0; // 100% increase (doubling) in control sensitivity after each sync
+
+        // Scoring
+        const BASE_POINTS_PER_SYNC = 100;
+        const MAX_BONUS_POINTS = 100; // Max additional points for perfect sync
+
+        // Synchroscope Visuals and Logic
+        const TARGET_ANGLE_DEGREES = 0;     // 12 o'clock position
+        const TOLERANCE_DEGREES = 5;        // Plus or minus 5 degrees for successful sync angle
+        const TARGET_MIN_ANGLE = (TARGET_ANGLE_DEGREES - TOLERANCE_DEGREES + 360) % 360; // e.g., 355
+        const TARGET_MAX_ANGLE = (TARGET_ANGLE_DEGREES + TOLERANCE_DEGREES) % 360;     // e.g., 5
+        const MAX_SYNC_SLIP_SPEED = 5.0;    // Max absolute speed delta (deg/s) allowed for sync
+
+        const SYNC_MESSAGE_DURATION = 1000; // How long success/fail message shows (milliseconds)
+
+        // High Scores
+        const GAME_STORAGE_KEY = 'generatorSyncHighScores_v1'; // Key for localStorage
+        const MAX_HIGH_SCORES = 10; // Number of scores to keep
+
+        // --- DOM Element References ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas ? canvas.getContext('2d') : null; // Get canvas 2D drawing context
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const inertiaDisplay = document.getElementById('inertiaDisplay');
+        const slipDisplay = document.getElementById('slipDisplay');
+        const angleDisplay = document.getElementById('angleDisplay'); // Ref for angle display
+        const requirementsDisplay = document.getElementById('requirementsDisplay'); // Ref for requirements text
+        const syncStatusDisplay = document.getElementById('syncStatusDisplay');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverStats = document.getElementById('gameOverStats');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const restartGameBtn = document.getElementById('restartGameBtn');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const gameContainer = document.getElementById('gameContainer');
+        // High Score Refs
+        const scorePrompt = document.getElementById('scorePrompt');
+        const initialsInput = document.getElementById('initialsInput');
+        const submitScoreBtn = document.getElementById('submitScoreBtn');
+        const highScoresDiv = document.getElementById('highScoresDiv');
+        const highScoreList = document.getElementById('highScoreList');
+
+
+        // --- Global Game State Variables ---
+        let score = 0;                      // Player's score (number of successful syncs)
+        let generatorTimer = TIME_PER_GENERATOR; // Time remaining for the current generator
+        let currentInertia = INITIAL_INERTIA; // Current inertia value, affects speed changes
+        let currentSpeedVariance = INITIAL_SPEED_VARIANCE; // Current speed variance, increases with each sync
+        let controlSensitivityMultiplier = 1.0; // Controls sensitivity, increases by 30% with each successful sync
+        let generatorSpeedDelta = 0;        // Current speed difference (degrees per second) -> needle rotation speed
+        let currentAngleDegrees = 0;        // Current angle of the synchroscope needle (0-360)
+        let gameState = 'welcome';          // Current state: 'welcome', 'playing', 'gameover', 'highscore'
+        let keyA_pressed = false;           // Tracks if 'A' key is currently held down
+        let keyL_pressed = false;           // Tracks if 'L' key is currently held down
+        let keyA_holdDuration = 0;          // Time 'A' key has been held (seconds)
+        let keyL_holdDuration = 0;          // Time 'L' key has been held (seconds)
+
+        let deltaTime = 0;                  // Time elapsed since the last frame (in seconds)
+        let lastTimestamp = 0;              // Timestamp of the last frame for deltaTime calculation
+        let lastWindowWidth = 0;            // Used to detect window resize for canvas adjustments
+        let lastWindowHeight = 0;           // Used to detect window resize for canvas adjustments
+        let animationFrameId = null;        // ID for the requestAnimationFrame loop
+        let syncStatusTimeout = null;       // Timeout ID for hiding the sync status message
+
+        // Audio State
+        let soundEnabled = true;            // Whether sound effects are enabled
+        let audioInitialized = false;       // Flag to check if Tone.js context has been started
+        let synths = {};                    // Object to store Tone.js synth instances
+
+        // --- Helper Functions ---
+
+        /** Hides all overlay divs (welcome, game over, etc.). */
+        function hideAllOverlays() {
+            [welcomeScreen, gameOverScreen, scorePrompt].forEach(el => {
+                if (el) el.style.display = 'none';
+            });
+             if (requirementsDisplay) requirementsDisplay.style.display = 'none'; // Also hide requirements
+        }
+
+        /** Transitions the game to the Game Over state, checking for high score potential first. */
+        function transitionToGameOver() {
+            console.log("Game Over Triggered");
+            gameState = 'gameover'; // Set state first
+            stopGameLoop(); // Stop game updates and drawing
+            playSound('gameOver'); // Play game over sound
+            hideAllOverlays(); // Hide any active overlays
+
+            // Check if the score qualifies for the high score list
+            checkAndPromptHighScore(score);
+        }
+
+        /** Displays a temporary message indicating sync success or failure. */
+        function showSyncStatus(success, points = 0) { // Added points parameter
+            if (syncStatusTimeout) clearTimeout(syncStatusTimeout); // Clear previous message timer if any
+
+            syncStatusDisplay.textContent = success ? `SYNC SUCCESSFUL! +${points}` : "SYNC FAILED!"; // Show points on success
+            syncStatusDisplay.className = success ? 'sync-success' : 'sync-failure'; // Apply appropriate CSS class
+            syncStatusDisplay.style.display = 'block'; // Make the message visible
+
+            // Set a timer to hide the message after a duration
+            syncStatusTimeout = setTimeout(() => {
+                syncStatusDisplay.style.display = 'none';
+            }, SYNC_MESSAGE_DURATION);
+        }
+
+        // --- Game Initialization and State Management ---
+
+        /** Resets all game variables to their initial states for a new game. */
+        function resetGameState() {
+            console.log("Resetting Game State for New Game");
+            score = 0;
+            // Reset variance, sensitivity, and inertia to initial values for a new game
+            currentSpeedVariance = INITIAL_SPEED_VARIANCE;
+            controlSensitivityMultiplier = 1.0;
+            currentInertia = INITIAL_INERTIA;
+            // Call resetGeneratorState without carry-over for the very first generator
+            resetGeneratorState();
+            currentInertia = INITIAL_INERTIA; // Reset to the initial inertia
+            updateScoreDisplay();
+            updateTimerDisplay(); // Update timer display
+            updateInertiaDisplay(); // Update inertia display
+            updateSlipDisplay(); // Initialize slip display
+            updateAngleDisplay(); // Initialize angle display
+            keyA_pressed = false; // Reset key states
+            keyL_pressed = false;
+            keyA_holdDuration = 0; // Reset hold durations
+            keyL_holdDuration = 0;
+             if (syncStatusTimeout) clearTimeout(syncStatusTimeout); // Clear any lingering status message
+            syncStatusDisplay.style.display = 'none';
+        }
+
+        /** Resets the state for the *next* generator, adding carry-over time. */
+        function resetGeneratorState(carryOverTime = 0) {
+            // Add remaining time from previous round to base time for this round
+            generatorTimer = TIME_PER_GENERATOR + carryOverTime;
+            console.log(`Carry-over time: ${carryOverTime.toFixed(1)}s, Next round time: ${generatorTimer.toFixed(1)}s`);
+
+            // Give the generator a random starting speed and angle for variety/challenge
+             generatorSpeedDelta = (Math.random() * 2 - 1) * currentSpeedVariance; // Random speed +/- variance, increases with difficulty
+             currentAngleDegrees = Math.random() * 360; // Random starting angle
+             console.log(`New Generator State: SpeedDelta=${generatorSpeedDelta.toFixed(1)}, Angle=${currentAngleDegrees.toFixed(1)}, Inertia=${currentInertia.toFixed(1)}`);
+        }
+
+        /** Starts the main gameplay sequence. */
+        function startGameplay() {
+            console.log("Starting Gameplay Sequence");
+            resetGameState(); // Initialize all variables for a fresh game
+            gameState = 'playing';
+            hideAllOverlays(); // Hide welcome/gameover screens
+            if (gameContainer) gameContainer.style.display = 'flex'; // Ensure canvas container is visible
+            if (requirementsDisplay) requirementsDisplay.style.display = 'block'; // Show requirements
+            if (highScoresDiv) highScoresDiv.style.display = 'block'; // Show high scores
+            resizeCanvas(); // Perform initial canvas setup based on window size
+            startGameLoop(); // Start the main game update and drawing loop
+            playSound('start'); // Play game start sound effect
+        }
+
+        /** Starts the requestAnimationFrame loop if it's not already running. */
+        function startGameLoop() {
+            if (!animationFrameId) {
+                console.log("Requesting Animation Frame Loop.");
+                lastTimestamp = performance.now(); // Reset timestamp for accurate first deltaTime calculation
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        /** Stops the requestAnimationFrame loop. */
+        function stopGameLoop() {
+             if (animationFrameId) {
+                console.log("Cancelling Animation Frame Loop.");
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null; // Clear the ID
+             }
+             lastTimestamp = 0; // Reset timestamp to indicate loop is stopped
+        }
+
+
+        // --- Core Game Logic Loop (Called by requestAnimationFrame) ---
+        function gameLoop(timestamp) {
+            // If game state is not 'playing', stop the loop immediately.
+            if (gameState !== 'playing') {
+                stopGameLoop();
+                 if (requirementsDisplay) requirementsDisplay.style.display = 'none'; // Hide requirements when not playing
+                 if (highScoresDiv) highScoresDiv.style.display = 'block'; // Keep high scores visible
+                return;
+            }
+
+            // Calculate time elapsed since the last frame (deltaTime) in seconds.
+            deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            // Clamp deltaTime to prevent large jumps if the tab loses focus, and ensure it's non-negative.
+            deltaTime = Math.max(0, Math.min(deltaTime, 0.1));
+
+            // --- Update Game State ---
+
+            // 1. Update Generator Timer
+            generatorTimer -= deltaTime;
+            if (generatorTimer <= 0) {
+                generatorTimer = 0; // Ensure timer doesn't go negative
+                updateTimerDisplay();
+                console.log("Generator timed out!");
+                transitionToGameOver(); // End the game if time runs out for this generator
+                return; // Exit the loop immediately after triggering game over
+            }
+            updateTimerDisplay(); // Update the timer display on screen
+
+            // 2. Handle Player Input and Adjust Generator Speed (with Ramping Acceleration)
+            let acceleration = 0; // Final acceleration in degrees/sec^2 for this frame
+
+            // Update hold durations
+            if (keyA_pressed) {
+                keyA_holdDuration += deltaTime;
+            }
+            if (keyL_pressed) {
+                keyL_holdDuration += deltaTime;
+            }
+
+            // Use the current inertia value directly (gets halved with each successful sync)
+            const effectiveInertia = Math.max(MIN_INERTIA, currentInertia);
+            const baseAccelRate = SPEED_ADJUSTMENT_RATE / effectiveInertia;
+
+            if (keyA_pressed) {
+                // 'A' accelerates Clockwise -> POSITIVE acceleration
+                // Calculate multiplier based on hold duration, capped at max
+                const multiplier = Math.min(MAX_ACCELERATION_MULTIPLIER, 1 + keyA_holdDuration * ACCELERATION_RAMP_FACTOR);
+                acceleration = baseAccelRate * multiplier;
+            } else if (keyL_pressed) { // Use else if so keys don't counteract if pressed simultaneously
+                 // 'L' accelerates Counter-Clockwise -> NEGATIVE acceleration
+                 // Calculate multiplier based on hold duration, capped at max
+                const multiplier = Math.min(MAX_ACCELERATION_MULTIPLIER, 1 + keyL_holdDuration * ACCELERATION_RAMP_FACTOR);
+                acceleration = - (baseAccelRate * multiplier);
+            }
+
+            // Apply acceleration to change the speed delta
+            if (acceleration !== 0) {
+                 let speedChange = acceleration * deltaTime; // Calculate change in speed for this frame
+                 generatorSpeedDelta += speedChange;
+                 // No speed clamping - allow unlimited rotation speed!
+            }
+
+            updateSlipDisplay(); // Update the slip display HUD
+
+             // 3. Update Needle Angle based on current speed delta
+            currentAngleDegrees = (currentAngleDegrees + generatorSpeedDelta * deltaTime) % 360;
+            // Ensure the angle stays within the 0-360 range (positive)
+            if (currentAngleDegrees < 0) currentAngleDegrees += 360;
+
+            updateAngleDisplay(); // Update the angle display HUD
+
+            // --- Drawing ---
+             if (!ctx) { // Safety check for canvas context
+                console.error("Canvas context is missing! Stopping game loop.");
+                stopGameLoop();
+                return;
+             }
+
+            // Optional: Check for window resize less frequently to improve performance
+            if (window.innerWidth !== lastWindowWidth || window.innerHeight !== lastWindowHeight) {
+                 resizeCanvas(); // Adjust canvas size if window dimensions changed
+            }
+
+            // Clear the entire canvas for the new frame
+            ctx.clearRect(0, 0, CANVAS_INTERNAL_WIDTH, CANVAS_INTERNAL_HEIGHT);
+
+            // Draw all game elements (synchroscope, instructions)
+            drawSynchroscope(CANVAS_INTERNAL_WIDTH * 0.5, CANVAS_INTERNAL_HEIGHT * 0.5, Math.min(CANVAS_INTERNAL_WIDTH, CANVAS_INTERNAL_HEIGHT) * 0.35);
+            drawInstructions();
+
+            // Request the next frame to continue the loop
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Drawing Functions ---
+
+        /** Draws the complete synchroscope including background, markings, and needle. */
+        function drawSynchroscope(centerX, centerY, radius) {
+            drawSynchroscopeBackground(centerX, centerY, radius); // Draw bezel and face
+            // Draw target zone lines first
+            drawTargetZoneLines(centerX, centerY, radius);
+             // Draw ticks and labels on top
+            drawSynchroscopeTicksAndLabels(centerX, centerY, radius);
+            // Draw needle last
+            drawSynchroscopeNeedle(centerX, centerY, radius, currentAngleDegrees);
+        }
+
+        /** Draws the background and bezel of the synchroscope. */
+        function drawSynchroscopeBackground(centerX, centerY, radius) {
+            // Draw outer metallic bezel
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 1.05, 0, Math.PI * 2);
+            const bezelGrad = ctx.createLinearGradient(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+            bezelGrad.addColorStop(0, '#bbb'); bezelGrad.addColorStop(0.3, '#eee'); bezelGrad.addColorStop(0.7, '#aaa'); bezelGrad.addColorStop(1, '#888');
+            ctx.fillStyle = bezelGrad; ctx.fill();
+            ctx.strokeStyle = '#666'; ctx.lineWidth = 2; ctx.stroke();
+
+            // Draw inner dark face
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+            gradient.addColorStop(0, '#333'); gradient.addColorStop(0.9, '#1a1a1a'); gradient.addColorStop(1, '#050505');
+            ctx.fillStyle = gradient; ctx.fill();
+        }
+
+        /** Draws the tick marks and degree labels. */
+        function drawSynchroscopeTicksAndLabels(centerX, centerY, radius) {
+             const baseFontSize = Math.max(10, radius * 0.08);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // --- Draw Tick Marks & Labels ---
+             for (let deg = 0; deg < 360; deg += 15) {
+                const angleRad = (deg - 90) * (Math.PI / 180); // -90 to make 0deg UP
+                const isMajor = deg % 90 === 0;
+                const isMedium = deg % 30 === 0;
+                const innerR = radius * (isMajor ? 0.80 : (isMedium ? 0.85 : 0.90));
+                const outerR = radius * 0.95;
+                const innerX = centerX + Math.cos(angleRad) * innerR;
+                const innerY = centerY + Math.sin(angleRad) * innerR;
+                const outerX = centerX + Math.cos(angleRad) * outerR;
+                const outerY = centerY + Math.sin(angleRad) * outerR;
+
+                ctx.beginPath();
+                ctx.moveTo(innerX, innerY);
+                ctx.lineTo(outerX, outerY);
+                ctx.lineWidth = isMajor ? Math.max(2, radius * 0.015) : Math.max(1, radius * 0.01);
+                ctx.strokeStyle = '#ccc';
+                ctx.stroke();
+
+                if (isMajor) {
+                    const textR = radius * 0.7;
+                    const textX = centerX + Math.cos(angleRad) * textR;
+                    const textY = centerY + Math.sin(angleRad) * textR;
+                    ctx.font = `bold ${baseFontSize * 1.1}px Arial`;
+                    ctx.fillStyle = (deg === 0) ? '#00ff00' : '#ccc'; // Highlight 0 degrees (SYNC)
+                    ctx.fillText(deg === 0 ? 'SYNC' : `${deg}°`, textX, textY);
+                }
+            }
+        }
+
+        /** Draws bright green lines outlining the target zone. */
+        function drawTargetZoneLines(centerX, centerY, radius) {
+            // Calculate math angles for the start/end of the target zone (centered at 0 degrees)
+            const targetStartRad = Math.toRadians(90 - TARGET_MAX_ANGLE); // 85 degrees math
+            const targetEndRad = Math.toRadians(90 - TARGET_MIN_ANGLE);   // 95 degrees math (-265)
+
+            const lineInnerRadius = radius * 0.0; // Start lines from center
+            const lineOuterRadius = radius * 1.0; // Extend lines to edge
+
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)'; // Bright green, slightly transparent
+            ctx.lineWidth = Math.max(2, radius * 0.015); // Line thickness
+            ctx.lineCap = 'round';
+
+            // Draw first radial line (at 355 degrees / 85 math)
+            ctx.beginPath();
+            ctx.moveTo(centerX + Math.cos(targetStartRad) * lineInnerRadius, centerY - Math.sin(targetStartRad) * lineInnerRadius);
+            ctx.lineTo(centerX + Math.cos(targetStartRad) * lineOuterRadius, centerY - Math.sin(targetStartRad) * lineOuterRadius);
+            ctx.stroke();
+
+            // Draw second radial line (at 5 degrees / 95 math)
+             ctx.beginPath();
+            ctx.moveTo(centerX + Math.cos(targetEndRad) * lineInnerRadius, centerY - Math.sin(targetEndRad) * lineInnerRadius);
+            ctx.lineTo(centerX + Math.cos(targetEndRad) * lineOuterRadius, centerY - Math.sin(targetEndRad) * lineOuterRadius);
+            ctx.stroke();
+
+            // Draw connecting arc at the edge
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, lineOuterRadius - ctx.lineWidth / 2, targetStartRad, targetEndRad, false); // Draw arc slightly inside edge
+            ctx.stroke();
+
+            ctx.lineCap = 'butt'; // Reset line cap
+        }
+
+
+        /** Draws the rotating needle on the synchroscope. */
+        function drawSynchroscopeNeedle(centerX, centerY, radius, angleDegrees) {
+             // Convert our angle (0=Up) to standard math angle (0=Right, counter-clockwise) for trig functions
+            const angleRad = Math.toRadians(90 - angleDegrees);
+            const needleLength = radius * 0.85; // Length of the needle
+            const needleBaseWidth = Math.max(3, radius * 0.06);
+
+            ctx.save(); // Save context state before applying shadow
+            ctx.shadowColor = '#ff4444'; ctx.shadowBlur = Math.max(4, radius * 0.03);
+            ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX + Math.cos(angleRad) * needleLength,
+                       centerY - Math.sin(angleRad) * needleLength); // Use '-' for Y because canvas Y increases downwards
+
+            ctx.lineWidth = Math.max(2.5, radius * 0.03);
+            ctx.strokeStyle = '#ff3333'; // Bright Red color for the needle
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.lineCap = 'butt';
+
+            ctx.restore(); // Restore context state to remove shadow
+
+             // Draw the Center Hub on top of the needle base
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.08, 0, Math.PI * 2);
+            ctx.fillStyle = '#aa0000'; // Dark red color for the hub
+            ctx.fill();
+             ctx.strokeStyle = '#660000'; ctx.lineWidth = 1;
+             ctx.stroke();
+        }
+
+         /** Draws the control instructions at the bottom of the canvas. */
+         function drawInstructions() {
+            const x = CANVAS_INTERNAL_WIDTH * 0.5; // Center horizontally
+            const y = CANVAS_INTERNAL_HEIGHT * 0.95; // Position near the bottom edge
+            const fontSize = Math.max(12, Math.min(18, CANVAS_INTERNAL_HEIGHT * 0.025)); // Responsive font size
+
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.fillStyle = '#ccc'; // Light gray color for instructions
+            ctx.textAlign = 'center';
+            // Display controls - include mobile button references
+            ctx.fillText("A/Green: Clockwise | L/Blue: Counter-Clockwise | SPACE/Pink: Sync Attempt", x, y);
+        }
+
+
+        // --- UI & Display Update Functions ---
+
+        /** Updates the score display element. */
+        function updateScoreDisplay() {
+            if (scoreDisplay) scoreDisplay.innerText = 'Score: ' + score;
+        }
+        /** Updates the timer display element. */
+        function updateTimerDisplay() {
+             // Use Math.ceil to show the current second until it drops below the integer
+            if (timerDisplay) timerDisplay.innerText = 'Time Left: ' + Math.ceil(generatorTimer);
+        }
+        /** Updates the inertia display element. */
+        function updateInertiaDisplay() {
+            // Display current inertia value rounded to one decimal place
+            if (inertiaDisplay) inertiaDisplay.innerText = `INERTIA: ${currentInertia.toFixed(1)}`;
+        }
+        /** Updates the slip frequency display element. */
+        function updateSlipDisplay() {
+            // Display slip (speed delta) rounded to one decimal place
+             // Change color based on whether slip is within sync limits
+            const slipSpeed = Math.abs(generatorSpeedDelta);
+            let slipColor = '#ff8c00'; // Default orange
+            if (slipSpeed <= MAX_SYNC_SLIP_SPEED) {
+                slipColor = '#00ff00'; // Green if within limits
+            }
+            if (slipDisplay) {
+                slipDisplay.innerText = `Slip: ${generatorSpeedDelta.toFixed(1)} deg/s`;
+                slipDisplay.style.color = slipColor;
+            }
+        }
+        /** Updates the angle display element. */
+        function updateAngleDisplay() {
+            // Display angle rounded to nearest degree
+            if (angleDisplay) angleDisplay.innerText = `Angle: ${Math.round(currentAngleDegrees)}°`;
+        }
+
+
+        // --- Input Handling ---
+
+         /** Handles the logic when the player attempts to synchronize (presses Space). */
+         function handleSyncAttempt() {
+            // Only allow sync attempts during the 'playing' state
+            if (gameState !== 'playing') return;
+
+            // --- Check Angle Condition ---
+            let angleCheckPassed = false;
+             // Target zone is now 355-5, check wrap-around
+             if (TARGET_MIN_ANGLE > TARGET_MAX_ANGLE) { // Wraps around 0/360 (e.g., 355 to 5)
+                 angleCheckPassed = (currentAngleDegrees >= TARGET_MIN_ANGLE || currentAngleDegrees <= TARGET_MAX_ANGLE);
+            } else { // Normal case (e.g., 40 to 50) - Should not happen with 0 +/- 5 target
+                 angleCheckPassed = (currentAngleDegrees >= TARGET_MIN_ANGLE && currentAngleDegrees <= TARGET_MAX_ANGLE);
+            }
+
+            // --- Check Slip Speed Condition ---
+            const speedCheckPassed = Math.abs(generatorSpeedDelta) <= MAX_SYNC_SLIP_SPEED;
+
+            // --- Determine Overall Success ---
+            const success = angleCheckPassed && speedCheckPassed;
+
+            // --- Calculate Score and Bonus ---
+            let pointsEarned = 0;
+            if (success) {
+                // Angle Error (0 is perfect, TOLERANCE_DEGREES is max error)
+                let angleError = currentAngleDegrees > 180 ? 360 - currentAngleDegrees : currentAngleDegrees; // Distance from 0/360
+                angleError = Math.min(angleError, TOLERANCE_DEGREES); // Clamp error within tolerance for bonus calc
+
+                // Speed Error (0 is perfect, MAX_SYNC_SLIP_SPEED is max error)
+                const speedError = Math.abs(generatorSpeedDelta);
+
+                // Calculate bonus factors (1 = perfect, 0 = at edge of tolerance)
+                const angleBonusFactor = Math.max(0, 1 - (angleError / TOLERANCE_DEGREES));
+                const speedBonusFactor = Math.max(0, 1 - (speedError / MAX_SYNC_SLIP_SPEED));
+
+                // Combine factors (e.g., average)
+                const combinedBonusFactor = (angleBonusFactor + speedBonusFactor) / 2;
+
+                // Calculate total points
+                pointsEarned = BASE_POINTS_PER_SYNC + Math.round(MAX_BONUS_POINTS * combinedBonusFactor);
+                score += pointsEarned; // Add points to total score
+            }
+
+            console.log(`Sync Attempt: Angle=${currentAngleDegrees.toFixed(1)} (Ok=${angleCheckPassed}), Speed=${generatorSpeedDelta.toFixed(1)} (Ok=${speedCheckPassed}), Success=${success}, Points=${pointsEarned}`);
+
+            showSyncStatus(success, pointsEarned); // Display visual feedback message (Success/Failure)
+
+             if (success) {
+                playSound('success'); // Play success sound effect
+
+                // Capture remaining time BEFORE resetting state
+                let timeLeft = generatorTimer;
+
+                // Divide inertia by 2 with each successful sync
+                currentInertia = Math.max(MIN_INERTIA, currentInertia / 2);
+                console.log(`Inertia divided by 2: now ${currentInertia.toFixed(2)}`);
+                
+                // Increase the difficulty for the next generator
+                // 1. Increase speed variance
+                currentSpeedVariance += SPEED_VARIANCE_INCREASE;
+                console.log(`Increasing speed variance to ${currentSpeedVariance.toFixed(1)} deg/s`);
+                
+                // 2. Increase control sensitivity by 30%
+                controlSensitivityMultiplier *= (1 + CONTROL_SENSITIVITY_INCREASE);
+                const newEffectiveInertia = Math.max(MIN_INERTIA, INITIAL_INERTIA / controlSensitivityMultiplier);
+                console.log(`Increasing control sensitivity to ${controlSensitivityMultiplier.toFixed(2)}x (Effective inertia: ${newEffectiveInertia.toFixed(2)})`);
+
+                updateScoreDisplay(); // Update score display
+                updateInertiaDisplay(); // Update inertia display
+
+                // Pass remaining time to reset function
+                resetGeneratorState(timeLeft); // Reset speed/angle/timer for the next generator challenge
+            } else {
+                 playSound('failure'); // Play failure sound effect
+                 // *** GAME OVER ON FAIL ***
+                 transitionToGameOver();
+            }
+        }
+
+        /** Handles key down events for game controls. */
+        function handleKeyDown(e) {
+            // Handle controls only when the game is in the 'playing' state
+            if (gameState === 'playing') {
+                if (e.code === 'KeyA' || e.key === 'a') {
+                    // If key wasn't already pressed, reset hold duration
+                    if (!keyA_pressed) keyA_holdDuration = 0;
+                    keyA_pressed = true; // Set flag for 'A' key (Accelerate Clockwise)
+                } else if (e.code === 'KeyL' || e.key === 'l') {
+                     // If key wasn't already pressed, reset hold duration
+                    if (!keyL_pressed) keyL_holdDuration = 0;
+                    keyL_pressed = true; // Set flag for 'L' key (Accelerate Counter-Clockwise)
+                } else if (e.code === 'Space' || e.key === ' ') {
+                    e.preventDefault(); // Prevent the default spacebar action (scrolling)
+                    handleSyncAttempt(); // Trigger the synchronization check
+                }
+            } else if (gameState === 'highscore' && (e.code === 'Enter' || e.key === 'Enter')) {
+                 // Allow Enter key to submit high score
+                 if (submitScoreBtn) submitScoreBtn.click();
+            }
+            // Allow Escape key press anytime to potentially end the game or pause
+            if (e.code === 'Escape') {
+                 console.log("Escape key pressed.");
+                 if (gameState === 'playing') {
+                     transitionToGameOver(); // For simplicity, end the game. Could implement pause later.
+                 } else if (gameState === 'welcome' || gameState === 'gameover' || gameState === 'highscore') {
+                     // Go back to welcome screen if ESC pressed on game over / high score screens
+                     transitionToWelcome();
+                 }
+            }
+        }
+
+        /** Handles key up events to stop applying speed adjustments. */
+        function handleKeyUp(e) {
+             // Update flags only when the game is in the 'playing' state
+             if (gameState === 'playing') {
+                if (e.code === 'KeyA' || e.key === 'a') {
+                    keyA_pressed = false; // Clear flag for 'A' key
+                    keyA_holdDuration = 0; // Reset hold duration on release
+                } else if (e.code === 'KeyL' || e.key === 'l') {
+                    keyL_pressed = false; // Clear flag for 'L' key
+                    keyL_holdDuration = 0; // Reset hold duration on release
+                }
+            }
+        }
+
+        // --- High Score Logic ---
+
+        /** Loads high scores from localStorage and displays them. */
+        function loadHighScores() {
+            if (!highScoreList) return; // Exit if list element doesn't exist
+            let topScores = getHighScores(); // Get sorted scores
+            let listHtml = '';
+            // Populate list items
+            topScores.slice(0, MAX_HIGH_SCORES).forEach((s, index) => {
+                // Use spans for better alignment potential if needed
+                listHtml += `<li>${s.initials} <span>${s.score}</span></li>`;
+            });
+            // Fill remaining slots if less than MAX_HIGH_SCORES
+            for (let i = topScores.length; i < MAX_HIGH_SCORES; i++) {
+                 listHtml += `<li>--- <span>---</span></li>`;
+            }
+            highScoreList.innerHTML = listHtml;
+         }
+
+        /** Retrieves high scores array from localStorage. */
+        function getHighScores() {
+            try {
+                const data = localStorage.getItem(GAME_STORAGE_KEY);
+                // Parse data, ensure it's an array, sort descending
+                const scores = data ? JSON.parse(data) : [];
+                if (!Array.isArray(scores)) return [];
+                // Ensure scores have required properties and sort
+                return scores
+                    .filter(s => typeof s === 'object' && s !== null && s.hasOwnProperty('initials') && s.hasOwnProperty('score'))
+                    .sort((a, b) => b.score - a.score);
+            } catch (e) {
+                console.error("Error reading high scores:", e);
+                return []; // Return empty array on error
+            }
+        }
+
+        /** Saves the high scores array to localStorage. */
+        function setHighScores(arr) {
+            try {
+                // Ensure array structure before saving
+                if (!Array.isArray(arr)) {
+                    console.error("Attempted to save non-array as high scores.");
+                    return;
+                }
+                localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(arr));
+            } catch (e) {
+                console.error("Error saving high scores:", e);
+            }
+        }
+
+        /** Adds a new score, sorts, truncates, and saves the list. */
+        function saveHighScore(initials, newScore) {
+            if (!initials || typeof newScore !== 'number') return; // Basic validation
+
+            let scores = getHighScores(); // Get current sorted scores
+            scores.push({ initials: initials.substring(0, 3).toUpperCase(), score: newScore }); // Add new score
+            scores.sort((a, b) => b.score - a.score); // Re-sort
+            scores = scores.slice(0, MAX_HIGH_SCORES); // Keep only top scores
+            setHighScores(scores); // Save updated list
+            console.log("High score saved:", initials, newScore);
+        }
+
+        /** Checks if a score qualifies for the high score list and shows the prompt if it does. */
+        function checkAndPromptHighScore(finalScore) {
+            const highScores = getHighScores();
+            // Check if score is high enough or if list isn't full
+            if (finalScore > 0 && (highScores.length < MAX_HIGH_SCORES || finalScore > highScores[highScores.length - 1].score)) {
+                console.log("High score achieved!");
+                gameState = 'highscore'; // Set state
+                if (scorePrompt) scorePrompt.style.display = 'flex'; // Show prompt overlay
+                if (initialsInput) initialsInput.value = ''; // Clear input
+                if (initialsInput) initialsInput.focus(); // Focus input field
+                if (gameOverScreen) gameOverScreen.style.display = 'none'; // Hide regular game over screen
+            } else {
+                // Score didn't qualify, just show the normal game over screen
+                if (gameOverScreen) gameOverScreen.style.display = 'flex';
+            }
+        }
+
+        /** Transitions back to the welcome screen state. */
+        function transitionToWelcome() {
+             console.log("Transitioning to Welcome");
+             gameState = 'welcome';
+             hideAllOverlays();
+             if (welcomeScreen) welcomeScreen.style.display = 'flex';
+             if (highScoresDiv) highScoresDiv.style.display = 'block'; // Ensure high scores are visible on welcome
+             loadHighScores(); // Refresh high score display
+        }
+
+
+        // --- Responsive Layout & Canvas Adjustment ---
+
+        /** Adjusts the canvas display size to fit the window while maintaining aspect ratio. */
+        function resizeCanvas() {
+            // Ensure game container and canvas elements exist
+            if (!gameContainer || !canvas) return;
+
+            // Get the available space within the game container (or window as fallback)
+            const containerRect = gameContainer.getBoundingClientRect();
+            const availableWidth = containerRect.width > 0 ? containerRect.width : window.innerWidth;
+            const availableHeight = containerRect.height > 0 ? containerRect.height : window.innerHeight;
+
+            // Calculate the aspect ratio of the internal canvas resolution
+            const aspectRatio = CANVAS_INTERNAL_WIDTH / CANVAS_INTERNAL_HEIGHT;
+            let newWidth, newHeight; // Variables for the calculated display size
+
+            // Determine the limiting dimension (width or height) and calculate size
+            if (availableWidth / availableHeight > aspectRatio) {
+                // Height is the limiting dimension
+                newHeight = availableHeight - 20; // Subtract some padding/margin
+                newWidth = newHeight * aspectRatio;
+            } else {
+                // Width is the limiting dimension
+                newWidth = availableWidth - 20; // Subtract some padding/margin
+                newHeight = newWidth / aspectRatio;
+            }
+
+            // Apply the calculated display size to the canvas element's style
+            // Ensure a minimum size to prevent the canvas from becoming too small
+            canvas.style.width = `${Math.max(100, newWidth)}px`;
+            canvas.style.height = `${Math.max(100, newHeight)}px`;
+
+            // Keep the internal canvas resolution fixed for consistent drawing logic
+            canvas.width = CANVAS_INTERNAL_WIDTH;
+            canvas.height = CANVAS_INTERNAL_HEIGHT;
+
+            console.log(`Canvas resized: Display=${newWidth.toFixed(0)}x${newHeight.toFixed(0)}, Internal=${CANVAS_INTERNAL_WIDTH}x${CANVAS_INTERNAL_HEIGHT}`);
+
+            // Store current window dimensions to avoid unnecessary resizing on minor changes
+            lastWindowWidth = window.innerWidth;
+            lastWindowHeight = window.innerHeight;
+        }
+
+        // --- Audio Setup & Control using Tone.js ---
+
+        /** Attempts to start the Tone.js AudioContext, usually triggered by the first user interaction. */
+        async function handleFirstInteraction() {
+            // Only attempt to start if Tone.js is loaded and context is not already initialized
+            if (Tone && !audioInitialized) {
+                 try {
+                     await Tone.start(); // Request browser to start the audio context
+                     audioInitialized = true; // Set flag indicating success
+                     console.log("Tone.js AudioContext started successfully.");
+                     initAudio(); // Initialize the synth objects now that context is ready
+                     // Optional: Play a subtle sound to confirm audio is working
+                 } catch (e) {
+                     console.error("Failed to start Tone.js AudioContext:", e);
+                     soundEnabled = false; // Disable sound functionality if context fails
+                     if(soundToggleBtn) soundToggleBtn.innerText = "Sound: ERR"; // Update button text
+                 }
+             }
+             // Return a resolved promise for potential chaining
+             return Promise.resolve();
+        }
+
+         /** Initializes the Tone.js synth objects used for sound effects. */
+         function initAudio() {
+             // Ensure this runs only once and only after the audio context is successfully started
+             if (!audioInitialized || Object.keys(synths).length > 0) return;
+             console.log("Initializing Tone.js Synths...");
+             try {
+                 // Set a global volume level (adjust as needed)
+                 Tone.Destination.volume.value = -6; // -6dB is roughly half volume
+
+                 // Create a simple synth for general feedback sounds (success, failure)
+                 synths.fx = new Tone.Synth({
+                     oscillator: { type: 'sine' }, // Simple waveform
+                     envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.2 }
+                 }).toDestination(); // Connect to audio output
+                 synths.fx.volume.value = -6; // Adjust volume for this synth
+
+                 // Create a noise synth for clicks or short bursts
+                 synths.noise = new Tone.NoiseSynth({
+                     noise: { type: 'white' }, // White noise
+                     envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.05 }
+                 }).toDestination();
+                 synths.noise.volume.value = -18; // Make noise quieter
+
+                  // Create a synth for background/game over sounds (can be more complex)
+                 synths.bg = new Tone.Synth({
+                     oscillator: { type: 'triangle' },
+                     envelope: { attack: 0.2, decay: 0.3, sustain: 0.1, release: 0.5 }
+                 }).toDestination();
+                 synths.bg.volume.value = -20; // Make background sounds very quiet
+
+                 console.log("Tone.js Synths created successfully.");
+             } catch (e) {
+                 console.error("Failed to initialize Tone.js Synths:", e);
+                 soundEnabled = false; // Disable sound if synth creation fails
+                 if(soundToggleBtn) soundToggleBtn.innerText = "Sound: ERR";
+             }
+         }
+
+        /** Plays a specific sound effect type using the initialized synths. */
+        function playSound(type) {
+             // Check if sound is enabled, initialized, and the required synth exists
+             if (!soundEnabled || !audioInitialized || !Tone || !synths.fx) return;
+             try {
+                 const now = Tone.now(); // Get the current audio context time for precise scheduling
+                 switch (type) {
+                     case 'start': // Sound for starting the game
+                         synths.fx?.triggerAttackRelease("C4", "8n", now); // Play C4 for an 8th note duration
+                         synths.fx?.triggerAttackRelease("G4", "8n", now + 0.15); // Play G4 slightly after
+                         break;
+                     case 'success': // Sound for successful synchronization
+                         synths.fx?.triggerAttackRelease("G5", "16n", now, 0.8); // Play G5 with velocity 0.8
+                         synths.fx?.triggerAttackRelease("C6", "16n", now + 0.1, 0.9); // Play C6 slightly after, louder
+                         break;
+                     case 'failure': // Sound for failed synchronization
+                         synths.fx?.triggerAttackRelease("F#3", "8n", now, 0.7); // Play F#3
+                         synths.noise?.triggerAttack(now); // Trigger a short noise burst
+                         synths.noise?.triggerRelease(now + 0.05); // Release the noise quickly
+                         break;
+                     case 'gameOver': // Sound for game over
+                         synths.bg?.triggerAttackRelease("C3", "2n", now); // Play low C3 for a half note
+                         synths.bg?.triggerAttackRelease("G2", "2n", now + 0.1); // Play lower G2 slightly after
+                         break;
+                     case 'click': // Generic UI click sound
+                         synths.noise?.triggerAttackRelease("64n", now); // Very short noise burst for click
+                         break;
+                    // Optional: Add sounds for key presses 'A'/'L' if desired
+                    // case 'accelerate': synths.fx?.triggerAttack("C#4", now); break; // Note: Would need keyup to release
+                    // case 'brake': synths.fx?.triggerAttack("B3", now); break; // Note: Would need keyup to release
+                     default:
+                         console.warn("Unknown sound type requested:", type);
+                         break;
+                 }
+             } catch(e) {
+                 console.error("Error playing sound:", type, e); // Log errors during sound playback
+             }
+         }
+
+        /** Toggles the sound effects on or off. */
+        function toggleSound() {
+            soundEnabled = !soundEnabled; // Flip the enabled state
+            if (soundToggleBtn) { // Update button text
+                 soundToggleBtn.innerText = `Sound: ${soundEnabled ? 'ON' : 'OFF'}`;
+            }
+            // Mute or unmute the master audio output in Tone.js
+            if (Tone && Tone.Destination) {
+                Tone.Destination.mute = !soundEnabled;
+             }
+            // If sound is being re-enabled and wasn't initialized, try to start the audio context.
+            if (soundEnabled && !audioInitialized) {
+                 handleFirstInteraction();
+            }
+            console.log("Sound Enabled state:", soundEnabled);
+             // Play click sound *before* muting if turning sound OFF
+             if (!soundEnabled) playSound('click');
+        }
+
+        // --- Math Helper Functions ---
+        /** Converts degrees to radians. */
+        Math.toRadians = function(degrees) { return degrees * Math.PI / 180; };
+        /** Converts radians to degrees. */
+        Math.toDegrees = function(radians) { return radians * 180 / Math.PI; };
+
+
+        // --- Game Initialization ---
+
+        /** Sets up the game, adds event listeners, and displays the welcome screen. */
+        function initializeGame() {
+            console.log("Initializing Generator Sync Game...");
+            // Critical check for canvas and context
+            if (!canvas || !ctx) {
+                console.error("CRITICAL ERROR: Canvas element not found or 2D context failed to initialize.");
+                // Display an error message to the user if canvas fails
+                document.body.innerHTML = '<p style="color:red; padding: 20px; font-size: 1.2em;">Error: Canvas setup failed. Cannot start the game. Please ensure your browser supports HTML5 Canvas.</p>';
+                return; // Stop initialization
+            }
+
+            // Setup event listeners to initiate the AudioContext on first user interaction.
+            // Using 'capture: true' helps ensure these run before other listeners might interfere.
+            // Using 'once: true' ensures they only run once.
+            document.addEventListener('click', handleFirstInteraction, { once: true, capture: true });
+            document.addEventListener('keydown', handleFirstInteraction, { once: true, capture: true });
+            document.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true, capture: true }); // Passive for touch scrolling performance
+
+             // Add game input event listeners
+            document.addEventListener('keydown', handleKeyDown); // Handle key presses
+            document.addEventListener('keyup', handleKeyUp);     // Handle key releases
+            window.addEventListener('resize', resizeCanvas);   // Handle window resizing
+
+             // Add listeners for UI buttons
+            if (startGameBtn) startGameBtn.addEventListener('click', () => { playSound('click'); startGameplay(); });
+            if (restartGameBtn) restartGameBtn.addEventListener('click', () => { playSound('click'); transitionToWelcome(); }); // Go to welcome on restart
+            if (soundToggleBtn) soundToggleBtn.addEventListener('click', toggleSound);
+            
+            // Mobile control buttons
+            setupMobileControls();
+             // Add listener for high score submission
+             if (submitScoreBtn) submitScoreBtn.addEventListener('click', () => {
+                 const initials = initialsInput.value;
+                 if(initials && initials.trim().length > 0) {
+                     saveHighScore(initials.trim(), score); // Save with current score
+                     playSound('success');
+                     transitionToWelcome(); // Go back to welcome after submitting
+                 } else {
+                     // Maybe show an error or just ignore?
+                     if(initialsInput) initialsInput.focus(); // Refocus if empty
+                 }
+             });
+             // Add Enter key listener for initials input
+             if (initialsInput) initialsInput.addEventListener('keydown', (e) => {
+                 if (e.code === 'Enter' || e.key === 'Enter') {
+                     if (submitScoreBtn) submitScoreBtn.click();
+                 }
+             });
+
+
+            // Initial setup
+            hideAllOverlays(); // Ensure all overlays are hidden initially
+            if (welcomeScreen) welcomeScreen.style.display = 'flex'; // Show the welcome screen first
+            if (highScoresDiv) highScoresDiv.style.display = 'block'; // Show high scores div on welcome
+            loadHighScores(); // Load and display high scores
+            resizeCanvas(); // Perform initial canvas size calculation and setup
+            console.log("Game Initialized. Displaying welcome screen. Waiting for player to start.");
+        }
+        
+        /** Sets up the mobile control buttons for touch devices */
+        function setupMobileControls() {
+            const clockwiseBtn = document.getElementById('btnClockwise');
+            const counterClockwiseBtn = document.getElementById('btnCounterClockwise');
+            const syncBtn = document.getElementById('btnSync');
+            
+            if (!clockwiseBtn || !counterClockwiseBtn || !syncBtn) return;
+            
+            // Clockwise button (A key) - Handle both touch and mouse events
+            clockwiseBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault(); // Prevent double tap zoom
+                if (gameState === 'playing') {
+                    keyA_pressed = true;
+                    keyA_holdDuration = 0;
+                }
+            });
+            
+            clockwiseBtn.addEventListener('mousedown', function() {
+                if (gameState === 'playing') {
+                    keyA_pressed = true;
+                    keyA_holdDuration = 0;
+                }
+            });
+            
+            // Counter-clockwise button (L key)
+            counterClockwiseBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                if (gameState === 'playing') {
+                    keyL_pressed = true;
+                    keyL_holdDuration = 0;
+                }
+            });
+            
+            counterClockwiseBtn.addEventListener('mousedown', function() {
+                if (gameState === 'playing') {
+                    keyL_pressed = true;
+                    keyL_holdDuration = 0;
+                }
+            });
+            
+            // Sync button (Space key)
+            syncBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                if (gameState === 'playing') {
+                    handleSyncAttempt();
+                }
+            });
+            
+            syncBtn.addEventListener('mousedown', function() {
+                if (gameState === 'playing') {
+                    handleSyncAttempt();
+                }
+            });
+            
+            // Release events (touchend/mouseup) for clockwise and counter-clockwise
+            function handleRelease(key) {
+                if (gameState === 'playing') {
+                    if (key === 'A') {
+                        keyA_pressed = false;
+                        keyA_holdDuration = 0;
+                    } else if (key === 'L') {
+                        keyL_pressed = false;
+                        keyL_holdDuration = 0;
+                    }
+                }
+            }
+            
+            // Set up release events for both mouse and touch
+            clockwiseBtn.addEventListener('touchend', () => handleRelease('A'));
+            clockwiseBtn.addEventListener('touchcancel', () => handleRelease('A'));
+            clockwiseBtn.addEventListener('mouseup', () => handleRelease('A'));
+            clockwiseBtn.addEventListener('mouseleave', () => handleRelease('A'));
+            
+            counterClockwiseBtn.addEventListener('touchend', () => handleRelease('L'));
+            counterClockwiseBtn.addEventListener('touchcancel', () => handleRelease('L'));
+            counterClockwiseBtn.addEventListener('mouseup', () => handleRelease('L'));
+            counterClockwiseBtn.addEventListener('mouseleave', () => handleRelease('L'));
+            
+            // Special handling for iOS Safari to prevent scrolling when using the buttons
+            document.addEventListener('touchmove', function(e) {
+                if (gameState === 'playing' && (keyA_pressed || keyL_pressed)) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        // --- Start the game initialization process once the DOM is fully loaded ---
+        document.addEventListener('DOMContentLoaded', initializeGame);
+
+    </script>
+    
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

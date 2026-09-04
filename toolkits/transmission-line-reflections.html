@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transmission Line Simulator</title>
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]'], ['$$', '$$']]
+  }
+};
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;padding-top:80px;padding-bottom:70px}
+.container{max-width:1400px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
+header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px 30px;text-align:center}
+header h1{font-size:28px;margin-bottom:5px}
+header p{font-size:14px;opacity:.9}
+.content{display:grid;grid-template-columns:320px 1fr;gap:20px;padding:20px}
+.controls{display:flex;flex-direction:column;gap:15px}
+.control-group{background:#f8f9fa;padding:15px;border-radius:8px;border:1px solid #e9ecef}
+.control-group h3{font-size:14px;color:#495057;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+.param-control{margin-bottom:12px}
+.param-control:last-child{margin-bottom:0}
+.param-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:13px}
+.param-label span:first-child{color:#495057;font-weight:500}
+.param-label span:last-child{color:#667eea;font-weight:600}
+input[type="range"]{width:100%;height:4px;border-radius:2px;background:#dee2e6;outline:none;-webkit-appearance:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#667eea;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#667eea;cursor:pointer;border:none}
+input[type="range"]:disabled{opacity:.4}
+.checkbox-control{display:flex;align-items:center;gap:8px;margin-top:8px}
+input[type="checkbox"]{width:16px;height:16px;cursor:pointer}
+.checkbox-control label{font-size:12px;color:#6c757d;cursor:pointer}
+.button-group{display:flex;gap:8px;flex-wrap:wrap}
+button{flex:1;padding:10px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;min-width:80px}
+button:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+button:active{transform:translateY(0)}
+.btn-primary{background:#667eea;color:#fff}
+.btn-secondary{background:#6c757d;color:#fff}
+.btn-success{background:#28a745;color:#fff}
+.btn-preset{background:#17a2b8;color:#fff}
+.computed-values{background:#e7f3ff;padding:12px;border-radius:6px;font-size:12px;line-height:1.8;color:#495057}
+.computed-values strong{color:#667eea;font-weight:600}
+.input-group{display:flex;align-items:center;gap:8px;margin-top:8px}
+.input-group label{font-size:12px;color:#495057;font-weight:500}
+.input-group input[type="number"]{flex:1;padding:6px 10px;border:1px solid #ced4da;border-radius:4px;font-size:12px}
+.visualizations{display:flex;flex-direction:column;gap:20px}
+.canvas-container{background:#f8f9fa;padding:15px;border-radius:8px;border:1px solid #e9ecef}
+.canvas-container h3{font-size:14px;color:#495057;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+canvas{display:block;background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.educational-content{background:#f8f9fa;padding:30px;border-radius:8px;border:1px solid #e9ecef;margin-top:20px}
+.educational-content h2{font-size:22px;color:#495057;margin-bottom:20px;border-bottom:2px solid #667eea;padding-bottom:10px}
+.educational-content h3{font-size:18px;color:#495057;margin-top:25px;margin-bottom:12px;font-weight:600}
+.educational-content h4{font-size:15px;color:#6c757d;margin-top:18px;margin-bottom:10px;font-weight:600}
+.educational-content p{font-size:14px;line-height:1.8;color:#495057;margin-bottom:15px;text-align:justify}
+.educational-content ul{margin-left:25px;margin-bottom:15px}
+.educational-content li{font-size:14px;line-height:1.8;color:#495057;margin-bottom:8px}
+.educational-content .equation-block{background:#fff;padding:20px;border-radius:6px;margin:15px 0;border-left:4px solid #667eea;box-shadow:0 2px 4px rgba(0,0,0,.05)}
+.educational-content .key-concept{background:#e7f3ff;padding:12px 15px;border-radius:6px;margin:12px 0;border-left:4px solid #007bff}
+.educational-content .key-concept strong{color:#007bff}
+.educational-content code{background:#e9ecef;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:13px}
+@media (max-width:1200px){.content{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <h1>Transmission Line Simulator</h1>
+  <p>Event driven square wave energization model</p>
+</header>
+
+<div class="content">
+  <div class="controls">
+    <div class="control-group">
+      <h3>Source Parameters</h3>
+      <div class="param-control">
+        <div class="param-label"><span>Source Resistance (Rs)</span><span id="rs-value">50 Ω</span></div>
+        <input type="range" id="rs-slider" min="0" max="1000" value="50" step="1">
+      </div>
+      <div class="param-control">
+        <div class="param-label"><span>Source Reactance (Xs)</span><span id="xs-value">0 Ω</span></div>
+        <input type="range" id="xs-slider" min="-500" max="500" value="0" step="1" disabled>
+        <div class="checkbox-control"><input type="checkbox" id="xs-enable"><label for="xs-enable">Enable Xs</label></div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Line Parameters</h3>
+      <div class="param-control">
+        <div class="param-label"><span>Line Resistance (R0)</span><span id="z0-value">400 Ω</span></div>
+        <input type="range" id="z0-slider" min="50" max="600" value="400" step="1">
+      </div>
+      <div class="param-control">
+        <div class="param-label"><span>Line Reactance (X0)</span><span id="x0-value">0 Ω</span></div>
+        <input type="range" id="x0-slider" min="-500" max="500" value="0" step="1" disabled>
+        <div class="checkbox-control"><input type="checkbox" id="x0-enable"><label for="x0-enable">Enable X0</label></div>
+      </div>
+      <div class="param-control">
+        <div class="param-label"><span>Line Length</span><span id="length-value">1000 m</span></div>
+        <input type="range" id="length-slider" min="100" max="5000" value="1000" step="100">
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Load Parameters</h3>
+      <div class="param-control">
+        <div class="param-label"><span>Load Resistance (RL)</span><span id="rl-value">1000 Ω</span></div>
+        <input type="range" id="rl-slider" min="0" max="5000" value="1000" step="1">
+      </div>
+      <div class="param-control">
+        <div class="param-label"><span>Load Reactance (XL)</span><span id="xl-value">0 Ω</span></div>
+        <input type="range" id="xl-slider" min="-500" max="500" value="0" step="1" disabled>
+        <div class="checkbox-control"><input type="checkbox" id="xl-enable"><label for="xl-enable">Enable XL</label></div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Presets</h3>
+      <div class="button-group">
+        <button class="btn-preset" id="preset-short">Short</button>
+        <button class="btn-preset" id="preset-open">Open</button>
+        <button class="btn-preset" id="preset-matched">Matched</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Simulation Controls</h3>
+      <div class="param-control">
+        <div class="param-label"><span>Animation Speed</span><span id="speed-value">1.0x</span></div>
+        <input type="range" id="speed-slider" min="-2" max="1" value="-2" step="0.01">
+      </div>
+      <div class="button-group">
+        <button class="btn-primary" id="btn-play">▶ Play</button>
+        <button class="btn-secondary" id="btn-pause">⏸ Pause</button>
+      </div>
+      <div class="button-group">
+        <button class="btn-secondary" id="btn-reset">Reset</button>
+        <button class="btn-secondary" id="btn-step">Step</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Computed Values</h3>
+      <div class="computed-values" id="computed-display">
+        <div><strong>τs:</strong> <span id="tau-s">-</span></div>
+        <div><strong>tf:</strong> <span id="tf-val">-</span></div>
+        <div><strong>VL:</strong> <span id="vl-pu">-</span> p.u.</div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Reflection Coefficients</h3>
+      <div class="computed-values" id="reflection-display">
+        <div><strong>ρS (source-line):</strong> <span id="rho-s">-</span></div>
+        <div><strong>ρL (line-load):</strong> <span id="rho-l">-</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="visualizations">
+    <div class="canvas-container">
+      <h3>Transmission Line Animation</h3>
+      <canvas id="transline-canvas" width="800" height="150"></canvas>
+    </div>
+
+    <div class="canvas-container">
+      <h3>Bewley Lattice Diagram</h3>
+      <div class="param-control" style="margin-bottom: 10px;">
+        <div class="param-label"><span>Y-Axis Time Range</span><span id="bewley-range-value">10 τ</span></div>
+        <input type="range" id="bewley-range-slider" min="2" max="20" value="10" step="0.5">
+      </div>
+      <canvas id="bewley-canvas" width="600" height="500"></canvas>
+    </div>
+
+    <div class="canvas-container">
+      <h3>Load Voltage vs Time</h3>
+      <canvas id="voltage-canvas" width="600" height="400"></canvas>
+    </div>
+
+    <div class="canvas-container">
+      <h3>Impedance Smith Chart</h3>
+      <canvas id="impedance-smith-chart" width="400" height="400"></canvas>
+    </div>
+
+    <div class="educational-content">
+      <h2>Understanding the Smith Chart and Transmission Line Calculations</h2>
+      
+      <h3>1. What is a Smith Chart?</h3>
+      <p>
+        The Smith Chart is a graphical tool used in electrical engineering to visualize and solve problems involving transmission lines and impedance matching. It represents complex impedances and reflection coefficients on a two-dimensional plot, making it easier to understand how signals behave in transmission systems.
+      </p>
+      
+      <div class="key-concept">
+        <strong>Key Insight:</strong> The Smith Chart maps the entire complex impedance plane onto a circle, where the center represents a perfectly matched impedance (no reflections) and the outer edge represents either open or short circuit conditions.
+      </div>
+
+      <h4>Reading the Smith Chart</h4>
+      <ul>
+        <li><strong>Center point (green Z₀):</strong> Represents the characteristic impedance \( Z_0 \) of the transmission line. When the load impedance equals \( Z_0 \), there are no reflections.</li>
+        <li><strong>Resistance circles:</strong> Constant resistance values form circles that are tangent to the right edge of the chart.</li>
+        <li><strong>Reactance arcs:</strong> Constant reactance values form arcs that meet at the right edge (infinite impedance point).</li>
+        <li><strong>Left edge:</strong> Represents zero impedance (short circuit).</li>
+        <li><strong>Right edge:</strong> Represents infinite impedance (open circuit).</li>
+      </ul>
+
+      <h3>2. Fundamental Equations</h3>
+
+      <h4>Normalized Impedance</h4>
+      <p>
+        All impedances on a Smith Chart are normalized to the characteristic impedance \( Z_0 \) of the transmission line. This normalization simplifies calculations and makes the chart universal for any characteristic impedance.
+      </p>
+      <div class="equation-block">
+        \[ z = \frac{Z}{Z_0} = \frac{R + jX}{Z_0} \]
+      </div>
+      <p>
+        where \( z \) is the normalized impedance, \( Z = R + jX \) is the actual impedance, and \( Z_0 \) is the characteristic impedance.
+      </p>
+
+      <h4>Reflection Coefficient</h4>
+      <p>
+        The reflection coefficient \( \Gamma \) (gamma) describes how much of an incident wave is reflected back due to impedance mismatch. It's a complex number with magnitude between 0 (perfect match) and 1 (total reflection).
+      </p>
+      <div class="equation-block">
+        \[ \Gamma = \frac{Z - Z_0}{Z + Z_0} = \frac{z - 1}{z + 1} \]
+      </div>
+      <p>
+        The Smith Chart is actually a polar plot of the reflection coefficient, with magnitude represented by distance from center and phase by angle.
+      </p>
+
+      <h4>Source and Load Reflection Coefficients</h4>
+      <p>
+        In a transmission line system with source impedance \( Z_S \) and load impedance \( Z_L \), we have two important reflection coefficients:
+      </p>
+      <div class="equation-block">
+        <strong>At the source (line-to-source interface):</strong>
+        \[ \rho_S = \frac{Z_S - Z_0}{Z_S + Z_0} \]
+      </div>
+      <div class="equation-block">
+        <strong>At the load (line-to-load interface):</strong>
+        \[ \rho_L = \frac{Z_L - Z_0}{Z_L + Z_0} \]
+      </div>
+      <p>
+        These values are displayed in the "Reflection Coefficients" panel in the simulator. Note that we use \( \rho \) (rho) for the reflection coefficients at the interfaces, while \( \Gamma \) represents the general reflection coefficient.
+      </p>
+
+      <h3>3. Transmission Line Wave Equations</h3>
+      <p>
+        Voltage and current on a transmission line can be represented as the superposition of forward-traveling and backward-traveling (reflected) waves.
+      </p>
+      <div class="equation-block">
+        \[ V(z,t) = V^+ e^{-\gamma z} e^{j\omega t} + V^- e^{\gamma z} e^{j\omega t} \]
+      </div>
+      <p>
+        where:
+      </p>
+      <ul>
+        <li>\( V^+ \) is the forward-traveling wave amplitude</li>
+        <li>\( V^- \) is the backward-traveling (reflected) wave amplitude</li>
+        <li>\( \gamma \) is the propagation constant (for lossless lines, \( \gamma = j\beta \))</li>
+        <li>\( z \) is the position along the line</li>
+        <li>\( \omega \) is the angular frequency</li>
+      </ul>
+
+      <h4>Standing Wave Ratio (SWR)</h4>
+      <p>
+        The Standing Wave Ratio quantifies the impedance mismatch in terms of the maximum and minimum voltage amplitudes along the line.
+      </p>
+      <div class="equation-block">
+        \[ \text{SWR} = \frac{1 + |\rho_L|}{1 - |\rho_L|} \]
+      </div>
+      <p>
+        An SWR of 1.0 indicates perfect matching (no reflections), while higher values indicate greater mismatch. For example:
+      </p>
+      <ul>
+        <li>SWR = 1.0: Perfect match (\( \rho_L = 0 \))</li>
+        <li>SWR = 1.5: Good match (\( |\rho_L| \approx 0.2 \))</li>
+        <li>SWR = 2.0: Moderate mismatch (\( |\rho_L| \approx 0.33 \))</li>
+        <li>SWR = ∞: Total reflection - open or short circuit (\( |\rho_L| = 1 \))</li>
+      </ul>
+
+      <h3>4. Understanding the Bewley Diagram (Lattice Diagram)</h3>
+      <p>
+        The Bewley Diagram is a graphical method for analyzing transient behavior on transmission lines. It shows how voltage waves travel back and forth between the source and load, reflecting at each end according to the reflection coefficients.
+      </p>
+
+      <h4>How It Works</h4>
+      <ul>
+        <li><strong>Vertical axis:</strong> Represents time, with each division typically equal to the transit time \( t_f \) (the time for a wave to travel the length of the line).</li>
+        <li><strong>Horizontal axis:</strong> Shows position, with the left side representing the source and the right side representing the load.</li>
+        <li><strong>Diagonal lines:</strong> Represent traveling waves. Positive slopes are forward waves (source to load), negative slopes are reflected waves (load to source).</li>
+        <li><strong>Numbers on lines:</strong> Show the amplitude of each wave packet.</li>
+      </ul>
+
+      <div class="equation-block">
+        <strong>Transit time:</strong>
+        \[ t_f = \frac{L}{v} \]
+        where \( L \) is the line length and \( v \) is the propagation velocity.
+      </div>
+
+      <h4>Wave Reflection Process</h4>
+      <ol style="margin-left: 25px; margin-bottom: 15px;">
+        <li>When a voltage step is applied at the source, a forward wave with amplitude \( V^+ = \tau_S \cdot V_S \) begins traveling toward the load.</li>
+        <li>Upon reaching the load at time \( t_f \), a portion is reflected with amplitude \( V^- = \rho_L \cdot V^+ \)</li>
+        <li>The reflected wave travels back to the source, arriving at time \( 2t_f \)</li>
+        <li>At the source, it reflects with amplitude \( \rho_S \cdot V^- \) and travels toward the load again</li>
+        <li>This process continues, with each reflection becoming smaller (if \( |\rho_S| < 1 \) and \( |\rho_L| < 1 \)), until steady-state is reached</li>
+      </ol>
+
+      <h3>5. Transmission Line Animation Explained</h3>
+      <p>
+        The transmission line animation shows the instantaneous voltage distribution along the entire length of the line as wave packets travel and reflect.
+      </p>
+      <ul>
+        <li><strong>Blue curve:</strong> Shows the actual voltage at each point along the line at the current simulation time</li>
+        <li><strong>Shaded area:</strong> Emphasizes the voltage deviation from the transmission line baseline</li>
+        <li><strong>Reference lines (0.5, 1.0, 1.5):</strong> Help you visualize voltage magnitudes in per-unit (p.u.) values</li>
+        <li><strong>Vertical marker:</strong> Shows the current simulation time position</li>
+      </ul>
+
+      <p>
+        As multiple wave packets pass through a point, they superpose (add algebraically). This creates the characteristic voltage profile you see, which evolves over time until reaching a steady state.
+      </p>
+
+      <h3>6. Using This Simulator</h3>
+      
+      <h4>Exploring Different Scenarios</h4>
+      <div class="key-concept">
+        <strong>Try the presets:</strong> Use the "Short", "Open", and "Matched" buttons to see classic transmission line cases.
+      </div>
+
+      <ul>
+        <li><strong>Matched Load:</strong> Set \( Z_L = Z_0 \) (e.g., both at 400Ω). On the Smith Chart, the load point moves to the center. Notice \( \rho_L = 0 \) and no reflections occur.</li>
+        <li><strong>Short Circuit:</strong> Set \( R_L \approx 0 \). The load point moves to the left edge of the Smith Chart. Notice \( \rho_L \approx -1 \) causing phase inversion of reflected waves.</li>
+        <li><strong>Open Circuit:</strong> Set \( R_L \) very high. The load point moves to the right edge. Notice \( \rho_L \approx +1 \) causing reflections with the same polarity.</li>
+        <li><strong>Complex Impedances:</strong> Enable reactances (Xs or XL) to add inductive or capacitive components. Watch how the Smith Chart points move off the real axis.</li>
+      </ul>
+
+      <h4>Key Observations</h4>
+      <ul>
+        <li>The final steady-state load voltage \( V_L \) can be calculated from the voltage divider: \( V_L = V_S \frac{Z_L}{Z_S + Z_0 + Z_L} \) (for a matched source)</li>
+        <li>The number of reflections needed to reach steady state depends on how close \( |\rho_S| \) and \( |\rho_L| \) are to zero</li>
+        <li>The animation speed can be adjusted to observe fast or slow transient behavior</li>
+        <li>The Load Voltage vs Time graph shows the characteristic "staircase" pattern as each reflection arrives</li>
+      </ul>
+
+      <div class="key-concept">
+        <strong>Educational Tip:</strong> Start with the matched load preset to see ideal behavior (no reflections), then gradually change the load impedance to observe how reflections develop and how the steady-state voltage changes.
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+'use strict';
+
+// Complex numbers
+class Complex{
+  constructor(r,i=0){this.real=r;this.imag=i}
+  add(o){return new Complex(this.real+o.real,this.imag+o.imag)}
+  subtract(o){return new Complex(this.real-o.real,this.imag-o.imag)}
+  multiply(o){return new Complex(this.real*o.real - this.imag*o.imag, this.real*o.imag + this.imag*o.real)}
+  divide(o){const d=o.real*o.real+o.imag*o.imag;return new Complex((this.real*o.real+this.imag*o.imag)/d,(this.imag*o.real-this.real*o.imag)/d)}
+  magnitude(){return Math.hypot(this.real,this.imag)}
+  phase(){return Math.atan2(this.imag,this.real)}
+  toRectangularString(decimals=4){
+    const re=this.real.toFixed(decimals);
+    const im=Math.abs(this.imag).toFixed(decimals);
+    const sign=this.imag>=0?'+':'-';
+    return `${re} ${sign} j${im}`;
+  }
+}
+
+// Min heap
+class PriorityQueue{
+  constructor(){this.heap=[]}
+  enqueue(item,priority){this.heap.push({item,priority});this._up(this.heap.length-1)}
+  dequeue(){if(this.isEmpty())return null;const m=this.heap[0];const last=this.heap.pop();if(!this.isEmpty()){this.heap[0]=last;this._down(0)}return m.item}
+  peek(){return this.isEmpty()?null:this.heap[0]}
+  isEmpty(){return this.heap.length===0}
+  _up(i){while(i>0){const p=Math.floor((i-1)/2);if(this.heap[i].priority>=this.heap[p].priority)break;[this.heap[i],this.heap[p]]=[this.heap[p],this.heap[i]];i=p}}
+  _down(i){for(;;){let s=i;const l=2*i+1;const r=2*i+2;if(l<this.heap.length&&this.heap[l].priority<this.heap[s].priority)s=l;if(r<this.heap.length&&this.heap[r].priority<this.heap[s].priority)s=r;if(s===i)break;[this.heap[i],this.heap[s]]=[this.heap[s],this.heap[i]];i=s}}
+}
+
+const C = 299792458;
+
+function calculatePhysics(p){
+  const {Rs,Xs,Z0,X0,RL,XL,length,velocityPercent}=p;
+  const Zs=new Complex(Rs,Xs);
+  const ZL=new Complex(RL,XL);
+  const Z0c=new Complex(Z0,X0);
+  // Step source of 1 p.u. into Zs feeding Z0. incident at source end
+  const tauS = Z0c.divide(Z0c.add(Zs));            // v+0 = tauS * Vs
+  const rhoL = ZL.subtract(Z0c).divide(ZL.add(Z0c));
+  const rhoS = Zs.subtract(Z0c).divide(Zs.add(Z0c));
+  const v = (velocityPercent/100)*C;
+  const tf = length / v;
+  return {tauS,rhoL,rhoS,tf};
+}
+
+// Simulation
+class SimulationEngine{
+  constructor(params){
+    this.params=params;
+    this.physics=calculatePhysics(params);
+    this.eventQueue=new PriorityQueue();
+    this.events=[];
+    this.VL=0;
+    this.initialized=false;
+  }
+  initialize(){
+    const A0=this.physics.tauS.real; // using real part for square wave amplitude
+    // first forward packet reaches load at tf
+    this.eventQueue.enqueue({type:'LOAD_ARRIVAL',time:this.physics.tf,amplitude:A0,bounce:0},this.physics.tf);
+    this.initialized=true;
+  }
+  processNextEvent(){
+    if(this.eventQueue.isEmpty())return null;
+    const e=this.eventQueue.dequeue();
+    this.events.push(e);
+    if(e.type==='LOAD_ARRIVAL')this._onLoad(e);
+    else if(e.type==='SOURCE_ARRIVAL')this._onSource(e);
+    return e;
+  }
+  _onLoad(e){
+    const refl = e.amplitude * this.physics.rhoL.real;
+    const step = e.amplitude + refl;
+    this.VL += step;
+    if(Math.abs(refl)>=1e-4 && e.bounce<80){
+      const t = e.time + this.physics.tf;
+      this.eventQueue.enqueue({type:'SOURCE_ARRIVAL',time:t,amplitude:refl,bounce:e.bounce},t);
+    }
+  }
+  _onSource(e){
+    const fwd = e.amplitude * this.physics.rhoS.real;
+    if(Math.abs(fwd)>=1e-4 && e.bounce<80){
+      const t = e.time + this.physics.tf;
+      this.eventQueue.enqueue({type:'LOAD_ARRIVAL',time:t,amplitude:fwd,bounce:e.bounce+1},t);
+    }
+  }
+  runToCompletion(){
+    if(!this.initialized)this.initialize();
+    let guard=0;
+    while(!this.eventQueue.isEmpty() && guard<10000){
+      const peek=this.eventQueue.peek();
+      if(!peek)break;
+      if(Math.abs(peek.item.amplitude)<1e-4)break;
+      this.processNextEvent();
+      guard++;
+    }
+  }
+  lastEventTime(){
+    if(this.events.length===0)return 0;
+    return this.events[this.events.length-1].time;
+  }
+  getVoltageSteps(){
+    const steps=[{time:0,voltage:0}];
+    let v=0;
+    for(const e of this.events){
+      if(e.type!=='LOAD_ARRIVAL')continue;
+      const refl = e.amplitude * this.physics.rhoL.real;
+      v += e.amplitude + refl;
+      steps.push({time:e.time,voltage:v});
+    }
+    return steps;
+  }
+}
+
+// Renderers
+class TransmissionLineRenderer{
+  constructor(canvas){
+    this.canvas=canvas;
+    this.ctx=canvas.getContext('2d');
+    this.sourceX=50; this.loadX=750; this.lineY=90; this.waveWidth=70;
+  }
+  render(sim, t){
+    const ctx=this.ctx, w=this.canvas.width, h=this.canvas.height;
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+    // line
+    ctx.strokeStyle='#000'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(this.sourceX,this.lineY); ctx.lineTo(this.loadX,this.lineY); ctx.stroke();
+    // nodes
+    ctx.fillStyle='#667eea'; ctx.fillRect(this.sourceX-10,this.lineY-20,20,40);
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Source',this.sourceX,this.lineY-25);
+    ctx.fillStyle='#764ba2'; ctx.fillRect(this.loadX-10,this.lineY-20,20,40);
+    ctx.fillStyle='#000'; ctx.fillText('Load',this.loadX,this.lineY-25);
+
+    if(!sim)return;
+    const tf=sim.physics.tf;
+    const L=this.loadX-this.sourceX;
+    const lineLength = sim.params.length; // physical length in meters
+
+    // Calculate voltage at all positions along the line
+    const numPoints = 200; // sample points along the line
+    const voltages = [];
+    const maxV = 1.5; // for scaling
+    
+    for(let i=0; i<=numPoints; i++){
+      const frac = i / numPoints; // 0 = source, 1 = load
+      const z = frac * lineLength; // position in meters from source
+      const x = this.sourceX + frac * L; // screen x coordinate
+      
+      // Calculate total voltage at position z and time t
+      // V(z,t) = sum of all forward and reflected wave contributions
+      let voltage = 0;
+      
+      for(const e of sim.events){
+        if(e.type === 'LOAD_ARRIVAL'){
+          // Forward wave traveling from source to load
+          const startTime = e.time - tf; // wave starts at source
+          
+          // Time for wave to reach position z from source
+          const timeToZ = startTime + (z / lineLength) * tf;
+          
+          // Check if wave has reached this position - once it reaches, it stays
+          if(t >= timeToZ){
+            voltage += e.amplitude;
+          }
+        } else if(e.type === 'SOURCE_ARRIVAL'){
+          // Reflected wave traveling from load to source
+          const startTime = e.time - tf; // wave starts at load
+          
+          // Distance from load
+          const distFromLoad = lineLength - z;
+          const timeToZ = startTime + (distFromLoad / lineLength) * tf;
+          
+          // Check if wave has reached this position - once it reaches, it stays
+          if(t >= timeToZ){
+            voltage += e.amplitude;
+          }
+        }
+      }
+      
+      voltages.push({x, voltage});
+    }
+    
+    // Draw the voltage distribution as a waveform above/below the line
+    const voltageScale = 30; // pixels per p.u.
+    ctx.strokeStyle = '#667eea';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    for(let i=0; i<voltages.length; i++){
+      const v = voltages[i];
+      const y = this.lineY - v.voltage * voltageScale;
+      
+      if(i === 0){
+        ctx.moveTo(v.x, y);
+      } else {
+        ctx.lineTo(v.x, y);
+      }
+    }
+    ctx.stroke();
+    
+    // Fill area between voltage curve and transmission line
+    ctx.fillStyle = 'rgba(102,126,234,0.15)';
+    ctx.beginPath();
+    ctx.moveTo(this.sourceX, this.lineY);
+    for(let i=0; i<voltages.length; i++){
+      const v = voltages[i];
+      const y = this.lineY - v.voltage * voltageScale;
+      ctx.lineTo(v.x, y);
+    }
+    ctx.lineTo(this.loadX, this.lineY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw reference lines for voltage scale
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    for(let v of [0.5, 1.0, 1.5]){
+      const y = this.lineY - v * voltageScale;
+      ctx.beginPath();
+      ctx.moveTo(this.sourceX, y);
+      ctx.lineTo(this.loadX, y);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#666';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${v.toFixed(1)}`, this.loadX + 5, y + 3);
+    }
+    ctx.setLineDash([]);
+
+    // show current time marker
+    ctx.strokeStyle='rgba(0,0,0,.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const cyc = tf;
+    const m = t % cyc;
+    const px = this.sourceX + (m/cyc)*L;
+    ctx.moveTo(px,this.lineY-50); ctx.lineTo(px,this.lineY+30); ctx.stroke();
+  }
+}
+
+class BewleyLatticeRenderer{
+  constructor(canvas){
+    this.canvas=canvas; this.ctx=canvas.getContext('2d');
+    this.marginLeft=60; this.marginTop=40; this.marginRight=40; this.marginBottom=40;
+  }
+  render(sim, playheadTime=0, yAxisRangeMultiplier=null){
+    if(!sim||sim.events.length===0){const c=this.ctx; c.fillStyle='#fff'; c.fillRect(0,0,this.canvas.width,this.canvas.height); return;}
+    const ctx=this.ctx, W=this.canvas.width, H=this.canvas.height;
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    const PW=W-this.marginLeft-this.marginRight;
+    const PH=H-this.marginTop-this.marginBottom;
+    const tf=sim.physics.tf;
+    // Use custom y-axis range if provided, otherwise use automatic range
+    const maxTime = yAxisRangeMultiplier !== null ? yAxisRangeMultiplier * tf : sim.lastEventTime() + tf;
+
+    // axes
+    ctx.strokeStyle='#000'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(this.marginLeft,this.marginTop); ctx.lineTo(this.marginLeft,this.marginTop+PH); ctx.lineTo(this.marginLeft+PW,this.marginTop+PH); ctx.stroke();
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Distance', this.marginLeft+PW/2, H-10);
+    ctx.save(); ctx.translate(15, this.marginTop+PH/2); ctx.rotate(-Math.PI/2); ctx.fillText('Time', 0, 0); ctx.restore();
+
+    // grid each tf
+    ctx.strokeStyle='#e0e0e0'; ctx.lineWidth=1;
+    const N=Math.min(40, Math.floor(maxTime/tf)+1);
+    for(let i=1;i<=N;i++){
+      const y=this.marginTop+(i*tf/maxTime)*PH;
+      ctx.beginPath(); ctx.moveTo(this.marginLeft,y); ctx.lineTo(this.marginLeft+PW,y); ctx.stroke();
+      ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+      ctx.fillText(`${i} tf`, this.marginLeft-5, y+4);
+    }
+
+    // rays
+    for(const e of sim.events){
+      const y1=this.marginTop+((e.time-tf)/maxTime)*PH;
+      const y2=this.marginTop+(e.time/maxTime)*PH;
+      const x1 = e.type==='LOAD_ARRIVAL' ? this.marginLeft : this.marginLeft+PW;
+      const x2 = e.type==='LOAD_ARRIVAL' ? this.marginLeft+PW : this.marginLeft;
+      ctx.strokeStyle = e.amplitude>=0 ? '#667eea' : '#dc3545';
+      ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.fillStyle='#000'; ctx.font='9px sans-serif'; ctx.textAlign = x2>x1?'left':'right';
+      ctx.fillText(e.amplitude.toFixed(3), x2 + (x2>x1?5:-5), y2);
+    }
+
+    // playhead
+    const yph=this.marginTop + (Math.min(playheadTime,maxTime)/maxTime)*PH;
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.setLineDash([6,6]);
+    ctx.beginPath(); ctx.moveTo(this.marginLeft,yph); ctx.lineTo(this.marginLeft+PW,yph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#333'; ctx.font='10px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(`t = ${(playheadTime*1e6).toFixed(2)} µs`, this.marginLeft+6, yph-6);
+  }
+}
+
+class VoltagePlotRenderer{
+  constructor(canvas){
+    this.canvas=canvas; this.ctx=canvas.getContext('2d');
+    this.marginLeft=60; this.marginTop=40; this.marginRight=40; this.marginBottom=50;
+  }
+  render(sim, playheadTime=0){
+    if(!sim||sim.events.length===0){const c=this.ctx; c.fillStyle='#fff'; c.fillRect(0,0,this.canvas.width,this.canvas.height); return;}
+    const ctx=this.ctx, W=this.canvas.width, H=this.canvas.height;
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    const PW=W-this.marginLeft-this.marginRight;
+    const PH=H-this.marginTop-this.marginBottom;
+
+    const steps=sim.getVoltageSteps();
+    const maxTime = Math.max(steps[steps.length-1].time, sim.physics.tf);
+    const maxV = Math.max(1.5, ...steps.map(s=>Math.abs(s.voltage)));
+    // axes
+    ctx.strokeStyle='#000'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(this.marginLeft,this.marginTop); ctx.lineTo(this.marginLeft,this.marginTop+PH); ctx.lineTo(this.marginLeft+PW,this.marginTop+PH); ctx.stroke();
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Time (s)', this.marginLeft+PW/2, H-10);
+    ctx.save(); ctx.translate(15,this.marginTop+PH/2); ctx.rotate(-Math.PI/2); ctx.fillText('VL (p.u.)', 0, 0); ctx.restore();
+
+    // grid
+    ctx.strokeStyle='#e0e0e0'; ctx.lineWidth=1;
+    for(let v=0; v<=maxV; v+=0.5){
+      const y=this.marginTop+PH-(v/maxV)*PH;
+      ctx.beginPath(); ctx.moveTo(this.marginLeft,y); ctx.lineTo(this.marginLeft+PW,y); ctx.stroke();
+      ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+      ctx.fillText(v.toFixed(1), this.marginLeft-5, y+4);
+    }
+
+    // staircase
+    ctx.strokeStyle='#667eea'; ctx.lineWidth=2; ctx.beginPath();
+    for(let i=0;i<steps.length;i++){
+      const s=steps[i];
+      const x=this.marginLeft + (s.time/maxTime)*PW;
+      const y=this.marginTop+PH - (s.voltage/maxV)*PH;
+      if(i===0)ctx.moveTo(x,y);
+      else{
+        const p=steps[i-1];
+        const px=this.marginLeft + (p.time/maxTime)*PW;
+        const py=this.marginTop+PH - (p.voltage/maxV)*PH;
+        ctx.lineTo(x,py);
+        ctx.lineTo(x,y);
+      }
+    }
+    const last=steps[steps.length-1];
+    const lastY = this.marginTop+PH - (last.voltage/maxV)*PH;
+    ctx.lineTo(this.marginLeft+PW,lastY);
+    ctx.stroke();
+
+    // playhead
+    const xph=this.marginLeft + (Math.min(playheadTime,maxTime)/maxTime)*PW;
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.setLineDash([6,6]);
+    ctx.beginPath(); ctx.moveTo(xph,this.marginTop); ctx.lineTo(xph,this.marginTop+PH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+class SmithChartRenderer{
+  constructor(canvas){
+    this.canvas=canvas;
+    this.ctx=canvas.getContext('2d');
+    this.centerX=200;
+    this.centerY=200;
+    this.radius=160;
+  }
+  render(params){
+    const ctx=this.ctx, W=this.canvas.width, H=this.canvas.height;
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    
+    // Outer circle
+    ctx.strokeStyle='#333'; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(this.centerX,this.centerY,this.radius,0,2*Math.PI);
+    ctx.stroke();
+    
+    // Grid - resistance circles
+    ctx.strokeStyle='#d0d0d0'; ctx.lineWidth=1;
+    const rValues=[0.2,0.5,1.0,2.0,5.0];
+    for(const r of rValues){
+      const circleRadius=this.radius/(r+1);
+      const circleX=this.centerX+this.radius*r/(r+1);
+      ctx.beginPath();
+      ctx.arc(circleX,this.centerY,circleRadius,0,2*Math.PI);
+      ctx.stroke();
+    }
+    
+    // Grid - reactance arcs
+    const xValues=[0.2,0.5,1.0,2.0,5.0];
+    for(const x of xValues){
+      const arcRadius=this.radius/x;
+      const arcCenterY=this.centerY-this.radius/x;
+      ctx.beginPath();
+      ctx.arc(this.centerX+this.radius,arcCenterY,arcRadius,Math.PI/2,Math.PI);
+      ctx.stroke();
+      // Negative reactance
+      const arcCenterY2=this.centerY+this.radius/x;
+      ctx.beginPath();
+      ctx.arc(this.centerX+this.radius,arcCenterY2,arcRadius,Math.PI,3*Math.PI/2);
+      ctx.stroke();
+    }
+    
+    // Horizontal axis line
+    ctx.strokeStyle='#666'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(this.centerX-this.radius,this.centerY);
+    ctx.lineTo(this.centerX+this.radius,this.centerY);
+    ctx.stroke();
+    
+    // Calculate impedances and reflection coefficients
+    const {Rs,Xs,Z0,X0,RL,XL}=params;
+    const Zs=new Complex(Rs,Xs);
+    const ZL=new Complex(RL,XL);
+    const Z0c=new Complex(Z0,X0);
+    
+    // Normalize impedances to Z0
+    const zsNorm=Zs.divide(Z0c);
+    const zlNorm=ZL.divide(Z0c);
+    
+    // Convert to reflection coefficients
+    const one=new Complex(1,0);
+    const rhoS=zsNorm.subtract(one).divide(zsNorm.add(one));
+    const rhoL=zlNorm.subtract(one).divide(zlNorm.add(one));
+    
+    // Normalize Z0 itself to plot it on the chart
+    const z0Norm=Z0c.divide(Z0c);
+    const rho0=z0Norm.subtract(one).divide(z0Norm.add(one));
+    
+    // Plot source impedance (red)
+    const sX=this.centerX+rhoS.real*this.radius;
+    const sY=this.centerY-rhoS.imag*this.radius;
+    ctx.fillStyle='#dc3545'; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(sX,sY,7,0,2*Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#dc3545'; ctx.font='bold 11px Arial'; ctx.textAlign='left';
+    ctx.fillText('ZS',sX+10,sY-10);
+    
+    // Plot line impedance Z0 (green) - when X0≠0, it moves off center
+    const z0X=this.centerX+rho0.real*this.radius;
+    const z0Y=this.centerY-rho0.imag*this.radius;
+    ctx.fillStyle='#28a745'; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(z0X,z0Y,7,0,2*Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#28a745'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+    ctx.fillText('Z0',z0X,z0Y-12);
+    
+    // Plot load impedance (blue)
+    const lX=this.centerX+rhoL.real*this.radius;
+    const lY=this.centerY-rhoL.imag*this.radius;
+    ctx.fillStyle='#007bff'; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(lX,lY,7,0,2*Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#007bff'; ctx.font='bold 11px Arial'; ctx.textAlign='left';
+    ctx.fillText('ZL',lX+10,lY-10);
+    
+    // Labels
+    ctx.fillStyle='#000'; ctx.font='12px Arial'; ctx.textAlign='left';
+    ctx.fillText('0',this.centerX-this.radius-15,this.centerY+4);
+    ctx.fillText('∞',this.centerX+this.radius+5,this.centerY+4);
+    ctx.textAlign='center';
+    ctx.fillText('Impedance Smith Chart',this.centerX,20);
+    
+    // Legend
+    ctx.font='11px Arial'; ctx.textAlign='left';
+    const legendY=H-60;
+    ctx.fillStyle='#dc3545'; ctx.fillRect(10,legendY,12,12);
+    ctx.fillStyle='#000'; ctx.fillText('Source (ZS)',28,legendY+10);
+    ctx.fillStyle='#28a745'; ctx.fillRect(10,legendY+20,12,12);
+    ctx.fillStyle='#000'; ctx.fillText('Line (Z0)',28,legendY+30);
+    ctx.fillStyle='#007bff'; ctx.fillRect(10,legendY+40,12,12);
+    ctx.fillStyle='#000'; ctx.fillText('Load (ZL)',28,legendY+50);
+  }
+}
+
+// App
+class Application{
+  constructor(){
+    this.params={Rs:50,Xs:0,Z0:400,X0:0,RL:1000,XL:0,length:1000,velocityPercent:95};
+    this.simulation=null;
+    this.animationTime=0;
+    this.isPlaying=false;
+    this.animationFrame=null;
+    this.lastFrameTime=0;
+    // desired flights per real second
+    this.tfsPerSecond=25; // one packet crosses the line in about 40 ms on screen
+    this.speedMultiplier=0.01; // animation speed control
+    this.bewleyYAxisRange=10; // Y-axis range multiplier for Bewley diagram (in units of τ)
+    this.initRenderers();
+    this.initUI();
+    this.updateSimulation();
+    this.render();
+  }
+  initRenderers(){
+    this.translineRenderer=new TransmissionLineRenderer(document.getElementById('transline-canvas'));
+    this.bewleyRenderer=new BewleyLatticeRenderer(document.getElementById('bewley-canvas'));
+    this.voltageRenderer=new VoltagePlotRenderer(document.getElementById('voltage-canvas'));
+    this.smithChartRenderer=new SmithChartRenderer(document.getElementById('impedance-smith-chart'));
+  }
+  initUI(){
+    this._setupSlider('rs',0,1000,50,'Ω');
+    this._setupSlider('xs',-500,500,0,'Ω');
+    this._setupSlider('z0',50,600,400,'Ω');
+    this._setupSlider('x0',-500,500,0,'Ω');
+    this._setupSlider('rl',0,5000,1000,'Ω');
+    this._setupSlider('xl',-500,500,0,'Ω');
+    this._setupSlider('length',100,5000,1000,'m');
+
+    // Bewley diagram y-axis range slider
+    document.getElementById('bewley-range-slider').addEventListener('input',e=>{
+      const range = parseFloat(e.target.value);
+      this.bewleyYAxisRange = range;
+      document.getElementById('bewley-range-value').textContent = range.toFixed(1) + ' τ';
+      this.render();
+    });
+
+    // Animation speed slider with logarithmic scale
+    document.getElementById('speed-slider').addEventListener('input',e=>{
+      const sliderValue = parseFloat(e.target.value);
+      // Convert linear slider (-1 to 1) to logarithmic speed (0.1x to 10x)
+      // Formula: speed = 10^(sliderValue)
+      this.speedMultiplier = Math.pow(10, sliderValue);
+      document.getElementById('speed-value').textContent=this.speedMultiplier.toFixed(2)+'x';
+      this.render();
+    });
+
+    document.getElementById('xs-enable').addEventListener('change',e=>{
+      document.getElementById('xs-slider').disabled=!e.target.checked;
+      if(!e.target.checked){this.params.Xs=0;this._disp('xs',0,'Ω')}
+      this.updateSimulation();
+    });
+    document.getElementById('x0-enable').addEventListener('change',e=>{
+      document.getElementById('x0-slider').disabled=!e.target.checked;
+      if(!e.target.checked){this.params.X0=0;this._disp('x0',0,'Ω')}
+      this.updateSimulation();
+    });
+    document.getElementById('xl-enable').addEventListener('change',e=>{
+      document.getElementById('xl-slider').disabled=!e.target.checked;
+      if(!e.target.checked){this.params.XL=0;this._disp('xl',0,'Ω')}
+      this.updateSimulation();
+    });
+
+    document.getElementById('preset-short').addEventListener('click',()=>this.loadPreset({Rs:0,Xs:0,Z0:400,X0:0,RL:0.001,XL:0,length:1000,velocityPercent:95}));
+    document.getElementById('preset-open').addEventListener('click',()=>this.loadPreset({Rs:0,Xs:0,Z0:400,X0:0,RL:100000,XL:0,length:1000,velocityPercent:95}));
+    document.getElementById('preset-matched').addEventListener('click',()=>this.loadPreset({Rs:400,Xs:0,Z0:400,X0:0,RL:400,XL:0,length:1000,velocityPercent:95}));
+
+    document.getElementById('btn-play').addEventListener('click',()=>this.play());
+    document.getElementById('btn-pause').addEventListener('click',()=>this.pause());
+    document.getElementById('btn-reset').addEventListener('click',()=>this.reset());
+    document.getElementById('btn-step').addEventListener('click',()=>this.step());
+  }
+  _setupSlider(name,min,max,def,unit){
+    const s=document.getElementById(`${name}-slider`);
+    s.addEventListener('input',e=>{
+      const v=parseFloat(e.target.value);
+      this._disp(name,v,unit);
+      const map={'rs':'Rs','xs':'Xs','z0':'Z0','x0':'X0','rl':'RL','xl':'XL','length':'length'};
+      this.params[map[name]]=v;
+      this.updateSimulation();
+    });
+    this._disp(name,def,unit);
+  }
+  _disp(name,value,unit){document.getElementById(`${name}-value`).textContent=`${value} ${unit}`}
+  loadPreset(p){
+    this.params={...p};
+    const set=(id,val,unit)=>{document.getElementById(`${id}-slider`).value=val;this._disp(id,val,unit)}
+    set('rs',p.Rs,'Ω'); set('xs',p.Xs,'Ω'); set('z0',p.Z0,'Ω'); set('x0',p.X0,'Ω');
+    set('rl',p.RL,'Ω'); set('xl',p.XL,'Ω'); set('length',p.length,'m');
+    document.getElementById('xs-enable').checked=p.Xs!==0; document.getElementById('xs-slider').disabled=p.Xs===0;
+    document.getElementById('x0-enable').checked=p.X0!==0; document.getElementById('x0-slider').disabled=p.X0===0;
+    document.getElementById('xl-enable').checked=p.XL!==0; document.getElementById('xl-slider').disabled=p.XL===0;
+    this.updateSimulation();
+  }
+  updateSimulation(){
+    this.pause();
+    this.simulation=new SimulationEngine(this.params);
+    this.simulation.initialize();
+    this.simulation.runToCompletion();
+    this.animationTime=0;
+    this.updateComputed();
+    this.render();
+  }
+  updateComputed(){
+    if(!this.simulation)return;
+    const ph=this.simulation.physics;
+    document.getElementById('tau-s').textContent=ph.tauS.real.toFixed(4);
+    
+    // Display reflection coefficients as complex values with magnitude
+    const rhoSStr=ph.rhoS.toRectangularString(4);
+    const rhoSMag=ph.rhoS.magnitude().toFixed(4);
+    document.getElementById('rho-s').textContent=`${rhoSStr} (|ρS| = ${rhoSMag})`;
+    
+    const rhoLStr=ph.rhoL.toRectangularString(4);
+    const rhoLMag=ph.rhoL.magnitude().toFixed(4);
+    document.getElementById('rho-l').textContent=`${rhoLStr} (|ρL| = ${rhoLMag})`;
+    
+    document.getElementById('tf-val').textContent=(ph.tf*1e6).toFixed(2)+' µs';
+    document.getElementById('vl-pu').textContent=this.simulation.VL.toFixed(4);
+  }
+  play(){ if(this.isPlaying)return; this.isPlaying=true; this.lastFrameTime=performance.now(); this._animate() }
+  pause(){ this.isPlaying=false; if(this.animationFrame){cancelAnimationFrame(this.animationFrame); this.animationFrame=null} }
+  reset(){ this.animationTime=0; this.render() }
+  step(){
+    if(!this.simulation)return;
+    const now=this.animationTime;
+    const next=this.simulation.events.find(e=>e.time>now);
+    if(next){this.animationTime=next.time; this.render()}
+  }
+  _animate(){
+    if(!this.isPlaying)return;
+    const now=performance.now();
+    const dt=(now - this.lastFrameTime)/1000;
+    this.lastFrameTime=now;
+
+    const tf=this.simulation.physics.tf;
+    // advance by a chosen count of tf per real second, multiplied by speed control
+    this.animationTime += dt * this.tfsPerSecond * tf * this.speedMultiplier;
+
+    const maxT=this.simulation.lastEventTime() + tf;
+    if(this.animationTime>maxT){this.animationTime=0}
+
+    this.render();
+    this.animationFrame=requestAnimationFrame(()=>this._animate());
+  }
+  render(){
+    if(!this.simulation)return;
+    this.translineRenderer.render(this.simulation,this.animationTime);
+    this.bewleyRenderer.render(this.simulation,this.animationTime,this.bewleyYAxisRange);
+    this.voltageRenderer.render(this.simulation,this.animationTime);
+    this.smithChartRenderer.render(this.params);
+  }
+}
+
+window.addEventListener('DOMContentLoaded',()=>{ new Application() });
+</script>
+</body>
+</html>

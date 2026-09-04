@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phasor Diagrams with Sequence Components</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding-top: 90px;
+            padding-left: 30px;
+            padding-right: 30px;
+            padding-bottom: 30px;
+            background: #1a1a1a;
+            color: white;
+            line-height: 1.4;
+        }
+        
+        /* --- NEW: Title Block Styles --- */
+        .title-block {
+            text-align: center;
+            font-size: 14px;
+            padding: 10px;
+            background-color: #eee;
+            border-bottom: 1px solid #ccc;
+            line-height: 1.5;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            color: #333;
+        }
+        .title-block a {
+            color: #0056b3;
+            text-decoration: none;
+        }
+        .title-block a:hover {
+            text-decoration: underline;
+        }
+        .title-block span {
+            margin: 0 8px;
+        }
+        
+        /* Back to Main Menu Button */
+        .back-to-menu {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            border: 2px solid #ffffff;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 1001;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .back-to-menu:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 320px 400px 400px 400px;
+            grid-template-rows: 440px 240px;
+            gap: 25px;
+            align-items: start;
+            margin-bottom: 40px;
+        }
+        .controls {
+            grid-row: 1 / 3;
+            grid-column: 1;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            min-width: 300px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .diagram {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            grid-row: 1;
+        }
+        .diagram:nth-of-type(2) {
+            grid-column: 2;
+        }
+        .diagram:nth-of-type(3) {
+            grid-column: 3;
+        }
+        .diagram:nth-of-type(4) {
+            grid-column: 4;
+        }
+        .oscilloscope {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .oscilloscope-left {
+            grid-column: 2;
+        }
+        .oscilloscope-center {
+            grid-column: 3;
+        }
+        .oscilloscope-right {
+            grid-column: 4;
+        }
+        canvas {
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #000;
+        }
+        .slider-group {
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 8px;
+        }
+        .slider-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+        .value-display {
+            font-family: monospace;
+            color: #4CAF50;
+            margin-left: 10px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .legend {
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="title-block">
+    Phasor Diagrams: Sequence Components vs Oscillating Reference by Doug Millner
+    <span>-</span> Company: <a href="http://www.nerxpower.com" target="_blank">www.nerxpower.com</a>
+    <span>-</span> Email: <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
+    <span>-</span> Blog: <a href="YOUR_LINKEDIN_PROFILE_URL" target="_blank">Doug Millner P.E. | LinkedIn</a>
+    <a href="index.html" class="back-to-menu">Back to Main Menu</a>
+</div>
+
+    <h1 style="text-align: center; margin: 30px 0 40px 0; color: #4CAF50; font-size: 28px;">Phasor Diagrams: Sequence Components vs Oscillating Reference</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <h2>Sequence Component Controls</h2>
+            
+            <div class="slider-group">
+                <label>Zero Sequence Magnitude</label>
+                <input type="range" id="v0_mag" min="0" max="2" step="0.1" value="0.5">
+                <span class="value-display" id="v0_mag_val">0.5</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Zero Sequence Phase (°)</label>
+                <input type="range" id="v0_phase" min="0" max="360" step="5" value="0">
+                <span class="value-display" id="v0_phase_val">0°</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Positive Sequence Magnitude</label>
+                <input type="range" id="v1_mag" min="0" max="2" step="0.1" value="1.0">
+                <span class="value-display" id="v1_mag_val">1.0</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Positive Sequence Phase (°)</label>
+                <input type="range" id="v1_phase" min="0" max="360" step="5" value="0">
+                <span class="value-display" id="v1_phase_val">0°</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Negative Sequence Magnitude</label>
+                <input type="range" id="v2_mag" min="0" max="2" step="0.1" value="0.3">
+                <span class="value-display" id="v2_mag_val">0.3</span>
+            </div>
+            
+            <div class="slider-group">
+                <label>Negative Sequence Phase (°)</label>
+                <input type="range" id="v2_phase" min="0" max="360" step="5" value="180">
+                <span class="value-display" id="v2_phase_val">180°</span>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff4444;"></div>
+                    Phase A
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #44ff44;"></div>
+                    Phase B
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4444ff;"></div>
+                    Phase C
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffff44;"></div>
+                    Zero Sequence
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff44ff;"></div>
+                    Positive Sequence
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #44ffff;"></div>
+                    Negative Sequence
+                </div>
+            </div>
+        </div>
+        
+        <div class="diagram">
+            <h2>Sequence Components</h2>
+            <canvas id="sequenceCanvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div class="diagram">
+            <h2>V₁₂ Components Around V₀</h2>
+            <canvas id="oscillatingCanvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div class="diagram">
+            <h2>V₁₂ Around Real(V₀)</h2>
+            <canvas id="chainCanvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div class="oscilloscope oscilloscope-left">
+            <h2>Phase-to-Ground Real Components</h2>
+            <canvas id="oscilloscopeCanvas1" width="400" height="200"></canvas>
+        </div>
+        
+        <div class="oscilloscope oscilloscope-center">
+            <h2>V₁₂ + V₀ Real Components</h2>
+            <canvas id="oscilloscopeCanvas2" width="400" height="200"></canvas>
+        </div>
+        
+        <div class="oscilloscope oscilloscope-right">
+            <h2>V₁₂ + Real(V₀) Components</h2>
+            <canvas id="oscilloscopeCanvas3" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <div style="max-width: 1600px; margin: 40px auto; padding: 30px; background: #2a2a2a; border-radius: 12px; color: white; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+        <h2 style="color: #4CAF50; text-align: center; margin-bottom: 30px; font-size: 24px;">Mathematical Explanation: Why All Three Representations Are Equivalent</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 25px;">
+            <div>
+                <h3 style="color: #ff4444;">Column 1: Traditional Sequence View</h3>
+                <p><strong>Mathematics:</strong></p>
+                <p>Va = V₀ + V₁ + V₂</p>
+                <p>Vb = V₀ + a²V₁ + aV₂</p>
+                <p>Vc = V₀ + aV₁ + a²V₂</p>
+                <p>where a = e^(j2π/3) = 120° rotation operator</p>
+                
+                <p><strong>What it shows:</strong> All phasors originate from the origin. This is the standard textbook representation showing how sequence components combine to form phase voltages.</p>
+                
+                <p><strong>Key insight:</strong> Va + Vb + Vc = 3V₀ (zero sequence appears tripled in the sum)</p>
+            </div>
+            
+            <div>
+                <h3 style="color: #44ff44;">Column 2: V₁₂ Around V₀</h3>
+                <p><strong>Mathematics:</strong></p>
+                <p>V₁₂a = V₁ + V₂ (positive + negative sequence only)</p>
+                <p>V₁₂b = a²V₁ + aV₂</p>
+                <p>V₁₂c = aV₁ + a²V₂</p>
+                <p>Final: Va = V₀ + V₁₂a, Vb = V₀ + V₁₂b, Vc = V₀ + V₁₂c</p>
+                
+                <p><strong>What it shows:</strong> The V₁₂ components (containing only positive and negative sequence) rotate around the neutral shift V₀. This separates the "balanced" part (V₁₂) from the "unbalanced" part (V₀).</p>
+                
+                <p><strong>Key insight:</strong> V₀ represents the neutral-to-ground voltage shift that affects all phases equally.</p>
+            </div>
+            
+            <div>
+                <h3 style="color: #4444ff;">Column 3: V₁₂ Around Real(V₀)</h3>
+                <p><strong>Mathematics:</strong></p>
+                <p>Same V₁₂ components as Column 2, but:</p>
+                <p>Va = Real(V₀) + V₁₂a</p>
+                <p>Vb = Real(V₀) + V₁₂b</p>
+                <p>Vc = Real(V₀) + V₁₂c</p>
+                <p>Real(V₀) slides along x-axis as V₀ rotates</p>
+                
+                <p><strong>What it shows:</strong> The same V₁₂ components now oscillate horizontally as they follow only the real component of the neutral shift. This creates a "sliding" reference frame.</p>
+                
+                <p><strong>Key insight:</strong> Shows how the neutral shift's real component affects the horizontal positioning of all phase voltages.</p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; padding: 25px; background: #1a1a1a; border-radius: 8px;">
+            <h3 style="color: #4CAF50; text-align: center; margin-bottom: 20px; font-size: 20px;">Why All Three Are Mathematically Identical</h3>
+            <p style="text-align: center; font-size: 16px; margin-bottom: 25px; line-height: 1.5;">
+                <strong>All three columns show the same phase voltages Va, Vb, Vc - just with different reference points and visualization methods.</strong>
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 35px; margin-top: 25px;">
+                <div>
+                    <h4 style="color: #ffff44;">Mathematical Equivalence:</h4>
+                    <ul>
+                        <li><strong>Column 1:</strong> Va = V₀ + V₁ + V₂</li>
+                        <li><strong>Column 2:</strong> Va = V₀ + (V₁ + V₂) = V₀ + V₁₂a</li>
+                        <li><strong>Column 3:</strong> Va = Real(V₀) + V₁₂a + j×Imag(V₀)</li>
+                    </ul>
+                    <p>The final result Va is identical in all cases - only the visualization and reference frame differ.</p>
+                </div>
+                
+                <div>
+                    <h4 style="color: #ffff44;">Physical Interpretation:</h4>
+                    <ul>
+                        <li><strong>V₀:</strong> Neutral-to-ground voltage (affects all phases equally)</li>
+                        <li><strong>V₁:</strong> Positive sequence (balanced, ABC rotation)</li>
+                        <li><strong>V₂:</strong> Negative sequence (balanced, ACB rotation)</li>
+                        <li><strong>V₁₂:</strong> Combined balanced components (V₁ + V₂)</li>
+                    </ul>
+                    <p>Each representation emphasizes different aspects of the same underlying physics.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PhasorDiagram {
+            constructor() {
+                this.sequenceCanvas = document.getElementById('sequenceCanvas');
+                this.oscillatingCanvas = document.getElementById('oscillatingCanvas');
+                this.chainCanvas = document.getElementById('chainCanvas');
+                this.oscilloscopeCanvas1 = document.getElementById('oscilloscopeCanvas1');
+                this.oscilloscopeCanvas2 = document.getElementById('oscilloscopeCanvas2');
+                this.oscilloscopeCanvas3 = document.getElementById('oscilloscopeCanvas3');
+                
+                this.seqCtx = this.sequenceCanvas.getContext('2d');
+                this.oscCtx = this.oscillatingCanvas.getContext('2d');
+                this.chainCtx = this.chainCanvas.getContext('2d');
+                this.scopeCtx1 = this.oscilloscopeCanvas1.getContext('2d');
+                this.scopeCtx2 = this.oscilloscopeCanvas2.getContext('2d');
+                this.scopeCtx3 = this.oscilloscopeCanvas3.getContext('2d');
+                
+                this.centerX = 200;
+                this.centerY = 200;
+                this.scale = 80;
+                this.time = 0;
+                this.omega = 0.02;
+                
+                this.timeHistory = [];
+                this.vaHistory = [];
+                this.vbHistory = [];
+                this.vcHistory = [];
+                this.v12aHistory = [];
+                this.v12bHistory = [];
+                this.v12cHistory = [];
+                this.v12aRealHistory = [];
+                this.v12bRealHistory = [];
+                this.v12cRealHistory = [];
+                this.maxHistory = 300;
+                
+                this.setupEventListeners();
+                this.animate();
+            }
+            
+            setupEventListeners() {
+                const sliders = ['v0_mag', 'v0_phase', 'v1_mag', 'v1_phase', 'v2_mag', 'v2_phase'];
+                sliders.forEach(id => {
+                    const slider = document.getElementById(id);
+                    const display = document.getElementById(id + '_val');
+                    
+                    slider.addEventListener('input', () => {
+                        const value = parseFloat(slider.value);
+                        if (id.includes('phase')) {
+                            display.textContent = value + '°';
+                        } else {
+                            display.textContent = value.toFixed(1);
+                        }
+                    });
+                });
+            }
+            
+            getSequenceComponents() {
+                const v0_mag = parseFloat(document.getElementById('v0_mag').value);
+                const v0_phase = parseFloat(document.getElementById('v0_phase').value) * Math.PI / 180;
+                const v1_mag = parseFloat(document.getElementById('v1_mag').value);
+                const v1_phase = parseFloat(document.getElementById('v1_phase').value) * Math.PI / 180;
+                const v2_mag = parseFloat(document.getElementById('v2_mag').value);
+                const v2_phase = parseFloat(document.getElementById('v2_phase').value) * Math.PI / 180;
+                
+                return {
+                    v0: { mag: v0_mag, phase: v0_phase },
+                    v1: { mag: v1_mag, phase: v1_phase },
+                    v2: { mag: v2_mag, phase: v2_phase }
+                };
+            }
+            
+            calculatePhaseVoltages(seq, time = 0) {
+                const v0 = {
+                    real: seq.v0.mag * Math.cos(seq.v0.phase + time),
+                    imag: seq.v0.mag * Math.sin(seq.v0.phase + time)
+                };
+                const v1 = {
+                    real: seq.v1.mag * Math.cos(seq.v1.phase + time),
+                    imag: seq.v1.mag * Math.sin(seq.v1.phase + time)
+                };
+                const v2 = {
+                    real: seq.v2.mag * Math.cos(seq.v2.phase + time),
+                    imag: seq.v2.mag * Math.sin(seq.v2.phase + time)
+                };
+                
+                const a_real = Math.cos(2*Math.PI/3);
+                const a_imag = Math.sin(2*Math.PI/3);
+                const a2_real = Math.cos(-2*Math.PI/3);
+                const a2_imag = Math.sin(-2*Math.PI/3);
+                
+                const va = {
+                    real: v0.real + v1.real + v2.real,
+                    imag: v0.imag + v1.imag + v2.imag
+                };
+                
+                const vb = {
+                    real: v0.real + (v1.real * a2_real - v1.imag * a2_imag) + (v2.real * a_real - v2.imag * a_imag),
+                    imag: v0.imag + (v1.real * a2_imag + v1.imag * a2_real) + (v2.real * a_imag + v2.imag * a_real)
+                };
+                
+                const vc = {
+                    real: v0.real + (v1.real * a_real - v1.imag * a_imag) + (v2.real * a2_real - v2.imag * a2_imag),
+                    imag: v0.imag + (v1.real * a_imag + v1.imag * a_real) + (v2.real * a2_imag + v2.imag * a2_real)
+                };
+                
+                return { va, vb, vc, v0, v1, v2 };
+            }
+            
+            drawPhasor(ctx, centerX, centerY, phasor, color, label, scale = this.scale) {
+                const endX = centerX + phasor.real * scale;
+                const endY = centerY - phasor.imag * scale;
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+                
+                const angle = Math.atan2(-phasor.imag, phasor.real);
+                const headLength = 10;
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI/6), 
+                          endY + headLength * Math.sin(angle - Math.PI/6));
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI/6), 
+                          endY + headLength * Math.sin(angle + Math.PI/6));
+                ctx.stroke();
+                
+                ctx.fillStyle = color;
+                ctx.font = '12px Arial';
+                ctx.fillText(label, endX + 5, endY - 5);
+            }
+            
+            drawGrid(ctx, centerX, centerY) {
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                
+                for (let i = -2; i <= 2; i++) {
+                    if (i !== 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(centerX + i * this.scale, centerY - 2 * this.scale);
+                        ctx.lineTo(centerX + i * this.scale, centerY + 2 * this.scale);
+                        ctx.stroke();
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(centerX - 2 * this.scale, centerY + i * this.scale);
+                        ctx.lineTo(centerX + 2 * this.scale, centerY + i * this.scale);
+                        ctx.stroke();
+                    }
+                }
+                
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX - 2 * this.scale, centerY);
+                ctx.lineTo(centerX + 2 * this.scale, centerY);
+                ctx.moveTo(centerX, centerY - 2 * this.scale);
+                ctx.lineTo(centerX, centerY + 2 * this.scale);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#888';
+                ctx.font = '12px Arial';
+                ctx.fillText('Real', centerX + 2 * this.scale - 25, centerY - 5);
+                ctx.fillText('Imag', centerX + 5, centerY - 2 * this.scale + 15);
+            }
+            
+            drawSequenceDiagram() {
+                this.seqCtx.clearRect(0, 0, this.sequenceCanvas.width, this.sequenceCanvas.height);
+                this.drawGrid(this.seqCtx, this.centerX, this.centerY);
+                
+                const seq = this.getSequenceComponents();
+                const phasors = this.calculatePhaseVoltages(seq, this.time);
+                
+                // Draw sequence components with thicker lines for emphasis
+                this.seqCtx.lineWidth = 3;
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.v0, '#ffff44', 'V₀');
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.v1, '#ff44ff', 'V₁');
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.v2, '#44ffff', 'V₂');
+                
+                // Reset line width for phase voltages
+                this.seqCtx.lineWidth = 2;
+                
+                // Draw all phase voltages clearly
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.va, '#ff4444', 'Vₐ');
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.vb, '#44ff44', 'Vᵦ');
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, phasors.vc, '#4444ff', 'Vᶜ');
+
+                // Add explanatory text
+                // Draw 3V0, which is the sum of the phase voltages
+                const threeV0 = {
+                    real: 3 * phasors.v0.real,
+                    imag: 3 * phasors.v0.imag
+                };
+                this.drawPhasor(this.seqCtx, this.centerX, this.centerY, threeV0, '#FFA500', '3V₀');
+                
+                // Add explanatory text
+                this.seqCtx.fillStyle = '#fff';
+                this.seqCtx.font = '10px Arial';
+                this.seqCtx.fillText('Traditional View:', 10, 20);
+                this.seqCtx.fillText('All phasors from origin', 10, 35);
+                this.seqCtx.fillText('Vₐ+Vᵦ+Vᶜ = 3V₀', 10, 50);
+            }
+            
+            drawConstructionDiagram() {
+                this.oscCtx.clearRect(0, 0, this.oscillatingCanvas.width, this.oscillatingCanvas.height);
+                this.drawGrid(this.oscCtx, this.centerX, this.centerY);
+            
+                const seq = this.getSequenceComponents();
+                const phasors = this.calculatePhaseVoltages(seq, this.time);
+            
+                // Draw V0 from origin (neutral shift)
+                this.drawPhasor(this.oscCtx, this.centerX, this.centerY, phasors.v0, '#ffff44', 'V₀');
+                const v0_tipX = this.centerX + phasors.v0.real * this.scale;
+                const v0_tipY = this.centerY - phasors.v0.imag * this.scale;
+                
+                // Calculate static V12 components using base sequence values (without time rotation)
+                // Use static sequence components and apply time rotation uniformly
+                const v1_static = {
+                    real: seq.v1.mag * Math.cos(seq.v1.phase),
+                    imag: seq.v1.mag * Math.sin(seq.v1.phase)
+                };
+                const v2_static = {
+                    real: seq.v2.mag * Math.cos(seq.v2.phase),
+                    imag: seq.v2.mag * Math.sin(seq.v2.phase)
+                };
+                
+                // Apply time rotation to get current positions
+                // Both V1 and V2 rotate counter-clockwise (standard power engineering convention)
+                const v1_current = {
+                    real: v1_static.real * Math.cos(this.time) - v1_static.imag * Math.sin(this.time),
+                    imag: v1_static.real * Math.sin(this.time) + v1_static.imag * Math.cos(this.time)
+                };
+                const v2_current = {
+                    real: v2_static.real * Math.cos(this.time) - v2_static.imag * Math.sin(this.time),
+                    imag: v2_static.real * Math.sin(this.time) + v2_static.imag * Math.cos(this.time)
+                };
+                
+                // Calculate V12 components (positive + negative sequence only)
+                const a_real = Math.cos(2*Math.PI/3);
+                const a_imag = Math.sin(2*Math.PI/3);
+                const a2_real = Math.cos(-2*Math.PI/3);
+                const a2_imag = Math.sin(-2*Math.PI/3);
+                
+                // V12a = V1 + V2
+                const v12a = {
+                    real: v1_current.real + v2_current.real,
+                    imag: v1_current.imag + v2_current.imag
+                };
+                
+                // V12b = V1*a² + V2*a
+                const v12b = {
+                    real: (v1_current.real * a2_real - v1_current.imag * a2_imag) + (v2_current.real * a_real - v2_current.imag * a_imag),
+                    imag: (v1_current.real * a2_imag + v1_current.imag * a2_real) + (v2_current.real * a_imag + v2_current.imag * a_real)
+                };
+                
+                // V12c = V1*a + V2*a²
+                const v12c = {
+                    real: (v1_current.real * a_real - v1_current.imag * a_imag) + (v2_current.real * a2_real - v2_current.imag * a2_imag),
+                    imag: (v1_current.real * a_imag + v1_current.imag * a_real) + (v2_current.real * a2_imag + v2_current.imag * a2_real)
+                };
+                
+                // Draw V12 components from the head of V0 (rotating counter-clockwise around V0)
+                this.drawPhasor(this.oscCtx, v0_tipX, v0_tipY, v12a, '#ff4444', 'V₁₂ₐ');
+                this.drawPhasor(this.oscCtx, v0_tipX, v0_tipY, v12b, '#44ff44', 'V₁₂ᵦ');
+                this.drawPhasor(this.oscCtx, v0_tipX, v0_tipY, v12c, '#4444ff', 'V₁₂ᶜ');
+                
+                // Optionally draw the individual sequence components for reference
+                this.oscCtx.lineWidth = 1;
+                this.drawPhasor(this.oscCtx, v0_tipX, v0_tipY, v1_current, '#ff44ff', 'V₁');
+                this.drawPhasor(this.oscCtx, v0_tipX, v0_tipY, v2_current, '#44ffff', 'V₂');
+                this.oscCtx.lineWidth = 2;
+            
+                this.oscCtx.fillStyle = '#fff';
+                this.oscCtx.font = '10px Arial';
+                this.oscCtx.fillText('V₁₂ components (V₁+V₂ only) rotating around V₀', 10, 20);
+                this.oscCtx.fillText('V₁₂ₐ = V₁ + V₂', 10, 35);
+                this.oscCtx.fillText('V₁₂ᵦ = V₁a² + V₂a', 10, 50);
+                this.oscCtx.fillText('V₁₂ᶜ = V₁a + V₂a²', 10, 65);
+            }
+            
+            drawChainDiagram() {
+                this.chainCtx.clearRect(0, 0, this.chainCanvas.width, this.chainCanvas.height);
+                this.drawGrid(this.chainCtx, this.centerX, this.centerY);
+
+                const seq = this.getSequenceComponents();
+                const phasors = this.calculatePhaseVoltages(seq, this.time);
+
+                // Calculate real-only zero sequence phasor (slides along x-axis)
+                const v0_real_only = {
+                    real: phasors.v0.real,
+                    imag: 0  // Force imaginary component to zero
+                };
+
+                // Draw the real-only V0 phasor
+                this.drawPhasor(this.chainCtx, this.centerX, this.centerY, v0_real_only, '#ffff44', 'V₀ᵣₑₐₗ');
+                const v0_real_tipX = this.centerX + v0_real_only.real * this.scale;
+                const v0_real_tipY = this.centerY; // Always on x-axis
+
+                // Calculate V12 components using the same method as column 2
+                const v1_static = {
+                    real: seq.v1.mag * Math.cos(seq.v1.phase),
+                    imag: seq.v1.mag * Math.sin(seq.v1.phase)
+                };
+                const v2_static = {
+                    real: seq.v2.mag * Math.cos(seq.v2.phase),
+                    imag: seq.v2.mag * Math.sin(seq.v2.phase)
+                };
+
+                // Apply time rotation (both counter-clockwise)
+                const v1_current = {
+                    real: v1_static.real * Math.cos(this.time) - v1_static.imag * Math.sin(this.time),
+                    imag: v1_static.real * Math.sin(this.time) + v1_static.imag * Math.cos(this.time)
+                };
+                const v2_current = {
+                    real: v2_static.real * Math.cos(this.time) - v2_static.imag * Math.sin(this.time),
+                    imag: v2_static.real * Math.sin(this.time) + v2_static.imag * Math.cos(this.time)
+                };
+
+                // Calculate V12 components
+                const a_real = Math.cos(2*Math.PI/3);
+                const a_imag = Math.sin(2*Math.PI/3);
+                const a2_real = Math.cos(-2*Math.PI/3);
+                const a2_imag = Math.sin(-2*Math.PI/3);
+
+                // V12a = V1 + V2
+                const v12a = {
+                    real: v1_current.real + v2_current.real,
+                    imag: v1_current.imag + v2_current.imag
+                };
+
+                // V12b = V1*a² + V2*a
+                const v12b = {
+                    real: (v1_current.real * a2_real - v1_current.imag * a2_imag) + (v2_current.real * a_real - v2_current.imag * a_imag),
+                    imag: (v1_current.real * a2_imag + v1_current.imag * a2_real) + (v2_current.real * a_imag + v2_current.imag * a_real)
+                };
+
+                // V12c = V1*a + V2*a²
+                const v12c = {
+                    real: (v1_current.real * a_real - v1_current.imag * a_imag) + (v2_current.real * a2_real - v2_current.imag * a2_imag),
+                    imag: (v1_current.real * a_imag + v1_current.imag * a_real) + (v2_current.real * a2_imag + v2_current.imag * a2_real)
+                };
+
+                // Draw V12 components from the tip of the real-only V0 phasor
+                this.drawPhasor(this.chainCtx, v0_real_tipX, v0_real_tipY, v12a, '#ff4444', 'V₁₂ₐ');
+                this.drawPhasor(this.chainCtx, v0_real_tipX, v0_real_tipY, v12b, '#44ff44', 'V₁₂ᵦ');
+                this.drawPhasor(this.chainCtx, v0_real_tipX, v0_real_tipY, v12c, '#4444ff', 'V₁₂ᶜ');
+
+                // Add text explanation
+                this.chainCtx.fillStyle = '#fff';
+                this.chainCtx.font = '10px Arial';
+                this.chainCtx.fillText('V₁₂ components rotating around real(V₀)', 10, 20);
+                this.chainCtx.fillText('V₀ᵣₑₐₗ slides along x-axis', 10, 35);
+                this.chainCtx.fillText('V₁₂ phasors oscillate horizontally', 10, 50);
+            }
+            
+            drawOscilloscope(canvas, ctx, vaData, vbData, vcData, title) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                
+                for (let x = 0; x < canvas.width; x += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                
+                for (let y = 0; y < canvas.height; y += 25) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+                
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+                
+                if (this.timeHistory.length < 2) return;
+                
+                // Use consistent scale for all oscilloscopes for comparison
+                const scale = 60; // Increased scale for better visibility and consistency
+                const centerY = canvas.height / 2;
+                const timeScale = canvas.width / this.maxHistory;
+                
+                this.drawTrace(ctx, vaData, '#ff4444', scale, centerY, timeScale, 2);
+                this.drawTrace(ctx, vbData, '#44ff44', scale, centerY, timeScale, 2);
+                this.drawTrace(ctx, vcData, '#4444ff', scale, centerY, timeScale, 2);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.fillText('Va', 5, 15);
+                ctx.fillText('Vb', 5, 30);
+                ctx.fillText('Vc', 5, 45);
+                ctx.fillStyle = '#ff4444';
+                ctx.fillRect(20, 10, 15, 3);
+                ctx.fillStyle = '#44ff44';
+                ctx.fillRect(20, 25, 15, 3);
+                ctx.fillStyle = '#4444ff';
+                ctx.fillRect(20, 40, 15, 3);
+            }
+            
+            drawTrace(ctx, data, color, scale, centerY, timeScale, lineWidth) {
+                if (data.length < 2) return;
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                ctx.beginPath();
+                
+                for (let i = 0; i < data.length; i++) {
+                    const x = i * timeScale;
+                    const y = centerY - data[i] * scale;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.stroke();
+            }
+            
+            animate() {
+                this.time += this.omega;
+                
+                const seq = this.getSequenceComponents();
+                const phasors = this.calculatePhaseVoltages(seq, this.time);
+                
+                // Calculate V12 components for column 2 and 3
+                const v1_static = {
+                    real: seq.v1.mag * Math.cos(seq.v1.phase),
+                    imag: seq.v1.mag * Math.sin(seq.v1.phase)
+                };
+                const v2_static = {
+                    real: seq.v2.mag * Math.cos(seq.v2.phase),
+                    imag: seq.v2.mag * Math.sin(seq.v2.phase)
+                };
+                
+                const v1_current = {
+                    real: v1_static.real * Math.cos(this.time) - v1_static.imag * Math.sin(this.time),
+                    imag: v1_static.real * Math.sin(this.time) + v1_static.imag * Math.cos(this.time)
+                };
+                const v2_current = {
+                    real: v2_static.real * Math.cos(this.time) - v2_static.imag * Math.sin(this.time),
+                    imag: v2_static.real * Math.sin(this.time) + v2_static.imag * Math.cos(this.time)
+                };
+                
+                const a_real = Math.cos(2*Math.PI/3);
+                const a_imag = Math.sin(2*Math.PI/3);
+                const a2_real = Math.cos(-2*Math.PI/3);
+                const a2_imag = Math.sin(-2*Math.PI/3);
+                
+                // V12 components around V0 (for column 2)
+                const v12a_col2 = {
+                    real: phasors.v0.real + v1_current.real + v2_current.real,
+                    imag: phasors.v0.imag + v1_current.imag + v2_current.imag
+                };
+                const v12b_col2 = {
+                    real: phasors.v0.real + (v1_current.real * a2_real - v1_current.imag * a2_imag) + (v2_current.real * a_real - v2_current.imag * a_imag),
+                    imag: phasors.v0.imag + (v1_current.real * a2_imag + v1_current.imag * a2_real) + (v2_current.real * a_imag + v2_current.imag * a_real)
+                };
+                const v12c_col2 = {
+                    real: phasors.v0.real + (v1_current.real * a_real - v1_current.imag * a_imag) + (v2_current.real * a2_real - v2_current.imag * a2_imag),
+                    imag: phasors.v0.imag + (v1_current.real * a_imag + v1_current.imag * a_real) + (v2_current.real * a2_imag + v2_current.imag * a2_real)
+                };
+                
+                // V12 components around real(V0) (for column 3)
+                const v12a_col3 = {
+                    real: phasors.v0.real + v1_current.real + v2_current.real,
+                    imag: v1_current.imag + v2_current.imag
+                };
+                const v12b_col3 = {
+                    real: phasors.v0.real + (v1_current.real * a2_real - v1_current.imag * a2_imag) + (v2_current.real * a_real - v2_current.imag * a_imag),
+                    imag: (v1_current.real * a2_imag + v1_current.imag * a2_real) + (v2_current.real * a_imag + v2_current.imag * a_real)
+                };
+                const v12c_col3 = {
+                    real: phasors.v0.real + (v1_current.real * a_real - v1_current.imag * a_imag) + (v2_current.real * a2_real - v2_current.imag * a2_imag),
+                    imag: (v1_current.real * a_imag + v1_current.imag * a_real) + (v2_current.real * a2_imag + v2_current.imag * a2_real)
+                };
+                
+                this.timeHistory.push(this.time);
+                
+                // Store phase-to-ground real components for each column
+                // Column 1: Traditional phase voltages (Va, Vb, Vc)
+                this.vaHistory.push(phasors.va.real);
+                this.vbHistory.push(phasors.vb.real);
+                this.vcHistory.push(phasors.vc.real);
+                
+                // Column 2: V12 components around 3V0
+                this.v12aHistory.push(v12a_col2.real);
+                this.v12bHistory.push(v12b_col2.real);
+                this.v12cHistory.push(v12c_col2.real);
+                
+                // Column 3: V12 components around real(V0)
+                this.v12aRealHistory.push(v12a_col3.real);
+                this.v12bRealHistory.push(v12b_col3.real);
+                this.v12cRealHistory.push(v12c_col3.real);
+                
+                if (this.timeHistory.length > this.maxHistory) {
+                    this.timeHistory.shift();
+                    this.vaHistory.shift();
+                    this.vbHistory.shift();
+                    this.vcHistory.shift();
+                    this.v12aHistory.shift();
+                    this.v12bHistory.shift();
+                    this.v12cHistory.shift();
+                    this.v12aRealHistory.shift();
+                    this.v12bRealHistory.shift();
+                    this.v12cRealHistory.shift();
+                }
+                
+                this.drawSequenceDiagram();
+                this.drawConstructionDiagram();
+                this.drawChainDiagram();
+                
+                // Each oscilloscope shows the real component of the phase-to-ground voltages from the diagram above
+                this.drawOscilloscope(this.oscilloscopeCanvas1, this.scopeCtx1,
+                                    this.vaHistory, this.vbHistory, this.vcHistory,
+                                    'Phase-to-Ground Real Components');
+                this.drawOscilloscope(this.oscilloscopeCanvas2, this.scopeCtx2,
+                                    this.v12aHistory, this.v12bHistory, this.v12cHistory,
+                                    'V₁₂ + 3V₀ Real Components');
+                this.drawOscilloscope(this.oscilloscopeCanvas3, this.scopeCtx3,
+                                    this.v12aRealHistory, this.v12bRealHistory, this.v12cRealHistory,
+                                    'V₁₂ + Real(V₀) Components');
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        window.addEventListener('load', () => {
+            new PhasorDiagram();
+        });
+    </script>
+
+<!-- Include ticker.js file -->
+<script src="ticker.js"></script>
+</body>
+</html>

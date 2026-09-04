@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force and Magnetic Fields Around Infinitely Long Conductors by Doug Millner - Company - NERX Power Consultants LLC - Email - douglas.millner@nerxpower.com - Linkedin Blog - www.linkedin.com/in/doug-millner-p-e-26607a184/recent-activity/all/</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles */
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: 'Inter', sans-serif; overscroll-behavior: none; /* display: flex; defined via classes */ }
+        canvas {
+            touch-action: none; border: 1px solid #d1d5db; background-color: #f9fafb;
+            border-radius: 0.5rem; cursor: grab; display: block; width: 100%; height: 100%;
+        }
+        canvas:active { cursor: grabbing; }
+        /* Responsive adjustments might be needed if elements overflow */
+        .controls-panel { overflow-y: auto; flex-shrink: 0; }
+        .canvas-container { position: relative; display: flex; box-sizing: border-box; }
+
+        /* Slider styles */
+        input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; background: #d1d5db; border-radius: 5px; outline: none; }
+        input[type=range]:disabled { background: #e5e7eb; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; cursor: pointer; }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #9ca3af; cursor: not-allowed; }
+        input[type=range]::-moz-range-thumb { width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; cursor: pointer; border: none; }
+        input[type=range]:disabled::-moz-range-thumb { background: #9ca3af; cursor: not-allowed; }
+        /* Select styles */
+        select { appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 0.65rem auto; padding-right: 2.5rem; }
+        select:disabled { background-color: #f3f4f6; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
+        label:has(+ :disabled) { color: #9ca3af; }
+        /* Toggle button styles */
+        .toggle-button { background-color: #6b7280; border-color: #4b5563; color: white; }
+        .toggle-button-active { background-color: #10b981 !important; border-color: #059669 !important; color: white; }
+        /* Legend styles */
+        #legend { position: absolute; bottom: 15px; right: 15px; background-color: rgba(255, 255, 255, 0.85); border: 1px solid #ccc; border-radius: 5px; padding: 8px; font-size: 10px; color: #333; display: none; max-width: 150px; z-index: 10; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 2px; }
+        .legend-color-box { width: 15px; height: 10px; margin-right: 5px; border: 1px solid #999; flex-shrink: 0; }
+        /* Control section styles */
+        .control-section { border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 1rem; }
+        .control-section fieldset:disabled { opacity: 0.5; pointer-events: none; }
+        .control-section fieldset:disabled legend { color: #9ca3af; }
+        .explanation-link { color: #3b82f6; text-decoration: underline; }
+        .explanation-link:hover { color: #2563eb; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex flex-col lg:flex-row h-screen overflow-hidden">
+
+    <div class="controls-panel p-4 bg-white shadow-md m-2 lg:m-4 rounded-lg h-2/5 lg:h-screen lg:w-1/4 lg:min-w-[350px]">
+        <div class="mb-4 pb-2 border-b border-gray-200">
+             <h1 class="text-lg font-semibold text-gray-800">Force & Magnetic Fields Around Infinitely Long Conductors</h1>
+             <p class="text-xs text-gray-600 mt-1">
+                 by Doug Millner<br>
+                 Company: NERX Power Consultants LLC<br>
+                 Webpage: <a href="https://www.nerxpower.com" target="_blank" rel="noopener noreferrer" class="explanation-link">www.nerxpower.com</a><br>
+                 Email: <a href="mailto:douglas.millner@nerxpower.com" class="explanation-link">douglas.millner@nerxpower.com</a><br>
+                 LinkedIn: <a href="https://www.linkedin.com/in/doug-millner-p-e-26607a184/recent-activity/all/" target="_blank" rel="noopener noreferrer" class="explanation-link">Doug Millner's Activity</a>
+             </p>
+        </div>
+
+        <h2 class="text-xl font-semibold mb-4 text-gray-700">Controls</h2>
+
+        <div class="mb-4">
+             <button id="switchModeButton" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-3 rounded-md shadow transition duration-150 ease-in-out border border-purple-600 text-sm">
+                 Use Sequence Currents
+             </button>
+        </div>
+
+        <fieldset id="faultTypeControl" class="control-section">
+            <legend class="text-sm font-medium text-gray-600 px-1">Fault Type Mode</legend>
+            <div class="mb-2 mt-2">
+                <label for="faultType" class="block text-sm font-medium text-gray-600 mb-1">Fault Type:</label>
+                <select id="faultType" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="3phase">Three-Phase</option>
+                    <option value="ph-ph-ab">Phase-to-Phase (A-B)</option>
+                    <option value="ph-ph-bc">Phase-to-Phase (B-C)</option>
+                    <option value="ph-ph-ca">Phase-to-Phase (C-A)</option>
+                    <option value="slg-a">SLG Fault (A-G)</option>
+                    <option value="slg-b">SLG Fault (B-G)</option>
+                    <option value="slg-c">SLG Fault (C-G)</option>
+                </select>
+            </div>
+             <div class="mb-2">
+                <label for="faultCurrent" class="block text-sm font-medium text-gray-600 mb-1">Fault Current (RMS): <span id="faultCurrentValue" class="font-semibold text-blue-600">117</span> kA</label>
+                <input type="range" id="faultCurrent" min="1" max="200" value="117" class="w-full">
+            </div>
+        </fieldset>
+
+        <fieldset id="sequenceControls" class="control-section" disabled>
+             <legend class="text-sm font-medium text-gray-600 px-1">Sequence Current Mode</legend>
+             <div class="mb-2 mt-2">
+                <label for="posSeqCurrentSlider" class="block text-sm font-medium text-gray-600 mb-1">Pos Seq Current (I1): <span id="posSeqCurrentValue" class="font-semibold text-blue-600">0</span> kA</label>
+                <input type="range" id="posSeqCurrentSlider" min="0" max="100" value="0" step="1" class="w-full">
+            </div>
+             <div class="mb-4"> <label for="posSeqAngleSlider" class="block text-sm font-medium text-gray-600 mb-1">Pos Seq Angle (I1): <span id="posSeqAngleValue" class="font-semibold text-blue-600">0</span> °</label>
+                <input type="range" id="posSeqAngleSlider" min="-180" max="180" value="0" step="1" class="w-full">
+            </div>
+             <div class="mb-2">
+                <label for="negSeqCurrentSlider" class="block text-sm font-medium text-gray-600 mb-1">Neg Seq Current (I2): <span id="negSeqCurrentValue" class="font-semibold text-blue-600">0</span> kA</label>
+                <input type="range" id="negSeqCurrentSlider" min="0" max="100" value="0" step="1" class="w-full">
+            </div>
+             <div class="mb-4"> <label for="negSeqAngleSlider" class="block text-sm font-medium text-gray-600 mb-1">Neg Seq Angle (I2): <span id="negSeqAngleValue" class="font-semibold text-blue-600">0</span> °</label>
+                <input type="range" id="negSeqAngleSlider" min="-180" max="180" value="0" step="1" class="w-full">
+            </div>
+             <div class="mb-2">
+                <label for="zeroSeqCurrentSlider" class="block text-sm font-medium text-gray-600 mb-1">Zero Seq Current (I0): <span id="zeroSeqCurrentValue" class="font-semibold text-blue-600">0</span> kA</label>
+                <input type="range" id="zeroSeqCurrentSlider" min="0" max="100" value="0" step="1" class="w-full">
+            </div>
+             <div class="mb-2"> <label for="zeroSeqAngleSlider" class="block text-sm font-medium text-gray-600 mb-1">Zero Seq Angle (I0): <span id="zeroSeqAngleValue" class="font-semibold text-blue-600">0</span> °</label>
+                <input type="range" id="zeroSeqAngleSlider" min="-180" max="180" value="0" step="1" class="w-full">
+            </div>
+        </fieldset>
+
+        <div class="control-section">
+             <legend class="text-sm font-medium text-gray-600 px-1">General Settings</legend>
+            <div class="mb-2 mt-2">
+                <label for="animSpeed" class="block text-sm font-medium text-gray-600 mb-1">Time Scale: <span id="animSpeedValue" class="font-semibold text-blue-600">0.001</span>x</label>
+                <input type="range" id="animSpeed" min="0" max="100" value="0" step="1" class="w-full">
+            </div>
+            <div class="mb-2">
+                <label for="conductorRadiusSlider" class="block text-sm font-medium text-gray-600 mb-1">Conductor Radius: <span id="conductorRadiusValue" class="font-semibold text-blue-600">5.5</span> cm</label>
+                <input type="range" id="conductorRadiusSlider" min="1" max="10" value="5.5" step="0.5" class="w-full">
+            </div>
+            <div class="mb-2">
+                <label for="fieldVectorScaleSlider" class="block text-sm font-medium text-gray-600 mb-1">Field Vector Scale: <span id="fieldVectorScaleValue" class="font-semibold text-blue-600">0.1</span>x</label>
+                <input type="range" id="fieldVectorScaleSlider" min="0.1" max="5" value="0.1" step="0.1" class="w-full">
+            </div>
+            <div class="mb-2">
+                <label for="forceVectorScaleSlider" class="block text-sm font-medium text-gray-600 mb-1">Force Vector Scale: <span id="forceVectorScaleValue" class="font-semibold text-blue-600">1.0</span>x</label>
+                <input type="range" id="forceVectorScaleSlider" min="0.1" max="20" value="1" step="0.4" class="w-full">
+            </div>
+            <div class="mb-2">
+                <label for="gradientScaleSlider" class="block text-sm font-medium text-gray-600 mb-1">Gradient Scale: <span id="gradientScaleValue" class="font-semibold text-blue-600">1.0</span>x</label>
+                <input type="range" id="gradientScaleSlider" min="0.1" max="10" value="1.0" step="0.1" class="w-full">
+            </div>
+             <div class="grid grid-cols-2 gap-2 mb-2">
+                 <button id="resetButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-md shadow transition duration-150 ease-in-out text-sm"> Reset All </button>
+                 <button id="pauseButton" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-3 rounded-md shadow transition duration-150 ease-in-out text-sm"> Pause </button>
+            </div>
+             <div class="mb-2">
+                 <button id="toggleUnitsButton" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-md shadow transition duration-150 ease-in-out border border-indigo-600 text-sm"> Switch to Imperial (Lbs/ft) </button>
+             </div>
+       </div>
+
+       <!-- View Options section removed as requested -->
+
+        <div class="mt-4">
+            <h3 class="text-lg font-medium text-gray-700 mb-2">Instantaneous Forces (<span id="forceUnitLabel">N/m</span>)</h3>
+            <div id="forceDisplay" class="space-y-1 text-sm text-gray-600">
+                <p>Force on A: <span id="forceA" class="font-mono font-semibold text-red-600">0.00</span></p>
+                <p>Force on B: <span id="forceB" class="font-mono font-semibold text-green-600">0.00</span></p>
+                <p>Force on C: <span id="forceC" class="font-mono font-semibold text-blue-600">0.00</span></p>
+            </div>
+        </div>
+        <div class="mt-4">
+            <h3 class="text-lg font-medium text-gray-700 mb-2">Instantaneous Currents (A)</h3>
+            <div id="currentDisplay" class="space-y-1 text-sm text-gray-600">
+                <p>Current A: <span id="currentA" class="font-mono font-semibold text-red-600">0.0</span> A</p>
+                <p>Current B: <span id="currentB" class="font-mono font-semibold text-green-600">0.0</span> A</p>
+                <p>Current C: <span id="currentC" class="font-mono font-semibold text-blue-600">0.0</span> A</p>
+            </div>
+        </div>
+
+         <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+            <h4 class="text-sm font-semibold text-gray-700 mb-1">How it works:</h4>
+            <p class="text-xs text-gray-600">
+                Click and drag the conductors to move them around. Use the sliders to adjust the currents. This simulation use the approximation of the conductors being infinitely long, which should be very close for on long transmission lines and sections of buses.
+            </p>
+        </div>
+    </div>
+
+    <div class="canvas-container flex-grow p-2 lg:p-4">
+        <canvas id="simulationCanvas"></canvas>
+        <div id="legend"> <div class="font-semibold mb-1 text-xs">B-Field (Tesla)</div>
+        </div>
+    </div>
+
+    <script>
+        // --- Constants ---
+        const MU0 = 4 * Math.PI * 1e-7; // Permeability of free space
+        const FREQUENCY = 60; // Hz
+        const OMEGA = 2 * Math.PI * FREQUENCY; // Angular frequency
+        const PIXELS_PER_METER = 300; // Scale factor for visualization
+        const DEFAULT_FAULT_CURRENT_RMS = 117; // kA RMS
+        const DEFAULT_CONDUCTOR_RADIUS_CM = 5.5; // cm
+        const INITIAL_ANIM_SLIDER_VALUE = 0; // Initial value for the speed slider
+        const BASE_FORCE_ARROW_SCALE = 0.02; // Base scaling factor for force arrows
+        let forceArrowScale = BASE_FORCE_ARROW_SCALE; // Dynamic scaling factor that can be adjusted by slider
+        const LOG_SPEED_MIN = 0.001; // Minimum simulation speed multiplier
+        const LOG_SPEED_MAX = 5.0; // Maximum simulation speed multiplier
+        const B_HEATMAP_GRID_SIZE = 15; // Pixel size of heatmap cells
+        const B_QUIVER_GRID_SIZE = 40; // Pixel spacing for vector field arrows
+        const BASE_B_QUIVER_ARROW_SCALE = 6000; // Base scaling for B-field vector arrows
+        let bQuiverArrowScale = BASE_B_QUIVER_ARROW_SCALE * 0.1; // Dynamic scaling factor that can be adjusted by slider
+        const B_QUIVER_COLOR = '#4b5563'; // Color of B-field vector arrows
+        const BASE_B_FIELD_MAX_COLOR_MAG = 0.005; // Tesla - Base B-field magnitude for max color intensity
+        let effectiveBFieldMaxColorMag = BASE_B_FIELD_MAX_COLOR_MAG; // Dynamic max magnitude for color scale
+        const B_FIELD_ALPHA = 0.5; // Opacity of the heatmap overlay
+        const HISTORY_LENGTH = 120; // Number of points for the oscillography plot
+        const OSC_PLOT_WIDTH = 180; // Width of the oscillography plot
+        const OSC_PLOT_HEIGHT = 100; // Height of the oscillography plot
+        const OSC_PLOT_X_MARGIN = 10; // Left margin for the oscillography plot
+        const OSC_PLOT_Y_MARGIN = 10; // Bottom margin for the oscillography plot
+        const N_PER_M_TO_LBS_PER_FT = 0.0685217659; // Conversion factor
+        const DEG_TO_RAD = Math.PI / 180; // Conversion factor
+        const SQRT3_OVER_2 = Math.sqrt(3) / 2; // Constant for calculations
+        const COS120 = -0.5; // cos(120 deg)
+        const SIN120 = SQRT3_OVER_2; // sin(120 deg)
+        const COS240 = -0.5; // cos(240 deg)
+        const SIN240 = -SQRT3_OVER_2; // sin(240 deg)
+
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        let canvasWidth = 300; // Initial default width
+        let canvasHeight = 300; // Initial default height
+
+        // --- State Variables ---
+        let conductors = []; // Array to hold conductor objects {x, y, label, color}
+        let faultType = '3phase'; // Current selected fault type
+        let faultCurrentRMS = DEFAULT_FAULT_CURRENT_RMS; // RMS fault current in kA
+        let animSpeed = calculateLogSpeed(INITIAL_ANIM_SLIDER_VALUE); // Simulation speed multiplier
+        let simulationTime = 0; // Current time in the simulation (seconds)
+        let isDragging = false; // Flag if a conductor is being dragged
+        let draggedConductorIndex = -1; // Index of the conductor being dragged
+        let dragOffsetX = 0; // Offset X between mouse and conductor center during drag
+        let dragOffsetY = 0; // Offset Y between mouse and conductor center during drag
+        let animationFrameId = null; // ID for requestAnimationFrame
+        let showMagneticFieldVectors = true; // Toggle for B-field vector visibility
+        let showFieldHeatmap = true; // Toggle for B-field heatmap visibility
+        let showDistanceGrid = true; // Toggle for distance lines/labels visibility
+        let showOscillography = true; // Toggle for current waveform plot visibility
+        let isPaused = false; // Flag if the simulation is paused
+        let conductorRadiusMeters = DEFAULT_CONDUCTOR_RADIUS_CM / 100.0; // Conductor radius in meters
+        let conductorRadiusPixels = conductorRadiusMeters * PIXELS_PER_METER; // Conductor radius in pixels
+        let minDistancePixels = 2 * conductorRadiusPixels; // Minimum allowed distance between conductor centers
+        let lastTimestamp = 0; // Timestamp of the last animation frame
+        let currentHistoryA = []; // History of current Ia for oscillography
+        let currentHistoryB = []; // History of current Ib for oscillography
+        let currentHistoryC = []; // History of current Ic for oscillography
+        let displayUnits = 'metric'; // 'metric' (N/m) or 'imperial' (Lbs/ft)
+        let calculationMode = 'faultType'; // 'faultType' or 'sequence'
+        // Sequence component states
+        let posSeqCurrentRMS = 0; // kA
+        let negSeqCurrentRMS = 0; // kA
+        let zeroSeqCurrentRMS = 0; // kA
+        let posSeqAngleDeg = 0; // degrees
+        let negSeqAngleDeg = 0; // degrees
+        let zeroSeqAngleDeg = 0; // degrees
+        let gradientScaleFactor = 1.0; // Multiplier for the B-field color gradient scale
+
+        // --- UI Elements ---
+        const faultTypeSelect = document.getElementById('faultType');
+        const faultCurrentSlider = document.getElementById('faultCurrent');
+        const faultCurrentValueSpan = document.getElementById('faultCurrentValue');
+        const animSpeedSlider = document.getElementById('animSpeed');
+        const animSpeedValueSpan = document.getElementById('animSpeedValue');
+        const conductorRadiusSlider = document.getElementById('conductorRadiusSlider');
+        const conductorRadiusValueSpan = document.getElementById('conductorRadiusValue');
+        const fieldVectorScaleSlider = document.getElementById('fieldVectorScaleSlider');
+        const fieldVectorScaleValueSpan = document.getElementById('fieldVectorScaleValue');
+        const forceVectorScaleSlider = document.getElementById('forceVectorScaleSlider');
+        const forceVectorScaleValueSpan = document.getElementById('forceVectorScaleValue');
+        const gradientScaleSlider = document.getElementById('gradientScaleSlider');
+        const gradientScaleValueSpan = document.getElementById('gradientScaleValue');
+        const forceADisplay = document.getElementById('forceA');
+        const forceBDisplay = document.getElementById('forceB');
+        const forceCDisplay = document.getElementById('forceC');
+        const currentADisplay = document.getElementById('currentA');
+        const currentBDisplay = document.getElementById('currentB');
+        const currentCDisplay = document.getElementById('currentC');
+        const resetButton = document.getElementById('resetButton');
+        const pauseButton = document.getElementById('pauseButton');
+        // View Options buttons removed
+        const toggleUnitsButton = document.getElementById('toggleUnitsButton');
+        const legendDiv = document.getElementById('legend');
+        const forceUnitLabel = document.getElementById('forceUnitLabel');
+        const switchModeButton = document.getElementById('switchModeButton');
+        const faultTypeControl = document.getElementById('faultTypeControl');
+        const sequenceControls = document.getElementById('sequenceControls');
+        const posSeqCurrentSlider = document.getElementById('posSeqCurrentSlider');
+        const posSeqCurrentValue = document.getElementById('posSeqCurrentValue');
+        const negSeqCurrentSlider = document.getElementById('negSeqCurrentSlider');
+        const negSeqCurrentValue = document.getElementById('negSeqCurrentValue');
+        const zeroSeqCurrentSlider = document.getElementById('zeroSeqCurrentSlider');
+        const zeroSeqCurrentValue = document.getElementById('zeroSeqCurrentValue');
+        const posSeqAngleSlider = document.getElementById('posSeqAngleSlider');
+        const posSeqAngleValue = document.getElementById('posSeqAngleValue');
+        const negSeqAngleSlider = document.getElementById('negSeqAngleSlider');
+        const negSeqAngleValue = document.getElementById('negSeqAngleValue');
+        const zeroSeqAngleSlider = document.getElementById('zeroSeqAngleSlider');
+        const zeroSeqAngleValue = document.getElementById('zeroSeqAngleValue');
+
+
+        // --- Helper Functions ---
+
+        /**
+         * Calculates the simulation speed based on a slider value (0-100) using a logarithmic scale.
+         * @param {number} sliderValue - The value from the speed slider (0-100).
+         * @returns {number} The calculated animation speed multiplier.
+         */
+        function calculateLogSpeed(sliderValue) {
+             sliderValue = Math.max(0, Math.min(100, sliderValue)); // Clamp value
+             // Logarithmic interpolation between LOG_SPEED_MIN and LOG_SPEED_MAX
+             return LOG_SPEED_MIN * Math.pow(LOG_SPEED_MAX / LOG_SPEED_MIN, sliderValue / 100);
+        }
+
+        /**
+         * Resizes the canvas to fit its container and updates related parameters.
+         */
+        function resizeCanvas() {
+             const container = canvas.parentElement;
+             if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+                 canvasWidth = container.offsetWidth;
+                 canvasHeight = container.offsetHeight;
+                 canvas.width = canvasWidth;
+                 canvas.height = canvasHeight;
+
+                 // Update pixel-based values
+                 conductorRadiusPixels = conductorRadiusMeters * PIXELS_PER_METER;
+                 minDistancePixels = 2 * Math.max(1, conductorRadiusPixels); // Ensure min distance is at least 2px
+
+                 // Re-initialize or constrain conductors if canvas size changes significantly
+                 if (conductors.length === 0) {
+                     initializeConductors(); // Initialize if first time or reset
+                 } else {
+                     // Ensure conductors stay within new bounds after resize
+                     conductors.forEach(c => constrainConductorToBounds(c));
+                 }
+             } else {
+                 console.warn("Canvas container has no dimensions yet during resize.");
+             }
+        }
+
+        /**
+         * Initializes the positions of the three conductors in an equilateral triangle centered on the canvas.
+         */
+        function initializeConductors() {
+             if (canvasWidth <= 0 || canvasHeight <= 0) {
+                 console.error("Cannot initialize conductors: Canvas dimensions invalid.");
+                 return;
+             }
+             const centerX = canvasWidth / 2;
+             const centerY = canvasHeight / 2;
+             // Initial spacing based on physical distance (0.5m) converted to pixels
+             const initialSpacingPixels = 0.5 * PIXELS_PER_METER;
+
+             // Calculate positions for an equilateral triangle centered at (centerX, centerY)
+             const height = initialSpacingPixels * Math.sqrt(3) / 2; // Height of the equilateral triangle
+             const topY = centerY - height / 2; // Adjusted for center Y
+             const bottomY = centerY + height / 2; // Adjusted for center Y
+
+             conductors = [
+                 // Conductor A (Top vertex) - Adjusted Y based on triangle height
+                 { x: centerX, y: centerY - initialSpacingPixels * SQRT3_OVER_2 / 1.5, label: 'A', color: '#ef4444' }, // Slightly adjusted Y for better centering
+                 // Conductor B (Bottom-left vertex)
+                 { x: centerX - initialSpacingPixels / 2, y: centerY + initialSpacingPixels * SQRT3_OVER_2 / 3, label: 'B', color: '#22c55e' },
+                 // Conductor C (Bottom-right vertex)
+                 { x: centerX + initialSpacingPixels / 2, y: centerY + initialSpacingPixels * SQRT3_OVER_2 / 3, label: 'C', color: '#3b82f6' }
+             ];
+
+             // Ensure initial positions are within bounds, especially on small screens
+             conductors.forEach(c => constrainConductorToBounds(c));
+             console.log("Conductors initialized:", conductors);
+        }
+
+
+        /**
+         * Draws a single conductor on the canvas.
+         * @param {object} conductor - The conductor object {x, y, label, color}.
+         */
+        function drawConductor(conductor) {
+             if (isNaN(conductor.x) || isNaN(conductor.y)) return; // Avoid drawing if position is invalid
+
+             const radius = Math.max(1, conductorRadiusPixels); // Ensure radius is at least 1px
+
+             // Draw conductor circle
+             ctx.beginPath();
+             ctx.arc(conductor.x, conductor.y, radius, 0, 2 * Math.PI);
+             ctx.fillStyle = conductor.color;
+             ctx.fill();
+             ctx.strokeStyle = '#4b5563'; // Dark gray border
+             ctx.lineWidth = 1;
+             ctx.stroke();
+
+             // Draw label inside conductor
+             ctx.fillStyle = 'white'; // White text for contrast
+             ctx.font = 'bold 14px Inter'; // Use Inter font consistent with UI
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+             ctx.fillText(conductor.label, conductor.x, conductor.y);
+        }
+
+        /**
+         * Draws an arrow representing the force vector on a conductor.
+         * @param {number} startX - Starting X coordinate (conductor center).
+         * @param {number} startY - Starting Y coordinate (conductor center).
+         * @param {number} vectorX - X component of the force vector.
+         * @param {number} vectorY - Y component of the force vector.
+         * @param {number} magnitudeNm - Magnitude of the force in N/m.
+         * @param {string} color - Color of the arrow.
+         */
+        function drawForceArrow(startX, startY, vectorX, vectorY, magnitudeNm, color) {
+            if (isNaN(startX) || isNaN(startY) || isNaN(vectorX) || isNaN(vectorY)) return;
+
+            // Calculate end point based on vector and scale
+            const endX = startX + vectorX * forceArrowScale;
+            const endY = startY + vectorY * forceArrowScale;
+
+            const angle = Math.atan2(endY - startY, endX - startX);
+            const arrowLengthPixels = Math.sqrt((endX - startX)**2 + (endY - startY)**2);
+
+            // Don't draw if too small
+            if (arrowLengthPixels < 1) return;
+
+            const headLength = Math.max(8, Math.min(25, arrowLengthPixels * 0.25)); // Adjusted arrowhead size for longer force arrows
+
+            ctx.save();
+            ctx.globalAlpha = 1.0; // Ensure full opacity
+
+            // Draw arrow line
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw arrowhead
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Draw magnitude text near the arrowhead
+            let magnitudeDisplay;
+            let unitString;
+            if (displayUnits === 'imperial') {
+                magnitudeDisplay = (magnitudeNm * N_PER_M_TO_LBS_PER_FT).toFixed(3);
+                unitString = ' Lbs/ft';
+            } else {
+                magnitudeDisplay = magnitudeNm.toFixed(2);
+                unitString = ' N/m';
+            }
+
+            ctx.fillStyle = color;
+            ctx.font = '12px Inter';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+
+            // Position text slightly offset from the arrowhead
+            const cosAngle = Math.cos(angle);
+            const sinAngle = Math.sin(angle);
+            const textOffsetX = (Math.abs(cosAngle) > 0.1 ? 10 : 15) * cosAngle; // Offset based on angle
+            const textOffsetY = (Math.abs(sinAngle) > 0.1 ? 10 : 15) * sinAngle;
+
+            // Only display text if magnitude is significant
+            if (magnitudeNm > 1e-3) {
+                ctx.fillText(magnitudeDisplay + unitString, endX + textOffsetX, endY + textOffsetY);
+            }
+            ctx.restore();
+        }
+
+
+        /**
+         * Calculates the instantaneous currents (Ia, Ib, Ic) in Amperes based on the simulation time and selected mode/parameters.
+         * @param {number} time - Current simulation time (seconds).
+         * @param {string} mode - Calculation mode ('faultType' or 'sequence').
+         * @param {string} type - Fault type (e.g., '3phase', 'slg-a') if mode is 'faultType'.
+         * @param {number} Irms_kA - RMS fault current (kA) for 'faultType' mode.
+         * @param {number} I0_rms_kA - Zero sequence RMS current (kA) for 'sequence' mode.
+         * @param {number} I1_rms_kA - Positive sequence RMS current (kA) for 'sequence' mode.
+         * @param {number} I2_rms_kA - Negative sequence RMS current (kA) for 'sequence' mode.
+         * @param {number} phi0_deg - Zero sequence angle (degrees) for 'sequence' mode.
+         * @param {number} phi1_deg - Positive sequence angle (degrees) for 'sequence' mode.
+         * @param {number} phi2_deg - Negative sequence angle (degrees) for 'sequence' mode.
+         * @returns {object} { Ia, Ib, Ic } instantaneous currents in Amperes.
+         */
+        function calculateInstantaneousCurrents(time, mode, type, Irms_kA, I0_rms_kA, I1_rms_kA, I2_rms_kA, phi0_deg, phi1_deg, phi2_deg) {
+            let Ia = 0, Ib = 0, Ic = 0;
+            const wt = OMEGA * time; // Angular position (radians)
+
+            if (mode === 'faultType') {
+                const Ipeak = Irms_kA * 1000 * Math.sqrt(2); // Peak current in Amperes
+                switch (type) {
+                    case '3phase':
+                        Ia = Ipeak * Math.sin(wt);
+                        Ib = Ipeak * Math.sin(wt - 2 * Math.PI / 3); // 120 deg lag
+                        Ic = Ipeak * Math.sin(wt + 2 * Math.PI / 3); // 120 deg lead
+                        break;
+                    case 'ph-ph-ab': Ia = Ipeak * Math.sin(wt); Ib = -Ia; Ic = 0; break;
+                    case 'ph-ph-bc': Ib = Ipeak * Math.sin(wt); Ic = -Ib; Ia = 0; break;
+                    case 'ph-ph-ca': Ic = Ipeak * Math.sin(wt); Ia = -Ic; Ib = 0; break;
+                    case 'slg-a': Ia = Ipeak * Math.sin(wt); Ib = 0; Ic = 0; break;
+                    case 'slg-b': Ia = 0; Ib = Ipeak * Math.sin(wt); Ic = 0; break;
+                    case 'slg-c': Ia = 0; Ib = 0; Ic = Ipeak * Math.sin(wt); break;
+                    default: // Default to 3-phase if type is unknown
+                        Ia = Ipeak * Math.sin(wt);
+                        Ib = Ipeak * Math.sin(wt - 2 * Math.PI / 3);
+                        Ic = Ipeak * Math.sin(wt + 2 * Math.PI / 3);
+                        break;
+                }
+            } else { // Sequence Component Mode
+                // Convert RMS kA to RMS Amperes and angles to radians
+                const I0_mag = I0_rms_kA * 1000;
+                const I1_mag = I1_rms_kA * 1000;
+                const I2_mag = I2_rms_kA * 1000;
+                const phi0 = phi0_deg * DEG_TO_RAD;
+                const phi1 = phi1_deg * DEG_TO_RAD;
+                const phi2 = phi2_deg * DEG_TO_RAD;
+
+                // Calculate sequence components in complex form (phasors)
+                const I0_real = I0_mag * Math.cos(phi0); const I0_imag = I0_mag * Math.sin(phi0);
+                const I1_real = I1_mag * Math.cos(phi1); const I1_imag = I1_mag * Math.sin(phi1);
+                const I2_real = I2_mag * Math.cos(phi2); const I2_imag = I2_mag * Math.sin(phi2);
+
+                // Define 'a' operator rotation (complex number for 120 degrees)
+                // a = cos(120) + j*sin(120) = -0.5 + j*sqrt(3)/2
+                // a^2 = cos(240) + j*sin(240) = -0.5 - j*sqrt(3)/2
+
+                // Calculate phase currents (RMS phasors) using symmetrical components
+                // Ia_rms = I0 + I1 + I2
+                const Ia_rms_real = I0_real + I1_real + I2_real;
+                const Ia_rms_imag = I0_imag + I1_imag + I2_imag;
+                // Ib_rms = I0 + a^2*I1 + a*I2
+                const Ib_rms_real = I0_real + (I1_real * COS240 - I1_imag * SIN240) + (I2_real * COS120 - I2_imag * SIN120);
+                const Ib_rms_imag = I0_imag + (I1_real * SIN240 + I1_imag * COS240) + (I2_real * SIN120 + I2_imag * COS120);
+                // Ic_rms = I0 + a*I1 + a^2*I2
+                const Ic_rms_real = I0_real + (I1_real * COS120 - I1_imag * SIN120) + (I2_real * COS240 - I2_imag * SIN240);
+                const Ic_rms_imag = I0_imag + (I1_real * SIN120 + I1_imag * COS120) + (I2_real * SIN240 + I2_imag * COS240);
+
+                // Convert RMS phasors back to instantaneous values
+                const Ia_mag_rms = Math.sqrt(Ia_rms_real**2 + Ia_rms_imag**2);
+                const Ia_angle = Math.atan2(Ia_rms_imag, Ia_rms_real);
+                const Ib_mag_rms = Math.sqrt(Ib_rms_real**2 + Ib_rms_imag**2);
+                const Ib_angle = Math.atan2(Ib_rms_imag, Ib_rms_real);
+                const Ic_mag_rms = Math.sqrt(Ic_rms_real**2 + Ic_rms_imag**2);
+                const Ic_angle = Math.atan2(Ic_rms_imag, Ic_rms_real);
+
+                Ia = Math.SQRT2 * Ia_mag_rms * Math.sin(wt + Ia_angle);
+                Ib = Math.SQRT2 * Ib_mag_rms * Math.sin(wt + Ib_angle);
+                Ic = Math.SQRT2 * Ic_mag_rms * Math.sin(wt + Ic_angle);
+            }
+
+            return { Ia, Ib, Ic };
+        }
+
+        /**
+         * Calculates the force per unit length (N/m) on each conductor due to the others.
+         * @param {Array} conds - Array of conductor objects.
+         * @param {object} currents - Object with instantaneous currents { Ia, Ib, Ic }.
+         * @returns {Array} Array of force vectors [{ x, y }, { x, y }, { x, y }] for conductors A, B, C.
+         */
+        function calculateForces(conds, currents) {
+             const forces = [ { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 } ]; // Initialize forces for A, B, C
+             const currentMap = { A: currents.Ia, B: currents.Ib, C: currents.Ic };
+             const currentMinDist = Math.max(1, minDistancePixels); // Use pixel min distance check
+
+             for (let i = 0; i < conds.length; i++) {
+                 for (let j = i + 1; j < conds.length; j++) {
+                     const c1 = conds[i];
+                     const c2 = conds[j];
+
+                     // Skip if conductors are invalid or positions are NaN
+                     if (!c1 || !c2 || isNaN(c1.x) || isNaN(c1.y) || isNaN(c2.x) || isNaN(c2.y)) continue;
+
+                     const I1 = currentMap[c1.label];
+                     const I2 = currentMap[c2.label];
+
+                     // Calculate distance between conductors
+                     const dx = c2.x - c1.x;
+                     const dy = c2.y - c1.y;
+                     const distPixels = Math.sqrt(dx * dx + dy * dy);
+
+                     // Avoid division by zero or forces if conductors are too close (overlapping)
+                     if (distPixels < currentMinDist) {
+                         // console.warn(`Conductors ${c1.label} and ${c2.label} too close (${distPixels.toFixed(1)}px < ${currentMinDist.toFixed(1)}px), skipping force calc.`);
+                         continue; // Skip force calculation if too close
+                     }
+
+                     const distMeters = distPixels / PIXELS_PER_METER;
+
+                     // If either current is zero or distance is zero, force is zero
+                     if (I1 === 0 || I2 === 0 || distMeters <= 0) {
+                         continue;
+                     }
+
+                     // Calculate force magnitude per unit length (Ampere's Law for parallel wires)
+                     // F/L = (μ₀ * I₁ * I₂) / (2 * π * d)
+                     const forceMagnitudePerLength = (MU0 * I1 * I2) / (2 * Math.PI * distMeters);
+
+                     // Calculate unit vector from c1 to c2
+                     const unitX = dx / distPixels;
+                     const unitY = dy / distPixels;
+
+                     // Calculate force vector components
+                     // Force is attractive if currents are same direction (I1*I2 > 0), repulsive if opposite (I1*I2 < 0)
+                     // The formula gives positive for repulsion, negative for attraction.
+                     // We apply force along the line connecting them. Repulsion pushes c1 away from c2 (-unitX), attraction pulls c1 towards c2 (+unitX)
+                     // Let's rethink: Force vector ON c1 DUE TO c2 points towards c2 if attractive (I1*I2 > 0), away if repulsive (I1*I2 < 0).
+                     // The calculated forceMagnitudePerLength is positive for same direction (attraction), negative for opposite (repulsion).
+                     // So, Force_on_1 = unitVector_1_to_2 * forceMagnitudePerLength
+                     const forceX = unitX * forceMagnitudePerLength;
+                     const forceY = unitY * forceMagnitudePerLength;
+
+                     // Add force contribution to both conductors (Newton's 3rd Law)
+                     forces[i].x += forceX;
+                     forces[i].y += forceY;
+                     forces[j].x -= forceX; // Force on j is equal and opposite
+                     forces[j].y -= forceY;
+                 }
+             }
+             return forces;
+        }
+
+        /**
+         * Calculates the magnetic field vector (Bx, By) and magnitude (Bmag) at a given point.
+         * @param {number} pointX - X coordinate of the point (pixels).
+         * @param {number} pointY - Y coordinate of the point (pixels).
+         * @param {Array} conds - Array of conductor objects.
+         * @param {object} currents - Object with instantaneous currents { Ia, Ib, Ic }.
+         * @param {number} time - Current simulation time (unused here, currents are pre-calculated).
+         * @returns {object} { Bx, By, Bmag } magnetic field components and magnitude in Tesla.
+         */
+        function calculateMagneticField(pointX, pointY, conds, currents, time) { // time is unused as currents are passed directly
+             let totalBx = 0;
+             let totalBy = 0;
+             const currentMap = { A: currents.Ia, B: currents.Ib, C: currents.Ic };
+             // Check if the point is inside any conductor (approximated)
+             const currentRadiusCheck = Math.max(1, conductorRadiusPixels / 2); // Check slightly inside radius
+
+             for (let i = 0; i < conds.length; i++) {
+                 const c = conds[i];
+                 const I = currentMap[c.label];
+
+                 if (!c || isNaN(c.x) || isNaN(c.y)) continue; // Skip invalid conductors
+                 if (I === 0) continue; // Skip if current is zero
+
+                 // Vector from conductor center to the point
+                 const dx = pointX - c.x;
+                 const dy = pointY - c.y;
+                 const distPixels = Math.sqrt(dx * dx + dy * dy);
+
+                 // Skip calculation if point is effectively inside the conductor or distance is zero
+                 if (distPixels < currentRadiusCheck) {
+                     // Inside conductor - B field is complex, approximate as zero for visualization outside
+                     continue;
+                 }
+
+                 const distMeters = distPixels / PIXELS_PER_METER;
+                 if (distMeters <= 0) continue; // Avoid division by zero
+
+                 // Magnitude of B field from a long straight wire: B = (μ₀ * |I|) / (2 * π * d)
+                 const Bmag = (MU0 * Math.abs(I)) / (2 * Math.PI * distMeters);
+
+                 // Direction of B field (tangential, using right-hand rule)
+                 // Unit vector perpendicular to the radius vector (dx, dy)
+                 // If I > 0 (out of page), B is counter-clockwise (-dy, dx)
+                 // If I < 0 (into page), B is clockwise (dy, -dx)
+                 // This is equivalent to (-dy/dist, dx/dist) * sign(I)
+                 const Bx_unit = -dy / distPixels;
+                 const By_unit = dx / distPixels;
+
+                 // Add contribution of this conductor to the total field
+                 totalBx += Bmag * Bx_unit * Math.sign(I);
+                 totalBy += Bmag * By_unit * Math.sign(I);
+             }
+
+             return { Bx: totalBx, By: totalBy, Bmag: Math.sqrt(totalBx**2 + totalBy**2) };
+        }
+
+
+        /**
+         * Draws a single magnetic field vector arrow for the quiver plot.
+         * @param {number} gridX - X coordinate of the arrow's base.
+         * @param {number} gridY - Y coordinate of the arrow's base.
+         * @param {number} Bx - X component of the magnetic field.
+         * @param {number} By - Y component of the magnetic field.
+         */
+        function drawMagneticFieldVector(gridX, gridY, Bx, By) {
+             const Bmag = Math.sqrt(Bx**2 + By**2);
+             if (Bmag < 1e-9) return; // Don't draw if field is negligible
+
+             // Scale arrow length by magnitude (no cap)
+             let arrowLen = Bmag * bQuiverArrowScale;
+             if (arrowLen < 1) return; // Don't draw if scaled length is too small
+
+             // Calculate end point
+             const endX = gridX + (Bx / Bmag) * arrowLen;
+             const endY = gridY + (By / Bmag) * arrowLen;
+
+             ctx.save();
+             // Draw arrow line
+             ctx.beginPath();
+             ctx.moveTo(gridX, gridY);
+             ctx.lineTo(endX, endY);
+             ctx.strokeStyle = B_QUIVER_COLOR;
+             ctx.lineWidth = 1;
+             ctx.stroke();
+
+             // Draw arrowhead
+             const angle = Math.atan2(By, Bx);
+             const headLength = Math.min(arrowLen * 0.2, 20); // Further adjusted arrowhead size for much longer arrows
+             ctx.beginPath();
+             ctx.moveTo(endX, endY);
+             ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+             ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+             ctx.closePath();
+             ctx.fillStyle = B_QUIVER_COLOR;
+             ctx.fill();
+             ctx.restore();
+        }
+
+        /**
+         * Draws the magnetic field vector (quiver) plot over the canvas.
+         * @param {object} currents - Object with instantaneous currents { Ia, Ib, Ic }.
+         * @param {number} time - Current simulation time (passed to calculateMagneticField).
+         */
+        function drawMagneticFieldQuiverPlot(currents, time) {
+             const step = B_QUIVER_GRID_SIZE;
+             const currentRadiusSq = Math.max(1, conductorRadiusPixels * conductorRadiusPixels); // Use squared radius for efficiency
+
+             for (let x = 0; x < canvasWidth; x += step) {
+                 for (let y = 0; y < canvasHeight; y += step) {
+                     const gridX = x + step / 2; // Center point of the grid cell
+                     const gridY = y + step / 2;
+
+                     // Check if the point is inside any conductor
+                     let insideConductor = false;
+                     for(const c of conductors) {
+                         if (!c || isNaN(c.x) || isNaN(c.y)) continue;
+                         const dx = gridX - c.x;
+                         const dy = gridY - c.y;
+                         if (dx*dx + dy*dy < currentRadiusSq) {
+                             insideConductor = true;
+                             break;
+                         }
+                     }
+                     if (insideConductor) continue; // Don't draw vectors inside conductors
+
+                     // Calculate field at this grid point
+                     const field = calculateMagneticField(gridX, gridY, conductors, currents, time);
+                     if (!isNaN(field.Bx) && !isNaN(field.By)) {
+                         drawMagneticFieldVector(gridX, gridY, field.Bx, field.By);
+                     }
+                 }
+             }
+        }
+
+        /**
+         * Determines the color for the heatmap based on magnetic field magnitude.
+         * @param {number} magnitude - Magnetic field magnitude in Tesla.
+         * @returns {string} HSL color string.
+         */
+         function getColorForMagnitude(magnitude) {
+              // Clamp magnitude to the effective max color value
+              const clampedMag = Math.min(Math.abs(magnitude), effectiveBFieldMaxColorMag);
+              // Normalize magnitude (0 to 1) based on the effective max
+              const normalizedMag = (effectiveBFieldMaxColorMag > 0) ? (clampedMag / effectiveBFieldMaxColorMag) : 0;
+              // Map normalized magnitude to hue (e.g., blue (low) to red (high))
+              // Hue range: 240 (blue) down to 0 (red)
+              const hue = (1 - normalizedMag) * 240;
+             // Use HSL color format (adjust saturation and lightness as needed)
+             return `hsl(${hue}, 90%, 55%)`; // High saturation, medium lightness
+        }
+
+        /**
+         * Draws the magnetic field heatmap overlay.
+         * @param {object} currents - Object with instantaneous currents { Ia, Ib, Ic }.
+         * @param {number} time - Current simulation time (passed to calculateMagneticField).
+         */
+        function drawMagneticFieldHeatmap(currents, time) {
+             ctx.save();
+             ctx.globalAlpha = B_FIELD_ALPHA; // Set transparency for the heatmap layer
+             const step = B_HEATMAP_GRID_SIZE;
+
+             for (let x = 0; x < canvasWidth; x += step) {
+                 for (let y = 0; y < canvasHeight; y += step) {
+                     const centerX = x + step / 2; // Center of the grid cell
+                     const centerY = y + step / 2;
+
+                     // Calculate field at the center of the cell
+                     const field = calculateMagneticField(centerX, centerY, conductors, currents, time);
+
+                     // Skip if magnitude is invalid or negligible
+                     if (isNaN(field.Bmag) || field.Bmag < 1e-9) { // Use a small threshold
+                         continue;
+                     }
+
+                     // Get color based on magnitude and fill the cell
+                     const color = getColorForMagnitude(field.Bmag);
+                     ctx.fillStyle = color;
+                     ctx.fillRect(x, y, step, step);
+                 }
+             }
+             ctx.restore(); // Restore global alpha
+        }
+
+        /**
+         * Draws lines and distances between conductors.
+         */
+        function drawDistanceGrid() {
+             ctx.save();
+             ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)'; // Semi-transparent gray lines
+             ctx.fillStyle = '#333'; // Dark text color
+             ctx.lineWidth = 1;
+             ctx.setLineDash([5, 5]); // Dashed lines
+             ctx.font = '11px Inter';
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'bottom';
+
+             for (let i = 0; i < conductors.length; i++) {
+                 for (let j = i + 1; j < conductors.length; j++) {
+                     const c1 = conductors[i];
+                     const c2 = conductors[j];
+
+                     if (!c1 || !c2 || isNaN(c1.x) || isNaN(c1.y) || isNaN(c2.x) || isNaN(c2.y)) continue;
+
+                     const dx = c2.x - c1.x;
+                     const dy = c2.y - c1.y;
+                     const distPixels = Math.sqrt(dx * dx + dy * dy);
+                     const distMeters = distPixels / PIXELS_PER_METER;
+
+                     // Draw dashed line between conductors
+                     ctx.beginPath();
+                     ctx.moveTo(c1.x, c1.y);
+                     ctx.lineTo(c2.x, c2.y);
+                     ctx.stroke();
+
+                     // Calculate midpoint for text placement
+                     const midX = c1.x + dx / 2;
+                     const midY = c1.y + dy / 2;
+
+                     // Position text slightly offset perpendicular to the line
+                     const angle = Math.atan2(dy, dx);
+                     const textOffset = 10; // Pixels offset from the line
+                     const textX = midX + textOffset * Math.sin(angle); // Use sin for perpendicular offset
+                     const textY = midY - textOffset * Math.cos(angle); // Use -cos for perpendicular offset
+
+                     // Draw distance text
+                     ctx.fillText(`${distMeters.toFixed(3)} m`, textX, textY);
+                 }
+             }
+             ctx.restore(); // Restore line dash and styles
+        }
+
+        /**
+         * Updates the content of the heatmap legend based on current settings.
+         */
+        function updateLegend() {
+             // Hide legend if heatmap is not shown or element doesn't exist
+             if (!showFieldHeatmap || !legendDiv) {
+                 if (legendDiv) legendDiv.style.display = 'none';
+                 return;
+             }
+
+             legendDiv.style.display = 'block'; // Show the legend container
+             // Clear previous legend items and add title
+             legendDiv.innerHTML = '<div class="font-semibold mb-1 text-xs">B-Field (Tesla)</div>';
+
+             const numSteps = 5; // Number of color steps in the legend
+             for (let i = 0; i <= numSteps; i++) {
+                 // Calculate magnitude for this step based on the effective max
+                 const magnitude = (i / numSteps) * effectiveBFieldMaxColorMag;
+                 const color = getColorForMagnitude(magnitude);
+
+                 // Create legend item elements
+                 const item = document.createElement('div');
+                 item.className = 'legend-item'; // Apply flex styling
+
+                 const colorBox = document.createElement('div');
+                 colorBox.className = 'legend-color-box';
+                 colorBox.style.backgroundColor = color;
+
+                 const text = document.createElement('span');
+                 let magText = magnitude.toExponential(1); // Format magnitude
+                 if (magnitude === 0) {
+                     magText = "0.0";
+                 } else if (i === numSteps) {
+                     // Indicate values >= effective max
+                     magText = `≥ ${effectiveBFieldMaxColorMag.toExponential(1)}`;
+                 }
+                 text.textContent = ` ${magText}`; // Add space before text
+
+                 // Append elements
+                 item.appendChild(colorBox);
+                 item.appendChild(text);
+                 legendDiv.appendChild(item);
+             }
+        }
+
+        /**
+         * Constrains a conductor's position to stay within the canvas boundaries.
+         * @param {object} conductor - The conductor object to constrain.
+         */
+        function constrainConductorToBounds(conductor) {
+             const r = Math.max(1, conductorRadiusPixels); // Use actual radius for boundary check
+             conductor.x = Math.max(r, Math.min(canvasWidth - r, conductor.x));
+             conductor.y = Math.max(r, Math.min(canvasHeight - r, conductor.y));
+        }
+
+        /**
+         * Draws a background grid on the canvas.
+         */
+        function drawGrid() {
+             const gridSize = 50; // Pixels between grid lines
+             ctx.beginPath();
+             ctx.strokeStyle = '#e5e7eb'; // Light gray grid lines
+             ctx.lineWidth = 0.5;
+
+             // Vertical lines
+             for (let x = 0; x < canvasWidth; x += gridSize) {
+                 ctx.moveTo(x, 0);
+                 ctx.lineTo(x, canvasHeight);
+             }
+             // Horizontal lines
+             for (let y = 0; y < canvasHeight; y += gridSize) {
+                 ctx.moveTo(0, y);
+                 ctx.lineTo(canvasWidth, y);
+             }
+             ctx.stroke();
+        }
+
+        /**
+         * Draws the oscillography plot showing current waveforms.
+         */
+        function drawOscillography() {
+            // Define plot area dimensions and position
+            const plotX = OSC_PLOT_X_MARGIN;
+            const plotY = canvasHeight - OSC_PLOT_HEIGHT - OSC_PLOT_Y_MARGIN; // Position at bottom-left
+            const plotWidth = OSC_PLOT_WIDTH;
+            const plotHeight = OSC_PLOT_HEIGHT;
+            const innerPlotHeight = plotHeight - 20; // Margins for labels
+            const innerPlotWidth = plotWidth - 30; // Margins for labels
+
+            // Determine the maximum peak current for scaling the Y-axis
+            let IpeakMaxVal;
+            if (calculationMode === 'faultType') {
+                IpeakMaxVal = faultCurrentRMS * 1000 * Math.sqrt(2); // Peak from RMS
+            } else {
+                // Approximate max peak by summing sequence component peaks
+                const I0pk = zeroSeqCurrentRMS * 1000 * Math.sqrt(2);
+                const I1pk = posSeqCurrentRMS * 1000 * Math.sqrt(2);
+                const I2pk = negSeqCurrentRMS * 1000 * Math.sqrt(2);
+                IpeakMaxVal = I0pk + I1pk + I2pk; // Conservative estimate
+            }
+            const IpeakMax = (IpeakMaxVal === 0 ? 1000 : IpeakMaxVal) * 1.1; // Avoid 0, add 10% margin
+
+            ctx.save();
+
+            // Draw background box for the plot
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'; // Semi-transparent white
+            ctx.fillRect(plotX, plotY, plotWidth, plotHeight);
+            ctx.strokeStyle = '#aaa'; // Light gray border
+            ctx.lineWidth = 1;
+            ctx.strokeRect(plotX, plotY, plotWidth, plotHeight);
+
+            // Clip drawing to the inner plot area
+            ctx.beginPath();
+            ctx.rect(plotX + 25, plotY + 5, innerPlotWidth, innerPlotHeight); // Define inner bounds
+            ctx.clip();
+
+            // Helper function to map history data to plot coordinates
+            const mapToPlot = (index, value) => {
+                const x = plotX + 25 + (index / (HISTORY_LENGTH - 1)) * innerPlotWidth;
+                // Y-axis: 0 is center, positive up, negative down
+                const y = (plotY + 5 + innerPlotHeight / 2) - (value / IpeakMax) * (innerPlotHeight / 2);
+                return { x, y };
+            };
+
+            // Draw waveforms for each phase
+            const histories = [currentHistoryA, currentHistoryB, currentHistoryC];
+            const colors = [
+                conductors[0]?.color || '#ef4444', // Default red if conductor A not found
+                conductors[1]?.color || '#22c55e', // Default green if conductor B not found
+                conductors[2]?.color || '#3b82f6'  // Default blue if conductor C not found
+            ];
+
+            histories.forEach((history, phaseIndex) => {
+                if (history.length < 2) return; // Need at least two points to draw a line
+
+                ctx.beginPath();
+                const startPoint = mapToPlot(0, history[0]);
+                ctx.moveTo(startPoint.x, startPoint.y);
+
+                for (let i = 1; i < history.length; i++) {
+                    const point = mapToPlot(i, history[i]);
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.strokeStyle = colors[phaseIndex];
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+
+            ctx.restore(); // Remove clipping path
+
+            // Draw labels (outside the clipped area)
+            ctx.fillStyle = '#333';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('Time', plotX + 25 + innerPlotWidth / 2, plotY + plotHeight - 2); // X-axis label
+
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${(IpeakMax / 1000).toFixed(0)}kA`, plotX + 20, plotY + 5); // Max Y label
+            ctx.fillText('0', plotX + 20, plotY + 5 + innerPlotHeight / 2); // Zero line label
+            ctx.fillText(`${(-IpeakMax / 1000).toFixed(0)}kA`, plotX + 20, plotY + 5 + innerPlotHeight); // Min Y label
+        }
+
+
+        // --- Main Drawing Function ---
+
+        /**
+         * Clears the canvas and redraws all elements for the current simulation state.
+         */
+        function draw() {
+             if (!ctx) return; // Exit if canvas context is not available
+
+             // Clear the entire canvas
+             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+             // Exit if conductors are not initialized
+             if (!conductors || conductors.length === 0) {
+                 console.warn("Draw called before conductors initialized.");
+                 return;
+             }
+
+             // Calculate instantaneous currents for the current time step
+             const currents = calculateInstantaneousCurrents(
+                 simulationTime,
+                 calculationMode,
+                 faultType,
+                 faultCurrentRMS,
+                 zeroSeqCurrentRMS,
+                 posSeqCurrentRMS,
+                 negSeqCurrentRMS,
+                 zeroSeqAngleDeg,
+                 posSeqAngleDeg,
+                 negSeqAngleDeg
+             );
+
+             // Draw optional layers first (background elements)
+             if (showFieldHeatmap) {
+                 drawMagneticFieldHeatmap(currents, simulationTime);
+             }
+             if (showMagneticFieldVectors) {
+                 drawMagneticFieldQuiverPlot(currents, simulationTime);
+             }
+             drawGrid(); // Draw background grid
+             if (showDistanceGrid) {
+                 drawDistanceGrid();
+             }
+             if (showOscillography) {
+                // Add current values to history before drawing plot
+                currentHistoryA.push(currents.Ia);
+                currentHistoryB.push(currents.Ib);
+                currentHistoryC.push(currents.Ic);
+                // Trim history arrays
+                if (currentHistoryA.length > HISTORY_LENGTH) currentHistoryA.shift();
+                if (currentHistoryB.length > HISTORY_LENGTH) currentHistoryB.shift();
+                if (currentHistoryC.length > HISTORY_LENGTH) currentHistoryC.shift();
+                drawOscillography();
+             }
+
+
+             // Calculate forces based on current positions and currents
+             const forces = calculateForces(conductors, currents);
+
+             // Draw conductors on top
+             conductors.forEach(c => drawConductor(c));
+
+             // Draw force arrows and update force display
+             const forceMagnitudes = [];
+             conductors.forEach((c, index) => {
+                 const forceVec = forces[index];
+                 if (!forceVec || isNaN(forceVec.x) || isNaN(forceVec.y)) {
+                     forceMagnitudes.push(NaN); // Store NaN if force is invalid
+                     return;
+                 }
+                 const magnitudeNm = Math.sqrt(forceVec.x ** 2 + forceVec.y ** 2);
+                 forceMagnitudes.push(magnitudeNm);
+
+                 // Draw force arrow only if magnitude is significant
+                 if (magnitudeNm > 1e-6) { // Threshold to avoid drawing tiny arrows
+                     drawForceArrow(c.x, c.y, forceVec.x, forceVec.y, magnitudeNm, c.color);
+                 }
+             });
+
+             // Update force display text in the control panel
+             let forceAVal = isNaN(forceMagnitudes[0]) ? '---' : (displayUnits === 'imperial' ? (forceMagnitudes[0] * N_PER_M_TO_LBS_PER_FT).toFixed(3) : forceMagnitudes[0].toFixed(2));
+             let forceBVal = isNaN(forceMagnitudes[1]) ? '---' : (displayUnits === 'imperial' ? (forceMagnitudes[1] * N_PER_M_TO_LBS_PER_FT).toFixed(3) : forceMagnitudes[1].toFixed(2));
+             let forceCVal = isNaN(forceMagnitudes[2]) ? '---' : (displayUnits === 'imperial' ? (forceMagnitudes[2] * N_PER_M_TO_LBS_PER_FT).toFixed(3) : forceMagnitudes[2].toFixed(2));
+
+             forceADisplay.textContent = forceAVal;
+             forceBDisplay.textContent = forceBVal;
+             forceCDisplay.textContent = forceCVal;
+
+             // Update instantaneous current display text
+             if (currentADisplay && currentBDisplay && currentCDisplay) {
+                 currentADisplay.textContent = currents.Ia.toFixed(1);
+                 currentBDisplay.textContent = currents.Ib.toFixed(1);
+                 currentCDisplay.textContent = currents.Ic.toFixed(1);
+             }
+
+             // Update the legend if necessary
+             updateLegend();
+        }
+
+
+        // --- Animation Loop ---
+
+        /**
+         * The main animation loop, called recursively via requestAnimationFrame.
+         * @param {DOMHighResTimeStamp} timestamp - The timestamp provided by requestAnimationFrame.
+         */
+        function animationLoop(timestamp) {
+             if (!lastTimestamp) {
+                 lastTimestamp = timestamp; // Initialize on first frame
+             }
+             const deltaTime = (timestamp - lastTimestamp) / 1000; // Time elapsed in seconds
+             lastTimestamp = timestamp;
+
+             if (!isPaused) {
+                 // Advance simulation time only if deltaTime is reasonable
+                 if (deltaTime > 0 && deltaTime < 0.5) { // Avoid large jumps if tab was inactive
+                     simulationTime += deltaTime * animSpeed;
+                 }
+             }
+
+             // Redraw the canvas with the current state
+             try {
+                 draw();
+             } catch (error) {
+                 console.error("Error during draw:", error);
+                 // Optionally stop the loop on error:
+                 // cancelAnimationFrame(animationFrameId);
+                 // return;
+             }
+
+
+             // Request the next frame
+             animationFrameId = requestAnimationFrame(animationLoop);
+        }
+
+
+        // --- Event Listeners ---
+
+        // Fault type selection
+        faultTypeSelect.addEventListener('change', (e) => {
+             faultType = e.target.value;
+             // Reset time/history when fault type changes? Optional.
+             // simulationTime = 0;
+             // currentHistoryA = []; currentHistoryB = []; currentHistoryC = [];
+        });
+
+        // Fault current slider
+        faultCurrentSlider.addEventListener('input', (e) => {
+             faultCurrentRMS = parseFloat(e.target.value);
+             faultCurrentValueSpan.textContent = faultCurrentRMS;
+        });
+
+        // Animation speed slider
+        animSpeedSlider.addEventListener('input', (e) => {
+             const sliderValue = parseFloat(e.target.value);
+             animSpeed = calculateLogSpeed(sliderValue);
+             // Format speed display for better readability
+             const displaySpeed = animSpeed < 0.1 ? animSpeed.toPrecision(1) : animSpeed.toFixed(1);
+             animSpeedValueSpan.textContent = displaySpeed;
+        });
+
+        // Conductor radius slider
+        conductorRadiusSlider.addEventListener('input', (e) => {
+             const radiusCm = parseFloat(e.target.value);
+             conductorRadiusValueSpan.textContent = radiusCm.toFixed(1);
+             conductorRadiusMeters = radiusCm / 100.0;
+             // Update pixel values based on new radius
+             conductorRadiusPixels = conductorRadiusMeters * PIXELS_PER_METER;
+             minDistancePixels = 2 * Math.max(1, conductorRadiusPixels); // Update minimum distance
+        });
+        
+        // Field vector scale slider
+        fieldVectorScaleSlider.addEventListener('input', (e) => {
+             const scaleValue = parseFloat(e.target.value);
+             fieldVectorScaleValueSpan.textContent = scaleValue.toFixed(1);
+             bQuiverArrowScale = BASE_B_QUIVER_ARROW_SCALE * scaleValue;
+        });
+        
+        // Force vector scale slider
+        forceVectorScaleSlider.addEventListener('input', (e) => {
+             const scaleValue = parseFloat(e.target.value);
+             forceVectorScaleValueSpan.textContent = scaleValue.toFixed(1);
+             forceArrowScale = BASE_FORCE_ARROW_SCALE * scaleValue;
+        });
+
+        // Gradient scale slider
+        gradientScaleSlider.addEventListener('input', (e) => {
+            gradientScaleFactor = parseFloat(e.target.value);
+            gradientScaleValueSpan.textContent = gradientScaleFactor.toFixed(1);
+            effectiveBFieldMaxColorMag = BASE_B_FIELD_MAX_COLOR_MAG * gradientScaleFactor;
+            updateLegend(); // Update legend immediately when scale changes
+        });
+
+        // Reset button
+        resetButton.addEventListener('click', () => {
+             // Reset simulation state
+             simulationTime = 0;
+             faultType = '3phase';
+             faultTypeSelect.value = '3phase';
+             faultCurrentRMS = DEFAULT_FAULT_CURRENT_RMS;
+             faultCurrentSlider.value = DEFAULT_FAULT_CURRENT_RMS;
+             faultCurrentValueSpan.textContent = DEFAULT_FAULT_CURRENT_RMS;
+             animSpeed = calculateLogSpeed(INITIAL_ANIM_SLIDER_VALUE);
+             animSpeedSlider.value = INITIAL_ANIM_SLIDER_VALUE;
+             const initialSpeedDisplay = animSpeed < 0.1 ? animSpeed.toPrecision(1) : animSpeed.toFixed(1);
+             animSpeedValueSpan.textContent = initialSpeedDisplay;
+             conductorRadiusMeters = DEFAULT_CONDUCTOR_RADIUS_CM / 100.0;
+             conductorRadiusSlider.value = DEFAULT_CONDUCTOR_RADIUS_CM;
+             conductorRadiusValueSpan.textContent = DEFAULT_CONDUCTOR_RADIUS_CM.toFixed(1);
+             conductorRadiusPixels = conductorRadiusMeters * PIXELS_PER_METER;
+             minDistancePixels = 2 * Math.max(1, conductorRadiusPixels);
+             // Reset vector scales
+             fieldVectorScaleSlider.value = 0.1;
+             fieldVectorScaleValueSpan.textContent = "0.1";
+             bQuiverArrowScale = BASE_B_QUIVER_ARROW_SCALE * 0.1;
+             forceVectorScaleSlider.value = 1.0;
+             forceVectorScaleValueSpan.textContent = "1.0";
+             forceArrowScale = BASE_FORCE_ARROW_SCALE;
+             gradientScaleSlider.value = 1.0; // Reset gradient slider
+             gradientScaleValueSpan.textContent = "1.0"; // Reset gradient display
+             gradientScaleFactor = 1.0; // Reset gradient factor
+             effectiveBFieldMaxColorMag = BASE_B_FIELD_MAX_COLOR_MAG; // Reset effective max B
+             isPaused = false;
+             pauseButton.textContent = 'Pause';
+             pauseButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+             pauseButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+             displayUnits = 'metric';
+             toggleUnitsButton.textContent = 'Switch to Imperial (Lbs/ft)';
+             forceUnitLabel.textContent = 'N/m';
+             calculationMode = 'faultType';
+             switchModeButton.textContent = 'Use Sequence Currents';
+             faultTypeControl.disabled = false;
+             sequenceControls.disabled = true;
+
+             // Reset sequence values
+             posSeqCurrentRMS = 0; posSeqCurrentSlider.value = 0; posSeqCurrentValue.textContent = 0;
+             posSeqAngleDeg = 0; posSeqAngleSlider.value = 0; posSeqAngleValue.textContent = 0;
+             negSeqCurrentRMS = 0; negSeqCurrentSlider.value = 0; negSeqCurrentValue.textContent = 0;
+             negSeqAngleDeg = 0; negSeqAngleSlider.value = 0; negSeqAngleValue.textContent = 0;
+             zeroSeqCurrentRMS = 0; zeroSeqCurrentSlider.value = 0; zeroSeqCurrentValue.textContent = 0;
+             zeroSeqAngleDeg = 0; zeroSeqAngleSlider.value = 0; zeroSeqAngleValue.textContent = 0;
+
+             // Reset view options to default values (buttons removed)
+             showMagneticFieldVectors = true;
+             showFieldHeatmap = true;
+             showDistanceGrid = true;
+             showOscillography = true;
+
+             // Clear history and re-initialize positions
+             currentHistoryA = []; currentHistoryB = []; currentHistoryC = [];
+             initializeConductors(); // Reset conductor positions to default centered triangle
+             lastTimestamp = performance.now(); // Reset timestamp for smooth restart
+             updateLegend(); // Update legend based on reset state
+             
+             // Force an immediate redraw to reflect all changes
+             draw(); // Ensure visual state updates immediately after reset
+        });
+
+        // Pause/Resume button
+        pauseButton.addEventListener('click', () => {
+             isPaused = !isPaused;
+             if (isPaused) {
+                 pauseButton.textContent = 'Resume';
+                 pauseButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                 pauseButton.classList.add('bg-green-500', 'hover:bg-green-600');
+             } else {
+                 pauseButton.textContent = 'Pause';
+                 pauseButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+                 pauseButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                 // Reset lastTimestamp to avoid jump after resuming
+                 lastTimestamp = performance.now();
+             }
+        });
+
+        // Toggle button helper function and view option buttons removed
+
+
+        // Toggle units button
+        toggleUnitsButton.addEventListener('click', () => {
+             if (displayUnits === 'metric') {
+                 displayUnits = 'imperial';
+                 toggleUnitsButton.textContent = 'Switch to Metric (N/m)';
+                 forceUnitLabel.textContent = 'Lbs/ft';
+             } else {
+                 displayUnits = 'metric';
+                 toggleUnitsButton.textContent = 'Switch to Imperial (Lbs/ft)';
+                 forceUnitLabel.textContent = 'N/m';
+             }
+             // Force redraw to update force labels immediately (optional)
+             // draw();
+        });
+
+        // Switch calculation mode button
+        switchModeButton.addEventListener('click', () => {
+             if (calculationMode === 'faultType') {
+                 calculationMode = 'sequence';
+                 switchModeButton.textContent = 'Use Fault Type';
+                 faultTypeControl.disabled = true; // Disable fault type section
+                 sequenceControls.disabled = false; // Enable sequence section
+             } else {
+                 calculationMode = 'faultType';
+                 switchModeButton.textContent = 'Use Sequence Currents';
+                 faultTypeControl.disabled = false; // Enable fault type section
+                 sequenceControls.disabled = true; // Disable sequence section
+             }
+             // Reset time/history when mode changes? Optional.
+             // simulationTime = 0;
+             // currentHistoryA = []; currentHistoryB = []; currentHistoryC = [];
+        });
+
+        // Sequence Component Slider Listeners
+        posSeqCurrentSlider.addEventListener('input', (e) => { posSeqCurrentRMS = parseFloat(e.target.value); posSeqCurrentValue.textContent = posSeqCurrentRMS; });
+        negSeqCurrentSlider.addEventListener('input', (e) => { negSeqCurrentRMS = parseFloat(e.target.value); negSeqCurrentValue.textContent = negSeqCurrentRMS; });
+        zeroSeqCurrentSlider.addEventListener('input', (e) => { zeroSeqCurrentRMS = parseFloat(e.target.value); zeroSeqCurrentValue.textContent = zeroSeqCurrentRMS; });
+        posSeqAngleSlider.addEventListener('input', (e) => { posSeqAngleDeg = parseFloat(e.target.value); posSeqAngleValue.textContent = posSeqAngleDeg; });
+        negSeqAngleSlider.addEventListener('input', (e) => { negSeqAngleDeg = parseFloat(e.target.value); negSeqAngleValue.textContent = negSeqAngleDeg; });
+        zeroSeqAngleSlider.addEventListener('input', (e) => { zeroSeqAngleDeg = parseFloat(e.target.value); zeroSeqAngleValue.textContent = zeroSeqAngleDeg; });
+
+
+        // --- Mouse/Touch Dragging Logic ---
+
+        /**
+         * Gets the mouse or touch position relative to the canvas.
+         * @param {Event} evt - The mouse or touch event.
+         * @returns {object} { x, y } coordinates relative to the canvas top-left.
+         */
+        function getMousePos(evt) {
+             const rect = canvas.getBoundingClientRect();
+             // Handle both mouse and touch events
+             const clientX = evt.clientX ?? evt.touches[0].clientX;
+             const clientY = evt.clientY ?? evt.touches[0].clientY;
+             return {
+                 x: clientX - rect.left,
+                 y: clientY - rect.top
+             };
+        }
+
+        /**
+         * Handles the start of a drag operation (mousedown or touchstart).
+         * @param {Event} evt - The event object.
+         */
+        function handleStart(evt) {
+             evt.preventDefault(); // Prevent default actions like scrolling
+             const pos = getMousePos(evt);
+             if (!conductors) return;
+
+             // Check if pointer is inside any conductor (check from top layer down)
+             for (let i = conductors.length - 1; i >= 0; i--) {
+                 const c = conductors[i];
+                 if (!c || isNaN(c.x) || isNaN(c.y)) continue;
+
+                 const dx = pos.x - c.x;
+                 const dy = pos.y - c.y;
+                 const distSq = dx*dx + dy*dy; // Use squared distance for efficiency
+                 // Increase clickable radius significantly for easier interaction by adding a pixel buffer
+                 const grabBuffer = 15; // Pixels added to the radius for hit detection
+                 const effectiveRadiusSq = Math.pow(Math.max(5, conductorRadiusPixels + grabBuffer), 2);
+
+                 if (distSq <= effectiveRadiusSq) {
+                     isDragging = true;
+                     draggedConductorIndex = i;
+                     // Store offset from conductor center to click point
+                     dragOffsetX = pos.x - c.x;
+                     dragOffsetY = pos.y - c.y;
+                     canvas.style.cursor = 'grabbing'; // Change cursor
+                     break; // Stop after finding the topmost conductor
+                 }
+             }
+        }
+
+        /**
+         * Handles the movement during a drag operation (mousemove or touchmove).
+         * @param {Event} evt - The event object.
+         */
+        function handleMove(evt) {
+             if (!isDragging || draggedConductorIndex < 0 || !conductors || !conductors[draggedConductorIndex]) return;
+             evt.preventDefault(); // Prevent default actions
+
+             const pos = getMousePos(evt);
+             const draggedConductor = conductors[draggedConductorIndex];
+
+             // Calculate new potential position
+             let newX = pos.x - dragOffsetX;
+             let newY = pos.y - dragOffsetY;
+
+             // Constrain to canvas bounds first
+             const r = Math.max(1, conductorRadiusPixels);
+             newX = Math.max(r, Math.min(canvasWidth - r, newX));
+             newY = Math.max(r, Math.min(canvasHeight - r, newY));
+
+             // Check for collisions with other conductors and push away if needed
+             const currentMinDist = Math.max(1, minDistancePixels); // Minimum pixel distance allowed
+             for (let i = 0; i < conductors.length; i++) {
+                 if (i === draggedConductorIndex) continue; // Skip self-collision check
+                 const other = conductors[i];
+                 if (!other || isNaN(other.x) || isNaN(other.y)) continue;
+
+                 const dx = newX - other.x;
+                 const dy = newY - other.y;
+                 const dist = Math.sqrt(dx*dx + dy*dy);
+
+                 if (dist < currentMinDist) {
+                     // Collision detected, push the dragged conductor away
+                     const overlap = currentMinDist - dist;
+                     // Calculate push vector (normalized direction vector * overlap)
+                     // Handle zero distance case to avoid division by zero
+                     const pushX = dist > 1e-6 ? (dx / dist) * overlap : overlap;
+                     const pushY = dist > 1e-6 ? (dy / dist) * overlap : 0;
+
+                     newX += pushX;
+                     newY += pushY;
+
+                     // Re-constrain to bounds after pushing
+                     newX = Math.max(r, Math.min(canvasWidth - r, newX));
+                     newY = Math.max(r, Math.min(canvasHeight - r, newY));
+                 }
+             }
+
+             // Update the conductor's position
+             draggedConductor.x = newX;
+             draggedConductor.y = newY;
+        }
+
+        /**
+         * Handles the end of a drag operation (mouseup, mouseleave, touchend, touchcancel).
+         * @param {Event} evt - The event object.
+         */
+        function handleEnd(evt) {
+             if (isDragging) {
+                 isDragging = false;
+                 draggedConductorIndex = -1;
+                 canvas.style.cursor = 'grab'; // Reset cursor
+             }
+        }
+
+        // Attach mouse event listeners
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseleave', handleEnd); // End drag if mouse leaves canvas
+
+        // Attach touch event listeners
+        canvas.addEventListener('touchstart', handleStart, { passive: false }); // passive: false to allow preventDefault
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        canvas.addEventListener('touchend', handleEnd);
+        canvas.addEventListener('touchcancel', handleEnd); // End drag if touch is cancelled
+
+        // Resize listener
+        window.addEventListener('resize', resizeCanvas);
+
+
+        // --- Initialization ---
+
+        /**
+         * Initializes the simulation when the window loads.
+         */
+        window.onload = function() {
+             console.log("Window loaded. Initializing simulation.");
+
+             // Set initial display values for controls
+             const initialSpeed = calculateLogSpeed(INITIAL_ANIM_SLIDER_VALUE);
+             animSpeedValueSpan.textContent = initialSpeed < 0.1 ? initialSpeed.toPrecision(1) : initialSpeed.toFixed(1);
+             faultCurrentValueSpan.textContent = DEFAULT_FAULT_CURRENT_RMS;
+             conductorRadiusValueSpan.textContent = DEFAULT_CONDUCTOR_RADIUS_CM.toFixed(1);
+             fieldVectorScaleValueSpan.textContent = "0.1";
+             forceVectorScaleValueSpan.textContent = "1.0";
+             gradientScaleValueSpan.textContent = "1.0"; // Initialize gradient display
+             forceUnitLabel.textContent = 'N/m';
+             posSeqCurrentValue.textContent = 0; negSeqCurrentValue.textContent = 0; zeroSeqCurrentValue.textContent = 0;
+             posSeqAngleValue.textContent = 0; negSeqAngleValue.textContent = 0; zeroSeqAngleValue.textContent = 0;
+
+             // Set default values for view options (buttons removed)
+             showMagneticFieldVectors = true;
+             showFieldHeatmap = true;
+             showDistanceGrid = true;
+             showOscillography = true;
+
+
+             // Set initial state for other controls
+             toggleUnitsButton.textContent = 'Switch to Imperial (Lbs/ft)';
+             switchModeButton.textContent = 'Use Sequence Currents';
+             faultTypeControl.disabled = false;
+             sequenceControls.disabled = true;
+
+             // Calculate initial pixel values
+             conductorRadiusMeters = DEFAULT_CONDUCTOR_RADIUS_CM / 100.0;
+             conductorRadiusPixels = conductorRadiusMeters * PIXELS_PER_METER;
+             minDistancePixels = 2 * Math.max(1, conductorRadiusPixels);
+             gradientScaleFactor = 1.0; // Initialize gradient factor
+             effectiveBFieldMaxColorMag = BASE_B_FIELD_MAX_COLOR_MAG * gradientScaleFactor; // Initialize effective max B
+
+             // Perform initial resize and setup
+             resizeCanvas(); // This will also call initializeConductors if needed
+
+             // Start the animation loop if canvas is ready
+             if (canvasWidth > 0 && canvasHeight > 0 && conductors.length > 0) {
+                 lastTimestamp = performance.now(); // Set initial timestamp
+                 if (animationFrameId) { cancelAnimationFrame(animationFrameId); } // Clear any previous loop
+                 animationFrameId = requestAnimationFrame(animationLoop);
+                 console.log("Animation loop started.");
+             } else {
+                 console.error("Initialization failed - canvas size or conductors invalid. Animation not started.");
+                 // Display error message on canvas if context exists
+                 if (ctx) {
+                     ctx.fillStyle = 'red';
+                     ctx.font = '16px Arial';
+                     ctx.textAlign = 'center';
+                     ctx.fillText('Error: Canvas setup failed.', canvas.width / 2, canvas.height / 2);
+                 }
+             }
+        };
+
+    </script>
+    
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

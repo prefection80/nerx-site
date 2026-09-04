@@ -1,0 +1,2063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IEEE 1584 Arc Flash Calculator - Educational Use Only</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8fafc;
+            --bg-card: #ffffff;
+            --accent-orange: #ff6b35;
+            --accent-yellow: #f59f00;
+            --accent-cyan: #00b894;
+            --accent-red: #ff4757;
+            --accent-blue: #0984e3;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --border-color: #e2e8f0;
+            --grid-color: rgba(0, 0, 0, 0.05);
+            --danger-zone: rgba(255, 71, 87, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding-top: 65px !important; /* Space for fixed header */
+            padding-bottom: 50px !important; /* Space for fixed ticker */
+        }
+
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px 20px 40px 20px; /* Extra bottom padding for ticker */
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, var(--accent-yellow) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: var(--accent-orange);
+            border-radius: 2px;
+        }
+
+        .input-group {
+            margin-bottom: 18px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="number"], select {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.15);
+        }
+
+        .unit {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            min-width: 45px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .slider-container {
+            margin-top: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--border-color);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 184, 148, 0.4);
+            transition: transform 0.15s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 20px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+            height: 600px;
+        }
+
+        #tccCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .result-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        .result-card.warning {
+            border-left-color: var(--accent-yellow);
+            background: rgba(245, 159, 0, 0.08);
+        }
+
+        .result-card.danger {
+            border-left-color: var(--accent-red);
+            background: rgba(255, 71, 87, 0.1);
+        }
+
+        .result-card.safe {
+            border-left-color: var(--accent-cyan);
+            background: rgba(0, 184, 148, 0.08);
+        }
+
+        .result-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .result-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .result-unit {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .result-small {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .ppe-display {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .ppe-level {
+            text-align: center;
+            padding: 12px 8px;
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .ppe-level.active {
+            border-color: var(--accent-orange);
+            background: rgba(255, 107, 53, 0.15);
+        }
+
+        .ppe-level .level {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .ppe-level .range {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .boundary-visual {
+            position: relative;
+            height: 120px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .boundary-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px dashed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+        }
+
+        .boundary-outer {
+            border-color: var(--accent-red);
+            background: radial-gradient(circle, rgba(255, 71, 87, 0.1) 0%, transparent 70%);
+        }
+
+        .boundary-inner {
+            border-color: var(--accent-yellow);
+            background: radial-gradient(circle, rgba(245, 159, 0, 0.15) 0%, transparent 70%);
+        }
+
+        .equipment-icon {
+            width: 30px;
+            height: 40px;
+            background: var(--accent-orange);
+            border-radius: 4px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .equipment-icon::before {
+            content: '⚡';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+        }
+
+        .equation-box {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            overflow-x: auto;
+        }
+
+        .equation-box .var {
+            color: var(--accent-cyan);
+        }
+
+        .equation-box .num {
+            color: var(--accent-yellow);
+        }
+
+        .curve-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .curve-btn {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .curve-btn:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .curve-btn.active {
+            background: rgba(0, 184, 148, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 12px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 3px;
+            border-radius: 1px;
+        }
+
+        @media (max-width: 1400px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 500px;
+            }
+        }
+
+        /* Mobile adjustments for header/ticker */
+        @media (max-width: 768px) {
+            body {
+                padding-top: 140px !important; /* Adjust for taller header on mobile */
+            }
+            
+            .container {
+                padding: 15px 15px 30px 15px;
+            }
+            
+            header {
+                padding: 20px 0;
+            }
+        }
+
+        .calc-breakdown {
+            margin-top: 15px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .calc-row:last-child {
+            border-bottom: none;
+        }
+
+        .calc-label {
+            color: var(--text-secondary);
+        }
+
+        .calc-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        .trip-point-section {
+            background: rgba(255, 200, 87, 0.08);
+            border: 1px solid rgba(255, 200, 87, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .trip-point-section .panel-title {
+            margin-bottom: 15px;
+        }
+
+        .trip-point-section .panel-title::before {
+            background: var(--accent-yellow);
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn:hover {
+            border-color: var(--accent-yellow);
+        }
+
+        .mode-btn.active {
+            background: rgba(255, 200, 87, 0.15);
+            border-color: var(--accent-yellow);
+            color: var(--accent-yellow);
+        }
+
+        .drag-hint {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .drag-hint.active {
+            background: rgba(255, 200, 87, 0.1);
+            color: var(--accent-yellow);
+        }
+
+        .override-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(255, 200, 87, 0.15);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: var(--accent-yellow);
+            margin-top: 8px;
+        }
+
+        .override-indicator.hidden {
+            display: none;
+        }
+
+        .reset-btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: auto;
+        }
+
+        .reset-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    
+    <div class="container">
+        <header>
+            <h1>IEEE 1584-2018 Arc Flash Calculator</h1>
+            <div style="background: rgba(255, 107, 53, 0.15); border: 1px solid rgba(255, 107, 53, 0.4); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; text-align: center;">
+                <span style="color: #ff6b35; font-weight: 600; font-size: 0.95rem;">⚠️ FOR EDUCATIONAL PURPOSES ONLY</span>
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; margin-top: 4px;">Not intended for actual arc flash hazard analysis. Consult a qualified engineer for real-world applications.</div>
+            </div>
+            <p class="subtitle">Incident Energy Analysis with Time-Overcurrent Coordination</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Panel - Inputs -->
+            <div class="panel">
+                <div class="panel-title">System Parameters</div>
+                
+                <div class="status-bar">
+                    <div class="status-dot"></div>
+                    <span class="status-text">Real-time calculation active</span>
+                </div>
+
+                <div class="input-group">
+                    <label>Available Fault Current (Ibf)</label>
+                    <div class="input-row">
+                        <input type="number" id="faultCurrent" value="25" min="0.5" max="100" step="0.1">
+                        <span class="unit">kA</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="faultCurrentSlider" min="-0.301" max="2" step="0.01" value="1.398">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>System Voltage (Voc)</label>
+                    <div class="input-row">
+                        <span style="color: var(--accent-cyan); font-weight: 600; font-size: 1.1rem;">480</span>
+                        <span class="unit">V (fixed)</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Working Distance (D)</label>
+                    <div class="input-row">
+                        <input type="number" id="workingDistance" value="18" min="6" max="72" step="1">
+                        <span class="unit">inches</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Gap Between Conductors (G)</label>
+                    <div class="input-row">
+                        <input type="number" id="gap" value="32" min="6" max="254" step="1">
+                        <span class="unit">mm</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Max Exposure Time (Escape Time)</label>
+                    <div class="input-row">
+                        <input type="number" id="exposureTime" value="2.0" min="0.1" max="10" step="0.1">
+                        <span class="unit">seconds</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="exposureTimeSlider" min="0.1" max="10" step="0.1" value="2.0">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Equipment / Electrode Configuration</label>
+                    <div class="input-row">
+                        <span style="color: var(--accent-cyan); font-weight: 600; font-size: 1.1rem;">VCBB</span>
+                        <span class="unit">Vertical Cond. in Box Below</span>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <div class="panel-title">Overcurrent Protection</div>
+
+                <div class="curve-selector">
+                    <button class="curve-btn active" data-curve="VI">Very Inv.</button>
+                    <button class="curve-btn" data-curve="EI">Ext. Inv.</button>
+                    <button class="curve-btn" data-curve="MI">Mod. Inv.</button>
+                    <button class="curve-btn" data-curve="STI">Short-Time</button>
+                </div>
+
+                <div class="input-group">
+                    <label>Pickup Current (Ip)</label>
+                    <div class="input-row">
+                        <input type="number" id="pickup" value="800" min="10" max="10000" step="10">
+                        <span class="unit">A</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="pickupSlider" min="10" max="10000" step="10" value="800">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Time Dial Setting (TD)</label>
+                    <div class="input-row">
+                        <input type="number" id="timeDial" value="5" min="0.5" max="15" step="0.1">
+                        <span class="unit">—</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="timeDialSlider" min="0.5" max="15" step="0.1" value="5">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Instantaneous Pickup</label>
+                    <div class="input-row">
+                        <input type="number" id="instantaneous" value="10000" min="100" max="100000" step="100">
+                        <span class="unit">A</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="instantaneousSlider" min="100" max="100000" step="100" value="10000">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Breaker Clearing and Relay Operating Time</label>
+                    <div class="input-row">
+                        <input type="number" id="breakerCycles" value="5" min="0" max="30" step="1">
+                        <span class="unit">cycles</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="breakerCyclesSlider" min="0" max="30" step="1" value="5">
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; font-style: italic;">
+                        *3 cycles is the assumption for instantaneous element delay
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Trip Point Adjustment Section -->
+                <div class="trip-point-section">
+                    <div class="panel-title">Trip Point Adjustment</div>
+                    
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" data-mode="auto">Auto (Curve)</button>
+                        <button class="mode-btn" data-mode="time">Set Time</button>
+                        <button class="mode-btn" data-mode="multiple">Set Multiple</button>
+                    </div>
+
+                    <div class="input-group" id="timeOverrideGroup" style="display: none;">
+                        <label>Override Clearing Time</label>
+                        <div class="input-row">
+                            <input type="number" id="timeOverride" value="0.5" min="0.01" max="100" step="0.01">
+                            <span class="unit">sec</span>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" id="timeOverrideSlider" min="0.01" max="10" step="0.01" value="0.5">
+                        </div>
+                    </div>
+
+                    <div class="input-group" id="multipleOverrideGroup" style="display: none;">
+                        <label>Multiple of Pickup (M = I/Ip)</label>
+                        <div class="input-row">
+                            <input type="number" id="multipleOverride" value="10" min="1.1" max="100" step="0.1">
+                            <span class="unit">×</span>
+                        </div>
+                        <div class="slider-container">
+                            <input type="range" id="multipleOverrideSlider" min="1.1" max="50" step="0.1" value="10">
+                        </div>
+                    </div>
+
+                    <div class="drag-hint" id="dragHint">
+                        <span id="dragHintText">Using curve intersection with arcing current</span>
+                    </div>
+
+                    <div class="override-indicator hidden" id="overrideIndicator">
+                        <span>⚡ Manual override active</span>
+                        <button class="reset-btn" id="resetOverride">Reset to Auto</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center - TCC Chart -->
+            <div class="panel">
+                <div class="panel-title">Time-Current Characteristic Curve</div>
+                <div class="chart-container">
+                    <canvas id="tccCanvas"></canvas>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #00d4aa;"></div>
+                        <span>Phase TOC Curve (51/50)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #ff6b35;"></div>
+                        <span>Arcing Current</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #ffc857; width: 12px; height: 12px; border-radius: 50%;"></div>
+                        <span>Operating Point (draggable)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 16px; height: 12px; background: linear-gradient(to top, rgba(0,212,170,0.2), rgba(255,200,87,0.2), rgba(255,107,53,0.2), rgba(255,71,87,0.25)); border-radius: 2px;"></div>
+                        <span>Incident Energy Curves</span>
+                    </div>
+                </div>
+
+                <div class="divider" style="margin-top: 20px;"></div>
+                <div class="panel-title">Understanding Arc Flash Energy</div>
+                
+                <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 15px; font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); max-height: 400px; overflow-y: auto;">
+                    <h4 style="color: var(--accent-orange); font-size: 0.95rem; margin-bottom: 10px; font-weight: 600;">Why Available Fault Current Is Not Always Indicative of Arc Flash Energy</h4>
+                    
+                    <p style="margin-bottom: 12px;">This is one of the most common misunderstandings I see when people first start looking at arc flash studies. They will look at a one line. They will see a bus with 50 kA available. They assume it must be the "worst" bus on the site.</p>
+                    
+                    <p style="margin-bottom: 12px;">Sometimes it is. Often it is not.</p>
+                    
+                    <p style="margin-bottom: 12px;">The reason is simple. Arc flash energy is not a short circuit problem. It is an <strong style="color: var(--accent-yellow);">energy over time problem</strong>. The energy delivered by an arc flash event is proportional to current squared (I²) times time (t). Often, at lower voltages, time overcurrent curves are used to clear faults. These time overcurrent curves are inverse, to varying degrees. Some slope down hard and some have shallow slopes. In coordinating these curves with each other, and with the equipment damage curves they are trying to stay under to protect, different curve shapes are selected with different time dial settings.</p>
+                    
+                    <p style="margin-bottom: 12px;">This is where things get a little interesting. Time overcurrent plots are log log. This means for P = T×I², you get a downward sloping curve at fixed energy. Your cable damage curves all have this same slope because they are thermally limited by fault current energy. Now, your PPE energy boundaries for the different levels of PPE, 1 = 4 cal/cm², 2 = 8 cal/cm², 3 = 25 cal/cm², and 4 = 40 cal/cm², are all energies per unit area and will have downward sloping curves with the same slope.</p>
+                    
+                    <p style="margin-bottom: 12px;">The exception to this is that studies often include a <strong style="color: var(--accent-cyan);">2 second escape time</strong>, which is the amount of time an employee needs to get out of the arc flash boundary. This is not a rule or part of the standard. It is up to the engineer's judgement to assess the situation. Without this, arc flash energy calculations can get unrealistically large. You could have a high impedance arc that never clears, which could provide a ridiculous amount of calculated energy, but was not as dangerous as the numbers might imply in practice.</p>
+                    
+                    <p style="margin-bottom: 12px;">In the toolkit linked above, I created a simple test case where someone can adjust the various parameters and see how to push a PPE level into a lower region with different overcurrent curves, escape times, breaker clearing times, and fault current levels. <strong style="color: var(--accent-orange);">More fault current, with respect to arc flash calculations, is not always a bad thing.</strong> This is a calculation involving energy and time. Squeezing either the current or the time helps.</p>
+                    
+                    <p style="margin-bottom: 0;">This is not the only way arc flash energies can be mitigated. Sometimes arc flash light sensors are used. Differential schemes can be put into place that operate instantly. Crowbars are sometimes dropped. Zone interlocking and directional schemes can be used to get away from time coordination. The approach above, adjusting overcurrent curves, is the first option if it is a solution, since it can be done by adjusting relay settings and does not involve additional equipment or added complications.</p>
+                </div>
+            </div>
+
+            <!-- Right Panel - Results -->
+            <div class="panel">
+                <div class="panel-title">Arc Flash Results</div>
+                <div style="color: rgba(255, 107, 53, 0.8); font-size: 0.7rem; margin-bottom: 10px; text-align: center;">Educational Use Only</div>
+
+                <div class="result-card" id="energyCard">
+                    <div class="result-label">Incident Energy (E)</div>
+                    <div class="result-value"><span id="incidentEnergy">0.0</span> <span class="result-unit">cal/cm²</span></div>
+                    <div class="result-small">At working distance of <span id="distanceDisplay">18</span>"</div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-label">Arcing Current (Iarc)</div>
+                    <div class="result-value"><span id="arcingCurrent">0.0</span> <span class="result-unit">kA</span></div>
+                    <div class="result-small">Reduced: <span id="arcingCurrentReduced">0.0</span> kA (85%)</div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-label">Clearing Time (t)</div>
+                    <div class="result-value"><span id="clearingTime">0.0</span> <span class="result-unit">sec</span></div>
+                    <div class="result-small"><span id="clearingCycles">0.0</span> cycles @ 60Hz</div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-label">Personnel Exposure Time</div>
+                    <div class="result-value"><span id="exposureTimeDisplay">2.0</span> <span class="result-unit">sec</span></div>
+                    <div class="result-small">Used for energy calculation</div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-label">Arc Flash Boundary</div>
+                    <div class="result-value"><span id="afBoundary">0.0</span> <span class="result-unit">ft</span></div>
+                    <div class="result-small">Distance for 1.2 cal/cm²</div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-label">Operating Point</div>
+                    <div class="result-value"><span id="operatingMultiple">0.0</span><span class="result-unit">× pickup</span></div>
+                    <div class="result-small">Current: <span id="operatingCurrent">0</span> A</div>
+                </div>
+
+                <div class="divider"></div>
+                <div class="panel-title">PPE Category (NFPA 70E)</div>
+
+                <div class="ppe-display">
+                    <div class="ppe-level" data-cat="1">
+                        <div class="level">1</div>
+                        <div class="range">≤4</div>
+                    </div>
+                    <div class="ppe-level" data-cat="2">
+                        <div class="level">2</div>
+                        <div class="range">≤8</div>
+                    </div>
+                    <div class="ppe-level" data-cat="3">
+                        <div class="level">3</div>
+                        <div class="range">≤25</div>
+                    </div>
+                    <div class="ppe-level" data-cat="4">
+                        <div class="level">4</div>
+                        <div class="range">≤40</div>
+                    </div>
+                </div>
+
+                <div class="boundary-visual">
+                    <div class="boundary-circle boundary-outer" id="outerBoundary"></div>
+                    <div class="boundary-circle boundary-inner" id="innerBoundary"></div>
+                    <div class="equipment-icon"></div>
+                </div>
+
+                <div class="divider"></div>
+                <div class="panel-title">Calculation Breakdown</div>
+
+                <div class="calc-breakdown">
+                    <div class="calc-row">
+                        <span class="calc-label">lg(Iarc)</span>
+                        <span class="calc-value" id="lgIarc">—</span>
+                    </div>
+                    <div class="calc-row">
+                        <span class="calc-label">lg(E) J/cm²</span>
+                        <span class="calc-value" id="lgE">—</span>
+                    </div>
+                    <div class="calc-row">
+                        <span class="calc-label">CF (enclosure)</span>
+                        <span class="calc-value" id="k1">—</span>
+                    </div>
+                    <div class="calc-row">
+                        <span class="calc-label">VarCf (variation)</span>
+                        <span class="calc-value" id="k2">—</span>
+                    </div>
+                    <div class="calc-row">
+                        <span class="calc-label">Iarc_min factor</span>
+                        <span class="calc-value" id="xFactor">—</span>
+                    </div>
+                </div>
+
+                <div class="equation-box">
+                    <div>IEEE 1584-2018 Model</div>
+                    <div style="margin-top: 8px;">
+                        Iarc = 10^(<span class="var">k₁</span>+<span class="var">k₂</span>lg(Ibf)+<span class="var">k₃</span>lg(G)) × f(Ibf)
+                    </div>
+                    <div style="margin-top: 4px;">
+                        E = (<span class="num">12.552</span>/<span class="num">50</span>)×T×10^(polynomial)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // IEEE 1584-2018 Implementation for 480V Systems Only
+        // Uses Equations (1), (2), (6), (25) per IEEE 1584-2018
+        const IEEE1584 = {
+            // Fixed system voltage
+            Voc: 480, // Volts
+            VockV: 0.48, // kV
+
+            // Table 1: Coefficients for Equation (1) - Arcing Current at 600V
+            arcCoeffs600: {
+                VCB:  { k1: -0.04287,  k2: 1.035, k3: -0.083, k4: 0,  k5: 0,  k6: -4.783e-9,  k7: 1.962e-6,  k8: -0.000229,  k9: 0.003141,  k10: 1.092 },
+                VCBB: { k1: -0.017432, k2: 0.98,  k3: -0.05,  k4: 0,  k5: 0,  k6: -5.767e-9,  k7: 2.524e-6,  k8: -0.00034,   k9: 0.01187,   k10: 1.013 },
+                HCB:  { k1: 0.054922,  k2: 0.988, k3: -0.11,  k4: 0,  k5: 0,  k6: -5.382e-9,  k7: 2.316e-6,  k8: -0.000302,  k9: 0.0091,    k10: 0.9725 },
+                VOA:  { k1: 0.043785,  k2: 1.04,  k3: -0.18,  k4: 0,  k5: 0,  k6: -4.783e-9,  k7: 1.962e-6,  k8: -0.000229,  k9: 0.003141,  k10: 1.092 },
+                HOA:  { k1: 0.111147,  k2: 1.008, k3: -0.24,  k4: 0,  k5: 0,  k6: -3.895e-9,  k7: 1.641e-6,  k8: -0.000197,  k9: 0.002615,  k10: 1.1 }
+            },
+
+            // Table 3: Incident Energy Coefficients for 600V (Equation 6)
+            energyCoeffs600: {
+                VCB:  { k1: 0.753364,  k2: 0.566, k3: 1.752636,  k4: 0, k5: 0, k6: -4.783e-9,  k7: 1.962e-6,  k8: -0.000229,  k9: 0.003141,  k10: 1.092,  k11: 0,     k12: -1.598, k13: 0.957 },
+                VCBB: { k1: 3.068459,  k2: 0.26,  k3: -0.098107, k4: 0, k5: 0, k6: -5.767e-9,  k7: 2.524e-6,  k8: -0.00034,   k9: 0.01187,   k10: 1.013,  k11: -0.06, k12: -1.809, k13: 1.19 },
+                HCB:  { k1: 4.073745,  k2: 0.344, k3: -0.370259, k4: 0, k5: 0, k6: -5.382e-9,  k7: 2.316e-6,  k8: -0.000302,  k9: 0.0091,    k10: 0.9725, k11: 0,     k12: -2.03,  k13: 1.036 },
+                VOA:  { k1: 0.679294,  k2: 0.746, k3: 1.222636,  k4: 0, k5: 0, k6: -4.783e-9,  k7: 1.962e-6,  k8: -0.000229,  k9: 0.003141,  k10: 1.092,  k11: 0,     k12: -1.598, k13: 0.997 },
+                HOA:  { k1: 3.470417,  k2: 0.465, k3: -0.261863, k4: 0, k5: 0, k6: -3.895e-9,  k7: 1.641e-6,  k8: -0.000197,  k9: 0.002615,  k10: 1.1,    k11: 0,     k12: -1.99,  k13: 1.04 }
+            },
+
+            // Table 2: Arcing Current Variation Correction Factor coefficients
+            varCfCoeffs: {
+                VCB:  { k1: 0,          k2: -1.4269e-6, k3: 8.3137e-5,  k4: -0.0019382, k5: 0.022366,  k6: -0.12645,  k7: 0.30226 },
+                VCBB: { k1: 1.138e-6,   k2: -6.0287e-5, k3: 0.0012758,  k4: -0.013778,  k5: 0.080217,  k6: -0.24066,  k7: 0.33524 },
+                HCB:  { k1: 0,          k2: -3.097e-6,  k3: 0.00016405, k4: -0.0033609, k5: 0.033308,  k6: -0.16182,  k7: 0.34627 },
+                VOA:  { k1: 9.5606e-7,  k2: -5.1543e-5, k3: 0.0011161,  k4: -0.01242,   k5: 0.075125,  k6: -0.23584,  k7: 0.33696 },
+                HOA:  { k1: 0,          k2: -3.1555e-6, k3: 0.0001682,  k4: -0.0034607, k5: 0.034124,  k6: -0.1599,   k7: 0.34629 }
+            },
+
+            // Table 7: Enclosure Size Correction Factor coefficients
+            enclosureCfCoeffs: {
+                typical: {
+                    VCB:  { b1: -0.000302,   b2: 0.03441, b3: 0.4325 },
+                    VCBB: { b1: -0.0002976,  b2: 0.032,   b3: 0.479 },
+                    HCB:  { b1: -0.0001923,  b2: 0.01935, b3: 0.6899 }
+                },
+                shallow: {
+                    VCB:  { b1: 0.002222,   b2: -0.02556, b3: 0.6222 },
+                    VCBB: { b1: -0.002778,  b2: 0.1194,   b3: -0.2778 },
+                    HCB:  { b1: -0.0005556, b2: 0.03722,  b3: 0.4778 }
+                }
+            },
+
+            // Equation (1): Calculate arcing current at 600V
+            calcArcingCurrent600(Ibf, G, config) {
+                const c = this.arcCoeffs600[config];
+                if (!c) return Ibf * 0.95;
+                
+                const lgIbf = Math.log10(Ibf);
+                const lgG = Math.log10(G);
+                
+                // Polynomial: k4*Ibf^6 + k5*Ibf^5 + k6*Ibf^4 + k7*Ibf^3 + k8*Ibf^2 + k9*Ibf + k10
+                const polyIbf = c.k4 * Math.pow(Ibf, 6) + c.k5 * Math.pow(Ibf, 5) + c.k6 * Math.pow(Ibf, 4) +
+                                c.k7 * Math.pow(Ibf, 3) + c.k8 * Math.pow(Ibf, 2) + c.k9 * Ibf + c.k10;
+                
+                const exponent = c.k1 + c.k2 * lgIbf + c.k3 * lgG;
+                return Math.pow(10, exponent) * polyIbf;
+            },
+
+            // Equation (25): Calculate final arcing current for Voc ≤ 600V
+            calcArcingCurrent(Ibf, G, config) {
+                const Iarc_600 = this.calcArcingCurrent600(Ibf, G, config);
+                
+                // Equation (25): Iarc = 1 / sqrt((0.6/Voc)^2 * (1/Iarc_600^2) - (0.6^2 - Voc^2)/(0.6^2 * Ibf^2))
+                const term1 = Math.pow(0.6 / this.VockV, 2) * (1 / Math.pow(Iarc_600, 2));
+                const term2 = (Math.pow(0.6, 2) - Math.pow(this.VockV, 2)) / (Math.pow(0.6, 2) * Math.pow(Ibf, 2));
+                const Iarc = 1 / Math.sqrt(term1 - term2);
+                
+                const lgIarc = Math.log10(Math.max(Iarc, 0.001));
+                
+                return { Iarc, lgIarc, Iarc_600 };
+            },
+
+            // Equation (2): Calculate arcing current variation correction factor
+            calcVarCf(config) {
+                const c = this.varCfCoeffs[config];
+                if (!c) return 0.15;
+                
+                const V = this.VockV;
+                return c.k1 * Math.pow(V, 6) + c.k2 * Math.pow(V, 5) + c.k3 * Math.pow(V, 4) +
+                       c.k4 * Math.pow(V, 3) + c.k5 * Math.pow(V, 2) + c.k6 * V + c.k7;
+            },
+
+            // Calculate enclosure size correction factor (CF) - Equations 14/15
+            calcEnclosureCF(config, height, width, depth) {
+                if (config === 'VOA' || config === 'HOA') return 1.0;
+                
+                // At 480V, check if shallow
+                const isShallow = height < 508 && width < 508 && depth <= 203.2;
+                const encType = isShallow ? 'shallow' : 'typical';
+                
+                // Equivalent height and width
+                let Height1, Width1;
+                if (isShallow) {
+                    Height1 = height / 25.4;
+                    Width1 = width / 25.4;
+                } else {
+                    Height1 = (height < 508) ? 20 : Math.min(height, 1244.6) / 25.4;
+                    Width1 = (width < 508) ? 20 : Math.min(width, 1244.6) / 25.4;
+                }
+                
+                // Equation (13): EES = (Height1 + Width1) / 2
+                const EES = (Height1 + Width1) / 2;
+                
+                const coeffs = this.enclosureCfCoeffs[encType][config];
+                if (!coeffs) return 1.0;
+                
+                // Equation (14) typical, (15) shallow
+                if (encType === 'typical') {
+                    return coeffs.b1 * Math.pow(EES, 2) + coeffs.b2 * EES + coeffs.b3;
+                } else {
+                    return 1 / (coeffs.b1 * Math.pow(EES, 2) + coeffs.b2 * EES + coeffs.b3);
+                }
+            },
+
+            // Equation (6): Calculate incident energy for Voc ≤ 600V
+            calcIncidentEnergy(Iarc, Iarc_600, Ibf, G, D, t, config, CF) {
+                const c = this.energyCoeffs600[config];
+                if (!c) return 1.0;
+                
+                const T_ms = t * 1000; // seconds to ms
+                const Dmm = D * 25.4;  // inches to mm
+                
+                const lgG = Math.log10(G);
+                const lgIbf = Math.log10(Ibf);
+                const lgD = Math.log10(Dmm);
+                const lgIarc = Math.log10(Math.max(Iarc, 0.001));
+                const lgCF = Math.log10(1 / CF);
+                
+                // Polynomial: k4*Ibf^7 + k5*Ibf^6 + ... + k10*Ibf
+                const polyIbf = c.k4 * Math.pow(Ibf, 7) + c.k5 * Math.pow(Ibf, 6) + c.k6 * Math.pow(Ibf, 5) +
+                                c.k7 * Math.pow(Ibf, 4) + c.k8 * Math.pow(Ibf, 3) + c.k9 * Math.pow(Ibf, 2) +
+                                c.k10 * Ibf;
+                
+                // Avoid division by zero
+                if (Math.abs(polyIbf) < 1e-10) return 1.0;
+                
+                const exponent = c.k1 + c.k2 * lgG + (c.k3 * Iarc) / polyIbf + 
+                                 c.k11 * lgIbf + c.k12 * lgD + c.k13 * lgIarc + lgCF;
+                
+                // E = (12.552/50) × T × 10^exponent (J/cm²)
+                const E_J = (12.552 / 50) * T_ms * Math.pow(10, exponent);
+                const E_cal = E_J / 4.184;
+                
+                return { E: E_cal, E_J };
+            },
+
+            // Calculate arc flash boundary (simplified)
+            calcAFB(E_cal, Eb = 1.2) {
+                if (E_cal <= Eb) return 1.0;
+                return Math.sqrt(E_cal / Eb) * 1.5;
+            }
+        };
+
+        const TCCCurves = {
+            VI: { A: 19.61, B: 0.491, p: 2.0, name: 'IEEE Very Inverse' },
+            EI: { A: 28.2, B: 0.1217, p: 2.0, name: 'IEEE Extremely Inverse' },
+            MI: { A: 0.0515, B: 0.114, p: 0.02, name: 'IEEE Moderately Inverse' },
+            STI: { A: 0.00342, B: 0.00262, p: 0.02, name: 'IEEE Short-Time Inverse' }
+        };
+
+        function calcTripTime(I, Ip, TD, curveType, Iinst) {
+            if (I >= Iinst) return 0.05;
+            const M = I / Ip;
+            if (M <= 1.0) return Infinity;
+            const curve = TCCCurves[curveType];
+            const t = TD * (curve.A / (Math.pow(M, curve.p) - 1) + curve.B);
+            return Math.max(t, 0.01);
+        }
+
+        function calcCurrentFromTime(t, Ip, TD, curveType) {
+            const curve = TCCCurves[curveType];
+            const ratio = t / TD;
+            if (ratio <= curve.B) return Infinity;
+            const Mp = 1 + curve.A / (ratio - curve.B);
+            if (Mp <= 0) return Infinity;
+            const M = Math.pow(Mp, 1 / curve.p);
+            return M * Ip;
+        }
+
+        let canvas, ctx;
+        let currentCurve = 'VI';
+        let tripMode = 'auto';
+        let isDragging = false;
+        let operatingPoint = { x: 0, y: 0, I: 0, t: 0 };
+
+        let chartParams = {
+            padding: { left: 60, right: 30, top: 30, bottom: 50 },
+            currentMin: 10,
+            currentMax: 100000,
+            timeMin: 0.01,
+            timeMax: 1000,
+            plotW: 0,
+            plotH: 0
+        };
+
+        // Fixed system voltage - 480V
+        const SYSTEM_VOLTAGE = 480;
+        const ELECTRODE_CONFIG = 'VCBB'; // Fixed electrode configuration
+
+        const inputs = {
+            faultCurrent: document.getElementById('faultCurrent'),
+            faultCurrentSlider: document.getElementById('faultCurrentSlider'),
+            workingDistance: document.getElementById('workingDistance'),
+            gap: document.getElementById('gap'),
+            exposureTime: document.getElementById('exposureTime'),
+            exposureTimeSlider: document.getElementById('exposureTimeSlider'),
+            pickup: document.getElementById('pickup'),
+            pickupSlider: document.getElementById('pickupSlider'),
+            timeDial: document.getElementById('timeDial'),
+            timeDialSlider: document.getElementById('timeDialSlider'),
+            instantaneous: document.getElementById('instantaneous'),
+            instantaneousSlider: document.getElementById('instantaneousSlider'),
+            breakerCycles: document.getElementById('breakerCycles'),
+            breakerCyclesSlider: document.getElementById('breakerCyclesSlider'),
+            timeOverride: document.getElementById('timeOverride'),
+            timeOverrideSlider: document.getElementById('timeOverrideSlider'),
+            multipleOverride: document.getElementById('multipleOverride'),
+            multipleOverrideSlider: document.getElementById('multipleOverrideSlider')
+        };
+
+        function init() {
+            canvas = document.getElementById('tccCanvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            Object.entries(inputs).forEach(([key, input]) => {
+                if (input) {
+                    input.addEventListener('input', handleInputChange);
+                    input.addEventListener('change', handleInputChange);
+                }
+            });
+
+            inputs.faultCurrentSlider.addEventListener('input', () => {
+                // Convert from log scale: value = 10^sliderValue
+                const logValue = parseFloat(inputs.faultCurrentSlider.value);
+                const linearValue = Math.pow(10, logValue);
+                inputs.faultCurrent.value = linearValue.toFixed(1);
+                calculate();
+            });
+            
+            inputs.pickupSlider.addEventListener('input', () => {
+                inputs.pickup.value = inputs.pickupSlider.value;
+                calculate();
+            });
+
+            inputs.exposureTimeSlider.addEventListener('input', () => {
+                inputs.exposureTime.value = inputs.exposureTimeSlider.value;
+                calculate();
+            });
+            
+            inputs.timeDialSlider.addEventListener('input', () => {
+                inputs.timeDial.value = inputs.timeDialSlider.value;
+                calculate();
+            });
+
+            inputs.instantaneousSlider.addEventListener('input', () => {
+                inputs.instantaneous.value = inputs.instantaneousSlider.value;
+                calculate();
+            });
+
+            inputs.breakerCyclesSlider.addEventListener('input', () => {
+                inputs.breakerCycles.value = inputs.breakerCyclesSlider.value;
+                calculate();
+            });
+
+            inputs.timeOverrideSlider.addEventListener('input', () => {
+                inputs.timeOverride.value = inputs.timeOverrideSlider.value;
+                calculate();
+            });
+
+            inputs.multipleOverrideSlider.addEventListener('input', () => {
+                inputs.multipleOverride.value = inputs.multipleOverrideSlider.value;
+                calculate();
+            });
+
+            document.querySelectorAll('.curve-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.curve-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentCurve = btn.dataset.curve;
+                    calculate();
+                });
+            });
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    tripMode = btn.dataset.mode;
+                    updateModeUI();
+                    calculate();
+                });
+            });
+
+            document.getElementById('resetOverride').addEventListener('click', () => {
+                tripMode = 'auto';
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.mode-btn[data-mode="auto"]').classList.add('active');
+                updateModeUI();
+                calculate();
+            });
+
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleMouseUp);
+
+            calculate();
+        }
+
+        function updateModeUI() {
+            document.getElementById('timeOverrideGroup').style.display = tripMode === 'time' ? 'block' : 'none';
+            document.getElementById('multipleOverrideGroup').style.display = tripMode === 'multiple' ? 'block' : 'none';
+            
+            const indicator = document.getElementById('overrideIndicator');
+            const dragHint = document.getElementById('dragHint');
+            const dragHintText = document.getElementById('dragHintText');
+            
+            if (tripMode === 'auto') {
+                indicator.classList.add('hidden');
+                dragHint.classList.remove('active');
+                dragHintText.textContent = 'Using curve intersection with arcing current';
+            } else {
+                indicator.classList.remove('hidden');
+                dragHint.classList.add('active');
+                if (tripMode === 'time') {
+                    dragHintText.textContent = '⬆⬇ Drag point vertically or use slider to adjust time';
+                } else {
+                    dragHintText.textContent = '⬅➡ Drag point horizontally or use slider to adjust multiple';
+                }
+            }
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = container.clientWidth * dpr;
+            canvas.height = container.clientHeight * dpr;
+            canvas.style.width = container.clientWidth + 'px';
+            canvas.style.height = container.clientHeight + 'px';
+            ctx.scale(dpr, dpr);
+            calculate();
+        }
+
+        function handleInputChange(e) {
+            if (e.target.id === 'faultCurrent') {
+                // Convert to log scale: sliderValue = log10(value)
+                const linearValue = parseFloat(e.target.value);
+                if (linearValue > 0) {
+                    inputs.faultCurrentSlider.value = Math.log10(linearValue);
+                }
+            } else if (e.target.id === 'pickup') {
+                inputs.pickupSlider.value = e.target.value;
+            } else if (e.target.id === 'exposureTime') {
+                inputs.exposureTimeSlider.value = e.target.value;
+            } else if (e.target.id === 'timeDial') {
+                inputs.timeDialSlider.value = e.target.value;
+            } else if (e.target.id === 'instantaneous') {
+                inputs.instantaneousSlider.value = e.target.value;
+            } else if (e.target.id === 'breakerCycles') {
+                inputs.breakerCyclesSlider.value = e.target.value;
+            } else if (e.target.id === 'timeOverride') {
+                inputs.timeOverrideSlider.value = e.target.value;
+            } else if (e.target.id === 'multipleOverride') {
+                inputs.multipleOverrideSlider.value = e.target.value;
+            }
+            calculate();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function isNearOperatingPoint(x, y) {
+            const dx = x - operatingPoint.x;
+            const dy = y - operatingPoint.y;
+            return Math.sqrt(dx * dx + dy * dy) < 20;
+        }
+
+        function handleMouseDown(e) {
+            const coords = getCanvasCoords(e);
+            if (isNearOperatingPoint(coords.x, coords.y)) {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function handleMouseMove(e) {
+            const coords = getCanvasCoords(e);
+            
+            if (isDragging) {
+                updateFromDrag(coords);
+            } else if (isNearOperatingPoint(coords.x, coords.y)) {
+                canvas.style.cursor = 'grab';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        function handleMouseUp() {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const coords = getCanvasCoords(touch);
+            if (isNearOperatingPoint(coords.x, coords.y)) {
+                isDragging = true;
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (isDragging) {
+                const touch = e.touches[0];
+                const coords = getCanvasCoords(touch);
+                updateFromDrag(coords);
+            }
+        }
+
+        function updateFromDrag(coords) {
+            const { padding, currentMin, currentMax, timeMin, timeMax, plotW, plotH } = chartParams;
+            
+            const xNorm = (coords.x - padding.left) / plotW;
+            const yNorm = 1 - (coords.y - padding.top) / plotH;
+            
+            const logI = Math.log10(currentMin) + xNorm * (Math.log10(currentMax) - Math.log10(currentMin));
+            const logT = Math.log10(timeMin) + yNorm * (Math.log10(timeMax) - Math.log10(timeMin));
+            
+            const I = Math.pow(10, logI);
+            const t = Math.pow(10, logT);
+            
+            const Ip = parseFloat(inputs.pickup.value);
+            const M = I / Ip;
+            
+            if (tripMode === 'auto' || tripMode === 'time') {
+                tripMode = 'time';
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.mode-btn[data-mode="time"]').classList.add('active');
+                
+                const constrainedT = Math.max(0.01, Math.min(100, t));
+                inputs.timeOverride.value = constrainedT.toFixed(3);
+                inputs.timeOverrideSlider.value = Math.min(constrainedT, 10);
+            } else if (tripMode === 'multiple') {
+                const constrainedM = Math.max(1.1, Math.min(100, M));
+                inputs.multipleOverride.value = constrainedM.toFixed(1);
+                inputs.multipleOverrideSlider.value = Math.min(constrainedM, 50);
+            }
+            
+            updateModeUI();
+            calculate();
+        }
+
+        function calculate() {
+            const Ibf = parseFloat(inputs.faultCurrent.value);
+            const Voc = 480; // Fixed at 480V
+            const D = parseFloat(inputs.workingDistance.value);
+            const G = parseFloat(inputs.gap.value);
+            const T_MAX = parseFloat(inputs.exposureTime.value); // Max exposure/escape time
+            const breakerCycles = parseFloat(inputs.breakerCycles.value);
+            const breakerTime = breakerCycles / 60; // Convert cycles to seconds at 60Hz
+            const config = ELECTRODE_CONFIG; // Fixed at VCBB
+            const Ip = parseFloat(inputs.pickup.value);
+            const TD = parseFloat(inputs.timeDial.value);
+            const Iinst = parseFloat(inputs.instantaneous.value);
+
+            // Calculate arcing current using IEEE 1584-2018 Equations (1) and (25)
+            const { Iarc, lgIarc, Iarc_600 } = IEEE1584.calcArcingCurrent(Ibf, G, config);
+            
+            // Calculate variation correction factor - Equation (2)
+            const VarCf = IEEE1584.calcVarCf(config);
+            const IarcReduced = Iarc * (1 - 0.5 * VarCf);
+            
+            const IarcAmps = Iarc * 1000;
+
+            // Determine operating point based on mode
+            // Total clearing time = relay time + breaker clearing time, capped at T_MAX
+            let tFinal, IopAmps;
+            
+            if (tripMode === 'auto') {
+                const tRelay = calcTripTime(IarcAmps, Ip, TD, currentCurve, Iinst);
+                const tRelayReduced = calcTripTime(IarcReduced * 1000, Ip, TD, currentCurve, Iinst);
+                const tTotal = Math.max(tRelay, tRelayReduced) + breakerTime;
+                tFinal = Math.min(tTotal, T_MAX);
+                IopAmps = IarcAmps;
+            } else if (tripMode === 'time') {
+                tFinal = Math.min(parseFloat(inputs.timeOverride.value), T_MAX);
+                IopAmps = calcCurrentFromTime(tFinal - breakerTime, Ip, TD, currentCurve);
+                if (!isFinite(IopAmps) || IopAmps > Iinst) {
+                    IopAmps = IarcAmps;
+                }
+            } else if (tripMode === 'multiple') {
+                const M = parseFloat(inputs.multipleOverride.value);
+                IopAmps = M * Ip;
+                const tRelay = calcTripTime(IopAmps, Ip, TD, currentCurve, Iinst);
+                tFinal = Math.min(tRelay + breakerTime, T_MAX);
+            }
+
+            // Calculate enclosure size correction factor (20" x 20" x 20" typical)
+            const CF = IEEE1584.calcEnclosureCF(config, 508, 508, 508);
+
+            // Calculate incident energy using IEEE 1584-2018 Equation (6)
+            const { E, E_J } = IEEE1584.calcIncidentEnergy(
+                Iarc, Iarc_600, Ibf, G, D, tFinal, config, CF
+            );
+
+            // Also calculate with reduced arcing current and take the higher value
+            const IarcReduced_600 = Iarc_600 * (1 - 0.5 * VarCf);
+            const tRelayReduced = calcTripTime(IarcReduced * 1000, Ip, TD, currentCurve, Iinst);
+            const tReduced = Math.min(tRelayReduced + breakerTime, T_MAX);
+            const { E: E_reduced } = IEEE1584.calcIncidentEnergy(
+                IarcReduced, IarcReduced_600, Ibf, G, D, Math.max(tFinal, tReduced), config, CF
+            );
+            
+            const E_final = Math.max(E, E_reduced);
+
+            // Calculate arc flash boundary
+            const AFB = IEEE1584.calcAFB(E_final);
+
+            // Update results display
+            updateResults(Iarc, IarcReduced, tFinal, E_final, AFB, lgIarc, CF, VarCf, D, IopAmps, Ip, T_MAX);
+
+            // Draw TCC chart
+            drawTCC(Ip, TD, currentCurve, Iinst, IarcAmps, IopAmps, tFinal, T_MAX);
+        }
+
+        function updateResults(Iarc, IarcReduced, t, E, AFB, lgIarc, CF, VarCf, D, IopAmps, Ip, T_MAX) {
+            document.getElementById('incidentEnergy').textContent = E.toFixed(2);
+            document.getElementById('arcingCurrent').textContent = Iarc.toFixed(2);
+            document.getElementById('arcingCurrentReduced').textContent = IarcReduced.toFixed(2);
+            document.getElementById('clearingTime').textContent = t.toFixed(3);
+            document.getElementById('clearingCycles').textContent = (t * 60).toFixed(1);
+            // Personnel exposure is the clearing time (already capped at T_MAX in calculate())
+            document.getElementById('exposureTimeDisplay').textContent = t.toFixed(2);
+            document.getElementById('afBoundary').textContent = AFB.toFixed(1);
+            document.getElementById('distanceDisplay').textContent = D;
+
+            const M = IopAmps / Ip;
+            document.getElementById('operatingMultiple').textContent = M.toFixed(1);
+            document.getElementById('operatingCurrent').textContent = Math.round(IopAmps);
+
+            // Calculation breakdown - updated for IEEE 1584-2018
+            document.getElementById('lgIarc').textContent = lgIarc.toFixed(4);
+            document.getElementById('lgE').textContent = Math.log10(E * 4.184).toFixed(4);
+            document.getElementById('k1').textContent = CF.toFixed(3);
+            document.getElementById('k2').textContent = VarCf.toFixed(3);
+            document.getElementById('xFactor').textContent = (1 - 0.5 * VarCf).toFixed(3);
+
+            const energyCard = document.getElementById('energyCard');
+            energyCard.classList.remove('safe', 'warning', 'danger');
+            if (E <= 1.2) {
+                energyCard.classList.add('safe');
+            } else if (E <= 8) {
+                energyCard.classList.add('warning');
+            } else {
+                energyCard.classList.add('danger');
+            }
+
+            document.querySelectorAll('.ppe-level').forEach(el => el.classList.remove('active'));
+            let ppeCat;
+            if (E <= 4) ppeCat = 1;
+            else if (E <= 8) ppeCat = 2;
+            else if (E <= 25) ppeCat = 3;
+            else ppeCat = 4;
+            
+            const ppeEl = document.querySelector(`.ppe-level[data-cat="${ppeCat}"]`);
+            if (ppeEl) ppeEl.classList.add('active');
+
+            const maxSize = 100;
+            const afbNorm = Math.min(AFB / 20, 1);
+            const outerSize = 40 + afbNorm * (maxSize - 40);
+            const innerSize = outerSize * 0.5;
+
+            document.getElementById('outerBoundary').style.width = outerSize + 'px';
+            document.getElementById('outerBoundary').style.height = outerSize + 'px';
+            document.getElementById('innerBoundary').style.width = innerSize + 'px';
+            document.getElementById('innerBoundary').style.height = innerSize + 'px';
+        }
+
+        function drawTCC(Ip, TD, curveType, Iinst, IarcAmps, IopAmps, tOp, T_MAX) {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            const padding = { left: 60, right: 30, top: 30, bottom: 50 };
+            const plotW = w - padding.left - padding.right;
+            const plotH = h - padding.top - padding.bottom;
+
+            // Get current system parameters for PPE zone calculation
+            const D = parseFloat(inputs.workingDistance.value);
+            const G = parseFloat(inputs.gap.value);
+            const config = ELECTRODE_CONFIG; // Fixed at VCBB
+
+            // Auto-scale current axis to show fault current with padding
+            // Ensure pickup, arcing current, and instantaneous are all visible
+            const keyCurrents = [Ip, IarcAmps, IopAmps, Iinst].filter(v => v > 0 && isFinite(v));
+            const minKeyCurrent = Math.min(...keyCurrents);
+            const maxKeyCurrent = Math.max(...keyCurrents);
+            
+            // Add 1 decade padding on each side, snap to power of 10
+            let currentMin = Math.pow(10, Math.floor(Math.log10(minKeyCurrent * 0.3)));
+            let currentMax = Math.pow(10, Math.ceil(Math.log10(maxKeyCurrent * 2)));
+            
+            // Ensure at least 3 decades of range for readability
+            const currentDecades = Math.log10(currentMax) - Math.log10(currentMin);
+            if (currentDecades < 3) {
+                const midLog = (Math.log10(currentMax) + Math.log10(currentMin)) / 2;
+                currentMin = Math.pow(10, midLog - 1.5);
+                currentMax = Math.pow(10, midLog + 1.5);
+            }
+            
+            // Auto-scale time axis based on operating point and curve range
+            const keyTimes = [tOp].filter(v => v > 0 && isFinite(v) && v < 10000);
+            // Also consider times at pickup*1.5 and at instantaneous
+            const tAtLowMultiple = calcTripTime(Ip * 1.5, Ip, TD, curveType, Iinst);
+            const tAtHighMultiple = calcTripTime(Iinst * 0.9, Ip, TD, curveType, Iinst);
+            if (isFinite(tAtLowMultiple) && tAtLowMultiple < 10000) keyTimes.push(tAtLowMultiple);
+            if (isFinite(tAtHighMultiple) && tAtHighMultiple > 0) keyTimes.push(tAtHighMultiple);
+            
+            const minKeyTime = Math.min(...keyTimes, 0.01);
+            const maxKeyTime = Math.max(...keyTimes, 1);
+            
+            // Add padding and snap to power of 10
+            let timeMin = Math.pow(10, Math.floor(Math.log10(Math.max(minKeyTime * 0.2, 0.001))));
+            let timeMax = Math.pow(10, Math.ceil(Math.log10(Math.min(maxKeyTime * 3, 10000))));
+            
+            // Ensure at least 3 decades of range
+            const timeDecades = Math.log10(timeMax) - Math.log10(timeMin);
+            if (timeDecades < 3) {
+                const midLog = (Math.log10(timeMax) + Math.log10(timeMin)) / 2;
+                timeMin = Math.pow(10, midLog - 1.5);
+                timeMax = Math.pow(10, midLog + 1.5);
+            }
+            
+            // Clamp to reasonable bounds
+            currentMin = Math.max(currentMin, 1);
+            currentMax = Math.min(currentMax, 1000000);
+            timeMin = Math.max(timeMin, 0.001);
+            timeMax = Math.min(timeMax, 10000);
+
+            chartParams = {
+                padding,
+                currentMin,
+                currentMax,
+                timeMin,
+                timeMax,
+                plotW,
+                plotH
+            };
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            const logScale = (val, min, max, size) => {
+                const logMin = Math.log10(min);
+                const logMax = Math.log10(max);
+                const logVal = Math.log10(Math.max(val, min * 0.1)); // Prevent log of 0
+                return ((logVal - logMin) / (logMax - logMin)) * size;
+            };
+
+            const xToCanvas = (I) => padding.left + logScale(I, currentMin, currentMax, plotW);
+            const yToCanvas = (t) => padding.top + plotH - logScale(t, timeMin, timeMax, plotH);
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.lineWidth = 1;
+
+            // Generate major grid lines based on current range
+            const currentMajorLines = [];
+            for (let exp = Math.floor(Math.log10(currentMin)); exp <= Math.ceil(Math.log10(currentMax)); exp++) {
+                const val = Math.pow(10, exp);
+                if (val >= currentMin && val <= currentMax) currentMajorLines.push(val);
+            }
+            
+            currentMajorLines.forEach(I => {
+                const x = xToCanvas(I);
+                ctx.beginPath();
+                ctx.moveTo(x, padding.top);
+                ctx.lineTo(x, padding.top + plotH);
+                ctx.stroke();
+            });
+
+            // Generate major grid lines based on time range
+            const timeMajorLines = [];
+            for (let exp = Math.floor(Math.log10(timeMin)); exp <= Math.ceil(Math.log10(timeMax)); exp++) {
+                const val = Math.pow(10, exp);
+                if (val >= timeMin && val <= timeMax) timeMajorLines.push(val);
+            }
+            
+            timeMajorLines.forEach(t => {
+                const y = yToCanvas(t);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + plotW, y);
+                ctx.stroke();
+            });
+
+            // Minor grid lines
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.03)';
+            for (let exp = Math.floor(Math.log10(currentMin)) - 1; exp <= Math.ceil(Math.log10(currentMax)); exp++) {
+                const base = Math.pow(10, exp);
+                for (let i = 2; i <= 9; i++) {
+                    const I = base * i;
+                    if (I >= currentMin && I <= currentMax) {
+                        const x = xToCanvas(I);
+                        ctx.beginPath();
+                        ctx.moveTo(x, padding.top);
+                        ctx.lineTo(x, padding.top + plotH);
+                        ctx.stroke();
+                    }
+                }
+            }
+            for (let exp = Math.floor(Math.log10(timeMin)) - 1; exp <= Math.ceil(Math.log10(timeMax)); exp++) {
+                const base = Math.pow(10, exp);
+                for (let i = 2; i <= 9; i++) {
+                    const t = base * i;
+                    if (t >= timeMin && t <= timeMax) {
+                        const y = yToCanvas(t);
+                        ctx.beginPath();
+                        ctx.moveTo(padding.left, y);
+                        ctx.lineTo(padding.left + plotW, y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Calculate time for a given incident energy at a given arcing current
+            // Using IEEE 1584-2018 equations (480V fixed)
+            const CF = IEEE1584.calcEnclosureCF(config, 508, 508, 508);
+            const Dmm = D * 25.4;
+            
+            // Use fixed Ibf for PPE zones so they remain constant reference boundaries
+            const Ibf_ppe = 25; // Fixed 25kA for PPE zone visualization
+            
+            // Get the energy coefficients for 600V (used for ≤600V systems)
+            const eCoeffs = IEEE1584.energyCoeffs600[config] || IEEE1584.energyCoeffs600['VCBB'];
+            
+            // Function to calculate time for a given energy at a given current (amps)
+            const calcTimeForEnergyAtCurrent = (E_cal, Iamps) => {
+                const IarcKA = Iamps / 1000;
+                if (IarcKA <= 0.1) return Infinity;
+                
+                const lgG = Math.log10(G);
+                const lgIbf = Math.log10(Ibf_ppe);
+                const lgD = Math.log10(Dmm);
+                const lgIarc = Math.log10(IarcKA);
+                const lgCF = Math.log10(1 / CF);
+                
+                // Polynomial term for Ibf
+                const polyIbf = eCoeffs.k4 * Math.pow(Ibf_ppe, 7) + eCoeffs.k5 * Math.pow(Ibf_ppe, 6) + 
+                                eCoeffs.k6 * Math.pow(Ibf_ppe, 5) + eCoeffs.k7 * Math.pow(Ibf_ppe, 4) + 
+                                eCoeffs.k8 * Math.pow(Ibf_ppe, 3) + eCoeffs.k9 * Math.pow(Ibf_ppe, 2) + 
+                                eCoeffs.k10 * Ibf_ppe;
+                
+                // Avoid division by zero
+                if (Math.abs(polyIbf) < 1e-10) return Infinity;
+                
+                const exponent = eCoeffs.k1 + eCoeffs.k2 * lgG + (eCoeffs.k3 * IarcKA) / polyIbf + 
+                                 eCoeffs.k11 * lgIbf + eCoeffs.k12 * lgD + eCoeffs.k13 * lgIarc + lgCF;
+                
+                // E_J = (12.552/50) × T_ms × 10^exponent
+                // Solving for T_ms: T_ms = E_J × 50 / (12.552 × 10^exponent)
+                const E_J = E_cal * 4.184;
+                const denominator = 12.552 * Math.pow(10, exponent);
+                if (denominator <= 0) return Infinity;
+                
+                const T_ms = E_J * 50 / denominator;
+                return T_ms / 1000; // Convert to seconds
+            };
+
+            // PPE thresholds with colors
+            const ppeThresholds = [
+                { energy: 1.2, label: '1.2', color: 'rgba(0, 184, 148, 0.08)', lineColor: 'rgba(0, 184, 148, 0.5)' },
+                { energy: 4, label: 'PPE 1', color: 'rgba(0, 184, 148, 0.10)', lineColor: 'rgba(0, 184, 148, 0.5)' },
+                { energy: 8, label: 'PPE 2', color: 'rgba(245, 159, 0, 0.10)', lineColor: 'rgba(245, 159, 0, 0.5)' },
+                { energy: 25, label: 'PPE 3', color: 'rgba(255, 107, 53, 0.10)', lineColor: 'rgba(255, 107, 53, 0.5)' },
+                { energy: 40, label: 'PPE 4', color: 'rgba(255, 71, 87, 0.12)', lineColor: 'rgba(255, 71, 87, 0.5)' }
+            ];
+
+            // Generate points for each PPE boundary curve
+            const generateCurvePoints = (energy) => {
+                const points = [];
+                for (let logI = Math.log10(currentMin); logI <= Math.log10(currentMax); logI += 0.02) {
+                    const I = Math.pow(10, logI);
+                    const t = calcTimeForEnergyAtCurrent(energy, I);
+                    if (t >= timeMin * 0.5 && t <= timeMax * 2) {
+                        points.push({ x: xToCanvas(I), y: yToCanvas(Math.max(timeMin, Math.min(timeMax, t))), t: t });
+                    }
+                }
+                return points;
+            };
+
+            // Draw filled zones between curves
+            for (let i = ppeThresholds.length - 1; i >= 0; i--) {
+                const threshold = ppeThresholds[i];
+                const points = generateCurvePoints(threshold.energy);
+                
+                if (points.length > 1) {
+                    // Fill area above this curve (higher time = higher energy for same current)
+                    ctx.beginPath();
+                    ctx.moveTo(points[0].x, padding.top); // Top left
+                    
+                    // Draw along top edge
+                    ctx.lineTo(points[points.length - 1].x, padding.top);
+                    
+                    // Draw curve from right to left (top of zone)
+                    for (let j = points.length - 1; j >= 0; j--) {
+                        ctx.lineTo(points[j].x, points[j].y);
+                    }
+                    
+                    // Close back to start
+                    ctx.lineTo(points[0].x, padding.top);
+                    ctx.closePath();
+                    
+                    ctx.fillStyle = threshold.color;
+                    ctx.fill();
+                }
+            }
+
+            // Draw the boundary curves and labels
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1.5;
+            
+            ppeThresholds.forEach((threshold, i) => {
+                const points = generateCurvePoints(threshold.energy);
+                
+                if (points.length > 1) {
+                    // Draw the curve
+                    ctx.strokeStyle = threshold.lineColor;
+                    ctx.beginPath();
+                    ctx.moveTo(points[0].x, points[0].y);
+                    for (let j = 1; j < points.length; j++) {
+                        ctx.lineTo(points[j].x, points[j].y);
+                    }
+                    ctx.stroke();
+                    
+                    // Label at the right end of curve
+                    const labelPoint = points[points.length - 1];
+                    if (labelPoint.y > padding.top + 15 && labelPoint.y < padding.top + plotH - 10) {
+                        ctx.fillStyle = threshold.lineColor.replace('0.5', '0.9');
+                        ctx.font = 'bold 9px JetBrains Mono';
+                        ctx.textAlign = 'right';
+                        ctx.fillText(threshold.energy + ' cal/cm²', labelPoint.x - 5, labelPoint.y - 4);
+                    }
+                }
+            });
+            
+            ctx.setLineDash([]);
+
+            // Danger zone label (above 40 cal/cm² curve)
+            const dangerPoints = generateCurvePoints(40);
+            if (dangerPoints.length > 0) {
+                const midIdx = Math.floor(dangerPoints.length / 2);
+                const midPoint = dangerPoints[midIdx];
+                if (midPoint && midPoint.y > padding.top + 30) {
+                    ctx.fillStyle = 'rgba(255, 71, 87, 0.6)';
+                    ctx.font = 'bold 11px Space Grotesk';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('DANGER >40 cal/cm²', midPoint.x, padding.top + 20);
+                }
+            }
+
+            // Draw exposure time cutoff line
+            if (T_MAX >= timeMin && T_MAX <= timeMax) {
+                const yCutoff = yToCanvas(T_MAX);
+                ctx.strokeStyle = 'rgba(255, 107, 53, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, yCutoff);
+                ctx.lineTo(padding.left + plotW, yCutoff);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Label
+                ctx.fillStyle = 'rgba(255, 107, 53, 0.9)';
+                ctx.font = 'bold 10px JetBrains Mono';
+                ctx.textAlign = 'right';
+                ctx.fillText(T_MAX.toFixed(1) + 's MAX', padding.left + plotW - 5, yCutoff - 5);
+            }
+
+            // Draw TCC curve
+            ctx.strokeStyle = '#00b894';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            
+            let started = false;
+            // Draw from just above pickup to instantaneous (or chart edge)
+            const curveStartI = Math.max(Ip * 1.01, currentMin);
+            const curveEndI = Math.min(Iinst * 0.99, currentMax);
+            
+            for (let I = curveStartI; I <= curveEndI; I *= 1.02) {
+                const t = calcTripTime(I, Ip, TD, curveType, Infinity);
+                if (t <= timeMax && t >= timeMin) {
+                    const x = xToCanvas(I);
+                    const y = yToCanvas(t);
+                    if (!started) {
+                        ctx.moveTo(x, y);
+                        started = true;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // Instantaneous element - horizontal line as continuation of TOC curve
+            if (Iinst >= currentMin && Iinst <= currentMax) {
+                const xInst = xToCanvas(Iinst);
+                const yInst = yToCanvas(0.05); // Instantaneous trip time ~3 cycles
+                
+                // Vertical drop from curve to instantaneous level
+                ctx.strokeStyle = '#00b894';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(xInst, yToCanvas(calcTripTime(Iinst * 0.99, Ip, TD, curveType, Infinity)));
+                ctx.lineTo(xInst, yInst);
+                ctx.stroke();
+                
+                // Horizontal line at instantaneous time
+                ctx.beginPath();
+                ctx.moveTo(xInst, yInst);
+                ctx.lineTo(padding.left + plotW, yInst);
+                ctx.stroke();
+                
+                // Label for instantaneous
+                ctx.fillStyle = '#00b894';
+                ctx.font = '10px JetBrains Mono';
+                ctx.textAlign = 'left';
+                ctx.fillText('INST', xInst + 5, yInst - 5);
+            }
+
+            // Pickup line
+            ctx.strokeStyle = 'rgba(0, 184, 148, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            const xPickup = xToCanvas(Ip);
+            ctx.beginPath();
+            ctx.moveTo(xPickup, padding.top);
+            ctx.lineTo(xPickup, padding.top + plotH);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Arcing current line
+            if (IarcAmps >= currentMin && IarcAmps <= currentMax) {
+                ctx.strokeStyle = '#ff6b35';
+                ctx.lineWidth = 2.5;
+                const xFault = xToCanvas(IarcAmps);
+                ctx.beginPath();
+                ctx.moveTo(xFault, padding.top);
+                ctx.lineTo(xFault, padding.top + plotH);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ff6b35';
+                ctx.font = '11px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Iarc: ${(IarcAmps/1000).toFixed(1)} kA`, xFault, padding.top + plotH + 35);
+            }
+
+            // Operating point
+            if (IopAmps >= currentMin && IopAmps <= currentMax && tOp >= timeMin && tOp <= timeMax) {
+                const xOp = xToCanvas(IopAmps);
+                const yOp = yToCanvas(tOp);
+
+                operatingPoint = { x: xOp, y: yOp, I: IopAmps, t: tOp };
+
+                // Crosshair
+                ctx.strokeStyle = '#f59f00';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(xOp, padding.top);
+                ctx.lineTo(xOp, yOp);
+                ctx.moveTo(padding.left, yOp);
+                ctx.lineTo(xOp, yOp);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Glow
+                ctx.beginPath();
+                ctx.arc(xOp, yOp, 15, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(xOp, yOp, 0, xOp, yOp, 15);
+                gradient.addColorStop(0, 'rgba(245, 159, 0, 0.4)');
+                gradient.addColorStop(1, 'rgba(245, 159, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Circle
+                ctx.beginPath();
+                ctx.arc(xOp, yOp, 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59f00';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Inner
+                ctx.beginPath();
+                ctx.arc(xOp, yOp, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = '#f59f00';
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.textAlign = 'left';
+                ctx.fillText(`t = ${tOp.toFixed(3)}s`, xOp + 15, yOp - 8);
+                ctx.fillText(`M = ${(IopAmps/Ip).toFixed(1)}×`, xOp + 15, yOp + 8);
+
+                // Drag arrows when in override
+                if (tripMode !== 'auto') {
+                    ctx.strokeStyle = 'rgba(245, 159, 0, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([2, 2]);
+                    
+                    if (tripMode === 'time') {
+                        ctx.beginPath();
+                        ctx.moveTo(xOp, yOp - 25);
+                        ctx.lineTo(xOp, yOp - 35);
+                        ctx.moveTo(xOp - 4, yOp - 30);
+                        ctx.lineTo(xOp, yOp - 35);
+                        ctx.lineTo(xOp + 4, yOp - 30);
+                        ctx.moveTo(xOp, yOp + 25);
+                        ctx.lineTo(xOp, yOp + 35);
+                        ctx.moveTo(xOp - 4, yOp + 30);
+                        ctx.lineTo(xOp, yOp + 35);
+                        ctx.lineTo(xOp + 4, yOp + 30);
+                        ctx.stroke();
+                    } else {
+                        ctx.beginPath();
+                        ctx.moveTo(xOp - 25, yOp);
+                        ctx.lineTo(xOp - 35, yOp);
+                        ctx.moveTo(xOp - 30, yOp - 4);
+                        ctx.lineTo(xOp - 35, yOp);
+                        ctx.lineTo(xOp - 30, yOp + 4);
+                        ctx.moveTo(xOp + 25, yOp);
+                        ctx.lineTo(xOp + 35, yOp);
+                        ctx.moveTo(xOp + 30, yOp - 4);
+                        ctx.lineTo(xOp + 35, yOp);
+                        ctx.lineTo(xOp + 30, yOp + 4);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+                }
+            }
+
+            // Axes
+            ctx.strokeStyle = '#cbd5e0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, padding.top + plotH);
+            ctx.lineTo(padding.left + plotW, padding.top + plotH);
+            ctx.stroke();
+
+            // X labels - dynamic based on range
+            ctx.fillStyle = '#718096';
+            ctx.font = '11px JetBrains Mono';
+            ctx.textAlign = 'center';
+
+            currentMajorLines.forEach(I => {
+                const x = xToCanvas(I);
+                let label;
+                if (I >= 1000000) label = (I / 1000000) + 'M';
+                else if (I >= 1000) label = (I / 1000) + 'k';
+                else label = I.toString();
+                ctx.fillText(label, x, padding.top + plotH + 18);
+            });
+
+            ctx.fillStyle = '#4a5568';
+            ctx.font = '12px Space Grotesk';
+            ctx.fillText('Current (Amps)', padding.left + plotW / 2, h - 8);
+
+            // Y labels - dynamic based on range
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#718096';
+            ctx.font = '11px JetBrains Mono';
+            timeMajorLines.forEach(t => {
+                const y = yToCanvas(t);
+                let label;
+                if (t < 0.01) label = t.toExponential(0);
+                else if (t < 1) label = t.toString();
+                else if (t >= 1000) label = (t/1000) + 'k';
+                else label = t.toString();
+                ctx.fillText(label, padding.left - 8, y + 4);
+            });
+
+            ctx.save();
+            ctx.translate(15, padding.top + plotH / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillStyle = '#4a5568';
+            ctx.font = '12px Space Grotesk';
+            ctx.textAlign = 'center';
+            ctx.fillText('Time (Seconds)', 0, 0);
+            ctx.restore();
+
+            // Curve label
+            ctx.fillStyle = '#00b894';
+            ctx.font = 'bold 12px Space Grotesk';
+            ctx.textAlign = 'left';
+            ctx.fillText(TCCCurves[curveType].name, padding.left + 10, padding.top + 20);
+
+            // Mode indicator
+            if (tripMode !== 'auto') {
+                ctx.fillStyle = '#f59f00';
+                ctx.font = '11px Space Grotesk';
+                ctx.fillText('Manual Override Active', padding.left + 10, padding.top + 38);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    
+    <!-- Include header navigation and ticker -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

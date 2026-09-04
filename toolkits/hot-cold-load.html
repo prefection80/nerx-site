@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<!-- saved from url=(0055)file:///C:/Users/dmeng/Downloads/hot_cold_load_viz.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hot &amp; Cold Load Factor — Power Systems Relay Education</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #eef2f5;
+    --panel: #ffffff;
+    --border: #c8d4de;
+    --hot: #d94f00;
+    --hot-glow: #e87030;
+    --cold: #0077cc;
+    --cold-glow: #2299ee;
+    --warning: #b87700;
+    --trip: #cc0022;
+    --green: #007a44;
+    --text: #1a2a38;
+    --dim: #6a8090;
+    --relay-bg: #e8f0f8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle paper texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.012) 3px, rgba(0,0,0,0.012) 6px);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(90deg, #dce8f2, #eef2f5);
+  }
+
+  .logo-badge {
+    background: linear-gradient(135deg, var(--hot), var(--cold));
+    width: 44px; height: 44px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 11px;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  header p {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* PANEL BASE */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cold), var(--hot), transparent);
+    opacity: 0.4;
+  }
+
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: blink 2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ============ FEEDER VISUALIZATION ============ */
+  #feeder-panel {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  #feeder-canvas-wrap {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #feeder-canvas {
+    width: 100%;
+    height: 300px;
+    background: #f0f5f8;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #feeder-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  @keyframes trip-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ============ WAVEFORM CHART ============ */
+  #chart-wrap {
+    padding: 12px 16px 8px;
+    position: relative;
+  }
+
+  #load-chart {
+    width: 100%;
+    height: 200px;
+    background: #f4f8fb;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 20px;
+    padding: 8px 0 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-line {
+    width: 24px;
+    height: 2px;
+  }
+
+  /* ============ SIDEBAR ============ */
+  #state-panel {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  #relay-panel {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .state-indicator {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mode-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all 0.4s;
+  }
+
+  .mode-badge.hot {
+    background: rgba(217,79,0,0.07);
+    border-color: rgba(217,79,0,0.3);
+    color: var(--hot);
+  }
+
+  .mode-badge.cold {
+    background: rgba(0,119,204,0.07);
+    border-color: rgba(0,119,204,0.3);
+    color: var(--cold);
+    box-shadow: 0 0 12px rgba(0,119,204,0.08);
+  }
+
+  .mode-icon {
+    font-size: 18px;
+  }
+
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.5);
+    font-size: 12px;
+  }
+
+  .metric-label {
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .metric-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    transition: color 0.3s;
+  }
+
+  .metric-value.warn { color: var(--warning); }
+  .metric-value.trip { color: var(--trip); animation: val-flash 0.5s infinite; }
+  .metric-value.ok { color: var(--green); }
+  .metric-value.cold { color: var(--cold); }
+
+  @keyframes val-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Relay settings display */
+  .relay-settings {
+    padding: 10px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+
+  .setting-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: #e0eaf2;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .setting-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s;
+  }
+
+  .setting-label {
+    width: 80px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    font-size: 9px;
+  }
+
+  .setting-val {
+    width: 48px;
+    text-align: right;
+    font-size: 10px;
+  }
+
+  /* Load current indicator */
+  .current-arrow {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: #334;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    transition: left 0.3s;
+    z-index: 2;
+  }
+
+  /* Controls */
+  #controls {
+    grid-column: 1 / 3;
+    display: flex;
+    gap: 12px;
+    padding: 12px 0 4px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 9px 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.04));
+    pointer-events: none;
+  }
+
+  .btn:hover {
+    border-color: var(--cold);
+    color: var(--cold-glow);
+    box-shadow: 0 0 10px rgba(0,170,255,0.2);
+  }
+
+  .btn.primary {
+    background: rgba(0,170,255,0.08);
+    border-color: var(--cold);
+    color: var(--cold-glow);
+  }
+
+  .btn.danger {
+    border-color: var(--trip);
+    color: var(--trip);
+    background: rgba(255,0,51,0.05);
+  }
+
+  .btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .scenario-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-left: auto;
+  }
+
+  /* Status message */
+  #status-msg {
+    padding: 8px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--green);
+    background: rgba(0,122,68,0.06);
+    border: 1px solid rgba(0,122,68,0.2);
+    border-radius: 3px;
+    transition: all 0.4s;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  #status-msg.warn {
+    color: var(--warning);
+    background: rgba(184,119,0,0.06);
+    border-color: rgba(184,119,0,0.2);
+  }
+
+  #status-msg.alert {
+    color: var(--trip);
+    background: rgba(204,0,34,0.05);
+    border-color: rgba(204,0,34,0.2);
+    animation: msg-flash 0.4s ease-in-out 4;
+  }
+
+  @keyframes msg-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  #status-msg .status-icon { font-size: 14px; }
+
+  /* EV charging special anim */
+  .ev-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--warning);
+    letter-spacing: 1px;
+    animation: ev-blink 0.8s infinite;
+    display: none;
+  }
+
+  @keyframes ev-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Diversity meter */
+  .diversity-meter {
+    padding: 8px 16px 14px;
+  }
+
+  .div-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .div-track {
+    height: 14px;
+    background: #060c12;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .div-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--warning), var(--trip));
+    transition: width 0.6s ease-out;
+    border-radius: 2px;
+  }
+
+  .div-tick {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    background: rgba(255,255,255,0.2);
+  }
+
+  /* Trip event log */
+  #event-log {
+    padding: 8px 16px;
+    max-height: 90px;
+    overflow-y: auto;
+  }
+
+  .log-entry {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.4);
+    display: flex;
+    gap: 8px;
+  }
+
+  .log-time { color: var(--dim); }
+  .log-event.trip { color: var(--trip); }
+  .log-event.ok { color: var(--green); }
+  .log-event.cold { color: var(--cold); }
+  .log-event.warn { color: var(--warning); }
+
+  canvas { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+    }
+    #feeder-panel { grid-column: 1; grid-row: 1; }
+    #state-panel { grid-column: 1; grid-row: 2; }
+    #relay-panel { grid-column: 1; grid-row: 3; }
+    #controls { grid-column: 1; }
+  }
+  /* ── EXPLAINER SECTION ── */
+  #explainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 16px 32px;
+  }
+
+  .ex-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    padding: 20px 0 14px;
+    border-top: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+
+  .ex-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 1000px) {
+    .ex-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .ex-grid { grid-template-columns: 1fr; }
+  }
+
+  .ex-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ex-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+  }
+
+  .ex-card:nth-child(1)::before { background: linear-gradient(90deg, var(--hot), transparent); }
+  .ex-card:nth-child(2)::before { background: linear-gradient(90deg, var(--hot), transparent); }
+  .ex-card:nth-child(3)::before { background: linear-gradient(90deg, var(--cold), transparent); }
+  .ex-card:nth-child(4)::before { background: linear-gradient(90deg, var(--green), transparent); }
+  .ex-card:nth-child(5)::before { background: linear-gradient(90deg, var(--warning), transparent); }
+  .ex-card:nth-child(6)::before { background: linear-gradient(90deg, var(--warning), transparent); }
+
+  .ex-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .ex-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .ex-tag.hot   { background: rgba(217,79,0,0.1);   color: var(--hot);     border: 1px solid rgba(217,79,0,0.3); }
+  .ex-tag.cold  { background: rgba(0,119,204,0.1);  color: var(--cold);    border: 1px solid rgba(0,119,204,0.3); }
+  .ex-tag.green { background: rgba(0,122,68,0.1);   color: var(--green);   border: 1px solid rgba(0,122,68,0.3); }
+  .ex-tag.warn  { background: rgba(184,119,0,0.1);  color: var(--warning); border: 1px solid rgba(184,119,0,0.3); }
+
+  .ex-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  .ex-unit {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .ex-card p {
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text);
+    opacity: 0.85;
+  }
+
+  .ex-card code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    background: rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 1px 4px;
+    color: var(--text);
+  }
+
+  .ex-card em {
+    font-style: italic;
+    color: var(--cold);
+  }
+
+  .gif-btn {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,122,68,0.05);
+  }
+  .gif-btn:hover {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 10px rgba(0,122,68,0.2);
+  }
+  .gif-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #gif-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,20,30,0.55);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+
+  #gif-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px 32px;
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  }
+
+  #gif-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text);
+  }
+
+  #gif-phase {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-align: center;
+    min-height: 16px;
+  }
+
+  #gif-track {
+    width: 100%;
+    height: 8px;
+    background: #e0eaf2;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  #gif-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--green), #00c070);
+    border-radius: 4px;
+    transition: width 0.15s;
+  }
+
+  #gif-pct {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  /* ============ NERX HEADER + TICKER INTEGRATION ============ */
+  /* Extra bottom padding for fixed ticker bar */
+  body {
+    padding-bottom: 55px !important;
+  }
+  /* Keep injected header text from colliding with centre title */
+  .header-container h1 {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+  }
+  .toolkit-title {
+    font-size: 14px !important;
+    position: absolute !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: auto !important;
+    max-width: 380px !important;
+    padding: 0 10px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .header-left {
+    max-width: 36% !important;
+    z-index: 1 !important;
+  }
+  .header-right {
+    z-index: 1 !important;
+  }
+  /* Push existing page-level header down so it clears the fixed nav bar */
+  header {
+    margin-top: 0;
+  }
+</style>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">PROT</div>
+  <div>
+    <h1>Hot &amp; Cold Load Factor — Relay Education Simulator</h1>
+    <p>Distribution Feeder Protective Relay · Diversity Analysis · Pickup Logic</p>
+  </div>
+</header>
+
+<div class="main-grid">
+
+  <!-- FEEDER + CHART (left column) -->
+  <div class="panel" id="feeder-panel">
+    <div class="panel-title"><span class="dot"></span>DISTRIBUTION FEEDER · SINGLE LINE</div>
+
+    <div id="feeder-canvas-wrap">
+      <div id="feeder-canvas">
+        <svg id="feeder-svg" viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+
+          <!-- ── BUS BAR (full width) ── -->
+          <rect x="0" y="20" width="760" height="10" fill="#c8d8e4" stroke="#8aaabb" stroke-width="1"></rect>
+          <text x="10" y="15" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="9" fill="#0077cc" letter-spacing="1">115kV / 12.47kV SUBSTATION BUS</text>
+
+          <!-- ── TRUNK above breaker (bus → breaker top) ── -->
+          <line id="trunk-above" x1="60" y1="30" x2="60" y2="70" stroke="#d94f00" stroke-width="2.5" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></line>
+
+          <!-- ── BREAKER ── centered at (60, 92) ── -->
+          <g id="bkr-group" transform="translate(60,92)" style="filter: drop-shadow(rgba(0, 122, 68, 0.4) 0px 0px 3px);">
+            <rect id="bkr-rect" x="-18" y="-22" width="36" height="44" rx="3" fill="#e8eff4" stroke="#8aaabb" stroke-width="1.5"></rect>
+            <text x="0" y="-6" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="8" fill="#6a8090" letter-spacing="1">52</text>
+            <line id="bkr-contact" x1="-10" y1="16" x2="10" y2="-2" stroke="#007a44" stroke-width="2.2" stroke-linecap="round"></line>
+            <path id="bkr-arc" d="M -10 16 Q 0 -4 10 -2" fill="none" stroke="#cc0022" stroke-width="1.5" stroke-dasharray="3 3" opacity="0"></path>
+            <!-- status to the RIGHT -->
+            <text id="bkr-status-text" x="26" y="2" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="10" fill="#007a44" letter-spacing="1">CLOSED</text>
+            <circle id="bkr-dot" cx="26" cy="13" r="4" fill="#007a44"></circle>
+          </g>
+
+          <!-- ── TRUNK below breaker (breaker → horizontal branch junction) ── -->
+          <line id="trunk-below" x1="60" y1="114" x2="60" y2="160" stroke="#d94f00" stroke-width="2.5" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></line>
+
+          <!-- ── HORIZONTAL FEEDER BRANCH (junction → right end) ── -->
+          <line id="branch-line" x1="60" y1="160" x2="740" y2="160" stroke="#d94f00" stroke-width="2.5" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></line>
+
+          <!-- ── EV badge ── -->
+          <text id="ev-badge-svg" x="300" y="290" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="9" fill="#b87700" opacity="0" letter-spacing="1">⚡ EV SURGE — COINCIDENT DEMAND</text>
+
+          <!-- ── LOADS (populated by JS into #loads-g) ── -->
+          <g id="loads-g"><line id="drop-0" x1="80" y1="160" x2="80" y2="220" stroke="#d94f00" stroke-width="2"></line><rect id="box-0" x="64" y="220" width="32" height="20" rx="2" fill="rgba(217,79,0,0.08)" stroke="#d94f00" stroke-width="1.2" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></rect><text x="80" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">AC</text><line id="drop-1" x1="130" y1="160" x2="130" y2="220" stroke="#d94f00" stroke-width="2"></line><rect id="box-1" x="114" y="220" width="32" height="20" rx="2" fill="rgba(217,79,0,0.08)" stroke="#d94f00" stroke-width="1.2" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></rect><text x="130" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">AC</text><line id="drop-2" x1="180" y1="160" x2="180" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-2" x="164" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="180" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">HTR</text><line id="drop-3" x1="230" y1="160" x2="230" y2="220" stroke="#d94f00" stroke-width="2"></line><rect id="box-3" x="214" y="220" width="32" height="20" rx="2" fill="rgba(217,79,0,0.08)" stroke="#d94f00" stroke-width="1.2" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></rect><text x="230" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">HTR</text><line id="drop-4" x1="280" y1="160" x2="280" y2="220" stroke="#d94f00" stroke-width="2"></line><rect id="box-4" x="264" y="220" width="32" height="20" rx="2" fill="rgba(217,79,0,0.08)" stroke="#d94f00" stroke-width="1.2" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></rect><text x="280" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">PUMP</text><line id="drop-5" x1="330" y1="160" x2="330" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-5" x="314" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="330" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">PUMP</text><line id="drop-6" x1="380" y1="160" x2="380" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-6" x="364" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="380" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">WH</text><line id="drop-7" x1="430" y1="160" x2="430" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-7" x="414" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="430" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">WH</text><line id="drop-8" x1="480" y1="160" x2="480" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-8" x="464" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="480" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">AC</text><line id="drop-9" x1="530" y1="160" x2="530" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-9" x="514" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="530" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">PUMP</text><line id="drop-10" x1="580" y1="160" x2="580" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-10" x="564" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="580" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">HTR</text><line id="drop-11" x1="630" y1="160" x2="630" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-11" x="614" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="630" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">AC</text><line id="drop-12" x1="680" y1="160" x2="680" y2="220" stroke="#d94f00" stroke-width="2"></line><rect id="box-12" x="664" y="220" width="32" height="20" rx="2" fill="rgba(217,79,0,0.08)" stroke="#d94f00" stroke-width="1.2" style="filter: drop-shadow(rgba(217, 79, 0, 0.4) 0px 0px 3px);"></rect><text x="680" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">WH</text><line id="drop-13" x1="730" y1="160" x2="730" y2="220" stroke="#b8ccd8" stroke-width="2"></line><rect id="box-13" x="714" y="220" width="32" height="20" rx="2" fill="#e8eff4" stroke="#b8ccd8" stroke-width="1.2" style=""></rect><text x="730" y="234" text-anchor="middle" font-family="&#39;Share Tech Mono&#39;,monospace" font-size="7" fill="#6a8090" letter-spacing="0.5">MTR</text></g>
+        </svg>
+      </div>
+
+      <!-- Chart -->
+      <div id="chart-wrap">
+        <canvas id="load-chart" width="926" height="200"></canvas>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-line" style="background: var(--hot);"></div>
+            <span style="color:var(--hot-glow);">FEEDER CURRENT</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background: var(--trip); border-top: 2px dashed var(--trip);"></div>
+            <span style="color:var(--trip);">HOT PICKUP</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background: var(--cold); border-top: 2px dashed var(--cold);"></div>
+            <span style="color:var(--cold-glow);">COLD PICKUP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE PANEL (right, top) -->
+  <div class="panel" id="state-panel">
+    <div class="panel-title"><span class="dot"></span>SYSTEM STATE</div>
+    <div class="state-indicator">
+      <div class="mode-badge hot" id="mode-badge"><span>HOT LOAD — NORMAL</span><span class="mode-icon">🔥</span></div>
+
+      <div class="metric-row">
+        <span class="metric-label">FEEDER CURRENT</span>
+        <span class="metric-value ok" id="m-current">167 A</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">HOT PICKUP</span>
+        <span class="metric-value" id="m-hot-pickup" style="color:var(--hot);">420 A</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">COLD PICKUP</span>
+        <span class="metric-value" id="m-cold-pickup" style="color:var(--cold);">680 A</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">ACTIVE SETTING</span>
+        <span class="metric-value ok" id="m-active">HOT</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">DIVERSITY FACTOR</span>
+        <span class="metric-value ok" id="m-diversity">0.64</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">OUTAGE DURATION</span>
+        <span class="metric-value" id="m-outage" style="color:var(--dim);">—</span>
+      </div>
+
+      <div class="diversity-meter">
+        <div class="div-label">
+          <span>DIVERSITY ← HIGH</span>
+          <span>LOW → COINCIDENT</span>
+        </div>
+        <div class="div-track">
+          <div class="div-tick" style="left:33%"></div>
+          <div class="div-tick" style="left:66%"></div>
+          <div class="div-fill" id="div-fill" style="width: 35.7143%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELAY LOGIC PANEL (right, bottom) -->
+  <div class="panel" id="relay-panel">
+    <div class="panel-title"><span class="dot"></span>RELAY PICKUP LOGIC</div>
+
+    <div class="relay-settings">
+      <div class="setting-row">
+        <span class="setting-label">HOT PKUP</span>
+        <div class="setting-bar-wrap">
+          <div class="setting-bar" id="bar-hot" style="width: 46.6667%; background: linear-gradient(90deg,var(--hot),var(--hot-glow));"></div>
+          <div class="current-arrow" id="arrow-current" style="left: 18.6027%;"></div>
+        </div>
+        <span class="setting-val" style="color:var(--hot-glow);" id="val-hot">420A</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">COLD PKUP</span>
+        <div class="setting-bar-wrap">
+          <div class="setting-bar" id="bar-cold" style="width: 75.5556%; background: linear-gradient(90deg,var(--cold),var(--cold-glow));"></div>
+        </div>
+        <span class="setting-val" style="color:var(--cold-glow);" id="val-cold">680A</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">LOAD I</span>
+        <div class="setting-bar-wrap">
+          <div class="setting-bar" id="bar-load" style="width: 18.6027%; background: linear-gradient(90deg,#2a6040,var(--green));"></div>
+        </div>
+        <span class="setting-val" id="val-load" style="color:var(--green);">167 A</span>
+      </div>
+
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:8px;">
+        <div class="panel-title" style="padding:0 0 6px;border:none;font-size:9px;">EVENT LOG</div>
+        <div id="event-log">
+    <div class="log-entry">
+      <span class="log-time">10:32:55</span>
+      <span class="log-event ok">HOT LOAD NORMAL — feeder energized</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:55</span>
+      <span class="log-event ok">COLD SURGE COMPLETE — returned to hot load</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:43</span>
+      <span class="log-event cold">RECLOSE — COLD LOAD PICKUP INITIATED</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:41</span>
+      <span class="log-event warn">FEEDER OUTAGE — 3-PHASE OPEN</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:34</span>
+      <span class="log-event ok">HOT LOAD NORMAL — feeder energized</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:34</span>
+      <span class="log-event ok">COLD SURGE COMPLETE — returned to hot load</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:23</span>
+      <span class="log-event cold">RECLOSE — COLD LOAD PICKUP INITIATED</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:32:19</span>
+      <span class="log-event warn">FEEDER OUTAGE — 3-PHASE OPEN</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:31:02</span>
+      <span class="log-event ok">HOT LOAD NORMAL — feeder energized</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:31:02</span>
+      <span class="log-event ok">COLD SURGE COMPLETE — returned to hot load</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:30:51</span>
+      <span class="log-event cold">RECLOSE — COLD LOAD PICKUP INITIATED</span>
+    </div>
+  
+    <div class="log-entry">
+      <span class="log-time">10:30:48</span>
+      <span class="log-event warn">FEEDER OUTAGE — 3-PHASE OPEN</span>
+    </div>
+  </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="controls">
+    <button class="btn primary" id="btn-normal" onclick="runNormalHot()">▶ HOT LOAD (NORMAL)</button>
+    <button class="btn" id="btn-outage" onclick="runOutage()">⚡ TRIP FEEDER (OUTAGE)</button>
+    <button class="btn" id="btn-reclose" onclick="runReclose()" disabled="">↺ RECLOSE / RESTORE</button>
+    <button class="btn danger" id="btn-ev" onclick="runEVScenario()">🔌 ADD EV SURGE</button>
+    <button class="btn" onclick="resetAll()">⟳ RESET</button>
+    <button class="btn gif-btn" id="btn-gif" onclick="exportGIF()">⬇ EXPORT GIF</button>
+    <div id="status-msg" class=""><span class="status-icon">●</span><span id="status-text">Normal diversified load. Loads cycling on/off — diversity factor ~0.70. Current well below hot pickup.</span></div>
+  </div>
+
+  <!-- GIF progress overlay -->
+  <div id="gif-overlay" style="display:none">
+    <div id="gif-box">
+      <div id="gif-title">RECORDING SEQUENCE</div>
+      <div id="gif-phase">Initializing…</div>
+      <div id="gif-track"><div id="gif-bar"></div></div>
+      <div id="gif-pct">0%</div>
+      <button class="btn" id="gif-cancel" onclick="cancelGIF()">✕ CANCEL</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── EXPLAINER SECTION ── -->
+<div id="explainer">
+  <div class="ex-title">SYSTEM STATE — PARAMETER REFERENCE</div>
+  <div class="ex-grid">
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag hot">I</span>
+        <span class="ex-name">Feeder Current</span>
+        <span class="ex-unit">amperes</span>
+      </div>
+      <p>The total current flowing on the feeder at any instant — the value the relay is actually watching. In the simulation it is computed as the sum of active load draws plus a noise term: <code>activeCount × 22 A + noise + 60 A base</code>. During a cold surge it scales proportionally toward the surge peak as all loads pile on simultaneously. This is the number compared against whichever pickup threshold is active.</p>
+    </div>
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag hot">51-H</span>
+        <span class="ex-name">Hot Pickup</span>
+        <span class="ex-unit">420 A fixed</span>
+      </div>
+      <p>The relay's normal overcurrent threshold, sized for typical diversified load. Set at 420 A — comfortably above the normal hot-load range (~200–320 A with healthy diversity) but low enough to retain fault sensitivity. If feeder current exceeds this value while the relay is in hot mode, it times out and trips the breaker.</p>
+    </div>
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag cold">51-C</span>
+        <span class="ex-name">Cold Pickup</span>
+        <span class="ex-unit">680 A fixed</span>
+      </div>
+      <p>The elevated threshold the relay switches to immediately after a reclose following an outage. Set at 680 A to ride through the coincident-demand surge that occurs when all loads re-energize simultaneously. Driven by a timer: once the timer expires and diversity is restored, the relay drops back to the hot pickup setting.</p>
+    </div>
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag green">MODE</span>
+        <span class="ex-name">Active Setting</span>
+        <span class="ex-unit">HOT · COLD</span>
+      </div>
+      <p>Which of the two pickup thresholds the relay is currently using. This is not simply the higher value — it is driven by context logic. A detected reclose following an outage arms the cold pickup and starts a timer. When the timer expires the relay reverts to hot mode. The relay is tracking <em>what just happened</em>, not just measuring instantaneous current.</p>
+    </div>
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag warn">DIV</span>
+        <span class="ex-name">Diversity Factor</span>
+        <span class="ex-unit">0 – 1</span>
+      </div>
+      <p>Computed as <code>1 − (activeLoads / totalLoads)</code>. A value near 1.0 indicates loads are well staggered — only a fraction on at any time, the normal diversified condition. Near 0 means most or all loads are coincident, as happens right after a reclose or during the EV surge. The bar fills left-to-right as diversity <em>decreases</em>. In real system planning this factor directly influences feeder and transformer sizing — you do not need to build for the sum of all individual peaks if diversity prevents them from coinciding.</p>
+    </div>
+
+    <div class="ex-card">
+      <div class="ex-card-head">
+        <span class="ex-tag warn">T<sub>OUT</sub></span>
+        <span class="ex-name">Outage Duration</span>
+        <span class="ex-unit">seconds</span>
+      </div>
+      <p>Elapsed seconds since the feeder was de-energized. Longer outages mean more thermal cycling — water heaters cool, thermostat deadbands reset, motor thermal memory clears — so the longer the outage the more aggressive and sustained the cold load surge on restoration. A brief outage may produce only a modest surge; a 30-minute outage on a winter morning can produce a surge severe enough to damage transformers and trip protection if cold load pickup logic is not properly set.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ===== CONSTANTS =====
+const N_LOADS = 14;
+const HOT_PICKUP = 420;   // amps
+const COLD_PICKUP = 680;  // amps (higher tolerance for cold surge)
+const HOT_NORMAL_BASE = 290;
+const COLD_SURGE_PEAK = 630;
+const EV_SURGE = 560;
+const MAX_I_DISPLAY = 900; // for bar scaling
+
+// Load type labels and icons
+const LOAD_TYPES = ['AC','AC','HTR','HTR','PUMP','PUMP','WH','WH','AC','PUMP','HTR','AC','WH','MTR'];
+const LOAD_COLORS_HOT = ['#ff4d00','#ff5511','#ff6622','#ff4400','#ff3300','#ff5500','#ff4d00','#ff6600','#ff3d00','#ff5500','#ff4422','#ff3300','#ff6611','#ff5000'];
+
+let simState = 'idle'; // idle, hot, outage, cold-surge, tripped
+let chartData = [];
+let chartMax = 250;
+let simInterval = null;
+let coldTimer = 0;
+let outageTime = 0;
+let outageInterval = null;
+let logEntries = [];
+let activeSetting = 'HOT';
+
+// ===== LOAD DOM REFS =====
+const modeBadge = document.getElementById('mode-badge');
+const divFill = document.getElementById('div-fill');
+
+// Metrics
+const mCurrent = document.getElementById('m-current');
+const mHotPickup = document.getElementById('m-hot-pickup');
+const mColdPickup = document.getElementById('m-cold-pickup');
+const mActive = document.getElementById('m-active');
+const mDiversity = document.getElementById('m-diversity');
+const mOutage = document.getElementById('m-outage');
+
+// Relay bars
+const barLoad = document.getElementById('bar-load');
+const valLoad = document.getElementById('val-load');
+const arrowCurrent = document.getElementById('arrow-current');
+const valHot = document.getElementById('val-hot');
+const valCold = document.getElementById('val-cold');
+
+// Status
+const statusMsg = document.getElementById('status-msg');
+const statusText = document.getElementById('status-text');
+
+// Chart
+const chartCanvas = document.getElementById('load-chart');
+const ctx = chartCanvas.getContext('2d');
+
+// SVG namespace
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+// ===== LOAD LAYOUT (SVG-based) =====
+// Trunk: x=60, bus y=30 → breaker center y=92 → branch junction y=160
+// Single horizontal branch: y=160, x=60 → x=740
+// 14 loads drop down from branch, evenly spaced
+
+const TRUNK_X   = 60;
+const BRANCH_Y  = 160;   // y of horizontal branch
+const BRANCH_X0 = 80;    // first load tap x
+const BRANCH_X1 = 730;   // last load tap x
+const DROP_LEN  = 60;    // vertical drop from branch to top of box
+const BOX_W = 32;
+const BOX_H = 20;
+
+function loadPos(i) {
+  const span = BRANCH_X1 - BRANCH_X0;
+  const tapX = BRANCH_X0 + (i / (N_LOADS - 1)) * span;
+  const tapY = BRANCH_Y;
+  const boxCY = tapY + DROP_LEN + BOX_H / 2;
+  return { tapX, tapY, boxCX: tapX, boxCY };
+}
+
+let loadStates = new Array(N_LOADS).fill(false);
+
+function initLoads() {
+  const g = document.getElementById('loads-g');
+  g.innerHTML = '';
+  for (let i = 0; i < N_LOADS; i++) {
+    const { tapX, tapY, boxCX, boxCY } = loadPos(i);
+
+    // vertical drop from branch down to box top
+    const dropLine = document.createElementNS(SVGNS, 'line');
+    dropLine.id = `drop-${i}`;
+    dropLine.setAttribute('x1', tapX); dropLine.setAttribute('y1', tapY);
+    dropLine.setAttribute('x2', tapX); dropLine.setAttribute('y2', boxCY - BOX_H / 2);
+    dropLine.setAttribute('stroke', '#b8ccd8'); dropLine.setAttribute('stroke-width', '2');
+    g.appendChild(dropLine);
+
+    // load box
+    const rect = document.createElementNS(SVGNS, 'rect');
+    rect.id = `box-${i}`;
+    rect.setAttribute('x', boxCX - BOX_W / 2); rect.setAttribute('y', boxCY - BOX_H / 2);
+    rect.setAttribute('width', BOX_W);          rect.setAttribute('height', BOX_H);
+    rect.setAttribute('rx', '2');
+    rect.setAttribute('fill', '#e8eff4');
+    rect.setAttribute('stroke', '#b8ccd8'); rect.setAttribute('stroke-width', '1.2');
+    g.appendChild(rect);
+
+    // label inside box
+    const txt = document.createElementNS(SVGNS, 'text');
+    txt.setAttribute('x', boxCX); txt.setAttribute('y', boxCY + 4);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-family', "'Share Tech Mono',monospace");
+    txt.setAttribute('font-size', '7');
+    txt.setAttribute('fill', '#6a8090');
+    txt.setAttribute('letter-spacing', '0.5');
+    txt.textContent = LOAD_TYPES[i];
+    g.appendChild(txt);
+  }
+}
+
+function setLoad(i, state, mode = 'hot') {
+  loadStates[i] = state;
+  const rect = document.getElementById(`box-${i}`);
+  const drop = document.getElementById(`drop-${i}`);
+  if (!rect || !drop) return;
+
+  const C_HOT  = '#d94f00';
+  const C_COLD = '#0077cc';
+  const C_OFF  = '#b8ccd8';
+
+  if (!state) {
+    rect.setAttribute('fill', '#e8eff4');
+    rect.setAttribute('stroke', '#b8ccd8');
+    rect.style.filter = '';
+    drop.setAttribute('stroke', C_OFF);
+  } else if (mode === 'cold') {
+    rect.setAttribute('fill', 'rgba(0,119,204,0.1)');
+    rect.setAttribute('stroke', C_COLD);
+    rect.style.filter = 'drop-shadow(0 0 4px rgba(0,119,204,0.5))';
+    drop.setAttribute('stroke', C_COLD);
+  } else {
+    rect.setAttribute('fill', 'rgba(217,79,0,0.08)');
+    rect.setAttribute('stroke', C_HOT);
+    rect.style.filter = 'drop-shadow(0 0 3px rgba(217,79,0,0.4))';
+    drop.setAttribute('stroke', C_HOT);
+  }
+}
+
+function clearAllLoads() {
+  for (let i = 0; i < N_LOADS; i++) setLoad(i, false);
+}
+
+// ===== TRUNK / FEEDER LINE COLOR =====
+function setFeederEnergized(state, mode = 'hot') {
+  const above  = document.getElementById('trunk-above');
+  const below  = document.getElementById('trunk-below');
+  const branch = document.getElementById('branch-line');
+  const C_HOT  = '#d94f00';
+  const C_COLD = '#0077cc';
+  const C_OFF  = '#b8ccd8';
+  const els = [above, below, branch].filter(Boolean);
+  if (!state) {
+    els.forEach(el => { el.setAttribute('stroke', C_OFF); el.style.filter = ''; });
+  } else if (mode === 'cold') {
+    els.forEach(el => {
+      el.setAttribute('stroke', C_COLD);
+      el.style.filter = 'drop-shadow(0 0 4px rgba(0,119,204,0.5))';
+    });
+  } else {
+    els.forEach(el => {
+      el.setAttribute('stroke', C_HOT);
+      el.style.filter = 'drop-shadow(0 0 3px rgba(217,79,0,0.4))';
+    });
+  }
+}
+
+// ===== DIVERSITY PATTERN (hot load — diversified) =====
+// Only ~6-8 of 14 loads active at any time, rotating
+let diverseCycle = 0;
+function getDiversePattern() {
+  // Simulate 6-8 loads active, slowly cycling
+  const active = [];
+  const base = Math.floor(diverseCycle / 3);
+  for (let i = 0; i < N_LOADS; i++) {
+    // Each load has its own cycle period
+    const period = 8 + (i % 5);
+    active.push(Math.sin((diverseCycle + i * 2.3) / period) > 0.2);
+  }
+  return active;
+}
+
+// ===== CHART =====
+function resizeChart() {
+  chartCanvas.width = chartCanvas.offsetWidth;
+  chartCanvas.height = 200;
+}
+
+function drawChart() {
+  const W = chartCanvas.width;
+  const H = chartCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(180,200,215,0.8)';
+  ctx.lineWidth = 1;
+  for (let y = 0; y <= 4; y++) {
+    const yp = H - (y / 4) * (H - 20) - 10;
+    ctx.beginPath();
+    ctx.moveTo(0, yp);
+    ctx.lineTo(W, yp);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(100,130,148,0.9)';
+    ctx.font = '8px Share Tech Mono';
+    ctx.fillText(`${Math.round((y / 4) * MAX_I_DISPLAY)}A`, 2, yp - 2);
+  }
+
+  if (chartData.length < 2) return;
+
+  // Hot pickup line
+  const hotY = H - ((HOT_PICKUP / MAX_I_DISPLAY) * (H - 20)) - 10;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(255,0,51,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, hotY);
+  ctx.lineTo(W, hotY);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,0,51,0.6)';
+  ctx.font = '9px Share Tech Mono';
+  ctx.fillText(`HOT PKUP ${HOT_PICKUP}A`, W - 110, hotY - 3);
+
+  // Cold pickup line
+  const coldY = H - ((COLD_PICKUP / MAX_I_DISPLAY) * (H - 20)) - 10;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = activeSetting === 'COLD' ? 'rgba(0,170,255,0.9)' : 'rgba(0,170,255,0.4)';
+  ctx.lineWidth = activeSetting === 'COLD' ? 2 : 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, coldY);
+  ctx.lineTo(W, coldY);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(64,204,255,0.7)';
+  ctx.fillText(`COLD PKUP ${COLD_PICKUP}A`, W - 120, coldY - 3);
+
+  ctx.setLineDash([]);
+
+  // Current trace — gradient
+  const N = chartData.length;
+  const step = W / Math.max(N - 1, 1);
+  const grad = ctx.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, 'rgba(255,77,0,0.3)');
+  grad.addColorStop(1, 'rgba(255,77,0,1)');
+
+  // Fill
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = i * step;
+    const y = H - ((chartData[i] / MAX_I_DISPLAY) * (H - 20)) - 10;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineTo((N - 1) * step, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,77,0,0.07)';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = i * step;
+    const y = H - ((chartData[i] / MAX_I_DISPLAY) * (H - 20)) - 10;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ===== PUSH DATA =====
+function pushData(val) {
+  chartData.push(Math.max(0, val));
+  if (chartData.length > 220) chartData.shift();
+  drawChart();
+}
+
+// ===== UPDATE METRICS =====
+function updateMetrics(current, diversity, outage = null) {
+  mCurrent.textContent = `${Math.round(current)} A`;
+  mHotPickup.textContent = `${HOT_PICKUP} A`;
+  mColdPickup.textContent = `${COLD_PICKUP} A`;
+  mDiversity.textContent = diversity.toFixed(2);
+  mOutage.textContent = outage !== null ? `${outage}s` : '—';
+
+  const pct = Math.min(current / MAX_I_DISPLAY, 1);
+  barLoad.style.width = `${pct * 100}%`;
+  valLoad.textContent = `${Math.round(current)} A`;
+  arrowCurrent.style.left = `${pct * 100}%`;
+
+  // Bar colors
+  const hotPct = HOT_PICKUP / MAX_I_DISPLAY * 100;
+  const coldPct = COLD_PICKUP / MAX_I_DISPLAY * 100;
+  document.getElementById('bar-hot').style.width = `${hotPct}%`;
+  document.getElementById('bar-cold').style.width = `${coldPct}%`;
+  valHot.textContent = `${HOT_PICKUP}A`;
+  valCold.textContent = `${COLD_PICKUP}A`;
+
+  // Color metric value
+  if (current > HOT_PICKUP && activeSetting === 'HOT') {
+    mCurrent.className = 'metric-value trip';
+  } else if (current > COLD_PICKUP) {
+    mCurrent.className = 'metric-value trip';
+  } else if (current > HOT_PICKUP * 0.85) {
+    mCurrent.className = 'metric-value warn';
+  } else {
+    mCurrent.className = 'metric-value ok';
+  }
+
+  // Diversity bar — higher current with low diversity = wider fill
+  const divPct = (1 - diversity) * 100;
+  divFill.style.width = `${Math.min(divPct, 100)}%`;
+  mDiversity.className = diversity < 0.4 ? 'metric-value warn' : 'metric-value ok';
+}
+
+// ===== LOG =====
+function addLog(type, msg) {
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  logEntries.unshift({ ts, type, msg });
+  if (logEntries.length > 12) logEntries.pop();
+  const log = document.getElementById('event-log');
+  log.innerHTML = logEntries.map(e => `
+    <div class="log-entry">
+      <span class="log-time">${e.ts}</span>
+      <span class="log-event ${e.type}">${e.msg}</span>
+    </div>
+  `).join('');
+}
+
+// ===== STATUS =====
+function setStatus(msg, cls = '') {
+  statusText.textContent = msg;
+  statusMsg.className = `${cls}`;
+  if (!cls) statusMsg.className = '';
+}
+
+// ===== SET MODE =====
+function setActiveSetting(mode) {
+  activeSetting = mode;
+  mActive.textContent = mode;
+  if (mode === 'COLD') {
+    mActive.className = 'metric-value cold';
+    const bkrGroup = document.getElementById('bkr-group');
+    if (bkrGroup) bkrGroup.style.filter = 'drop-shadow(0 0 6px rgba(0,119,204,0.6))';
+    modeBadge.className = 'mode-badge cold';
+    modeBadge.innerHTML = '<span>COLD LOAD — PICKUP ELEVATED</span><span class="mode-icon">❄️</span>';
+  } else {
+    mActive.className = 'metric-value ok';
+    const bkrGroup = document.getElementById('bkr-group');
+    if (bkrGroup) bkrGroup.style.filter = 'drop-shadow(0 0 3px rgba(0,122,68,0.4))';
+    modeBadge.className = 'mode-badge hot';
+    modeBadge.innerHTML = '<span>HOT LOAD — NORMAL</span><span class="mode-icon">🔥</span>';
+  }
+}
+
+// ===== TRIP RELAY =====
+function setBreakerOpen(tripped) {
+  const contact  = document.getElementById('bkr-contact');
+  const arc      = document.getElementById('bkr-arc');
+  const dot      = document.getElementById('bkr-dot');
+  const bkrRect  = document.getElementById('bkr-rect');
+  const statusTx = document.getElementById('bkr-status-text');
+  if (!contact || !arc || !dot || !bkrRect) return;
+  if (tripped) {
+    contact.setAttribute('x1', '-10'); contact.setAttribute('y1', '16');
+    contact.setAttribute('x2', '-8');  contact.setAttribute('y2', '-4');
+    contact.setAttribute('stroke', '#cc0022');
+    arc.setAttribute('opacity', '0.8');
+    dot.setAttribute('fill', '#cc0022');
+    bkrRect.setAttribute('stroke', '#cc0022');
+    if (statusTx) { statusTx.setAttribute('fill', '#cc0022'); }
+  } else {
+    contact.setAttribute('x1', '-10'); contact.setAttribute('y1', '16');
+    contact.setAttribute('x2', '10');  contact.setAttribute('y2', '-2');
+    contact.setAttribute('stroke', '#007a44');
+    arc.setAttribute('opacity', '0');
+    dot.setAttribute('fill', '#007a44');
+    bkrRect.setAttribute('stroke', '#8aaabb');
+    if (statusTx) { statusTx.setAttribute('fill', '#007a44'); }
+  }
+}
+
+function tripRelay() {
+  setBreakerOpen(true);
+  const statusTx = document.getElementById('bkr-status-text');
+  if (statusTx) statusTx.textContent = 'TRIPPED';
+  const bkrGroup = document.getElementById('bkr-group');
+  if (bkrGroup) {
+    bkrGroup.style.filter = 'drop-shadow(0 0 6px rgba(204,0,34,0.7))';
+    bkrGroup.style.animation = 'trip-flash 0.2s ease-in-out 3';
+    setTimeout(() => { if (bkrGroup) bkrGroup.style.animation = ''; }, 700);
+  }
+  setFeederEnergized(false);
+  clearAllLoads();
+  addLog('trip', '⚠ OVERCURRENT TRIP — 51 ELEMENT OPERATED');
+  setStatus('TRIP: OC relay operated. Feeder de-energized. Setting HOT pickup too low caused false trip on cold load surge.', 'alert');
+}
+
+function resetRelay() {
+  setBreakerOpen(false);
+  const statusTx = document.getElementById('bkr-status-text');
+  if (statusTx) { statusTx.textContent = 'CLOSED'; statusTx.setAttribute('fill', '#007a44'); }
+  const bkrGroup = document.getElementById('bkr-group');
+  if (bkrGroup) bkrGroup.style.filter = 'drop-shadow(0 0 3px rgba(0,122,68,0.4))';
+}
+
+
+
+// ===== SCENARIO: NORMAL HOT LOAD =====
+let hotLoadTick = 0;
+function runNormalHot() {
+  stopAll();
+  resetAll(false);
+  simState = 'hot';
+  setActiveSetting('HOT');
+  setFeederEnergized(true, 'hot');
+  setStatus('Normal diversified load. Loads cycling on/off — diversity factor ~0.70. Current well below hot pickup.', '');
+  addLog('ok', 'HOT LOAD NORMAL — feeder energized');
+  document.getElementById('btn-reclose').disabled = true;
+  document.getElementById('btn-outage').disabled = false;
+
+  hotLoadTick = 0;
+  simInterval = setInterval(() => {
+    diverseCycle++;
+    hotLoadTick++;
+    const pattern = getDiversePattern();
+    pattern.forEach((on, i) => setLoad(i, on, 'hot'));
+
+    const activeCount = pattern.filter(Boolean).length;
+    const diversity = 1 - (activeCount / N_LOADS);
+    // Current = sum of active loads with some noise
+    const current = activeCount * 22 + (Math.random() * 30 - 15) + 60;
+    updateMetrics(current, diversity);
+    pushData(current);
+  }, 220);
+}
+
+// ===== SCENARIO: OUTAGE =====
+function runOutage() {
+  if (simState !== 'hot' && simState !== 'ev') return;
+  stopAll();
+  simState = 'outage';
+  setFeederEnergized(false);
+  clearAllLoads();
+  setBreakerOpen(true);
+  const statusTx2 = document.getElementById('bkr-status-text');
+  if (statusTx2) { statusTx2.textContent = 'OPEN'; statusTx2.setAttribute('fill', '#b87700'); }
+  const dot2 = document.getElementById('bkr-dot');
+  const rect2 = document.getElementById('bkr-rect');
+  if (dot2) dot2.setAttribute('fill', '#b87700');
+  if (rect2) rect2.setAttribute('stroke', '#b87700');
+  setStatus('Feeder de-energized (outage). All loads dropped. During outage, thermostat timers reset — systems will demand immediately on restoration.', 'warn');
+  addLog('warn', 'FEEDER OUTAGE — 3-PHASE OPEN');
+  document.getElementById('btn-reclose').disabled = false;
+
+  outageTime = 0;
+  outageInterval = setInterval(() => {
+    outageTime++;
+    updateMetrics(0, 0.0, outageTime);
+    pushData(0);
+    mOutage.textContent = `${outageTime}s`;
+  }, 500);
+}
+
+// ===== SCENARIO: RECLOSE / COLD LOAD PICKUP =====
+function runReclose() {
+  if (simState !== 'outage') return;
+  clearInterval(outageInterval);
+  outageInterval = null;
+  simState = 'cold-surge';
+  setActiveSetting('COLD'); // Timer logic switches to cold pickup
+  resetRelay();
+  setFeederEnergized(true, 'cold');
+  addLog('cold', 'RECLOSE — COLD LOAD PICKUP INITIATED');
+  setStatus('Reclose initiated. Cold load pickup timer active — relay raised to cold pickup setting. All loads energizing simultaneously (zero diversity).', '');
+
+  // Surge all loads at once
+  coldTimer = 0;
+  let surgeTick = 0;
+  const MAX_SURGE = 38;
+  simInterval = setInterval(() => {
+    surgeTick++;
+    coldTimer++;
+
+    // First phase: all loads surge — coincident demand
+    let loadFraction, mode;
+    if (surgeTick <= 8) {
+      // Ramp up surge — all loads kick on
+      loadFraction = surgeTick / 8;
+      mode = 'cold';
+      for (let i = 0; i < N_LOADS; i++) setLoad(i, true, 'cold');
+    } else if (surgeTick <= MAX_SURGE) {
+      // Loads slowly start staggering as thermostats satisfy
+      loadFraction = 1 - ((surgeTick - 8) / (MAX_SURGE - 8)) * 0.55;
+      mode = surgeTick < 20 ? 'cold' : 'hot';
+      for (let i = 0; i < N_LOADS; i++) {
+        const satisfies = surgeTick > (16 + i * 1.2);
+        setLoad(i, !satisfies, mode);
+      }
+    } else {
+      // Return to normal
+      simState = 'hot';
+      setActiveSetting('HOT');
+      setFeederEnergized(true, 'hot');
+      setStatus('Cold load surge subsided. Diversity restored. Relay returned to hot pickup setting. System normal.', '');
+      addLog('ok', 'COLD SURGE COMPLETE — returned to hot load');
+      clearInterval(simInterval);
+      runNormalHot();
+      return;
+    }
+
+    const current = loadFraction * COLD_SURGE_PEAK + (Math.random() * 20 - 10);
+    const diversity = 1 - loadFraction;
+    updateMetrics(current, diversity, outageTime);
+
+    // Check: would hot pickup have tripped?
+    if (activeSetting === 'COLD' && current > HOT_PICKUP && current < COLD_PICKUP) {
+      setStatus(`Cold load surge: ${Math.round(current)}A exceeds HOT pickup (${HOT_PICKUP}A) but COLD pickup (${COLD_PICKUP}A) prevents nuisance trip. Timer logic active.`, 'warn');
+    } else if (current > COLD_PICKUP) {
+      tripRelay();
+      clearInterval(simInterval);
+      simState = 'tripped';
+      return;
+    }
+
+    pushData(current);
+
+  }, 300);
+}
+
+// ===== SCENARIO: EV SURGE =====
+function runEVScenario() {
+  if (simState !== 'hot') return;
+  simState = 'ev';
+  document.getElementById('ev-badge-svg').setAttribute('opacity', '1');
+  setStatus('EV charging surge: multiple homes plugging in simultaneously. Demand spike — reduced diversity, near hot pickup threshold.', 'warn');
+  addLog('warn', 'EV LOAD COINCIDENCE — diversity drop');
+
+  clearInterval(simInterval);
+  let evTick = 0;
+  simInterval = setInterval(() => {
+    evTick++;
+    diverseCycle++;
+    const pattern = getDiversePattern();
+    // Force most loads on to simulate EV coincidence
+    const evFraction = Math.min(evTick / 6, 1);
+    const forceCount = Math.floor(evFraction * 10);
+    for (let i = 0; i < N_LOADS; i++) {
+      setLoad(i, i < forceCount ? true : pattern[i], i < forceCount ? 'cold' : 'hot');
+    }
+
+    const activeCount = loadStates.filter(Boolean).length;
+    const diversity = 1 - (activeCount / N_LOADS) * 0.85;
+    const current = EV_SURGE * evFraction + (Math.random() * 25);
+    updateMetrics(current, diversity);
+    pushData(current);
+
+    if (current > HOT_PICKUP) {
+      setStatus(`EV SURGE: ${Math.round(current)}A EXCEEDS hot pickup (${HOT_PICKUP}A)! Relay would trip on normal hot setting — demonstrates need for demand management.`, 'alert');
+      addLog('warn', `EV SURGE ${Math.round(current)}A > hot pickup ${HOT_PICKUP}A`);
+    }
+
+    if (evTick > 30) {
+      // Fade back
+      if (evFraction >= 1 && evTick > 35) {
+        document.getElementById('ev-badge-svg').setAttribute('opacity', '0');
+        runNormalHot();
+      }
+    }
+  }, 250);
+}
+
+// ===== RESET =====
+function stopAll() {
+  if (simInterval) clearInterval(simInterval);
+  if (outageInterval) clearInterval(outageInterval);
+  simInterval = null;
+  outageInterval = null;
+}
+
+function resetAll(full = true) {
+  stopAll();
+  if (full) {
+    simState = 'idle';
+    chartData = [];
+    logEntries = [];
+    document.getElementById('event-log').innerHTML = '';
+    outageTime = 0;
+    coldTimer = 0;
+    diverseCycle = 0;
+    clearAllLoads();
+    setFeederEnergized(false);
+    resetRelay();
+    setActiveSetting('HOT');
+    updateMetrics(0, 0.72);
+    setStatus('Select a scenario to begin simulation.', '');
+    document.getElementById('btn-reclose').disabled = true;
+    document.getElementById('btn-outage').disabled = false;
+    document.getElementById('ev-badge-svg').setAttribute('opacity', '0');
+    drawChart();
+  }
+}
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  resizeChart();
+  initLoads();
+  resetAll(true);
+  drawChart();
+});
+
+window.addEventListener('resize', () => {
+  resizeChart();
+  drawChart();
+});
+
+// ===== GIF EXPORT =====
+let gifCancelled = false;
+
+function cancelGIF() {
+  gifCancelled = true;
+  document.getElementById('gif-overlay').style.display = 'none';
+  document.getElementById('btn-gif').disabled = false;
+}
+
+function setGifPhase(text) {
+  document.getElementById('gif-phase').textContent = text;
+}
+
+function setGifProgress(pct) {
+  document.getElementById('gif-bar').style.width = pct + '%';
+  document.getElementById('gif-pct').textContent = Math.round(pct) + '%';
+}
+
+async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function captureFrame(gif, panel) {
+  const canvas = await html2canvas(panel, {
+    useCORS: true,
+    scale: 1,
+    backgroundColor: '#eef2f5',
+    logging: false,
+    ignoreElements: el => el.id === 'gif-overlay'
+  });
+  gif.addFrame(canvas, { delay: 80, copy: true });
+}
+
+async function exportGIF() {
+  if (gifCancelled === false && document.getElementById('gif-overlay').style.display === 'flex') return;
+  gifCancelled = false;
+  document.getElementById('btn-gif').disabled = true;
+  document.getElementById('gif-overlay').style.display = 'flex';
+  setGifPhase('Loading libraries…');
+  setGifProgress(0);
+
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js');
+  } catch(e) {
+    setGifPhase('ERROR: Could not load required libraries.');
+    setTimeout(() => cancelGIF(), 2500);
+    return;
+  }
+
+  const panel = document.getElementById('feeder-panel');
+
+  const gif = new GIF({
+    workers: 2,
+    quality: 8,
+    width: panel.offsetWidth,
+    height: panel.offsetHeight,
+    workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+  });
+
+  // ── SCRIPTED SEQUENCE ──
+  // Phase 1: hot load ~3s (capture every 200ms → ~15 frames)
+  // Phase 2: outage ~1.5s (capture every 200ms → ~8 frames)
+  // Phase 3: cold surge / reclose ~4s (capture every 200ms → ~20 frames)
+  // Phase 4: back to normal ~1.5s → ~8 frames
+  // Total ~60 frames
+
+  stopAll();
+  resetAll(false);
+
+  const FRAME_INTERVAL = 200; // ms between captures
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+  let frameCount = 0;
+  const TOTAL_PHASES = 4;
+
+  async function captureFor(ms, phaseLabel, phaseIndex) {
+    const frames = Math.floor(ms / FRAME_INTERVAL);
+    for (let i = 0; i < frames; i++) {
+      if (gifCancelled) return false;
+      setGifPhase(phaseLabel);
+      const overallPct = ((phaseIndex + i / frames) / TOTAL_PHASES) * 60; // 0-60% for recording
+      setGifProgress(overallPct);
+      await captureFrame(gif, panel);
+      frameCount++;
+      await delay(FRAME_INTERVAL);
+    }
+    return true;
+  }
+
+  // Phase 1: hot load running
+  simState = 'hot';
+  setActiveSetting('HOT');
+  setFeederEnergized(true, 'hot');
+  resetRelay();
+  let hotTick = 0;
+  diverseCycle = 0;
+  chartData = [];
+  const hotRunner = setInterval(() => {
+    diverseCycle++;
+    const pattern = getDiversePattern();
+    pattern.forEach((on, i) => setLoad(i, on, 'hot'));
+    const activeCount = pattern.filter(Boolean).length;
+    const diversity = 1 - (activeCount / N_LOADS);
+    const current = activeCount * 22 + (Math.random() * 30 - 15) + 60;
+    updateMetrics(current, diversity);
+    pushData(current);
+  }, 220);
+
+  if (!await captureFor(5000, 'PHASE 1 — HOT LOAD NORMAL', 0)) return;
+  clearInterval(hotRunner);
+
+  // Phase 2: trip / outage
+  stopAll();
+  simState = 'outage';
+  setFeederEnergized(false);
+  clearAllLoads();
+  setBreakerOpen(true);
+  const statusTx = document.getElementById('bkr-status-text');
+  if (statusTx) { statusTx.textContent = 'OPEN'; statusTx.setAttribute('fill', '#b87700'); }
+  const dot2 = document.getElementById('bkr-dot'); if (dot2) dot2.setAttribute('fill', '#b87700');
+  const rect2 = document.getElementById('bkr-rect'); if (rect2) rect2.setAttribute('stroke', '#b87700');
+  outageTime = 0;
+  const outageRunner = setInterval(() => { outageTime++; updateMetrics(0, 0.0, outageTime); pushData(0); }, 500);
+  addLog('warn', 'FEEDER OUTAGE — 3-PHASE OPEN');
+  setStatus('Feeder de-energized (outage). All loads dropped.', 'warn');
+
+  if (!await captureFor(5000, 'PHASE 2 — FEEDER TRIPPED', 1)) { clearInterval(outageRunner); return; }
+  clearInterval(outageRunner);
+
+  // Phase 3: reclose / cold surge
+  simState = 'cold-surge';
+  setActiveSetting('COLD');
+  resetRelay();
+  setFeederEnergized(true, 'cold');
+  addLog('cold', 'RECLOSE — COLD LOAD PICKUP INITIATED');
+  setStatus('Reclose initiated. Cold load pickup timer active.', '');
+
+  let surgeTick = 0;
+  const MAX_SURGE = 28;
+  const surgeRunner = setInterval(() => {
+    surgeTick++;
+    let loadFraction, mode;
+    if (surgeTick <= 6) {
+      loadFraction = surgeTick / 6; mode = 'cold';
+      for (let i = 0; i < N_LOADS; i++) setLoad(i, true, 'cold');
+    } else {
+      loadFraction = 1 - ((surgeTick - 6) / (MAX_SURGE - 6)) * 0.55;
+      mode = surgeTick < 14 ? 'cold' : 'hot';
+      for (let i = 0; i < N_LOADS; i++) setLoad(i, surgeTick <= (12 + i * 1.2), mode);
+    }
+    const current = loadFraction * COLD_SURGE_PEAK + (Math.random() * 20 - 10);
+    updateMetrics(current, 1 - loadFraction, outageTime);
+    pushData(current);
+  }, 300);
+
+  if (!await captureFor(5000, 'PHASE 3 — COLD LOAD SURGE', 2)) { clearInterval(surgeRunner); return; }
+  clearInterval(surgeRunner);
+
+  // Phase 4: back to normal hot
+  simState = 'hot';
+  setActiveSetting('HOT');
+  setFeederEnergized(true, 'hot');
+  diverseCycle = Math.floor(Math.random() * 20);
+  const hotRunner2 = setInterval(() => {
+    diverseCycle++;
+    const pattern = getDiversePattern();
+    pattern.forEach((on, i) => setLoad(i, on, 'hot'));
+    const activeCount = pattern.filter(Boolean).length;
+    const current = activeCount * 22 + (Math.random() * 30 - 15) + 60;
+    updateMetrics(current, 1 - (activeCount / N_LOADS));
+    pushData(current);
+  }, 220);
+  setStatus('Normal diversified load restored.', '');
+  addLog('ok', 'COLD SURGE COMPLETE — returned to hot load');
+
+  if (!await captureFor(5000, 'PHASE 4 — NORMAL RESTORED', 3)) { clearInterval(hotRunner2); return; }
+  clearInterval(hotRunner2);
+
+  // ── ENCODE ──
+  setGifPhase('ENCODING GIF — please wait…');
+  setGifProgress(62);
+
+  gif.on('progress', p => {
+    setGifProgress(62 + p * 38);
+    setGifPhase(`ENCODING — ${Math.round(p * 100)}%`);
+  });
+
+  gif.on('finished', blob => {
+    if (gifCancelled) return;
+    setGifPhase('COMPLETE — downloading…');
+    setGifProgress(100);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hot_cold_load_sequence.gif'; a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); cancelGIF(); }, 1500);
+  });
+
+  gif.render();
+}
+
+</script>
+
+
+</body></html>

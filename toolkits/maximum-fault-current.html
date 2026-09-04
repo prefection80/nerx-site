@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fault Analysis Chart</title>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            /* Keep content from being hidden behind the fixed bottom ticker */
+            padding-bottom: 70px;
+        }
+        canvas {
+            cursor: crosshair;
+        }
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ccc;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 md:p-8">
+        <div class="max-w-6xl mx-auto space-y-8">
+
+            <div class="flex justify-end">
+                <button onclick="downloadChart()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                    Download Chart
+                </button>
+            </div>
+             
+            <!-- Top Section: Chart & Inspector -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Chart -->
+                <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col items-center">
+                    <div class="relative">
+                        <!-- Y Axis Label -->
+                        <div class="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-medium text-gray-600 whitespace-nowrap">
+                            Ratio Z2 / Z0
+                        </div>
+                        
+                        <canvas id="faultCanvas" width="600" height="600" class="border border-gray-300 rounded-sm bg-white"></canvas>
+                        
+                        <!-- X Axis Label -->
+                        <div class="text-center mt-3 text-sm font-medium text-gray-600">
+                            Ratio Z2 / Z1
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Inspector & Legend -->
+                <div class="space-y-6">
+                    
+                    <!-- Inspector Panel -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Inspector</h2>
+                        
+                        <div id="inspector-placeholder" class="text-gray-400 text-sm py-8 text-center italic">
+                            Hover over the chart to see fault details.
+                        </div>
+
+                        <div id="inspector-content" class="hidden space-y-3">
+                            <div class="grid grid-cols-2 gap-2 text-sm mb-4">
+                                <div class="text-gray-500">Z2 / Z1 Ratio:</div>
+                                <div class="font-mono font-medium text-right" id="val-z2z1">-</div>
+                                <div class="text-gray-500">Z2 / Z0 Ratio:</div>
+                                <div class="font-mono font-medium text-right" id="val-z2z0">-</div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Normalized Currents (p.u.)</h3>
+                                
+                                <!-- 3-Phase -->
+                                <div class="flex justify-between items-center p-2 rounded bg-gray-50" id="row-3p">
+                                    <span class="text-sm font-medium text-gray-700">3-Phase</span>
+                                    <span class="font-mono text-sm font-bold text-gray-900" id="val-3p">-</span>
+                                </div>
+
+                                <!-- L-L -->
+                                <div class="flex justify-between items-center p-2 rounded bg-gray-50" id="row-ll">
+                                    <span class="text-sm font-medium text-gray-700">Line-to-Line (L-L)</span>
+                                    <span class="font-mono text-sm font-bold text-gray-900" id="val-ll">-</span>
+                                </div>
+
+                                <!-- SLG -->
+                                <div class="flex justify-between items-center p-2 rounded bg-gray-50" id="row-slg">
+                                    <span class="text-sm font-medium text-gray-700">Single L-G (SLG)</span>
+                                    <span class="font-mono text-sm font-bold text-gray-900" id="val-slg">-</span>
+                                </div>
+
+                                <!-- DLG -->
+                                <div class="flex justify-between items-center p-2 rounded bg-gray-50" id="row-dlg">
+                                    <span class="text-sm font-medium text-gray-700">Double L-G (DLG)</span>
+                                    <span class="font-mono text-sm font-bold text-gray-900" id="val-dlg">-</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-4 border-t border-gray-100 text-center">
+                                <div class="text-xs text-gray-500 mb-1">Dominant Fault Type</div>
+                                <div id="winner-text" class="text-xl font-bold text-blue-600"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Legend</h2>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <span class="legend-box" style="background-color: #8FBC8F;"></span>
+                                <span class="text-sm text-gray-700">Line-to-Line (Green)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="legend-box" style="background-color: #FFFACD;"></span>
+                                <span class="text-sm text-gray-700">Double Line-to-Ground (Yellow)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="legend-box" style="background-color: #ffffff; border: 1px solid #ddd;"></span>
+                                <span class="text-sm text-gray-700">Single Line-to-Ground (White)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="legend-box" style="background-color: #f0f0f0;"></span>
+                                <span class="text-sm text-gray-700">3-Phase (Gray)</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-4 leading-relaxed">
+                            <strong>Z1</strong> is normalized to 1.0 p.u.<br>
+                            <strong>Z2</strong> derived from X-axis ratio.<br>
+                            <strong>Z0</strong> derived from Y-axis ratio.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Section: Equations -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 border-b pb-2">Fault Current Calculation Formulas</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Column 1 -->
+                    <div class="space-y-6">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900 mb-2">3-Phase Fault</div>
+                            <div class="font-mono bg-gray-50 p-3 rounded border border-gray-200 text-sm">
+                                |I<sub>3P</sub>| = V / Z<sub>1</sub>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900 mb-2">Line-to-Line (L-L)</div>
+                            <div class="font-mono bg-gray-50 p-3 rounded border border-gray-200 text-sm">
+                                |I<sub>LL</sub>| = (&radic;3 · V) / (Z<sub>1</sub> + Z<sub>2</sub>)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 2 -->
+                    <div class="space-y-6">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900 mb-2">Single Line-to-Ground (SLG)</div>
+                            <div class="font-mono bg-gray-50 p-3 rounded border border-gray-200 text-sm">
+                                |I<sub>SLG</sub>| = (3 · V) / (Z<sub>1</sub> + Z<sub>2</sub> + Z<sub>0</sub>)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900 mb-2">Double Line-to-Ground (DLG) <span class="font-normal text-gray-500 text-xs">(Max Phase Current)</span></div>
+                            <div class="font-mono bg-gray-50 p-3 rounded border border-gray-200 text-sm">
+                                |I<sub>DLG</sub>| = 
+                                (V·&radic;3 · &radic;(Z<sub>0</sub>²+Z<sub>0</sub>Z<sub>2</sub>+Z<sub>2</sub>²)) / 
+                                (Z<sub>1</sub>Z<sub>2</sub> + Z<sub>1</sub>Z<sub>0</sub> + Z<sub>2</sub>Z<sub>0</sub>)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-xs text-gray-500 mt-6 pt-2 border-t">
+                    <strong>Note:</strong> Calculations assume V = 1.0 p.u. and Z<sub>1</sub> = 1.0 p.u. (normalized). Z<sub>2</sub> and Z<sub>0</sub> are derived dynamically from the chart's axis ratios.
+                </div>
+            </div>
+
+            <!-- Bottom Section: Real World Scenarios -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 border-b pb-2">Real-World Scenarios by Zone</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- L-L -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-4 h-4 rounded-full mt-1 bg-[#8FBC8F]"></div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">Generator Terminals (Line-to-Line)</h4>
+                            <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+                                <strong>Why:</strong> Close to synchronous generators, the Negative Sequence Reactance (X<sub>2</sub>) is often lower than the effective Positive Sequence Reactance (X<sub>1</sub>), causing this ratio to drop below 0.732.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- SLG -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-4 h-4 rounded-full mt-1 border border-gray-300 bg-white"></div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">Grounded Transformer Secondary (SLG)</h4>
+                            <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+                                <strong>Why:</strong> Close to a solidly grounded Delta-Wye transformer. The Zero Sequence impedance is very low (just the transformer), while Z<sub>1</sub> includes the upstream source impedance, making Z<sub>0</sub> &ll; Z<sub>1</sub>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- DLG -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-4 h-4 rounded-full mt-1 bg-[#FFFACD]"></div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">Effectively Grounded Systems (DLG)</h4>
+                            <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+                                <strong>Why:</strong> Common in systems where Z<sub>0</sub> is low (effectively grounded) but not zero. It represents a transition zone often found near grounded generation or specific neutral reactor sizing configurations.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 3-Phase -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-4 h-4 rounded-full mt-1 bg-[#f0f0f0]"></div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">Transmission Lines / Ungrounded (3-Phase)</h4>
+                            <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+                                <strong>Why:</strong> Far out on transmission lines, Z<sub>1</sub> and Z<sub>2</sub> are roughly equal, and Z<sub>0</sub> is typically much larger (Z<sub>0</sub> ≈ 3Z<sub>1</sub>). Also applies to ungrounded or resistance-grounded industrial systems where Z<sub>0</sub> is infinite or high.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Wrapped in an Immediately Invoked Function Expression (IIFE) to prevent variable conflicts
+        (function() {
+            const canvas = document.getElementById('faultCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Configuration
+            const MAX_RATIO = 1.2; // The max value for both axes
+            const Z1 = 1.0; // Positive sequence impedance (normalized reference)
+            const V = 1.0;  // Voltage (p.u.)
+
+            // Colors
+            const COLOR_3P = [240, 240, 240, 255];  // Gray #f0f0f0
+            const COLOR_LL = [143, 188, 143, 255];  // Green #8FBC8F
+            const COLOR_SLG = [255, 255, 255, 255]; // White
+            const COLOR_DLG = [255, 250, 205, 255]; // Yellow #FFFACD
+            const COLOR_GRID = [200, 200, 200, 255]; // Grid lines
+            const COLOR_BORDER = [100, 100, 100, 255]; // Region borders
+
+            // Initialize Plot
+            drawPlot();
+            drawAxes();
+
+            function drawPlot() {
+                // Create ImageData buffer for direct pixel manipulation (much faster than fillRect)
+                const imgData = ctx.createImageData(width, height);
+                const data = imgData.data;
+
+                for (let py = 0; py < height; py++) {
+                    for (let px = 0; px < width; px++) {
+                        // Map pixel to ratios
+                        // X-axis: Z2/Z1 (0 to MAX_RATIO)
+                        const xRatio = (px / width) * MAX_RATIO;
+                        
+                        // Y-axis: Z2/Z0 (0 to MAX_RATIO)
+                        // Note: Canvas Y is inverted (0 at top), so we flip it
+                        const yRatio = ((height - py) / height) * MAX_RATIO;
+
+                        // Avoid division by zero at origin
+                        if (xRatio <= 0.001 || yRatio <= 0.001) {
+                            setPixel(data, px, py, [255, 255, 255, 255]);
+                            continue;
+                        }
+
+                        // Calculate Impedances
+                        // xRatio = Z2 / Z1  => Z2 = xRatio * Z1
+                        const Z2 = xRatio * Z1;
+
+                        // yRatio = Z2 / Z0  => Z0 = Z2 / yRatio
+                        const Z0 = Z2 / yRatio;
+
+                        // Calculate Currents
+                        const results = calculateFaultCurrents(Z1, Z2, Z0);
+                        
+                        // Determine Winner
+                        // 0: 3P, 1: LL, 2: SLG, 3: DLG
+                        let maxCurrent = -1;
+                        let winnerIndex = 0;
+                        
+                        if (results.i3p > maxCurrent) { maxCurrent = results.i3p; winnerIndex = 0; }
+                        if (results.ill > maxCurrent) { maxCurrent = results.ill; winnerIndex = 1; }
+                        if (results.islg > maxCurrent) { maxCurrent = results.islg; winnerIndex = 2; }
+                        if (results.idlg > maxCurrent) { maxCurrent = results.idlg; winnerIndex = 3; }
+
+                        // Set Color
+                        let color;
+                        switch (winnerIndex) {
+                            case 0: color = COLOR_3P; break;
+                            case 1: color = COLOR_LL; break;
+                            case 2: color = COLOR_SLG; break;
+                            case 3: color = COLOR_DLG; break;
+                        }
+
+                        setPixel(data, px, py, color);
+                    }
+                }
+
+                ctx.putImageData(imgData, 0, 0);
+
+                // Draw Contour Lines (Simplified approach: redraw grid on top)
+                drawGrid(ctx);
+            }
+
+            function calculateFaultCurrents(z1, z2, z0) {
+                // 1. Three Phase
+                const i3p = V / z1;
+
+                // 2. Line-to-Line
+                const ill = (Math.sqrt(3) * V) / (z1 + z2);
+
+                // 3. Single Line-to-Ground
+                const islg = (3 * V) / (z1 + z2 + z0);
+
+                // 4. Double Line-to-Ground (Max Phase Current)
+                // Using the robust magnitude approximation for purely reactive networks
+                // Denominator
+                const denom = (z1 * z2) + (z1 * z0) + (z2 * z0);
+                
+                // Numerator factor: sqrt(Z0^2 + Z0Z2 + Z2^2)
+                const numFactor = Math.sqrt((z0 * z0) + (z0 * z2) + (z2 * z2));
+                
+                const idlg = (V * Math.sqrt(3) * numFactor) / denom;
+
+                return { i3p, ill, islg, idlg };
+            }
+
+            function setPixel(data, x, y, color) {
+                const index = (y * width + x) * 4;
+                data[index] = color[0];     // R
+                data[index + 1] = color[1]; // G
+                data[index + 2] = color[2]; // B
+                data[index + 3] = color[3]; // A
+            }
+
+            function drawGrid(context) {
+                context.strokeStyle = "rgba(0,0,0,0.15)";
+                context.lineWidth = 1;
+                context.beginPath();
+
+                // Draw lines at 0.1 intervals
+                for (let i = 1; i <= 12; i++) {
+                    const ratio = i * 0.1;
+                    if (ratio >= MAX_RATIO) break; // Don't draw on edge
+
+                    const x = (ratio / MAX_RATIO) * width;
+                    const y = height - (ratio / MAX_RATIO) * height;
+
+                    // Vertical lines (X axis)
+                    context.moveTo(x, 0);
+                    context.lineTo(x, height);
+
+                    // Horizontal lines (Y axis)
+                    context.moveTo(0, y);
+                    context.lineTo(width, y);
+                }
+                context.stroke();
+                
+                // Draw specific reference line at ratio 1.0
+                if (MAX_RATIO > 1.0) {
+                    const pos1 = (1.0 / MAX_RATIO) * width;
+                    const yPos1 = height - (1.0 / MAX_RATIO) * height;
+                    
+                    context.strokeStyle = "rgba(0,0,0,0.4)";
+                    context.setLineDash([5, 5]);
+                    context.beginPath();
+                    // Vertical 1.0
+                    context.moveTo(pos1, 0);
+                    context.lineTo(pos1, height);
+                    // Horizontal 1.0
+                    context.moveTo(0, yPos1);
+                    context.lineTo(width, yPos1);
+                    context.stroke();
+                    context.setLineDash([]);
+                }
+            }
+
+            function drawAxes() {
+                ctx.font = "12px sans-serif";
+                ctx.fillStyle = "#1f2937"; // Gray-800
+                ctx.strokeStyle = "rgba(255,255,255,0.8)"; // White halo for contrast
+                ctx.lineWidth = 3;
+
+                // X Axis Ticks (0.0 to 1.2)
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                
+                for (let i = 0; i <= 6; i++) {
+                    const val = (i * 0.2).toFixed(1);
+                    const ratio = i * 0.2;
+                    let x = (ratio / MAX_RATIO) * width;
+                    
+                    // Adjust edges to keep text inside
+                    let textAlign = "center";
+                    let offsetX = 0;
+                    if (i === 0) { textAlign = "left"; offsetX = 5; }
+                    else if (i === 6) { textAlign = "right"; offsetX = -5; }
+
+                    ctx.textAlign = textAlign;
+
+                    // Draw Tick Mark
+                    ctx.beginPath();
+                    ctx.moveTo(x, height);
+                    ctx.lineTo(x, height - 5);
+                    ctx.stroke();
+
+                    // Draw Text with Halo
+                    const textY = height - 6;
+                    ctx.strokeText(val, x + offsetX, textY);
+                    ctx.fillText(val, x + offsetX, textY);
+                }
+
+                // Y Axis Ticks (0.0 to 1.2)
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+
+                for (let i = 0; i <= 6; i++) {
+                    const ratio = i * 0.2;
+                    if (ratio === 0) continue; // Skip 0 (already drawn by X axis loop usually, or avoid clutter)
+
+                    const val = ratio.toFixed(1);
+                    const y = height - (ratio / MAX_RATIO) * height;
+
+                    // Adjust top edge
+                    let textBaseline = "middle";
+                    let offsetY = 0;
+                    if (i === 6) { textBaseline = "top"; offsetY = 5; }
+
+                    ctx.textBaseline = textBaseline;
+
+                    // Draw Tick Mark
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(5, y);
+                    ctx.stroke();
+
+                    // Draw Text with Halo
+                    const textX = 7;
+                    ctx.strokeText(val, textX, y + offsetY);
+                    ctx.fillText(val, textX, y + offsetY);
+                }
+            }
+
+            // Interaction
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                // Get mouse pos relative to canvas
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                const mouseX = (e.clientX - rect.left) * scaleX;
+                const mouseY = (e.clientY - rect.top) * scaleY;
+
+                // Convert to Data Coordinates
+                const xRatio = (mouseX / width) * MAX_RATIO;
+                const yRatio = ((height - mouseY) / height) * MAX_RATIO;
+
+                if (xRatio <= 0.001 || yRatio <= 0.001) return;
+
+                // Recalculate values for inspector
+                const Z2 = xRatio * Z1;
+                const Z0 = Z2 / yRatio;
+                const res = calculateFaultCurrents(Z1, Z2, Z0);
+
+                // Update UI
+                document.getElementById('inspector-placeholder').classList.add('hidden');
+                document.getElementById('inspector-content').classList.remove('hidden');
+
+                document.getElementById('val-z2z1').textContent = xRatio.toFixed(3);
+                document.getElementById('val-z2z0').textContent = yRatio.toFixed(3);
+
+                document.getElementById('val-3p').textContent = res.i3p.toFixed(3);
+                document.getElementById('val-ll').textContent = res.ill.toFixed(3);
+                document.getElementById('val-slg').textContent = res.islg.toFixed(3);
+                document.getElementById('val-dlg').textContent = res.idlg.toFixed(3);
+
+                // Highlight Winner
+                const rows = ['row-3p', 'row-ll', 'row-slg', 'row-dlg'];
+                rows.forEach(id => document.getElementById(id).classList.remove('bg-blue-100', 'border-l-4', 'border-blue-500'));
+                
+                let winnerId = '';
+                let winnerText = '';
+                const max = Math.max(res.i3p, res.ill, res.islg, res.idlg);
+
+                if (max === res.i3p) { winnerId = 'row-3p'; winnerText = '3-Phase'; }
+                else if (max === res.ill) { winnerId = 'row-ll'; winnerText = 'Line-to-Line'; }
+                else if (max === res.islg) { winnerId = 'row-slg'; winnerText = 'Single Line-Ground'; }
+                else if (max === res.idlg) { winnerId = 'row-dlg'; winnerText = 'Double Line-Ground'; }
+
+                const winEl = document.getElementById(winnerId);
+                winEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500');
+                
+                const winnerTextEl = document.getElementById('winner-text');
+                winnerTextEl.textContent = winnerText;
+            });
+
+            // Expose downloadChart to global scope
+            window.downloadChart = function() {
+                const link = document.createElement('a');
+                link.download = 'fault_analysis_chart.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            }
+
+        })();
+    </script>
+</body>
+</html>

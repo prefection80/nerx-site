@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Three-Phase Magnetic Field Analyzer</title>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+            padding-top: 60px;
+            padding-bottom: 50px;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        #container {
+            display: flex;
+            height: 100vh;
+            flex-direction: row;
+        }
+        
+        /* Mobile layout */
+        @media (max-width: 768px) {
+            #container {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #container {
+                flex-direction: column;
+            }
+        }
+        
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #canvas {
+            display: block;
+            cursor: grab;
+            touch-action: none;
+        }
+        
+        #canvas:active {
+            cursor: grabbing;
+        }
+        
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 10, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        #loading-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #404040;
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #4fc3f7;
+        }
+        
+        .loading-progress {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #81c784;
+            font-weight: bold;
+        }
+        
+        #controls {
+            width: 320px;
+            background: #2a2a2a;
+            padding: 15px;
+            overflow-y: auto;
+            border-left: 2px solid #404040;
+            position: relative;
+        }
+        
+        /* Mobile controls */
+        @media (max-width: 768px) {
+            #controls {
+                width: 100%;
+                height: 45vh;
+                max-height: 55vh;
+                border-left: none;
+                border-top: 2px solid #404040;
+                padding: 12px;
+                font-size: 14px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                transition: height 0.3s ease, padding 0.3s ease;
+            }
+            
+            /* Start collapsed on mobile by default */
+            #controls.collapsed {
+                height: 60px;
+                min-height: 60px;
+                overflow: hidden;
+                padding: 10px 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #controls {
+                height: 40vh;
+                max-height: 50vh;
+                padding: 10px;
+                font-size: 13px;
+            }
+        }
+        
+        /* Mobile collapse button */
+        #controls-toggle {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4fc3f7;
+            color: #1a1a1a;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 100;
+            min-height: 44px;
+            touch-action: manipulation;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.2s ease;
+        }
+        
+        #controls-toggle:active {
+            background: #3ba3c7;
+            transform: scale(0.95);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        
+        @media (max-width: 768px) {
+            #controls-toggle {
+                display: block;
+            }
+            
+            #controls.collapsed .control-content {
+                display: none;
+            }
+        }
+        
+        h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #4fc3f7;
+            border-bottom: 2px solid #4fc3f7;
+            padding-bottom: 5px;
+            padding-right: 160px;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 15px;
+                margin-bottom: 8px;
+            }
+        }
+        
+        .hint {
+            font-size: 9px;
+            color: #888;
+            font-style: italic;
+            margin-top: 3px;
+        }
+        
+        @media (max-width: 480px) {
+            .hint {
+                font-size: 8px;
+            }
+        }
+        
+        h2 {
+            font-size: 12px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            color: #81c784;
+        }
+        
+        @media (max-width: 480px) {
+            h2 {
+                font-size: 11px;
+                margin-top: 10px;
+                margin-bottom: 6px;
+            }
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        @media (max-width: 480px) {
+            .control-group {
+                margin-bottom: 8px;
+            }
+        }
+        
+        label {
+            display: block;
+            font-size: 11px;
+            margin-bottom: 3px;
+            color: #b0b0b0;
+        }
+        
+        @media (max-width: 480px) {
+            label {
+                font-size: 10px;
+                margin-bottom: 2px;
+            }
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin: 3px 0;
+            height: 25px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+        }
+        
+        /* Touch-friendly sliders */
+        input[type="range"]::-webkit-slider-track {
+            width: 100%;
+            height: 4px;
+            background: #404040;
+            border-radius: 2px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+        }
+        
+        @media (max-width: 768px) {
+            input[type="range"] {
+                height: 35px;
+            }
+            
+            input[type="range"]::-webkit-slider-thumb {
+                height: 28px;
+                width: 28px;
+                border: 3px solid #ffffff;
+            }
+            
+            input[type="range"]::-webkit-slider-track {
+                height: 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            input[type="range"] {
+                height: 38px;
+            }
+            
+            input[type="range"]::-webkit-slider-thumb {
+                height: 30px;
+                width: 30px;
+            }
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 6px;
+            transform: scale(1.2);
+        }
+        
+        @media (max-width: 768px) {
+            input[type="checkbox"] {
+                transform: scale(1.5);
+                margin-right: 8px;
+            }
+        }
+        
+        .value-display {
+            font-size: 10px;
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 480px) {
+            .value-display {
+                font-size: 9px;
+            }
+        }
+        
+        .phase-section {
+            background: #333;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            border-left: 3px solid #4fc3f7;
+        }
+        
+        @media (max-width: 480px) {
+            .phase-section {
+                padding: 6px;
+                margin-bottom: 6px;
+            }
+        }
+        
+        .data-display {
+            background: #1e1e1e;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+        
+        @media (max-width: 480px) {
+            .data-display {
+                padding: 6px;
+                margin-top: 6px;
+                font-size: 9px;
+                line-height: 1.3;
+            }
+        }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 0;
+        }
+        
+        .data-label {
+            color: #b0b0b0;
+        }
+        
+        .data-value {
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+        
+        .coupling-indicator {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-size: 9px;
+            font-weight: bold;
+            margin-left: 3px;
+        }
+        
+        @media (max-width: 480px) {
+            .coupling-indicator {
+                font-size: 8px;
+                padding: 1px 4px;
+            }
+        }
+        
+        .coupling-very-high { background: #f44336; color: white; }
+        .coupling-high { background: #ff9800; color: white; }
+        .coupling-medium { background: #ffc107; color: black; }
+        .coupling-low { background: #4caf50; color: white; }
+        
+        .info-section {
+            background: #1e1e1e;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 9px;
+            line-height: 1.4;
+            border-left: 3px solid #4fc3f7;
+        }
+        
+        @media (max-width: 768px) {
+            .info-section {
+                display: none; /* Hide detailed info on mobile to save space */
+            }
+        }
+        
+        .info-section h3 {
+            font-size: 11px;
+            color: #4fc3f7;
+            margin: 8px 0 6px 0;
+            font-weight: bold;
+        }
+        
+        .info-section h3:first-child {
+            margin-top: 0;
+        }
+        
+        .info-section p {
+            margin: 4px 0;
+            color: #b0b0b0;
+        }
+        
+        .info-section .formula {
+            background: #2a2a2a;
+            padding: 4px 6px;
+            border-radius: 2px;
+            font-family: 'Courier New', monospace;
+            color: #81c784;
+            margin: 4px 0;
+            font-size: 8px;
+        }
+        
+        .info-section ul {
+            margin: 4px 0;
+            padding-left: 15px;
+        }
+        
+        .info-section li {
+            margin: 2px 0;
+            color: #b0b0b0;
+        }
+        
+        /* Touch-friendly buttons */
+        button {
+            min-height: 44px;
+            padding: 10px 14px;
+            font-size: 13px;
+            touch-action: manipulation;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        @media (max-width: 768px) {
+            button {
+                min-height: 48px;
+                font-size: 15px;
+                padding: 12px 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            button {
+                min-height: 50px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Select dropdowns mobile-friendly */
+        select {
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
+        }
+        
+        @media (max-width: 768px) {
+            select {
+                min-height: 48px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+            <div id="loading-overlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Pre-calculating Magnetic Field Cycle</div>
+                <div class="loading-progress" id="loading-progress">0%</div>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <button id="controls-toggle">⚙️ Show Settings</button>
+            <div class="control-content">
+            <h1>⚡ Magnetic Field Analyzer</h1>
+            <p class="hint">💡 Tap and drag conductors • Pinch to zoom • Two-finger pan</p>
+            
+            <h2>Performance Mode</h2>
+            <div class="control-group">
+                <label>Quality Preset:</label>
+                <select id="performanceMode" style="width: 100%; padding: 8px; margin: 5px 0; background: #404040; color: #e0e0e0; border: 1px solid #666; border-radius: 5px; font-size: inherit;">
+                    <option value="high">High Quality (Lower FPS)</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="performance">Performance</option>
+                    <option value="ultra" selected>Ultra Performance (Maximum FPS)</option>
+                </select>
+                <p class="hint" style="margin-top: 5px;">Adjust visualization quality vs. frame rate</p>
+            </div>
+            
+            <h2>Visualization</h2>
+            <div class="control-group">
+                <label><input type="checkbox" id="showFieldLines" checked> Show Field Lines</label>
+                <label><input type="checkbox" id="showContours" checked> Show Intensity Contours</label>
+                <label><input type="checkbox" id="showVectors" checked> Show Field Vectors</label>
+                <label><input type="checkbox" id="showIntensity" checked> Show Field Intensity</label>
+                <label><input type="checkbox" id="showLegend" checked> Show Color Scale Legend</label>
+                <label><input type="checkbox" id="showCenter" checked> Show Geometric Center</label>
+            </div>
+            
+            <h2>Quick Actions</h2>
+            <div class="control-group">
+                <label>Triangle Spacing: <span class="value-display" id="triangleSpacingValue">1.00 m</span></label>
+                <input type="range" id="triangleSpacing" min="0.1" max="2.0" value="1.0" step="0.05">
+                <button id="centerTriangle" style="width: 100%; padding: 12px; background: #4fc3f7; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: inherit; margin-top: 10px; min-height: 48px;">Center Equilateral Triangle</button>
+            </div>
+                <button id="balanceThree" style="width: 100%; padding: 12px; background: #4fc3f7; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: inherit; margin-top: 10px; min-height: 48px;">Balance Three-Phase</button>
+                <button id="pureZeroSequence" style="width: 100%; padding: 12px; background: #4fc3f7; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: inherit; margin-top: 10px; min-height: 48px;">Pure Zero Sequence</button>
+                <button id="toggleCurrentMode" style="width: 100%; padding: 12px; background: #4fc3f7; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: inherit; margin-top: 10px; min-height: 48px;">Switch to Sequence Currents</button>
+            
+            <h2>Center Point Field</h2>
+            <div class="data-display" id="centerFieldDisplay"></div>
+            
+            <h2>Cursor Position Field</h2>
+            <div class="data-display" id="cursorFieldDisplay">
+                <div style="color: #888; font-style: italic;">Move cursor over canvas</div>
+            </div>
+            
+            <h2>Animation</h2>
+            <div class="control-group">
+                <label>Frequency: <span class="value-display" id="freqValue">60 Hz</span></label>
+                <input type="range" id="frequency" min="50" max="400" value="60" step="1">
+                
+                <label>Animation Speed: <span class="value-display" id="speedValue">0.00002</span></label>
+                <input type="range" id="animSpeed" min="0" max="0.001" value="0.00002" step="0.00001">
+            </div>
+            
+            <h2>Display</h2>
+            <div class="control-group">
+                <label>Vector Scale: <span class="value-display" id="vectorScaleValue">1.0x</span></label>
+                <input type="range" id="vectorScale" min="-2" max="3" value="0" step="0.1">
+                
+                <label>Field Intensity Scale: <span class="value-display" id="intensityValue">0.05x</span></label>
+                <input type="range" id="fieldIntensity" min="-2" max="2" value="-1.301" step="0.1">
+                
+                <label>Density: <span class="value-display" id="densityValue">1</span></label>
+                <input type="range" id="density" min="1" max="5" value="1" step="1">
+                
+                <label>Zoom: <span class="value-display" id="zoomValue">1.00x</span></label>
+                <input type="range" id="zoom" min="0.05" max="5" value="1" step="0.05">
+            </div>
+            
+            <h2><span id="currentALabel">Phase A Current</span></h2>
+            <div class="phase-section">
+                <label>Current: <span class="value-display" id="currentAValue">100 A</span></label>
+                <input type="range" id="currentA" min="0" max="500" value="100" step="1">
+                
+                <label><span id="phaseAAngleLabel">Phase Angle</span>: <span class="value-display" id="phaseAValue">0°</span></label>
+                <input type="range" id="phaseA" min="-180" max="180" value="0" step="1">
+                
+                <label>Radius: <span class="value-display" id="radiusAValue">10 mm</span></label>
+                <input type="range" id="radiusA" min="5" max="50" value="10" step="1">
+            </div>
+            
+            <h2><span id="currentBLabel">Phase B Current</span></h2>
+            <div class="phase-section">
+                <label>Current: <span class="value-display" id="currentBValue">100 A</span></label>
+                <input type="range" id="currentB" min="0" max="500" value="100" step="1">
+                
+                <label><span id="phaseBAngleLabel">Phase Angle</span>: <span class="value-display" id="phaseBValue">-120°</span></label>
+                <input type="range" id="phaseB" min="-180" max="180" value="-120" step="1">
+                
+                <label>Radius: <span class="value-display" id="radiusBValue">10 mm</span></label>
+                <input type="range" id="radiusB" min="5" max="50" value="10" step="1">
+            </div>
+            
+            <h2><span id="currentCLabel">Phase C Current</span></h2>
+            <div class="phase-section">
+                <label>Current: <span class="value-display" id="currentCValue">100 A</span></label>
+                <input type="range" id="currentC" min="0" max="500" value="100" step="1">
+                
+                <label><span id="phaseCAngleLabel">Phase Angle</span>: <span class="value-display" id="phaseCValue">120°</span></label>
+                <input type="range" id="phaseC" min="-180" max="180" value="120" step="1">
+                
+                <label>Radius: <span class="value-display" id="radiusCValue">10 mm</span></label>
+                <input type="range" id="radiusC" min="5" max="50" value="10" step="1">
+            </div>
+            
+            <h2>Distances</h2>
+            <div class="data-display" id="distances"></div>
+            
+            <h2>Self Inductance & Reactance</h2>
+            <div class="data-display" id="selfInductance"></div>
+            
+            <h2>Mutual Inductance & Reactance</h2>
+            <div class="data-display" id="mutualInductance"></div>
+            
+            <h2>Sequence Reactances</h2>
+            <div class="data-display" id="sequenceReactances"></div>
+            
+            <div class="info-section">
+                <h3>📘 About This Simulation</h3>
+                <p>This tool visualizes the magnetic field generated by three-phase AC conductors in real-time. It calculates and displays the time-varying electromagnetic field using Ampère's law, showing how the field rotates and changes magnitude as the currents oscillate through their AC cycles.</p>
+                
+                <h3>🎮 How to Use</h3>
+                <p><strong>Interact with Conductors:</strong></p>
+                <ul>
+                    <li>Click and drag any conductor (A, B, or C) to reposition it</li>
+                    <li>Dragging automatically pauses the animation</li>
+                    <li>Release to recalculate and resume animation</li>
+                    <li>Adjust "Triangle Spacing" slider to set the size of the equilateral triangle</li>
+                    <li>Use "Center Equilateral Triangle" to arrange conductors symmetrically at the chosen spacing</li>
+                </ul>
+                <p><strong>Navigate the View:</strong></p>
+                <ul>
+                    <li>Click and drag the background to pan the view</li>
+                    <li>Scroll to zoom in/out</li>
+                    <li>Use the Zoom slider for precise control</li>
+                </ul>
+                <p><strong>Observe Field Cancellation:</strong></p>
+                <ul>
+                    <li>The yellow center marker shows the geometric center of the three conductors</li>
+                    <li>The "Center Point Field" panel displays the magnetic field strength at this center</li>
+                    <li>For a balanced three-phase system in equilateral arrangement, the center field should be near zero!</li>
+                    <li>Adjust the "Triangle Spacing" slider to change conductor separation (0.1 to 2.0 meters)</li>
+                    <li>Try the "Center Equilateral Triangle" button to see perfect field cancellation at any spacing</li>
+                    <li>Note: Smaller spacing increases mutual coupling and changes the GMD calculations</li>
+                </ul>
+                <p><strong>Explore Field at Any Point:</strong></p>
+                <ul>
+                    <li>Move your cursor over the canvas to see real-time field measurements at that location</li>
+                    <li>The "Cursor Position Field" panel shows field magnitude, components (Bx, By), and direction</li>
+                    <li>Watch how the field changes as you move around the conductors</li>
+                </ul>
+                <p><strong>Adjust Parameters:</strong></p>
+                <ul>
+                    <li>Change frequency (50-400 Hz) to see different AC rates</li>
+                    <li>Modify phase angles to create unbalanced systems</li>
+                    <li>Adjust currents to see field strength changes</li>
+                    <li>Change conductor radii to affect inductance</li>
+                </ul>
+                
+                <h3>🔢 Calculations Explained</h3>
+                
+                <p><strong>Magnetic Field (Ampère's Law):</strong></p>
+                <p class="formula">B = (μ₀ × I) / (2π × r)</p>
+                <p>The magnetic flux density at distance r from a conductor carrying current I, where μ₀ = 4π×10⁻⁷ H/m is the permeability of free space.</p>
+                
+                <p><strong>Instantaneous Current:</strong></p>
+                <p class="formula">i(t) = I × sin(2πft + φ)</p>
+                <p>Where I is the RMS current magnitude, f is frequency (Hz), t is time (s), and φ is the phase angle (radians).</p>
+                
+                <p><strong>Geometric Mean Distance (GMD):</strong></p>
+                <p class="formula">GMD = ∛(D_AB × D_BC × D_CA)</p>
+                <p>The cubic root of the product of all conductor spacing distances. Used to calculate mutual inductance between phases.</p>
+                
+                <p><strong>Geometric Mean Radius (GMR):</strong></p>
+                <p class="formula">GMR = 0.7788 × r</p>
+                <p>For a solid cylindrical conductor of radius r. GMR accounts for internal flux linkage and is used in self-inductance calculations.</p>
+                
+                <p><strong>Self Inductance per meter:</strong></p>
+                <p class="formula">L_self = (μ₀/2π) × ln(1/GMR)</p>
+                <p>The inductance of a single conductor due to its own current, per unit length.</p>
+                
+                <p><strong>Mutual Inductance per meter:</strong></p>
+                <p class="formula">L_mutual = (μ₀/2π) × ln(1/D)</p>
+                <p>The inductance between two conductors separated by distance D, per unit length.</p>
+                
+                <p><strong>Inductive Reactance:</strong></p>
+                <p class="formula">X = 2πfL</p>
+                <p>The opposition to current flow due to inductance L at frequency f. Measured in ohms per meter (Ω/m).</p>
+                
+                <p><strong>Positive Sequence Reactance:</strong></p>
+                <p class="formula">X₁ = X_self - X_mutual_avg</p>
+                <p>Reactance experienced by balanced three-phase currents. Used in normal operating conditions.</p>
+                
+                <p><strong>Zero Sequence Reactance:</strong></p>
+                <p class="formula">X₀ = X_self + 2×X_mutual_avg</p>
+                <p>Reactance when all phases carry equal in-phase currents (ground faults). Always higher than X₁ due to additive mutual coupling.</p>
+                
+                <p><strong>Coupling Factor:</strong></p>
+                <p>The simulation indicates coupling strength based on GMD:</p>
+                <ul>
+                    <li><strong>Very High</strong> (GMD < 0.3m): Strong magnetic interaction</li>
+                    <li><strong>High</strong> (0.3-0.6m): Significant coupling</li>
+                    <li><strong>Medium</strong> (0.6-1.0m): Moderate coupling</li>
+                    <li><strong>Low</strong> (GMD > 1.0m): Weak coupling</li>
+                </ul>
+                
+                <h3>🎨 Visualization Elements</h3>
+                <ul>
+                    <li><strong>Field Lines:</strong> Follow the direction of magnetic flux</li>
+                    <li><strong>Intensity Contours:</strong> Show equal-strength field boundaries</li>
+                    <li><strong>Field Vectors:</strong> Display field direction and magnitude</li>
+                    <li><strong>Heat Map:</strong> Color intensity indicates field strength</li>
+                    <li><strong>Phasor Diagram:</strong> Shows rotating current vectors with brightness proportional to instantaneous current</li>
+                    <li><strong>Geometric Center (Yellow):</strong> Marks the center point of the three conductors where field cancellation occurs in balanced systems</li>
+                </ul>
+                
+                <p><strong>Color Scale:</strong> Yellow/green = strong field, blue/purple = weak field. The scale adapts to show detail across the entire range.</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Physics constants
+        const MU_0 = 4 * Math.PI * 1e-7; // H/m
+        
+        // State
+        let time = 0;
+        let animationId = null;
+        let lastFrameTime = 0;
+        let fps = 60;
+        
+        // Performance optimization - cycle cache for pre-calculated fields
+        let cycleCache = {
+            timeSteps: [],
+            grids: [],
+            maxFields: [],
+            numSteps: 45, // Ultra Performance mode: Maximum FPS
+            gridSize: 60, // Ultra Performance mode: Maximum FPS
+            width: 0,
+            height: 0,
+            isCalculating: false,
+            isReady: false,
+            progress: 0,
+            lastZoom: 1.0,
+            lastCanvasWidth: 0,
+            lastCanvasHeight: 0,
+            lastOffsetX: 0,
+            lastOffsetY: 0,
+            calculationStartTime: 0
+        };
+        
+        // Performance mode settings
+        let performanceSettings = {
+            mode: 'ultra',
+            profiles: {
+                high: {
+                    numSteps: 120,
+                    gridSize: 30,
+                    pathSteps: 800,
+                    contourGridSize: { min: 20, max: 40, base: 25 },
+                    contourLevels: { min: 3, max: 5, base: 4 },
+                    vectorSpacing: { min: 40, base: 70 },
+                    sectionMultiplier: 2,
+                    updateInterval: 20
+                },
+                balanced: {
+                    numSteps: 90,
+                    gridSize: 40,
+                    pathSteps: 500,
+                    contourGridSize: { min: 30, max: 50, base: 35 },
+                    contourLevels: { min: 2, max: 4, base: 3 },
+                    vectorSpacing: { min: 50, base: 80 },
+                    sectionMultiplier: 3,
+                    updateInterval: 30
+                },
+                performance: {
+                    numSteps: 60,
+                    gridSize: 50,
+                    pathSteps: 300,
+                    contourGridSize: { min: 40, max: 60, base: 45 },
+                    contourLevels: { min: 2, max: 3, base: 2 },
+                    vectorSpacing: { min: 60, base: 100 },
+                    sectionMultiplier: 4,
+                    updateInterval: 40
+                },
+                ultra: {
+                    numSteps: 45,
+                    gridSize: 60,
+                    pathSteps: 200,
+                    contourGridSize: { min: 50, max: 70, base: 55 },
+                    contourLevels: { min: 1, max: 2, base: 2 },
+                    vectorSpacing: { min: 80, base: 120 },
+                    sectionMultiplier: 5,
+                    updateInterval: 60
+                }
+            }
+        };
+        
+        // Get current performance profile
+        function getPerfProfile() {
+            return performanceSettings.profiles[performanceSettings.mode];
+        }
+        
+        // Conductor positions (meters)
+        let conductors = [
+            { x: -0.5, y: 0, phase: 'A' },
+            { x: 0.5, y: 0, phase: 'B' },
+            { x: 0, y: 0.866, phase: 'C' }
+        ];
+        
+        // Parameters
+        let params = {
+            frequency: 60,
+            animSpeed: 0.00002,
+            vectorScale: 1.0,
+            fieldIntensity: 0.05,
+            density: 1,
+            zoom: 1.0,
+            currentA: 100,
+            currentB: 100,
+            currentC: 100,
+            phaseA: 0,
+            phaseB: -120,
+            phaseC: 120,
+            radiusA: 0.01,
+            radiusB: 0.01,
+            radiusC: 0.01,
+            triangleSpacing: 1.0,
+            
+            // NEW: Sequence/Phase current toggle mode
+            currentMode: 'phase',        // 'phase' or 'sequence'
+            
+            // NEW: Sequence current magnitudes (Amperes)
+            sequenceCurrent0: 0,         // Zero sequence magnitude
+            sequenceCurrent1: 100,       // Positive sequence magnitude
+            sequenceCurrent2: 0,         // Negative sequence magnitude
+            
+            // NEW: Sequence current angles (degrees)
+            sequencePhase0: 0,           // Zero sequence angle
+            sequencePhase1: 0,           // Positive sequence angle
+            sequencePhase2: 0            // Negative sequence angle
+        };
+        
+        // ====================================================================
+        // SEQUENCE/PHASE CONVERSION FUNCTIONS (Phase 1: Core Infrastructure)
+        // ====================================================================
+        
+        /**
+         * Convert sequence components (I0, I1, I2) to phase currents (Ia, Ib, Ic)
+         * Uses symmetrical component transformation with complex number math
+         *
+         * Formula: [Ia]   [1  1   1 ] [I0]
+         *          [Ib] = [1  a²  a ] [I1]
+         *          [Ic]   [1  a   a²] [I2]
+         *
+         * where a = 1∠120° (complex operator)
+         *
+         * @param {number} I0_mag - Zero sequence magnitude (A)
+         * @param {number} I0_ang - Zero sequence angle (degrees)
+         * @param {number} I1_mag - Positive sequence magnitude (A)
+         * @param {number} I1_ang - Positive sequence angle (degrees)
+         * @param {number} I2_mag - Negative sequence magnitude (A)
+         * @param {number} I2_ang - Negative sequence angle (degrees)
+         * @returns {object} - {Ia, phaseA, Ib, phaseB, Ic, phaseC}
+         */
+        function sequenceToPhase(I0_mag, I0_ang, I1_mag, I1_ang, I2_mag, I2_ang) {
+            console.log('sequenceToPhase() called:', {I0_mag, I0_ang, I1_mag, I1_ang, I2_mag, I2_ang});
+            
+            // Convert angles from degrees to radians
+            const phi0 = I0_ang * Math.PI / 180;
+            const phi1 = I1_ang * Math.PI / 180;
+            const phi2 = I2_ang * Math.PI / 180;
+            
+            // Complex operator 'a' = 1∠120° = e^(j*2π/3)
+            const a_real = -0.5;              // cos(120°)
+            const a_imag = Math.sqrt(3) / 2;  // sin(120°)
+            
+            // Complex operator 'a²' = 1∠240° = e^(j*4π/3)
+            const a2_real = -0.5;              // cos(240°)
+            const a2_imag = -Math.sqrt(3) / 2; // sin(240°)
+            
+            // Convert sequence components to complex form (rectangular coordinates)
+            const I0_real = I0_mag * Math.cos(phi0);
+            const I0_imag = I0_mag * Math.sin(phi0);
+            
+            const I1_real = I1_mag * Math.cos(phi1);
+            const I1_imag = I1_mag * Math.sin(phi1);
+            
+            const I2_real = I2_mag * Math.cos(phi2);
+            const I2_imag = I2_mag * Math.sin(phi2);
+            
+            // Ia = I0 + I1 + I2
+            const Ia_real = I0_real + I1_real + I2_real;
+            const Ia_imag = I0_imag + I1_imag + I2_imag;
+            
+            // Ib = I0 + a²*I1 + a*I2
+            // Complex multiplication: (a + jb)(c + jd) = (ac - bd) + j(ad + bc)
+            
+            // a²*I1 = (a2_real + j*a2_imag) * (I1_real + j*I1_imag)
+            const a2I1_real = a2_real * I1_real - a2_imag * I1_imag;
+            const a2I1_imag = a2_real * I1_imag + a2_imag * I1_real;
+            
+            // a*I2 = (a_real + j*a_imag) * (I2_real + j*I2_imag)
+            const aI2_real = a_real * I2_real - a_imag * I2_imag;
+            const aI2_imag = a_real * I2_imag + a_imag * I2_real;
+            
+            const Ib_real = I0_real + a2I1_real + aI2_real;
+            const Ib_imag = I0_imag + a2I1_imag + aI2_imag;
+            
+            // Ic = I0 + a*I1 + a²*I2
+            
+            // a*I1 = (a_real + j*a_imag) * (I1_real + j*I1_imag)
+            const aI1_real = a_real * I1_real - a_imag * I1_imag;
+            const aI1_imag = a_real * I1_imag + a_imag * I1_real;
+            
+            // a²*I2 = (a2_real + j*a2_imag) * (I2_real + j*I2_imag)
+            const a2I2_real = a2_real * I2_real - a2_imag * I2_imag;
+            const a2I2_imag = a2_real * I2_imag + a2_imag * I2_real;
+            
+            const Ic_real = I0_real + aI1_real + a2I2_real;
+            const Ic_imag = I0_imag + aI1_imag + a2I2_imag;
+            
+            // Convert back to magnitude and angle (polar coordinates)
+            const Ia_mag = Math.sqrt(Ia_real * Ia_real + Ia_imag * Ia_imag);
+            const Ia_ang = Math.atan2(Ia_imag, Ia_real) * 180 / Math.PI;
+            
+            const Ib_mag = Math.sqrt(Ib_real * Ib_real + Ib_imag * Ib_imag);
+            const Ib_ang = Math.atan2(Ib_imag, Ib_real) * 180 / Math.PI;
+            
+            const Ic_mag = Math.sqrt(Ic_real * Ic_real + Ic_imag * Ic_imag);
+            const Ic_ang = Math.atan2(Ic_imag, Ic_real) * 180 / Math.PI;
+            
+            const result = {
+                Ia: Ia_mag,
+                phaseA: Ia_ang,
+                Ib: Ib_mag,
+                phaseB: Ib_ang,
+                Ic: Ic_mag,
+                phaseC: Ic_ang
+            };
+            
+            console.log('sequenceToPhase() result:', result);
+            return result;
+        }
+        
+        /**
+         * Convert phase currents (Ia, Ib, Ic) to sequence components (I0, I1, I2)
+         * Uses inverse symmetrical component transformation
+         *
+         * Formula: [I0]   [1  1   1 ] [Ia]
+         *          [I1] = [1  a   a²] [Ib] * (1/3)
+         *          [I2]   [1  a²  a ] [Ic]
+         *
+         * where a = 1∠120° (complex operator)
+         *
+         * @param {number} Ia_mag - Phase A magnitude (A)
+         * @param {number} Ia_ang - Phase A angle (degrees)
+         * @param {number} Ib_mag - Phase B magnitude (A)
+         * @param {number} Ib_ang - Phase B angle (degrees)
+         * @param {number} Ic_mag - Phase C magnitude (A)
+         * @param {number} Ic_ang - Phase C angle (degrees)
+         * @returns {object} - {I0, phaseI0, I1, phaseI1, I2, phaseI2}
+         */
+        function phaseToSequence(Ia_mag, Ia_ang, Ib_mag, Ib_ang, Ic_mag, Ic_ang) {
+            console.log('phaseToSequence() called:', {Ia_mag, Ia_ang, Ib_mag, Ib_ang, Ic_mag, Ic_ang});
+            
+            // Convert angles from degrees to radians
+            const phiA = Ia_ang * Math.PI / 180;
+            const phiB = Ib_ang * Math.PI / 180;
+            const phiC = Ic_ang * Math.PI / 180;
+            
+            // Convert phase currents to complex form (rectangular coordinates)
+            const Ia_real = Ia_mag * Math.cos(phiA);
+            const Ia_imag = Ia_mag * Math.sin(phiA);
+            
+            const Ib_real = Ib_mag * Math.cos(phiB);
+            const Ib_imag = Ib_mag * Math.sin(phiB);
+            
+            const Ic_real = Ic_mag * Math.cos(phiC);
+            const Ic_imag = Ic_mag * Math.sin(phiC);
+            
+            // Complex operator 'a' = 1∠120°
+            const a_real = -0.5;
+            const a_imag = Math.sqrt(3) / 2;
+            
+            // Complex operator 'a²' = 1∠240°
+            const a2_real = -0.5;
+            const a2_imag = -Math.sqrt(3) / 2;
+            
+            // I0 = (1/3)(Ia + Ib + Ic)
+            const I0_real = (Ia_real + Ib_real + Ic_real) / 3;
+            const I0_imag = (Ia_imag + Ib_imag + Ic_imag) / 3;
+            
+            // I1 = (1/3)(Ia + a*Ib + a²*Ic)
+            
+            // a*Ib = (a_real + j*a_imag) * (Ib_real + j*Ib_imag)
+            const aIb_real = a_real * Ib_real - a_imag * Ib_imag;
+            const aIb_imag = a_real * Ib_imag + a_imag * Ib_real;
+            
+            // a²*Ic = (a2_real + j*a2_imag) * (Ic_real + j*Ic_imag)
+            const a2Ic_real = a2_real * Ic_real - a2_imag * Ic_imag;
+            const a2Ic_imag = a2_real * Ic_imag + a2_imag * Ic_real;
+            
+            const I1_real = (Ia_real + aIb_real + a2Ic_real) / 3;
+            const I1_imag = (Ia_imag + aIb_imag + a2Ic_imag) / 3;
+            
+            // I2 = (1/3)(Ia + a²*Ib + a*Ic)
+            
+            // a²*Ib = (a2_real + j*a2_imag) * (Ib_real + j*Ib_imag)
+            const a2Ib_real = a2_real * Ib_real - a2_imag * Ib_imag;
+            const a2Ib_imag = a2_real * Ib_imag + a2_imag * Ib_real;
+            
+            // a*Ic = (a_real + j*a_imag) * (Ic_real + j*Ic_imag)
+            const aIc_real = a_real * Ic_real - a_imag * Ic_imag;
+            const aIc_imag = a_real * Ic_imag + a_imag * Ic_real;
+            
+            const I2_real = (Ia_real + a2Ib_real + aIc_real) / 3;
+            const I2_imag = (Ia_imag + a2Ib_imag + aIc_imag) / 3;
+            
+            // Convert to magnitude and angle (polar coordinates)
+            // Handle zero magnitude case (angle is undefined for zero-magnitude phasors)
+            const I0_mag = Math.sqrt(I0_real * I0_real + I0_imag * I0_imag);
+            const I0_ang = I0_mag < 1e-6 ? 0 : Math.atan2(I0_imag, I0_real) * 180 / Math.PI;
+            
+            const I1_mag = Math.sqrt(I1_real * I1_real + I1_imag * I1_imag);
+            const I1_ang = I1_mag < 1e-6 ? 0 : Math.atan2(I1_imag, I1_real) * 180 / Math.PI;
+            
+            const I2_mag = Math.sqrt(I2_real * I2_real + I2_imag * I2_imag);
+            const I2_ang = I2_mag < 1e-6 ? 0 : Math.atan2(I2_imag, I2_real) * 180 / Math.PI;
+            
+            const result = {
+                I0: I0_mag,
+                phaseI0: I0_ang,
+                I1: I1_mag,
+                phaseI1: I1_ang,
+                I2: I2_mag,
+                phaseI2: I2_ang
+            };
+            
+            console.log('phaseToSequence() result:', result);
+            return result;
+        }
+        
+        /**
+         * Ensures phase currents are always up-to-date based on current mode
+         * This is the single point where sequence-to-phase conversion happens
+         * Call this before any magnetic field calculation
+         *
+         * In phase mode: Does nothing (phase currents already correct)
+         * In sequence mode: Converts sequence components to phase currents
+         */
+        function updatePhaseCurrents() {
+            if (params.currentMode === 'sequence') {
+                console.log('updatePhaseCurrents(): Converting from sequence to phase');
+                
+                // Convert sequence to phase
+                const phase = sequenceToPhase(
+                    params.sequenceCurrent0, params.sequencePhase0,
+                    params.sequenceCurrent1, params.sequencePhase1,
+                    params.sequenceCurrent2, params.sequencePhase2
+                );
+                
+                // Update phase current parameters (these are always used for field calculations)
+                params.currentA = phase.Ia;
+                params.phaseA = phase.phaseA;
+                params.currentB = phase.Ib;
+                params.phaseB = phase.phaseB;
+                params.currentC = phase.Ic;
+                params.phaseC = phase.phaseC;
+                
+                console.log('updatePhaseCurrents(): Phase currents updated:', {
+                    currentA: params.currentA,
+                    phaseA: params.phaseA,
+                    currentB: params.currentB,
+                    phaseB: params.phaseB,
+                    currentC: params.currentC,
+                    phaseC: params.phaseC
+                });
+            } else {
+                // In phase mode, currentA/B/C are already correct - no conversion needed
+                console.log('updatePhaseCurrents(): Phase mode - no conversion needed');
+            }
+        }
+        
+        /**
+         * Updates all UI labels based on current mode
+         */
+        function updateUILabels() {
+            const mode = params.currentMode;
+            const toggleButton = document.getElementById('toggleCurrentMode');
+            
+            if (mode === 'phase') {
+                // Phase current mode labels
+                document.getElementById('currentALabel').textContent = 'Phase A Current';
+                document.getElementById('currentBLabel').textContent = 'Phase B Current';
+                document.getElementById('currentCLabel').textContent = 'Phase C Current';
+                document.getElementById('phaseAAngleLabel').textContent = 'Phase Angle';
+                document.getElementById('phaseBAngleLabel').textContent = 'Phase Angle';
+                document.getElementById('phaseCAngleLabel').textContent = 'Phase Angle';
+                toggleButton.textContent = 'Switch to Sequence Currents';
+            } else {
+                // Sequence current mode labels
+                document.getElementById('currentALabel').textContent = 'Zero Sequence (I₀)';
+                document.getElementById('currentBLabel').textContent = 'Positive Sequence (I₁)';
+                document.getElementById('currentCLabel').textContent = 'Negative Sequence (I₂)';
+                document.getElementById('phaseAAngleLabel').textContent = 'Zero Seq Angle';
+                document.getElementById('phaseBAngleLabel').textContent = 'Pos Seq Angle';
+                document.getElementById('phaseCAngleLabel').textContent = 'Neg Seq Angle';
+                toggleButton.textContent = 'Switch to Phase Currents';
+            }
+            
+            console.log(`UI labels updated to ${mode} mode`);
+        }
+        
+        /**
+         * Updates slider positions and displays based on current mode
+         */
+        function updateSliderValues() {
+            if (params.currentMode === 'phase') {
+                // Update sliders with phase current values
+                document.getElementById('currentA').value = params.currentA;
+                document.getElementById('currentB').value = params.currentB;
+                document.getElementById('currentC').value = params.currentC;
+                document.getElementById('phaseA').value = params.phaseA;
+                document.getElementById('phaseB').value = params.phaseB;
+                document.getElementById('phaseC').value = params.phaseC;
+                
+                // Update display labels
+                document.getElementById('currentAValue').textContent = `${params.currentA.toFixed(1)} A`;
+                document.getElementById('currentBValue').textContent = `${params.currentB.toFixed(1)} A`;
+                document.getElementById('currentCValue').textContent = `${params.currentC.toFixed(1)} A`;
+                document.getElementById('phaseAValue').textContent = `${params.phaseA}°`;
+                document.getElementById('phaseBValue').textContent = `${params.phaseB}°`;
+                document.getElementById('phaseCValue').textContent = `${params.phaseC}°`;
+            } else {
+                // Update sliders with sequence current values
+                document.getElementById('currentA').value = params.sequenceCurrent0;
+                document.getElementById('currentB').value = params.sequenceCurrent1;
+                document.getElementById('currentC').value = params.sequenceCurrent2;
+                document.getElementById('phaseA').value = params.sequencePhase0;
+                document.getElementById('phaseB').value = params.sequencePhase1;
+                document.getElementById('phaseC').value = params.sequencePhase2;
+                
+                // Update display labels
+                document.getElementById('currentAValue').textContent = `${params.sequenceCurrent0.toFixed(1)} A`;
+                document.getElementById('currentBValue').textContent = `${params.sequenceCurrent1.toFixed(1)} A`;
+                document.getElementById('currentCValue').textContent = `${params.sequenceCurrent2.toFixed(1)} A`;
+                document.getElementById('phaseAValue').textContent = `${params.sequencePhase0}°`;
+                document.getElementById('phaseBValue').textContent = `${params.sequencePhase1}°`;
+                document.getElementById('phaseCValue').textContent = `${params.sequencePhase2}°`;
+            }
+            
+            console.log(`Slider values updated for ${params.currentMode} mode`);
+        }
+        
+        // ====================================================================
+        // END SEQUENCE/PHASE CONVERSION FUNCTIONS
+        // ====================================================================
+        
+        // Display toggles
+        let display = {
+            fieldLines: true,
+            contours: true,
+            vectors: true,
+            intensity: true,
+            legend: true,
+            center: true
+        };
+        
+        // Camera
+        let camera = {
+            offsetX: 0,
+            offsetY: 0,
+            lastOffsetX: 0,
+            lastOffsetY: 0,
+            dragging: false,
+            dragStart: { x: 0, y: 0 }
+        };
+        
+        // Field line cache for performance
+        let fieldLineCache = {
+            paths: [],
+            lastUpdateTime: 0,
+            updateInterval: 1000 / 30,
+            needsUpdate: true
+        };
+        
+        // Selected conductor for dragging
+        let selectedConductor = null;
+        let hoveredConductor = null;
+        let savedAnimSpeed = 0;
+        
+        // Cursor position tracking
+        let cursorWorld = { x: 0, y: 0, valid: false };
+        
+        // Mobile and touch support
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let touchStartDistance = 0;
+        let lastTouchTime = 0;
+        let touches = [];
+        let initialPinchZoom = 1.0;
+        let pinchCenter = { x: 0, y: 0 };
+        let isPinching = false;
+        let lastTouchEnd = 0;
+        let isUsingTouch = false;
+        
+        // Touch feedback system
+        let touchHalos = []; // Array of {conductorIndex, opacity, startTime}
+        
+        // Mobile conductor size multiplier
+        const MOBILE_CONDUCTOR_SIZE_MULTIPLIER = 1.5;
+        const MOBILE_HIT_RADIUS = 0.20; // Increased from 0.08 for easier tapping
+        const DESKTOP_HIT_RADIUS = 0.05;
+        
+        // Get touch distance for pinch zoom
+        function getTouchDistance(touches) {
+            if (touches.length < 2) return 0;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        // Get touch center point
+        function getTouchCenter(touches) {
+            if (touches.length === 0) return { x: 0, y: 0 };
+            let x = 0, y = 0;
+            for (let i = 0; i < touches.length; i++) {
+                x += touches[i].clientX;
+                y += touches[i].clientY;
+            }
+            return { x: x / touches.length, y: y / touches.length };
+        }
+        
+        // Resize canvas
+        let resizeTimeout;
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            
+            if (canvas.width !== newWidth || canvas.height !== newHeight) {
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                fieldLineCache.needsUpdate = true;
+                
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    const significantChange = Math.abs(newWidth - cycleCache.lastCanvasWidth) > 100 ||
+                                             Math.abs(newHeight - cycleCache.lastCanvasHeight) > 100;
+                    if (significantChange) {
+                        invalidateCache();
+                    }
+                }, 500);
+            }
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Get current for phase at time t
+        function getCurrent(phaseIndex, t) {
+            const currents = [params.currentA, params.currentB, params.currentC];
+            const phases = [params.phaseA, params.phaseB, params.phaseC];
+            const current = currents[phaseIndex];
+            const phase = phases[phaseIndex] * Math.PI / 180;
+            return current * Math.sin(2 * Math.PI * params.frequency * t + phase);
+        }
+        
+        // Calculate magnetic field at point (x, y) at time t
+        function getTotalField(x, y, t) {
+            let bx = 0, by = 0;
+            
+            for (let i = 0; i < 3; i++) {
+                const conductor = conductors[i];
+                const dx = x - conductor.x;
+                const dy = y - conductor.y;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                
+                if (r < 1e-6) continue;
+                
+                const current = getCurrent(i, t);
+                const bMag = (MU_0 * current) / (2 * Math.PI * r);
+                
+                bx += -dy * bMag / r;
+                by += dx * bMag / r;
+            }
+            
+            const magnitude = Math.sqrt(bx * bx + by * by);
+            return { bx, by, magnitude };
+        }
+        
+        // Build cycle cache
+        async function buildCycleCache() {
+            if (cycleCache.isCalculating) {
+                console.log('Cache already calculating, skipping...');
+                return;
+            }
+            
+            if (canvas.width === 0 || canvas.height === 0) {
+                setTimeout(buildCycleCache, 100);
+                return;
+            }
+            
+            cycleCache.isCalculating = true;
+            cycleCache.isReady = false;
+            cycleCache.progress = 0;
+            cycleCache.calculationStartTime = Date.now();
+            
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingProgress = document.getElementById('loading-progress');
+            if (loadingOverlay) loadingOverlay.classList.add('visible');
+            
+            try {
+                const gridSize = cycleCache.gridSize;
+                const width = Math.ceil(canvas.width / gridSize) + 1;
+                const height = Math.ceil(canvas.height / gridSize) + 1;
+                
+                cycleCache.width = width;
+                cycleCache.height = height;
+                cycleCache.grids = [];
+                cycleCache.maxFields = [];
+                cycleCache.timeSteps = [];
+                
+                const period = 1.0 / params.frequency;
+                const profile = getPerfProfile();
+                const numSteps = profile.numSteps;
+                cycleCache.numSteps = numSteps;
+                
+                for (let step = 0; step < numSteps; step++) {
+                    const t = (step / numSteps) * period;
+                    cycleCache.timeSteps.push(t);
+                    
+                    const grid = new Array(height);
+                    let maxField = 0;
+                    
+                    for (let j = 0; j < height; j++) {
+                        grid[j] = new Array(width);
+                        for (let i = 0; i < width; i++) {
+                            const sx = i * gridSize;
+                            const sy = j * gridSize;
+                            const world = screenToWorld(sx, sy);
+                            const field = getTotalField(world.x, world.y, t);
+                            grid[j][i] = field;
+                            maxField = Math.max(maxField, field.magnitude);
+                        }
+                    }
+                    
+                    maxField *= params.fieldIntensity;
+                    cycleCache.grids.push(grid);
+                    cycleCache.maxFields.push(maxField);
+                    cycleCache.progress = ((step + 1) / numSteps) * 100;
+                    
+                    if (loadingProgress) loadingProgress.textContent = `${Math.round(cycleCache.progress)}%`;
+                    
+                    if (step % 5 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                }
+                
+                cycleCache.isCalculating = false;
+                cycleCache.isReady = true;
+                cycleCache.progress = 100;
+                cycleCache.calculationStartTime = 0;
+                cycleCache.lastCanvasWidth = canvas.width;
+                cycleCache.lastCanvasHeight = canvas.height;
+                cycleCache.lastOffsetX = camera.offsetX;
+                cycleCache.lastOffsetY = camera.offsetY;
+                
+                console.log('Cache built successfully');
+                
+            } catch (error) {
+                console.error('Error building cache:', error);
+                cycleCache.isCalculating = false;
+                cycleCache.isReady = false;
+                cycleCache.calculationStartTime = 0;
+                // Retry after a short delay
+                setTimeout(buildCycleCache, 1000);
+            }
+            
+            if (loadingOverlay) {
+                setTimeout(() => {
+                    loadingOverlay.classList.remove('visible');
+                }, 300);
+            }
+        }
+        
+        // Get interpolated field from cycle cache
+        function getCachedCycleField(screenX, screenY, t) {
+            if (!cycleCache.isReady) {
+                const world = screenToWorld(screenX, screenY);
+                return getTotalField(world.x, world.y, t);
+            }
+            
+            const period = 1.0 / params.frequency;
+            const normalizedTime = (t % period) / period;
+            const numSteps = cycleCache.numSteps;
+            
+            const stepFloat = normalizedTime * numSteps;
+            const step0 = Math.floor(stepFloat) % numSteps;
+            const step1 = (step0 + 1) % numSteps;
+            const tFrac = stepFloat - Math.floor(stepFloat);
+            
+            const gridSize = cycleCache.gridSize;
+            const i = screenX / gridSize;
+            const j = screenY / gridSize;
+            const i0 = Math.floor(i);
+            const j0 = Math.floor(j);
+            const i1 = Math.min(i0 + 1, cycleCache.width - 1);
+            const j1 = Math.min(j0 + 1, cycleCache.height - 1);
+            
+            if (i0 < 0 || j0 < 0 || i0 >= cycleCache.width || j0 >= cycleCache.height) {
+                const world = screenToWorld(screenX, screenY);
+                return getTotalField(world.x, world.y, t);
+            }
+            
+            const fx = i - i0;
+            const fy = j - j0;
+            
+            const grid0 = cycleCache.grids[step0];
+            const f00_0 = grid0[j0][i0];
+            const f10_0 = grid0[j0][i1];
+            const f01_0 = grid0[j1][i0];
+            const f11_0 = grid0[j1][i1];
+            
+            const bx0 = (1 - fx) * (1 - fy) * f00_0.bx +
+                        fx * (1 - fy) * f10_0.bx +
+                        (1 - fx) * fy * f01_0.bx +
+                        fx * fy * f11_0.bx;
+            
+            const by0 = (1 - fx) * (1 - fy) * f00_0.by +
+                        fx * (1 - fy) * f10_0.by +
+                        (1 - fx) * fy * f01_0.by +
+                        fx * fy * f11_0.by;
+            
+            const grid1 = cycleCache.grids[step1];
+            const f00_1 = grid1[j0][i0];
+            const f10_1 = grid1[j0][i1];
+            const f01_1 = grid1[j1][i0];
+            const f11_1 = grid1[j1][i1];
+            
+            const bx1 = (1 - fx) * (1 - fy) * f00_1.bx +
+                        fx * (1 - fy) * f10_1.bx +
+                        (1 - fx) * fy * f01_1.bx +
+                        fx * fy * f11_1.bx;
+            
+            const by1 = (1 - fx) * (1 - fy) * f00_1.by +
+                        fx * (1 - fy) * f10_1.by +
+                        (1 - fx) * fy * f01_1.by +
+                        fx * fy * f11_1.by;
+            
+            const bx = (1 - tFrac) * bx0 + tFrac * bx1;
+            const by = (1 - tFrac) * by0 + tFrac * by1;
+            const magnitude = Math.sqrt(bx * bx + by * by);
+            
+            return { bx, by, magnitude };
+        }
+        
+        // Get max field from cycle cache
+        function getCachedMaxField(t) {
+            if (!cycleCache.isReady) return 1e-6;
+            
+            const period = 1.0 / params.frequency;
+            const normalizedTime = (t % period) / period;
+            const numSteps = cycleCache.numSteps;
+            
+            const stepFloat = normalizedTime * numSteps;
+            const step0 = Math.floor(stepFloat) % numSteps;
+            const step1 = (step0 + 1) % numSteps;
+            const tFrac = stepFloat - Math.floor(stepFloat);
+            
+            const maxField = (1 - tFrac) * cycleCache.maxFields[step0] + tFrac * cycleCache.maxFields[step1];
+            return maxField;
+        }
+        
+        // Mark cache as needing update
+        let cacheInvalidationTimeout = null;
+        function invalidateCache() {
+            if (cycleCache.isCalculating) {
+                console.log('Cache is calculating, will retry invalidation...');
+                // Schedule retry
+                clearTimeout(cacheInvalidationTimeout);
+                cacheInvalidationTimeout = setTimeout(invalidateCache, 500);
+                return;
+            }
+            
+            clearTimeout(cacheInvalidationTimeout);
+            cycleCache.isReady = false;
+            buildCycleCache();
+        }
+        
+        // Convert world coordinates to screen coordinates
+        function worldToScreen(x, y) {
+            const scale = params.zoom * Math.min(canvas.width, canvas.height) / 3;
+            const screenX = canvas.width / 2 + (x * scale) + camera.offsetX;
+            const screenY = canvas.height / 2 - (y * scale) + camera.offsetY;
+            return { x: screenX, y: screenY };
+        }
+        
+        // Convert screen coordinates to world coordinates
+        function screenToWorld(screenX, screenY) {
+            const scale = params.zoom * Math.min(canvas.width, canvas.height) / 3;
+            const x = (screenX - canvas.width / 2 - camera.offsetX) / scale;
+            const y = -(screenY - canvas.height / 2 - camera.offsetY) / scale;
+            return { x, y };
+        }
+        
+        // Get color based on field strength
+        function getFieldColor(intensity, maxIntensity) {
+            const normalized = Math.min(intensity / maxIntensity, 1);
+            let hue;
+            if (normalized < 0.25) hue = 270;
+            else if (normalized < 0.75) hue = 240 - (normalized - 0.25) * 120;
+            else hue = 180 - (normalized - 0.75) * 480;
+            return `hsl(${hue}, 100%, 50%)`;
+        }
+        
+        // Calculate geometric center of the three conductors
+        function getGeometricCenter() {
+            const centerX = (conductors[0].x + conductors[1].x + conductors[2].x) / 3;
+            const centerY = (conductors[0].y + conductors[1].y + conductors[2].y) / 3;
+            return { x: centerX, y: centerY };
+        }
+        
+        // Draw geometric center marker
+        function drawGeometricCenter() {
+            if (!display.center) return;
+            
+            const center = getGeometricCenter();
+            const screen = worldToScreen(center.x, center.y);
+            
+            // Draw crosshair
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            
+            // Horizontal line
+            ctx.beginPath();
+            ctx.moveTo(screen.x - 20, screen.y);
+            ctx.lineTo(screen.x + 20, screen.y);
+            ctx.stroke();
+            
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(screen.x, screen.y - 20);
+            ctx.lineTo(screen.x, screen.y + 20);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+            
+            // Draw circle
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, 10, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Draw inner dot
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Label
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('CENTER', screen.x, screen.y - 25);
+        }
+        
+        // Update center field display
+        function updateCenterFieldDisplay() {
+            const center = getGeometricCenter();
+            const field = getTotalField(center.x, center.y, time);
+            
+            const fieldMagnitude = field.magnitude;
+            const fieldMicroTesla = fieldMagnitude * 1e6; // Convert to µT
+            
+            // Determine if it's "near zero" (accounting for numerical precision)
+            const isNearZero = fieldMagnitude < 1e-9;
+            const displayClass = isNearZero ? 'data-value' : 'data-value';
+            
+            document.getElementById('centerFieldDisplay').innerHTML = `
+                <div class="data-row"><span class="data-label">Center X:</span><span class="data-value">${center.x.toFixed(4)} m</span></div>
+                <div class="data-row"><span class="data-label">Center Y:</span><span class="data-value">${center.y.toFixed(4)} m</span></div>
+                <div class="data-row"><span class="data-label">Field B:</span><span class="${displayClass}">${fieldMagnitude.toExponential(3)} T</span></div>
+                <div class="data-row"><span class="data-label">Field B:</span><span class="${displayClass}">${fieldMicroTesla.toFixed(6)} µT</span></div>
+                ${isNearZero ? '<div style="color: #81c784; margin-top: 5px; font-weight: bold;">✓ Field cancellation confirmed!</div>' : ''}
+            `;
+        }
+        
+        // Update cursor field display
+        function updateCursorFieldDisplay() {
+            if (!cursorWorld.valid) {
+                document.getElementById('cursorFieldDisplay').innerHTML = '<div style="color: #888; font-style: italic;">Move cursor over canvas</div>';
+                return;
+            }
+            
+            const field = getTotalField(cursorWorld.x, cursorWorld.y, time);
+            const fieldMagnitude = field.magnitude;
+            const fieldMicroTesla = fieldMagnitude * 1e6; // Convert to µT
+            const fieldMilliTesla = fieldMagnitude * 1e3; // Convert to mT
+            
+            // Calculate field angle
+            const angle = Math.atan2(field.by, field.bx) * 180 / Math.PI;
+            
+            document.getElementById('cursorFieldDisplay').innerHTML = `
+                <div class="data-row"><span class="data-label">Position X:</span><span class="data-value">${cursorWorld.x.toFixed(4)} m</span></div>
+                <div class="data-row"><span class="data-label">Position Y:</span><span class="data-value">${cursorWorld.y.toFixed(4)} m</span></div>
+                <div class="data-row"><span class="data-label">Field |B|:</span><span class="data-value">${fieldMagnitude.toExponential(3)} T</span></div>
+                <div class="data-row"><span class="data-label">Field |B|:</span><span class="data-value">${fieldMicroTesla.toFixed(3)} µT</span></div>
+                <div class="data-row"><span class="data-label">Component Bx:</span><span class="data-value">${field.bx.toExponential(3)} T</span></div>
+                <div class="data-row"><span class="data-label">Component By:</span><span class="data-value">${field.by.toExponential(3)} T</span></div>
+                <div class="data-row"><span class="data-label">Direction:</span><span class="data-value">${angle.toFixed(1)}°</span></div>
+            `;
+        }
+        
+        // Center the conductors in an equilateral triangle
+        function centerEquilateralTriangle() {
+            // For an equilateral triangle with side length s:
+            // - Distance from center to vertex = s / √3
+            // - We use triangleSpacing as the side length
+            const sideLength = params.triangleSpacing;
+            const halfSide = sideLength / 2;
+            const height = sideLength * Math.sqrt(3) / 2;
+            const centerToVertex = sideLength / Math.sqrt(3);
+            
+            // Position conductors in equilateral triangle centered at origin
+            // Bottom two vertices
+            conductors[0].x = -halfSide;
+            conductors[0].y = -centerToVertex / 2;
+            
+            conductors[1].x = halfSide;
+            conductors[1].y = -centerToVertex / 2;
+            
+            // Top vertex
+            conductors[2].x = 0;
+            conductors[2].y = height - centerToVertex / 2;
+            
+            updateElectricalParameters();
+            updateCenterFieldDisplay();
+            fieldLineCache.needsUpdate = true;
+            invalidateCache();
+        }
+        
+        // Draw field intensity heatmap (optimized)
+        function drawFieldIntensity(centerX, centerY, scale) {
+            if (canvas.width === 0 || canvas.height === 0) return;
+            if (!cycleCache.isReady || cycleCache.width === 0 || cycleCache.height === 0) return;
+            
+            const gridSize = cycleCache.gridSize;
+            
+            if (!canvas.width || !canvas.height || canvas.width <= 0 || canvas.height <= 0) return;
+            
+            // Use smaller sections for better performance
+            const perfProfile = getPerfProfile();
+            const sectionSize = gridSize * perfProfile.sectionMultiplier;
+            const maxField = getCachedMaxField(time);
+            
+            // Pre-calculate common values
+            const alphaScale = 0.3;
+            const intensityPower = 0.5;
+            
+            for (let sectionY = 0; sectionY < canvas.height; sectionY += sectionSize) {
+                for (let sectionX = 0; sectionX < canvas.width; sectionX += sectionSize) {
+                    const sectionWidth = Math.min(sectionSize, canvas.width - sectionX);
+                    const sectionHeight = Math.min(sectionSize, canvas.height - sectionY);
+                    
+                    const imgData = ctx.createImageData(sectionWidth, sectionHeight);
+                    const data = imgData.data;
+                    
+                    for (let j = 0; j < cycleCache.height && j * gridSize < sectionY + sectionHeight; j++) {
+                        for (let i = 0; i < cycleCache.width && i * gridSize < sectionX + sectionWidth; i++) {
+                            const sx = i * gridSize;
+                            const sy = j * gridSize;
+                            
+                            // Skip if outside current section
+                            if (sx < sectionX || sy < sectionY) continue;
+                            
+                            const field = getCachedCycleField(sx, sy, time);
+                            const intensity = Math.min(field.magnitude / maxField, 1);
+                            const alpha = Math.pow(intensity, intensityPower) * alphaScale;
+                            
+                            // Pre-calculated HSL to RGB conversion
+                            let hue;
+                            if (intensity < 0.25) hue = 270;
+                            else if (intensity < 0.75) hue = 240 - (intensity - 0.25) * 120;
+                            else hue = 180 - (intensity - 0.75) * 480;
+                            
+                            const rgb = hslToRgb(hue / 360, 1, 0.5);
+                            
+                            // Fill the grid cell efficiently
+                            for (let dy = 0; dy < gridSize && sy + dy < sectionY + sectionHeight; dy++) {
+                                for (let dx = 0; dx < gridSize && sx + dx < sectionX + sectionWidth; dx++) {
+                                    const localX = sx + dx - sectionX;
+                                    const localY = sy + dy - sectionY;
+                                    
+                                    if (localX >= 0 && localX < sectionWidth && localY >= 0 && localY < sectionHeight) {
+                                        const idx = (localY * sectionWidth + localX) * 4;
+                                        data[idx] = rgb[0];
+                                        data[idx + 1] = rgb[1];
+                                        data[idx + 2] = rgb[2];
+                                        data[idx + 3] = alpha * 255;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    ctx.putImageData(imgData, sectionX, sectionY);
+                }
+            }
+        }
+        
+        // HSL to RGB conversion
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+        
+        // Trace field line path
+        function tracePath(startX, startY, maxSteps, direction) {
+            const path = [];
+            let x = startX, y = startY;
+            const stepSize = 0.003 * direction;
+            
+            const topLeft = screenToWorld(0, 0);
+            const bottomRight = screenToWorld(canvas.width, canvas.height);
+            const minX = Math.min(topLeft.x, bottomRight.x) - 1;
+            const maxX = Math.max(topLeft.x, bottomRight.x) + 1;
+            const minY = Math.min(topLeft.y, bottomRight.y) - 1;
+            const maxY = Math.max(topLeft.y, bottomRight.y) + 1;
+            
+            for (let i = 0; i < maxSteps; i++) {
+                const field = getTotalField(x, y, time);
+                
+                if (field.magnitude < 1e-10) break;
+                
+                path.push({ x, y, magnitude: field.magnitude });
+                
+                const dx = field.bx / field.magnitude * stepSize;
+                const dy = field.by / field.magnitude * stepSize;
+                
+                x += dx;
+                y += dy;
+                
+                if (x < minX || x > maxX || y < minY || y > maxY) break;
+            }
+            
+            return path;
+        }
+        
+        // Simple deterministic pseudo-random function based on coordinates
+        function pseudoRandom(x, y) {
+            const seed = x * 73 + y * 37;
+            return ((seed * 9301 + 49297) % 233280) / 233280;
+        }
+        
+        // Draw field lines (optimized)
+        function drawFieldLines(centerX, centerY, scale) {
+            if (!cycleCache.isReady) return;
+            
+            // Calculate number of seeds based on density and canvas size
+            const baseSeedDensity = 8 + (params.density - 1) * 4;
+            const canvasArea = (canvas.width * canvas.height) / (100 * 100);
+            const numSeeds = Math.max(12, Math.floor(baseSeedDensity * Math.sqrt(canvasArea)));
+            
+            const maxField = getCachedMaxField(time);
+            
+            // Create evenly distributed seed points across the visible area
+            const seedsPerRow = Math.ceil(Math.sqrt(numSeeds));
+            const seedsPerCol = Math.ceil(numSeeds / seedsPerRow);
+            const spacingX = canvas.width / (seedsPerRow + 1);
+            const spacingY = canvas.height / (seedsPerCol + 1);
+            
+            let seedCount = 0;
+            for (let row = 0; row < seedsPerCol && seedCount < numSeeds; row++) {
+                for (let col = 0; col < seedsPerRow && seedCount < numSeeds; col++) {
+                    // Use deterministic pseudo-random jitter (consistent across frames)
+                    const jitterX = (pseudoRandom(col, row) - 0.5) * spacingX * 0.3;
+                    const jitterY = (pseudoRandom(col + 100, row + 100) - 0.5) * spacingY * 0.3;
+                    
+                    const screenX = (col + 1) * spacingX + jitterX;
+                    const screenY = (row + 1) * spacingY + jitterY;
+                    
+                    // Convert screen coordinates to world coordinates
+                    const worldPos = screenToWorld(screenX, screenY);
+                    const startX = worldPos.x;
+                    const startY = worldPos.y;
+                    
+                    // Bidirectional tracing from seed point
+                    const perfProfile = getPerfProfile();
+                    const pathForward = tracePath(startX, startY, perfProfile.pathSteps, 1);
+                    const pathBackward = tracePath(startX, startY, perfProfile.pathSteps, -1);
+                    const fullPath = [...pathBackward.reverse(), ...pathForward];
+                    
+                    if (fullPath.length < 2) {
+                        seedCount++;
+                        continue;
+                    }
+                    
+                    // Convert to screen coordinates
+                    const screenPath = fullPath.map(p => worldToScreen(p.x, p.y));
+                    
+                    // Viewport culling - skip paths that are entirely outside visible area
+                    const pathVisible = screenPath.some(p => 
+                        p.x >= -50 && p.x <= canvas.width + 50 && 
+                        p.y >= -50 && p.y <= canvas.height + 50
+                    );
+                    if (!pathVisible) {
+                        seedCount++;
+                        continue;
+                    }
+                    
+                    // Render field line
+                    ctx.globalAlpha = 0.7;
+                    ctx.lineWidth = 2;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(screenPath[0].x, screenPath[0].y);
+                    for (let j = 1; j < screenPath.length; j++) {
+                        ctx.lineTo(screenPath[j].x, screenPath[j].y);
+                    }
+                    
+                    const avgMag = fullPath.reduce((sum, p) => sum + p.magnitude, 0) / fullPath.length;
+                    ctx.strokeStyle = getFieldColor(avgMag, maxField);
+                    ctx.stroke();
+                    
+                    // Draw arrows along the field line
+                    const arrowSpacing = 80;
+                    let accumulatedDistance = 0;
+                    
+                    for (let j = 0; j < screenPath.length - 1; j++) {
+                        const p1 = screenPath[j];
+                        const p2 = screenPath[j + 1];
+                        
+                        const segmentLength = Math.sqrt(
+                            Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)
+                        );
+                        
+                        if (accumulatedDistance + segmentLength >= arrowSpacing) {
+                            const remainingDist = arrowSpacing - accumulatedDistance;
+                            const t = remainingDist / segmentLength;
+                            
+                            const arrowX = p1.x + (p2.x - p1.x) * t;
+                            const arrowY = p1.y + (p2.y - p1.y) * t;
+                            
+                            const dx = p2.x - p1.x;
+                            const dy = p2.y - p1.y;
+                            const arrowAngle = Math.atan2(dy, dx);
+                            
+                            const arrowSize = 10;
+                            ctx.fillStyle = getFieldColor(fullPath[j].magnitude, maxField);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(
+                                arrowX + Math.cos(arrowAngle) * arrowSize,
+                                arrowY + Math.sin(arrowAngle) * arrowSize
+                            );
+                            ctx.lineTo(
+                                arrowX - Math.cos(arrowAngle - Math.PI / 5) * arrowSize * 0.8,
+                                arrowY - Math.sin(arrowAngle - Math.PI / 5) * arrowSize * 0.8
+                            );
+                            ctx.lineTo(
+                                arrowX - Math.cos(arrowAngle + Math.PI / 5) * arrowSize * 0.8,
+                                arrowY - Math.sin(arrowAngle + Math.PI / 5) * arrowSize * 0.8
+                            );
+                            ctx.closePath();
+                            ctx.fill();
+                            
+                            accumulatedDistance = 0;
+                        } else {
+                            accumulatedDistance += segmentLength;
+                        }
+                    }
+                    
+                    seedCount++;
+                }
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw intensity contours (optimized)
+        function drawContours(centerX, centerY, scale) {
+            if (!cycleCache.isReady) return;
+            
+            // Larger grid size for better performance
+            const perfProfile = getPerfProfile();
+            const contourCfg = perfProfile.contourGridSize;
+            const gridSize = Math.max(contourCfg.min, Math.min(contourCfg.max, contourCfg.base / Math.sqrt(params.zoom)));
+            const width = Math.ceil(canvas.width / gridSize) + 1;
+            const height = Math.ceil(canvas.height / gridSize) + 1;
+            
+            const grid = [];
+            let maxField = getCachedMaxField(time);
+            
+            // Use cached field data for performance
+            for (let j = 0; j < height; j++) {
+                grid[j] = [];
+                for (let i = 0; i < width; i++) {
+                    const sx = i * gridSize;
+                    const sy = j * gridSize;
+                    
+                    if (sx <= canvas.width && sy <= canvas.height) {
+                        const field = getCachedCycleField(sx, sy, time);
+                        grid[j][i] = field.magnitude;
+                    } else {
+                        grid[j][i] = 0;
+                    }
+                }
+            }
+            
+            maxField *= params.fieldIntensity;
+            
+            // Fewer contour levels for better performance
+            const perfProfile2 = getPerfProfile();
+            const levelsCfg = perfProfile2.contourLevels;
+            const numLevels = Math.max(levelsCfg.min, Math.min(levelsCfg.max, Math.floor(levelsCfg.base * params.zoom)));
+            
+            for (let level = 0; level < numLevels; level++) {
+                const threshold = maxField * Math.pow(10, -3 + level / numLevels * 3);
+                ctx.strokeStyle = getFieldColor(threshold, maxField);
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.6;
+                
+                for (let j = 0; j < height - 1; j++) {
+                    for (let i = 0; i < width - 1; i++) {
+                        const v1 = grid[j][i] > threshold ? 1 : 0;
+                        const v2 = grid[j][i + 1] > threshold ? 1 : 0;
+                        const v3 = grid[j + 1][i + 1] > threshold ? 1 : 0;
+                        const v4 = grid[j + 1][i] > threshold ? 1 : 0;
+                        
+                        const caseNum = v1 * 8 + v2 * 4 + v3 * 2 + v4;
+                        
+                        const x = i * gridSize;
+                        const y = j * gridSize;
+                        const half = gridSize / 2;
+                        
+                        ctx.beginPath();
+                        
+                        switch (caseNum) {
+                            case 1: case 14:
+                                ctx.moveTo(x, y + half);
+                                ctx.lineTo(x + half, y + gridSize);
+                                break;
+                            case 2: case 13:
+                                ctx.moveTo(x + half, y + gridSize);
+                                ctx.lineTo(x + gridSize, y + half);
+                                break;
+                            case 3: case 12:
+                                ctx.moveTo(x, y + half);
+                                ctx.lineTo(x + gridSize, y + half);
+                                break;
+                            case 4: case 11:
+                                ctx.moveTo(x + half, y);
+                                ctx.lineTo(x + gridSize, y + half);
+                                break;
+                            case 6: case 9:
+                                ctx.moveTo(x + half, y);
+                                ctx.lineTo(x + half, y + gridSize);
+                                break;
+                            case 7: case 8:
+                                ctx.moveTo(x, y + half);
+                                ctx.lineTo(x + half, y);
+                                break;
+                        }
+                        
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw field vectors (optimized)
+        function drawFieldVectors(centerX, centerY, scale) {
+            if (!cycleCache.isReady) return;
+            
+            // Increased spacing for better performance
+            const perfProfile = getPerfProfile();
+            const spacing = Math.max(perfProfile.vectorSpacing.min, perfProfile.vectorSpacing.base / Math.sqrt(params.zoom));
+            const maxField = getCachedMaxField(time);
+            
+            // Viewport bounds for culling
+            const margin = 50;
+            
+            for (let sy = spacing; sy < canvas.height; sy += spacing) {
+                for (let sx = spacing; sx < canvas.width; sx += spacing) {
+                    // Skip vectors outside viewport
+                    if (sx < -margin || sx > canvas.width + margin || 
+                        sy < -margin || sy > canvas.height + margin) continue;
+                    
+                    // Use cached field when possible
+                    const field = getCachedCycleField(sx, sy, time);
+                    
+                    if (field.magnitude < 1e-10) continue;
+                    
+                    // Direct proportional scaling
+                    const scaleFactor = 1e6 * params.vectorScale;
+                    const length = field.magnitude * scaleFactor;
+                    
+                    const angle = Math.atan2(field.by, field.bx);
+                    const endX = sx + Math.cos(angle) * length;
+                    const endY = sy - Math.sin(angle) * length;
+                    
+                    // Skip vectors that extend too far beyond canvas
+                    if (endX < -margin || endX > canvas.width + margin || 
+                        endY < -margin || endY > canvas.height + margin) {
+                        continue;
+                    }
+                    
+                    ctx.fillStyle = getFieldColor(field.magnitude, maxField);
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = getFieldColor(field.magnitude, maxField);
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                    
+                    // Smaller arrowheads for performance
+                    const arrowSize = 5; // Reduced from 6
+                    ctx.fillStyle = getFieldColor(field.magnitude, maxField);
+                    ctx.beginPath();
+                    ctx.moveTo(endX, endY);
+                    ctx.lineTo(
+                        endX - arrowSize * Math.cos(angle - Math.PI / 6),
+                        endY + arrowSize * Math.sin(angle - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        endX - arrowSize * Math.cos(angle + Math.PI / 6),
+                        endY + arrowSize * Math.sin(angle + Math.PI / 6)
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw color scale legend
+        function drawColorScaleLegend() {
+            const x = 20;
+            const y = canvas.height - 180;
+            const width = 30;
+            const height = 150;
+            
+            const gradient = ctx.createLinearGradient(x, y + height, x, y);
+            gradient.addColorStop(0, 'hsl(270, 100%, 50%)');
+            gradient.addColorStop(0.25, 'hsl(240, 100%, 50%)');
+            gradient.addColorStop(0.5, 'hsl(180, 100%, 50%)');
+            gradient.addColorStop(1, 'hsl(60, 100%, 50%)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, width, height);
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('Strong', x + width + 5, y + 10);
+            ctx.fillText('Medium', x + width + 5, y + height / 2);
+            ctx.fillText('Weak', x + width + 5, y + height - 5);
+        }
+        
+        // Draw conductors
+        function drawConductors() {
+            const radii = [params.radiusA, params.radiusB, params.radiusC];
+            const colors = ['#ff4444', '#44ff44', '#4444ff'];
+            const labels = ['A', 'B', 'C'];
+            
+            for (let i = 0; i < 3; i++) {
+                const screen = worldToScreen(conductors[i].x, conductors[i].y);
+                // Increase visual size on mobile
+                const sizeMultiplier = isMobile ? MOBILE_CONDUCTOR_SIZE_MULTIPLIER : 1.0;
+                const minSize = isMobile ? 24 : 8; // Ensure minimum 48px diameter on mobile (2x radius)
+                const radiusPixels = Math.max(radii[i] * params.zoom * Math.min(canvas.width, canvas.height) / 3 * sizeMultiplier, minSize);
+                
+                // Draw touch halo for this conductor if active
+                const activeHalo = touchHalos.find(h => h.conductorIndex === i);
+                if (activeHalo) {
+                    const haloOpacity = activeHalo.opacity * 0.4;
+                    const haloRadius = radiusPixels + 30;
+                    
+                    // Outer glow
+                    const haloGradient = ctx.createRadialGradient(screen.x, screen.y, radiusPixels, screen.x, screen.y, haloRadius);
+                    haloGradient.addColorStop(0, `rgba(${colors[i] === '#ff4444' ? '255,68,68' : colors[i] === '#44ff44' ? '68,255,68' : '68,68,255'}, ${haloOpacity})`);
+                    haloGradient.addColorStop(0.7, `rgba(${colors[i] === '#ff4444' ? '255,68,68' : colors[i] === '#44ff44' ? '68,255,68' : '68,68,255'}, ${haloOpacity * 0.3})`);
+                    haloGradient.addColorStop(1, 'rgba(255,255,255,0)');
+                    
+                    ctx.fillStyle = haloGradient;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, haloRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    // Pulsing ring
+                    ctx.strokeStyle = colors[i];
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = haloOpacity;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, radiusPixels + 20, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                // Draw mobile touch target indicator (always visible on mobile)
+                if (isMobile && selectedConductor === null && !isPinching) {
+                    ctx.strokeStyle = colors[i];
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, radiusPixels + 15, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1;
+                }
+                
+                if (i === selectedConductor || i === hoveredConductor) {
+                    ctx.strokeStyle = i === selectedConductor ? '#ffffff' : colors[i];
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = i === selectedConductor ? 0.8 : 0.5;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, radiusPixels + 8, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    if (i === selectedConductor) {
+                        ctx.strokeStyle = colors[i];
+                        ctx.lineWidth = 2;
+                        ctx.globalAlpha = 0.3;
+                        ctx.beginPath();
+                        ctx.arc(screen.x, screen.y, radiusPixels + 12, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                }
+                
+                const gradient = ctx.createRadialGradient(
+                    screen.x - radiusPixels * 0.3,
+                    screen.y - radiusPixels * 0.3,
+                    0,
+                    screen.x,
+                    screen.y,
+                    radiusPixels
+                );
+                
+                const baseColor = colors[i];
+                gradient.addColorStop(0, lightenColor(baseColor, 0.6));
+                gradient.addColorStop(0.3, lightenColor(baseColor, 0.3));
+                gradient.addColorStop(0.7, baseColor);
+                gradient.addColorStop(1, darkenColor(baseColor, 0.3));
+                
+                ctx.fillStyle = gradient;
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, radiusPixels, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                const highlightGradient = ctx.createRadialGradient(
+                    screen.x - radiusPixels * 0.35,
+                    screen.y - radiusPixels * 0.35,
+                    0,
+                    screen.x - radiusPixels * 0.35,
+                    screen.y - radiusPixels * 0.35,
+                    radiusPixels * 0.5
+                );
+                highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+                highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+                highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                ctx.fillStyle = highlightGradient;
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, radiusPixels, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.strokeStyle = colors[i];
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, radiusPixels + 1, 0, 2 * Math.PI);
+                ctx.stroke();
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, radiusPixels, 0, 2 * Math.PI);
+                ctx.stroke();
+                
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                ctx.shadowBlur = 3;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 1;
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labels[i], screen.x, screen.y);
+                
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        function lightenColor(color, amount) {
+            const hex = color.replace('#', '');
+            const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount * 255);
+            const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + amount * 255);
+            const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + amount * 255);
+            return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+        }
+        
+        function darkenColor(color, amount) {
+            const hex = color.replace('#', '');
+            const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - amount * 255);
+            const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - amount * 255);
+            const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - amount * 255);
+            return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+        }
+        
+        // Draw phasor diagram
+        function drawPhasorDiagram() {
+            const centerX = canvas.width - 100;
+            const centerY = 80;
+            const radius = 40;
+            
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#444';
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius, centerY);
+            ctx.lineTo(centerX + radius, centerY);
+            ctx.moveTo(centerX, centerY - radius);
+            ctx.lineTo(centerX, centerY + radius);
+            ctx.stroke();
+            
+            const currents = [params.currentA, params.currentB, params.currentC];
+            const phases = [params.phaseA, params.phaseB, params.phaseC];
+            const colors = ['#ff4444', '#44ff44', '#4444ff'];
+            const labels = ['A', 'B', 'C'];
+            
+            const maxCurrent = Math.max(...currents, 1);
+            
+            const timeRotation = 2 * Math.PI * params.frequency * time;
+            
+            for (let i = 0; i < 3; i++) {
+                const instantCurrent = getCurrent(i, time);
+                
+                const angle = (phases[i] * Math.PI / 180) + timeRotation + (Math.PI / 2) + Math.PI;
+                
+                const length = (currents[i] / maxCurrent) * radius * 0.8;
+                const endX = centerX + Math.cos(angle) * length;
+                const endY = centerY - Math.sin(angle) * length;
+                
+                const currentRatio = Math.abs(instantCurrent) / Math.max(currents[i], 1);
+                
+                ctx.strokeStyle = colors[i];
+                ctx.lineWidth = 4;
+                ctx.globalAlpha = 0.15 + currentRatio * 0.25;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+                
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = 0.5 + currentRatio * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+                
+                const arrowSize = 8;
+                ctx.fillStyle = colors[i];
+                ctx.globalAlpha = 0.7 + currentRatio * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(
+                    endX - arrowSize * Math.cos(angle - Math.PI / 6),
+                    endY + arrowSize * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.lineTo(
+                    endX - arrowSize * Math.cos(angle + Math.PI / 6),
+                    endY + arrowSize * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = colors[i];
+                ctx.globalAlpha = 1;
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const labelDist = radius + 15;
+                const labelX = centerX + Math.cos(angle) * labelDist;
+                const labelY = centerY - Math.sin(angle) * labelDist;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.beginPath();
+                ctx.arc(labelX, labelY, 9, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = colors[i];
+                ctx.fillText(labels[i], labelX, labelY);
+            }
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 1;
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Phasor Diagram (Rotating)', centerX, centerY - radius - 15);
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw FPS counter with detailed diagnostics
+        function drawFPSCounter() {
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            
+            if (fps >= 58) {
+                ctx.fillStyle = '#81c784';
+            } else if (fps >= 45) {
+                ctx.fillStyle = '#ffc107';
+            } else {
+                ctx.fillStyle = '#ff5555';
+            }
+            ctx.fillText(`FPS: ${fps}`, 10, 10);
+            
+            ctx.font = '11px monospace';
+            let yPos = 30;
+            
+            // Animation state
+            ctx.fillStyle = '#4fc3f7';
+            ctx.fillText(`Time: ${time.toFixed(3)}`, 10, yPos);
+            yPos += 16;
+            
+            ctx.fillStyle = '#4fc3f7';
+            ctx.fillText(`Speed: ${params.animSpeed.toFixed(6)}`, 10, yPos);
+            yPos += 16;
+            
+            // Canvas state
+            ctx.fillStyle = '#81c784';
+            ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 10, yPos);
+            yPos += 16;
+            
+            // Cache state
+            if (selectedConductor !== null) {
+                ctx.fillStyle = '#ffc107';
+                ctx.fillText(`Paused (Dragging)`, 10, yPos);
+            } else if (cycleCache.isCalculating) {
+                ctx.fillStyle = '#ff9800';
+                const elapsed = cycleCache.calculationStartTime > 0 
+                    ? Math.floor((Date.now() - cycleCache.calculationStartTime) / 1000)
+                    : 0;
+                ctx.fillText(`Calculating: ${Math.round(cycleCache.progress)}% (${elapsed}s)`, 10, yPos);
+                yPos += 16;
+                ctx.fillStyle = '#ff9800';
+                ctx.fillText(`Grid: ${cycleCache.width}x${cycleCache.height}`, 10, yPos);
+            } else if (!cycleCache.isReady) {
+                ctx.fillStyle = '#ff5555';
+                ctx.fillText(`Cache NOT Ready`, 10, yPos);
+                yPos += 16;
+                ctx.fillStyle = '#ff5555';
+                ctx.fillText(`Canvas OK: ${canvas.width > 0 && canvas.height > 0}`, 10, yPos);
+            } else {
+                ctx.fillStyle = '#81c784';
+                ctx.fillText(`✓ Cache Ready: ${cycleCache.numSteps}f @ ${Math.round(cycleCache.gridSize)}px`, 10, yPos);
+                yPos += 16;
+                ctx.fillStyle = '#888';
+                ctx.fillText(`Grid: ${cycleCache.width}x${cycleCache.height}`, 10, yPos);
+            }
+        }
+        
+        // Calculate and display electrical parameters
+        function updateElectricalParameters() {
+            const radii = [params.radiusA / 1000, params.radiusB / 1000, params.radiusC / 1000];
+            
+            const dAB = Math.sqrt(
+                Math.pow(conductors[0].x - conductors[1].x, 2) +
+                Math.pow(conductors[0].y - conductors[1].y, 2)
+            );
+            const dBC = Math.sqrt(
+                Math.pow(conductors[1].x - conductors[2].x, 2) +
+                Math.pow(conductors[1].y - conductors[2].y, 2)
+            );
+            const dCA = Math.sqrt(
+                Math.pow(conductors[2].x - conductors[0].x, 2) +
+                Math.pow(conductors[2].y - conductors[0].y, 2)
+            );
+            const GMD = Math.pow(dAB * dBC * dCA, 1/3);
+            
+            document.getElementById('distances').innerHTML = `
+                <div class="data-row"><span class="data-label">Distance A-B:</span><span class="data-value">${dAB.toExponential(3)} m</span></div>
+                <div class="data-row"><span class="data-label">Distance B-C:</span><span class="data-value">${dBC.toExponential(3)} m</span></div>
+                <div class="data-row"><span class="data-label">Distance C-A:</span><span class="data-value">${dCA.toExponential(3)} m</span></div>
+                <div class="data-row"><span class="data-label">GMD:</span><span class="data-value">${GMD.toExponential(3)} m</span></div>
+            `;
+            
+            let selfHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const GMR = 0.7788 * radii[i];
+                const Lself = (MU_0 / (2 * Math.PI)) * Math.log(1 / GMR) * 1000;
+                const Xself = 2 * Math.PI * params.frequency * Lself / 1000;
+                const phase = ['A', 'B', 'C'][i];
+                selfHTML += `
+                    <div class="data-row"><span class="data-label">Phase ${phase} GMR:</span><span class="data-value">${GMR.toExponential(3)} m</span></div>
+                    <div class="data-row"><span class="data-label">Phase ${phase} L:</span><span class="data-value">${Lself.toExponential(3)} H/m</span></div>
+                    <div class="data-row"><span class="data-label">Phase ${phase} X:</span><span class="data-value">${Xself.toExponential(3)} Ω/m</span></div>
+                `;
+            }
+            document.getElementById('selfInductance').innerHTML = selfHTML;
+            
+            const distances = [dAB, dBC, dCA];
+            const pairs = ['A-B', 'B-C', 'C-A'];
+            let mutualHTML = '';
+            let mutualSum = 0;
+            
+            for (let i = 0; i < 3; i++) {
+                const Lmutual = (MU_0 / (2 * Math.PI)) * Math.log(1 / distances[i]) * 1000;
+                const Xmutual = 2 * Math.PI * params.frequency * Lmutual / 1000;
+                mutualSum += Xmutual;
+                mutualHTML += `
+                    <div class="data-row"><span class="data-label">${pairs[i]} L:</span><span class="data-value">${Lmutual.toExponential(3)} H/m</span></div>
+                    <div class="data-row"><span class="data-label">${pairs[i]} X:</span><span class="data-value">${Xmutual.toExponential(3)} Ω/m</span></div>
+                `;
+            }
+            document.getElementById('mutualInductance').innerHTML = mutualHTML;
+            
+            const XmutualAvg = mutualSum / 3;
+            const GMR = 0.7788 * radii[0];
+            const Xself = 2 * Math.PI * params.frequency * (MU_0 / (2 * Math.PI)) * Math.log(1 / GMR);
+            const X1 = Xself - XmutualAvg;
+            const X0 = Xself + 2 * XmutualAvg;
+            
+            let coupling = '';
+            if (GMD < 0.3) coupling = '<span class="coupling-indicator coupling-very-high">Very High</span>';
+            else if (GMD < 0.6) coupling = '<span class="coupling-indicator coupling-high">High</span>';
+            else if (GMD < 1.0) coupling = '<span class="coupling-indicator coupling-medium">Medium</span>';
+            else coupling = '<span class="coupling-indicator coupling-low">Low</span>';
+            
+            document.getElementById('sequenceReactances').innerHTML = `
+                <div class="data-row"><span class="data-label">X₁ (Positive):</span><span class="data-value">${X1.toExponential(3)} Ω/m</span></div>
+                <div class="data-row"><span class="data-label">X₀ (Zero):</span><span class="data-value">${X0.toExponential(3)} Ω/m</span></div>
+                <div class="data-row"><span class="data-label">Coupling:</span>${coupling}</div>
+            `;
+        }
+        
+        // Main render function
+        function render() {
+            if (canvas.width === 0 || canvas.height === 0) return;
+            
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (!cycleCache.isReady) {
+                drawFPSCounter();
+                return;
+            }
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const scale = params.zoom * Math.min(canvas.width, canvas.height) / 3;
+            
+            if (display.intensity) {
+                drawFieldIntensity(centerX, centerY, scale);
+            }
+            
+            if (display.contours) {
+                drawContours(centerX, centerY, scale);
+            }
+            
+            if (display.fieldLines) {
+                drawFieldLines(centerX, centerY, scale);
+            }
+            
+            if (display.vectors) {
+                drawFieldVectors(centerX, centerY, scale);
+            }
+            
+            drawConductors();
+            drawPhasorDiagram();
+            drawGeometricCenter();
+            
+            if (display.legend) {
+                drawColorScaleLegend();
+            }
+            
+            drawFPSCounter();
+        }
+        
+        // Animation loop (optimized update frequency)
+        let frameCounter = 0;
+        function animate(currentTime) {
+            if (lastFrameTime > 0) {
+                const deltaTime = currentTime - lastFrameTime;
+                fps = Math.round(1000 / deltaTime);
+            }
+            lastFrameTime = currentTime;
+            
+            // Watchdog: Check if cache calculation is stuck (taking more than 30 seconds)
+            if (cycleCache.isCalculating && cycleCache.calculationStartTime > 0) {
+                const elapsed = Date.now() - cycleCache.calculationStartTime;
+                if (elapsed > 30000) {
+                    console.error('Cache calculation timeout! Resetting...');
+                    cycleCache.isCalculating = false;
+                    cycleCache.isReady = false;
+                    cycleCache.calculationStartTime = 0;
+                    setTimeout(() => buildCycleCache(), 1000);
+                }
+            }
+            
+            // Update touch halo animations
+            const now = Date.now();
+            touchHalos = touchHalos.filter(halo => {
+                const age = now - halo.startTime;
+                if (age > 500) return false; // Remove after 500ms
+                halo.opacity = 1.0 - (age / 500); // Fade out
+                return true;
+            });
+            
+            render();
+            time += params.animSpeed;
+            
+            // Reduced update frequency for field displays
+            frameCounter++;
+            const profile = getPerfProfile();
+            if (frameCounter % profile.updateInterval === 0) {
+                updateCenterFieldDisplay();
+                updateCursorFieldDisplay();
+            }
+            
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Dedicated Touch Handler Functions
+        function handleTouchStart(e) {
+            e.preventDefault();
+            isUsingTouch = true;
+            touches = Array.from(e.touches);
+            
+            if (touches.length === 2) {
+                // Start pinch zoom
+                isPinching = true;
+                touchStartDistance = getTouchDistance(touches);
+                initialPinchZoom = params.zoom;
+                pinchCenter = getTouchCenter(touches);
+                // Cancel any ongoing single-touch operations
+                selectedConductor = null;
+                camera.dragging = false;
+                return;
+            }
+            
+            if (touches.length === 1) {
+                // Single touch - check for conductor drag or camera pan
+                const rect = canvas.getBoundingClientRect();
+                const touchX = touches[0].clientX - rect.left;
+                const touchY = touches[0].clientY - rect.top;
+                
+                const world = screenToWorld(touchX, touchY);
+                
+                // Check if touching a conductor with generous mobile hit radius
+                const hitRadius = MOBILE_HIT_RADIUS;
+                let conductorTouched = false;
+                for (let i = 0; i < 3; i++) {
+                    const dx = world.x - conductors[i].x;
+                    const dy = world.y - conductors[i].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < hitRadius) {
+                        selectedConductor = i;
+                        savedAnimSpeed = params.animSpeed;
+                        params.animSpeed = 0;
+                        document.getElementById('animSpeed').value = 0;
+                        document.getElementById('speedValue').textContent = '0.00000';
+                        conductorTouched = true;
+                        
+                        // Add immediate visual feedback
+                        touchHalos.push({
+                            conductorIndex: i,
+                            opacity: 1.0,
+                            startTime: Date.now()
+                        });
+                        
+                        break;
+                    }
+                }
+                
+                if (!conductorTouched) {
+                    // Start camera pan
+                    camera.dragging = true;
+                    camera.dragStart = { x: touchX - camera.offsetX, y: touchY - camera.offsetY };
+                }
+                
+            }
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            isUsingTouch = true;
+            touches = Array.from(e.touches);
+            
+            if (touches.length === 2 && isPinching) {
+                // Handle pinch zoom
+                const currentDistance = getTouchDistance(touches);
+                const zoomFactor = currentDistance / touchStartDistance;
+                params.zoom = Math.max(0.05, Math.min(5, initialPinchZoom * zoomFactor));
+                document.getElementById('zoom').value = params.zoom;
+                document.getElementById('zoomValue').textContent = `${params.zoom.toFixed(2)}x`;
+                fieldLineCache.needsUpdate = true;
+                
+                
+                
+                // Throttle cache invalidation during pinch
+                if (Math.abs(params.zoom - initialPinchZoom) > 0.2) {
+                    invalidateCache();
+                    initialPinchZoom = params.zoom;
+                    touchStartDistance = currentDistance;
+                }
+                return;
+            }
+            
+            if (touches.length === 1 && !isPinching) {
+                const rect = canvas.getBoundingClientRect();
+                const touchX = touches[0].clientX - rect.left;
+                const touchY = touches[0].clientY - rect.top;
+                const world = screenToWorld(touchX, touchY);
+                
+                if (selectedConductor !== null) {
+                    // Drag conductor
+                    // Update conductor position
+                    conductors[selectedConductor].x = world.x;
+                    conductors[selectedConductor].y = world.y;
+                    // Force immediate updates
+                    updateElectricalParameters();
+                    updateCenterFieldDisplay();
+                    fieldLineCache.needsUpdate = true;
+                    
+                } else if (camera.dragging) {
+                    // Pan camera
+                    camera.offsetX = touchX - camera.dragStart.x;
+                    camera.offsetY = touchY - camera.dragStart.y;
+                    fieldLineCache.needsUpdate = true;
+                    
+                    const panDistX = Math.abs(camera.offsetX - cycleCache.lastOffsetX);
+                    const panDistY = Math.abs(camera.offsetY - cycleCache.lastOffsetY);
+                    
+                    if (panDistX > 50 || panDistY > 50) {
+                        invalidateCache();
+                    }
+                }
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            isUsingTouch = true;
+            lastTouchEnd = Date.now();
+            touches = Array.from(e.touches);
+            
+            if (touches.length < 2) {
+                isPinching = false;
+            }
+            
+            if (touches.length === 0) {
+                // All touches ended
+                if (selectedConductor !== null) {
+                    params.animSpeed = savedAnimSpeed;
+                    document.getElementById('animSpeed').value = savedAnimSpeed;
+                    document.getElementById('speedValue').textContent = savedAnimSpeed.toFixed(5);
+                    invalidateCache();
+                }
+                if (camera.dragging) {
+                    invalidateCache();
+                }
+                
+                // Clear all states
+                camera.dragging = false;
+                selectedConductor = null;
+                isPinching = false;
+                
+                
+            }
+        }
+        
+        function handleTouchCancel(e) {
+            // Don't call e.preventDefault() - touchcancel events are NOT cancelable
+            // They fire when the browser interrupts touch (e.g., scrolling starts)
+            isUsingTouch = true;
+            lastTouchEnd = Date.now();
+            
+            // Restore animation if conductor was being dragged
+            if (selectedConductor !== null) {
+                params.animSpeed = savedAnimSpeed;
+                document.getElementById('animSpeed').value = savedAnimSpeed;
+                document.getElementById('speedValue').textContent = savedAnimSpeed.toFixed(5);
+                invalidateCache();
+            }
+            // Clear all states
+            isPinching = false;
+            camera.dragging = false;
+            selectedConductor = null;
+            touches = [];
+            
+            
+        }
+        
+        // Event handlers
+        function setupEventListeners() {
+            // Performance mode selector
+            document.getElementById('performanceMode').addEventListener('change', e => {
+                performanceSettings.mode = e.target.value;
+                const profile = getPerfProfile();
+                cycleCache.numSteps = profile.numSteps;
+                cycleCache.gridSize = profile.gridSize;
+                invalidateCache();
+            });
+            
+            // Controls toggle for mobile
+            document.getElementById('controls-toggle').addEventListener('click', () => {
+                const controls = document.getElementById('controls');
+                const button = document.getElementById('controls-toggle');
+                controls.classList.toggle('collapsed');
+                button.textContent = controls.classList.contains('collapsed') ? '⚙️ Show Settings' : '✕ Hide Settings';
+            });
+            
+            document.getElementById('showFieldLines').addEventListener('change', e => {
+                display.fieldLines = e.target.checked;
+            });
+            document.getElementById('showContours').addEventListener('change', e => {
+                display.contours = e.target.checked;
+            });
+            document.getElementById('showVectors').addEventListener('change', e => {
+                display.vectors = e.target.checked;
+            });
+            document.getElementById('showIntensity').addEventListener('change', e => {
+                display.intensity = e.target.checked;
+            });
+            document.getElementById('showLegend').addEventListener('change', e => {
+                display.legend = e.target.checked;
+            });
+            document.getElementById('showCenter').addEventListener('change', e => {
+                display.center = e.target.checked;
+            });
+            
+            document.getElementById('triangleSpacing').addEventListener('input', e => {
+                params.triangleSpacing = parseFloat(e.target.value);
+                document.getElementById('triangleSpacingValue').textContent = `${params.triangleSpacing.toFixed(2)} m`;
+                // Automatically update triangle when slider changes
+                centerEquilateralTriangle();
+            });
+            
+            document.getElementById('centerTriangle').addEventListener('click', () => {
+                console.log('Center Triangle button clicked');
+                centerEquilateralTriangle();
+            });
+            
+            document.getElementById('balanceThree').addEventListener('click', () => {
+                console.log('Balance Three button clicked');
+                
+                if (params.currentMode === 'phase') {
+                    // Phase mode: Set balanced three-phase angles
+                    params.phaseA = 0;
+                    params.phaseB = -120;
+                    params.phaseC = 120;
+                } else {
+                    // Sequence mode: Only positive sequence, no zero or negative
+                    params.sequenceCurrent0 = 0;
+                    params.sequenceCurrent1 = 100;
+                    params.sequenceCurrent2 = 0;
+                    params.sequencePhase0 = 0;
+                    params.sequencePhase1 = 0;
+                    params.sequencePhase2 = 0;
+                    updatePhaseCurrents(); // Convert to phase
+                }
+                
+                updateSliderValues();
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            
+            document.getElementById('pureZeroSequence').addEventListener('click', () => {
+                console.log('Pure Zero Sequence button clicked');
+                
+                if (params.currentMode === 'phase') {
+                    // Phase mode: All phases in sync (0°)
+                    params.phaseA = 0;
+                    params.phaseB = 0;
+                    params.phaseC = 0;
+                } else {
+                    // Sequence mode: Only zero sequence, no positive or negative
+                    params.sequenceCurrent0 = 100;
+                    params.sequenceCurrent1 = 0;
+                    params.sequenceCurrent2 = 0;
+                    params.sequencePhase0 = 0;
+                    params.sequencePhase1 = 0;
+                    params.sequencePhase2 = 0;
+                    updatePhaseCurrents(); // Convert to phase
+                }
+                
+                updateSliderValues();
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            
+            // Mode toggle button
+            document.getElementById('toggleCurrentMode').addEventListener('click', () => {
+                console.log(`Mode toggle clicked. Current mode: ${params.currentMode}`);
+                
+                // Toggle the mode
+                if (params.currentMode === 'phase') {
+                    // Convert current phase values to sequence before switching
+                    const seq = phaseToSequence(
+                        params.currentA, params.phaseA,
+                        params.currentB, params.phaseB,
+                        params.currentC, params.phaseC
+                    );
+                    
+                    // Store sequence values
+                    params.sequenceCurrent0 = seq.I0;
+                    params.sequencePhase0 = seq.phaseI0;
+                    params.sequenceCurrent1 = seq.I1;
+                    params.sequencePhase1 = seq.phaseI1;
+                    params.sequenceCurrent2 = seq.I2;
+                    params.sequencePhase2 = seq.phaseI2;
+                    
+                    params.currentMode = 'sequence';
+                } else {
+                    // Convert sequence values to phase before switching
+                    const phase = sequenceToPhase(
+                        params.sequenceCurrent0, params.sequencePhase0,
+                        params.sequenceCurrent1, params.sequencePhase1,
+                        params.sequenceCurrent2, params.sequencePhase2
+                    );
+                    
+                    // Store phase values
+                    params.currentA = phase.Ia;
+                    params.phaseA = phase.phaseA;
+                    params.currentB = phase.Ib;
+                    params.phaseB = phase.phaseB;
+                    params.currentC = phase.Ic;
+                    params.phaseC = phase.phaseC;
+                    
+                    params.currentMode = 'phase';
+                }
+                
+                // Update UI labels to reflect new mode
+                updateUILabels();
+                
+                // Update slider positions and displays to show appropriate values
+                updateSliderValues();
+                updateCenterFieldDisplay();
+                invalidateCache();
+                
+                console.log(`Mode switched to: ${params.currentMode}`);
+            });
+            
+            document.getElementById('frequency').addEventListener('input', e => {
+                params.frequency = parseFloat(e.target.value);
+                document.getElementById('freqValue').textContent = `${params.frequency} Hz`;
+                updateElectricalParameters();
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            
+            document.getElementById('animSpeed').addEventListener('input', e => {
+                const newSpeed = parseFloat(e.target.value);
+                const oldSpeed = params.animSpeed;
+                params.animSpeed = newSpeed;
+                document.getElementById('speedValue').textContent = newSpeed.toFixed(5);
+                
+                if (cycleCache.isReady && Math.abs(newSpeed - oldSpeed) > 0.0001) {
+                    const period = 1.0 / params.frequency;
+                    const oldFrames = cycleCache.numSteps;
+                    let newFrames;
+                    
+                    if (newSpeed > 0) {
+                        newFrames = Math.ceil((period / newSpeed) * 60);
+                        newFrames = Math.max(180, Math.min(600, newFrames));
+                    } else {
+                        newFrames = 180;
+                    }
+                    
+                    if (Math.abs(newFrames - oldFrames) > 30) {
+                        invalidateCache();
+                    }
+                }
+            });
+            
+            document.getElementById('vectorScale').addEventListener('input', e => {
+                params.vectorScale = Math.pow(10, parseFloat(e.target.value));
+                document.getElementById('vectorScaleValue').textContent = `${params.vectorScale.toFixed(2)}x`;
+            });
+            
+            document.getElementById('fieldIntensity').addEventListener('input', e => {
+                params.fieldIntensity = Math.pow(10, parseFloat(e.target.value));
+                document.getElementById('intensityValue').textContent = `${params.fieldIntensity.toFixed(2)}x`;
+                invalidateCache();
+            });
+            
+            document.getElementById('density').addEventListener('input', e => {
+                params.density = parseInt(e.target.value);
+                document.getElementById('densityValue').textContent = params.density;
+                fieldLineCache.needsUpdate = true;
+            });
+            
+            document.getElementById('zoom').addEventListener('input', e => {
+                params.zoom = parseFloat(e.target.value);
+                document.getElementById('zoomValue').textContent = `${params.zoom.toFixed(2)}x`;
+                fieldLineCache.needsUpdate = true;
+                invalidateCache();
+            });
+            
+            document.getElementById('currentA').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.currentA = value;
+                } else {
+                    // In sequence mode, slider A controls zero sequence
+                    params.sequenceCurrent0 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('currentAValue').textContent = `${value.toFixed(1)} A`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('phaseA').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.phaseA = value;
+                } else {
+                    // In sequence mode, slider A controls zero sequence angle
+                    params.sequencePhase0 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('phaseAValue').textContent = `${value}°`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('radiusA').addEventListener('input', e => {
+                params.radiusA = parseFloat(e.target.value) / 1000;
+                document.getElementById('radiusAValue').textContent = `${e.target.value} mm`;
+                updateElectricalParameters();
+            });
+            
+            document.getElementById('currentB').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.currentB = value;
+                } else {
+                    // In sequence mode, slider B controls positive sequence
+                    params.sequenceCurrent1 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('currentBValue').textContent = `${value.toFixed(1)} A`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('phaseB').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.phaseB = value;
+                } else {
+                    // In sequence mode, slider B controls positive sequence angle
+                    params.sequencePhase1 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('phaseBValue').textContent = `${value}°`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('radiusB').addEventListener('input', e => {
+                params.radiusB = parseFloat(e.target.value) / 1000;
+                document.getElementById('radiusBValue').textContent = `${e.target.value} mm`;
+                updateElectricalParameters();
+            });
+            
+            document.getElementById('currentC').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.currentC = value;
+                } else {
+                    // In sequence mode, slider C controls negative sequence
+                    params.sequenceCurrent2 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('currentCValue').textContent = `${value.toFixed(1)} A`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('phaseC').addEventListener('input', e => {
+                const value = parseFloat(e.target.value);
+                
+                if (params.currentMode === 'phase') {
+                    params.phaseC = value;
+                } else {
+                    // In sequence mode, slider C controls negative sequence angle
+                    params.sequencePhase2 = value;
+                    updatePhaseCurrents(); // Convert sequence to phase
+                }
+                
+                document.getElementById('phaseCValue').textContent = `${value}°`;
+                updateCenterFieldDisplay();
+                invalidateCache();
+            });
+            document.getElementById('radiusC').addEventListener('input', e => {
+                params.radiusC = parseFloat(e.target.value) / 1000;
+                document.getElementById('radiusCValue').textContent = `${e.target.value} mm`;
+                updateElectricalParameters();
+            });
+            
+            canvas.addEventListener('mousedown', e => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const world = screenToWorld(mouseX, mouseY);
+                
+                for (let i = 0; i < 3; i++) {
+                    const dx = world.x - conductors[i].x;
+                    const dy = world.y - conductors[i].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const radii = [params.radiusA, params.radiusB, params.radiusC];
+                    
+                    const hitRadius = Math.max(radii[i] * 5, DESKTOP_HIT_RADIUS);
+                    
+                    if (distance < hitRadius) {
+                        selectedConductor = i;
+                        canvas.style.cursor = 'grabbing';
+                        
+                        savedAnimSpeed = params.animSpeed;
+                        params.animSpeed = 0;
+                        document.getElementById('animSpeed').value = 0;
+                        document.getElementById('speedValue').textContent = '0.00000';
+                        return;
+                    }
+                }
+                
+                camera.dragging = true;
+                camera.dragStart = { x: mouseX - camera.offsetX, y: mouseY - camera.offsetY };
+                canvas.style.cursor = 'grabbing';
+            });
+            
+            canvas.addEventListener('mousemove', e => {
+                // Ignore mouse events if touch was recently used
+                if (isUsingTouch && Date.now() - lastTouchEnd < 500) {
+                    return;
+                }
+                
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Update cursor world position for field display
+                const world = screenToWorld(mouseX, mouseY);
+                cursorWorld.x = world.x;
+                cursorWorld.y = world.y;
+                cursorWorld.valid = true;
+                
+                if (selectedConductor !== null) {
+                    conductors[selectedConductor].x = world.x;
+                    conductors[selectedConductor].y = world.y;
+                    updateElectricalParameters();
+                    updateCenterFieldDisplay();
+                    fieldLineCache.needsUpdate = true;
+                    canvas.style.cursor = 'grabbing';
+                } else if (camera.dragging) {
+                    camera.offsetX = mouseX - camera.dragStart.x;
+                    camera.offsetY = mouseY - camera.dragStart.y;
+                    
+                    fieldLineCache.needsUpdate = true;
+                    
+                    const panDistX = Math.abs(camera.offsetX - cycleCache.lastOffsetX);
+                    const panDistY = Math.abs(camera.offsetY - cycleCache.lastOffsetY);
+                    
+                    if (panDistX > 30 || panDistY > 30) {
+                        invalidateCache();
+                    }
+                    
+                    canvas.style.cursor = 'grabbing';
+                } else {
+                    hoveredConductor = null;
+                    
+                    for (let i = 0; i < 3; i++) {
+                        const dx = world.x - conductors[i].x;
+                        const dy = world.y - conductors[i].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const radii = [params.radiusA, params.radiusB, params.radiusC];
+                        const hitRadius = Math.max(radii[i] * 5, DESKTOP_HIT_RADIUS);
+                        
+                        if (distance < hitRadius) {
+                            hoveredConductor = i;
+                            canvas.style.cursor = 'grab';
+                            break;
+                        }
+                    }
+                    
+                    if (hoveredConductor === null) {
+                        canvas.style.cursor = 'grab';
+                    }
+                }
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                if (selectedConductor !== null) {
+                    params.animSpeed = savedAnimSpeed;
+                    document.getElementById('animSpeed').value = savedAnimSpeed;
+                    document.getElementById('speedValue').textContent = savedAnimSpeed.toFixed(5);
+                    
+                    invalidateCache();
+                }
+                
+                if (camera.dragging) {
+                    invalidateCache();
+                }
+                
+                camera.dragging = false;
+                selectedConductor = null;
+                canvas.style.cursor = 'grab';
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                // Clear cursor position tracking
+                cursorWorld.valid = false;
+                updateCursorFieldDisplay();
+                
+                // If dragging a conductor, restore animation speed and recalculate
+                if (selectedConductor !== null) {
+                    params.animSpeed = savedAnimSpeed;
+                    document.getElementById('animSpeed').value = savedAnimSpeed;
+                    document.getElementById('speedValue').textContent = savedAnimSpeed.toFixed(5);
+                    invalidateCache();
+                }
+                
+                // If panning, recalculate cache
+                if (camera.dragging) {
+                    invalidateCache();
+                }
+                
+                // Clear all dragging states when mouse leaves canvas
+                camera.dragging = false;
+                selectedConductor = null;
+                hoveredConductor = null;
+                canvas.style.cursor = 'grab';
+            });
+            
+            canvas.addEventListener('wheel', e => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                params.zoom = Math.max(0.05, Math.min(5, params.zoom * delta));
+                document.getElementById('zoom').value = params.zoom;
+                document.getElementById('zoomValue').textContent = `${params.zoom.toFixed(2)}x`;
+                fieldLineCache.needsUpdate = true;
+                invalidateCache();
+            }, { passive: false });
+            
+            // Touch event listeners - using dedicated handler functions with { passive: false }
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+            canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+        }
+        
+        // Initialize
+        function initialize() {
+            // Collapse controls by default on mobile (detect by UA or viewport width)
+            const isMobileViewport = window.innerWidth <= 768;
+            if (isMobile || isMobileViewport) {
+                const controls = document.getElementById('controls');
+                const button = document.getElementById('controls-toggle');
+                controls.classList.add('collapsed');
+                button.textContent = '⚙️ Show Settings';
+            }
+            
+            resizeCanvas();
+            
+            setupEventListeners();
+            updateElectricalParameters();
+            updateCenterFieldDisplay();
+            updateCursorFieldDisplay();
+            
+            // Initialize UI labels based on current mode
+            
+            // Initialize slider values based on current mode
+            updateSliderValues();
+            updateUILabels();
+            
+            setTimeout(() => {
+                if (canvas.width > 0 && canvas.height > 0) {
+                    buildCycleCache();
+                    animate();
+                } else {
+                    setTimeout(initialize, 100);
+                }
+            }, 50);
+        }
+        
+        initialize();
+    </script>
+</body>
+</html>

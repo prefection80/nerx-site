@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Power Triangle Toolkit (Separate Oscillography Plots with Instructions)</title>
+  
+  <!-- MathJax for LaTeX equations (optional) -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']],
+        tags: 'ams'
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      margin: 20px 0 10px 0;
+    }
+    .diagram-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 50px;
+      margin-top: 10px;
+      padding-bottom: 30px;
+    }
+    .diagram-wrapper {
+      text-align: center;
+      max-width: 1200px;
+    }
+    /* Power Triangle remains on the left */
+    #powerTriangle {
+      border: 1px solid #333;
+      background-color: #fff;
+      cursor: crosshair;
+      width: 600px;
+      height: 600px;
+      display: block;
+      margin: 0 auto;
+    }
+    /* Oscillography section: two separate canvases stacked vertically */
+    .oscillography-container {
+      margin-top: 20px;
+    }
+    .oscillography-wrapper {
+      margin-bottom: 30px;
+    }
+    .oscillography-wrapper h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    /* Each canvas is 1200x300 */
+    canvas.oscCanvas {
+      border: 1px solid #333;
+      background-color: #fafafa;
+      display: block;
+      margin: 0 auto;
+    }
+    .info {
+      margin-top: 20px;
+      font-size: 20px;
+      text-align: center;
+    }
+    .info span.label {
+      display: inline-block;
+      width: 50px;
+      text-align: right;
+      margin-right: 5px;
+    }
+    button {
+      font-size: 16px;
+      padding: 6px 12px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    .equations {
+      font-size: 16px;
+      text-align: center;
+      margin: 10px auto;
+      max-width: 600px;
+      line-height: 1.5em;
+    }
+    .instruction {
+      font-size: 16px;
+      font-weight: bold;
+      color: #d00;
+      margin-top: 10px;
+      text-align: center;
+    }
+    /* Custom styles for this toolkit */
+  </style>
+</head>
+<body>
+  
+  
+  <h1>4-Quadrant Power Triangle & Animated Waveforms</h1>
+  
+  <div class="diagram-container">
+    <!-- Power Triangle Diagram -->
+    <div class="diagram-wrapper">
+      <svg id="powerTriangle"></svg>
+      <p style="margin: 10px auto; font-size: 16px;">
+        <span style="color: green;"><strong>P</strong> = Real Power</span> &nbsp;|&nbsp;
+        <span style="color: blue;"><strong>Q</strong> = Reactive Power</span> &nbsp;|&nbsp;
+        <span style="color: red;"><strong>S</strong> = Apparent Power</span>
+      </p>
+      <div class="equations">
+        <p><strong>Key Equations:</strong></p>
+        <p>$$S = \sqrt{P^2 + Q^2}$$</p>
+        <p>$$\theta = \arctan\left(\frac{Q}{P}\right) \quad,\quad \mathrm{PF} = \cos(\theta)$$</p>
+        <p>$$P = S\cos(\theta) \quad,\quad Q = S\sin(\theta)$$</p>
+      </div>
+      <div class="instruction">
+        **** CLICK ON THE POWER TRIANGLE PLOT TO MOVE THE OPERATING POINT ****
+      </div>
+    </div>
+  
+    <!-- Oscillography Section -->
+    <div class="diagram-wrapper oscillography-container">
+      <div class="oscillography-wrapper">
+        <h3>Voltage Oscillography</h3>
+        <canvas id="voltageCanvas" class="oscCanvas" width="1200" height="300"></canvas>
+      </div>
+      <div class="oscillography-wrapper">
+        <h3>Current Oscillography</h3>
+        <canvas id="currentCanvas" class="oscCanvas" width="1200" height="300"></canvas>
+      </div>
+      <div>
+        <button id="phaseModeBtn">Switch to 3-phase</button>
+        <button id="pauseBtn">Pause Waveforms</button>
+      </div>
+      <div class="info">
+        <div><span class="label">P:</span><span id="pValue">-</span> pu</div>
+        <div><span class="label">Q:</span><span id="qValue">-</span> pu</div>
+        <div><span class="label">S:</span><span id="sValue">-</span> pu</div>
+        <div><span class="label">θ:</span><span id="phiValue">-</span> deg</div>
+        <div><span class="label">PF:</span><span id="pfValue">-</span></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ----------------------------------------------------
+       JavaScript Code
+       ---------------------------------------------------- -->
+  <script>
+    /******************************************************************************
+     * 1) SVG POWER TRIANGLE with DRAGGABLE operating point and a θ arc 
+     *    drawn as a portion of a circle centered at the origin that lies 
+     *    between the P (horizontal) and S (diagonal) vectors.
+     ******************************************************************************/
+    
+    const svg = document.getElementById("powerTriangle");
+    const widthSVG = svg.clientWidth;   // 600
+    const heightSVG = svg.clientHeight; // 600
+    
+    function pixelX(P) { return (P + 1) * 0.5 * widthSVG; }
+    function pixelY(Q) { return heightSVG - (Q + 1) * 0.5 * heightSVG; }
+    function invPixelP(px) { return (px / widthSVG) * 2 - 1; }
+    function invPixelQ(py) { return (heightSVG - py) / heightSVG * 2 - 1; }
+    
+    function createLine(x1, y1, x2, y2, color="#000", lw=2, dash=false) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", pixelX(x1));
+      line.setAttribute("y1", pixelY(y1));
+      line.setAttribute("x2", pixelX(x2));
+      line.setAttribute("y2", pixelY(y2));
+      line.setAttribute("stroke", color);
+      line.setAttribute("stroke-width", lw);
+      if (dash) { line.setAttribute("stroke-dasharray", "5,5"); }
+      svg.appendChild(line);
+    }
+    
+    createLine(-1, 0, 1, 0, "#444");
+    createLine(0, -1, 0, 1, "#444");
+    
+    function createTextLabel(text, Px, Qy, offsetX=0, offsetY=0) {
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.textContent = text;
+      label.setAttribute("x", pixelX(Px) + offsetX);
+      label.setAttribute("y", pixelY(Qy) + offsetY);
+      label.setAttribute("font-size", "16");
+      label.setAttribute("fill", "#000");
+      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("dominant-baseline", "middle");
+      svg.appendChild(label);
+    }
+    createTextLabel("P>0", 1, 0, -20, -20);
+    createTextLabel("P<0", -1, 0, 20, -20);
+    createTextLabel("Q>0", 0, 1, -20, 20);
+    createTextLabel("Q<0", 0, -1, -20, -20);
+    
+    const lineP = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    lineP.setAttribute("stroke", "green");
+    lineP.setAttribute("stroke-width", "3");
+    svg.appendChild(lineP);
+    
+    const lineQ = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    lineQ.setAttribute("stroke", "blue");
+    lineQ.setAttribute("stroke-width", "3");
+    svg.appendChild(lineQ);
+    
+    const lineS = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    lineS.setAttribute("stroke", "red");
+    lineS.setAttribute("stroke-width", "3");
+    svg.appendChild(lineS);
+    
+    const labelPvec = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    labelPvec.textContent = "P";
+    labelPvec.setAttribute("font-size", "16");
+    labelPvec.setAttribute("fill", "green");
+    labelPvec.setAttribute("text-anchor", "middle");
+    labelPvec.setAttribute("dominant-baseline", "middle");
+    svg.appendChild(labelPvec);
+    
+    const labelQvec = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    labelQvec.textContent = "Q";
+    labelQvec.setAttribute("font-size", "16");
+    labelQvec.setAttribute("fill", "blue");
+    labelQvec.setAttribute("text-anchor", "middle");
+    labelQvec.setAttribute("dominant-baseline", "middle");
+    svg.appendChild(labelQvec);
+    
+    const labelSvec = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    labelSvec.textContent = "S";
+    labelSvec.setAttribute("font-size", "16");
+    labelSvec.setAttribute("fill", "red");
+    labelSvec.setAttribute("text-anchor", "middle");
+    labelSvec.setAttribute("dominant-baseline", "middle");
+    svg.appendChild(labelSvec);
+    
+    const thetaArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    thetaArc.setAttribute("fill", "none");
+    thetaArc.setAttribute("stroke", "purple");
+    thetaArc.setAttribute("stroke-width", "2");
+    svg.appendChild(thetaArc);
+    
+    const thetaLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    thetaLabel.textContent = "θ";
+    thetaLabel.setAttribute("font-size", "16");
+    thetaLabel.setAttribute("fill", "purple");
+    thetaLabel.setAttribute("text-anchor", "middle");
+    thetaLabel.setAttribute("dominant-baseline", "middle");
+    svg.appendChild(thetaLabel);
+    
+    const opPointCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    opPointCircle.setAttribute("r", 6);
+    opPointCircle.setAttribute("fill", "green");
+    opPointCircle.style.cursor = "grab";
+    svg.appendChild(opPointCircle);
+    
+    let currentP = 0.7, currentQ = 0.3;
+    let isDragging = false;
+    updateTriangle(currentP, currentQ);
+    
+    svg.addEventListener("click", (e) => {
+      if (isDragging) return;
+      const rect = svg.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      let P = invPixelP(clickX);
+      let Q = invPixelQ(clickY);
+      P = Math.max(-1, Math.min(1, P));
+      Q = Math.max(-1, Math.min(1, Q));
+      updateTriangle(P, Q);
+    });
+    
+    opPointCircle.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+      isDragging = true;
+      opPointCircle.style.cursor = "grabbing";
+    });
+    svg.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      const rect = svg.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      let P = invPixelP(x), Q = invPixelQ(y);
+      P = Math.max(-1, Math.min(1, P));
+      Q = Math.max(-1, Math.min(1, Q));
+      updateTriangle(P, Q);
+    });
+    svg.addEventListener("mouseup", () => { isDragging = false; opPointCircle.style.cursor = "grab"; });
+    svg.addEventListener("mouseleave", () => { isDragging = false; opPointCircle.style.cursor = "grab"; });
+    
+    function updateTriangle(P, Q) {
+      currentP = P; currentQ = Q;
+      opPointCircle.setAttribute("cx", pixelX(P));
+      opPointCircle.setAttribute("cy", pixelY(Q));
+    
+      lineP.setAttribute("x1", pixelX(0));
+      lineP.setAttribute("y1", pixelY(0));
+      lineP.setAttribute("x2", pixelX(P));
+      lineP.setAttribute("y2", pixelY(0));
+    
+      lineQ.setAttribute("x1", pixelX(P));
+      lineQ.setAttribute("y1", pixelY(0));
+      lineQ.setAttribute("x2", pixelX(P));
+      lineQ.setAttribute("y2", pixelY(Q));
+    
+      lineS.setAttribute("x1", pixelX(0));
+      lineS.setAttribute("y1", pixelY(0));
+      lineS.setAttribute("x2", pixelX(P));
+      lineS.setAttribute("y2", pixelY(Q));
+    
+      labelPvec.setAttribute("x", pixelX(P) + 15 * Math.sign(P || 1));
+      labelPvec.setAttribute("y", pixelY(0) - 5);
+    
+      labelQvec.setAttribute("x", pixelX(P) + 15 * Math.sign(P || 1));
+      labelQvec.setAttribute("y", pixelY(Q) + 15 * Math.sign(Q || 1));
+    
+      labelSvec.setAttribute("x", pixelX(P));
+      labelSvec.setAttribute("y", pixelY(Q) - 15 * Math.sign(Q || 1));
+    
+      const S = Math.sqrt(P*P + Q*Q);
+      let phi = Math.atan2(Q, P);
+      if(P < 0 && phi < 0) { phi += 2*Math.PI; }
+      const pf = (S > 1e-9) ? (P/S) : 0;
+      document.getElementById("pValue").textContent = P.toFixed(2);
+      document.getElementById("qValue").textContent = Q.toFixed(2);
+      document.getElementById("sValue").textContent = S.toFixed(2);
+      const displayTheta = Math.abs(phi - ((P>=0) ? 0 : Math.PI));
+      document.getElementById("phiValue").textContent = (displayTheta * 180/Math.PI).toFixed(1);
+      document.getElementById("pfValue").textContent = pf.toFixed(2);
+    
+      updateThetaArc(P, Q);
+    }
+    
+    function updateThetaArc(P, Q) {
+      let phi = Math.atan2(Q, P);
+      if(P < 0 && phi < 0){ phi += 2*Math.PI; }
+      let refAngle = (P >= 0) ? 0 : Math.PI;
+      let theta = Math.abs(phi - refAngle);
+      if(theta > Math.PI){ theta = 2*Math.PI - theta; }
+      const S = Math.sqrt(P*P + Q*Q);
+      let R = 0.3 * Math.min(Math.abs(P), S);
+      if(R < 0.05){ R = 0.05; }
+    
+      let x1 = R * Math.cos(refAngle), y1 = R * Math.sin(refAngle);
+      let x2 = R * Math.cos(phi), y2 = R * Math.sin(phi);
+      let X1 = pixelX(x1), Y1 = pixelY(y1);
+      let X2 = pixelX(x2), Y2 = pixelY(y2);
+    
+      let largeArcFlag = 0;
+      let sweepFlag = (phi >= refAngle) ? 1 : 0;
+      let arcRadiusPx = R * (widthSVG/2);
+      let arcD = `M ${X1},${Y1} A ${arcRadiusPx},${arcRadiusPx} 0 ${largeArcFlag},${sweepFlag} ${X2},${Y2}`;
+      thetaArc.setAttribute("d", arcD);
+    
+      let midAngle = refAngle + (phi - refAngle)/2;
+      let lx = R * Math.cos(midAngle), ly = R * Math.sin(midAngle);
+      let LX = pixelX(lx), LY = pixelY(ly);
+      thetaLabel.setAttribute("x", LX);
+      thetaLabel.setAttribute("y", LY);
+    }
+    
+    /******************************************************************************
+     * 2) ANIMATED OSCILLOGRAPHY (Separate Voltage and Current Plots)
+     ******************************************************************************/
+    
+    const voltageCanvas = document.getElementById("voltageCanvas");
+    const currentCanvas = document.getElementById("currentCanvas");
+    const ctxVoltage = voltageCanvas.getContext("2d");
+    const ctxCurrent = currentCanvas.getContext("2d");
+    const cwVoltage = voltageCanvas.width;
+    const chVoltage = voltageCanvas.height;
+    const cwCurrent = currentCanvas.width;
+    const chCurrent = currentCanvas.height;
+    
+    function puToY(v, canvasHeight) {
+      return (1 - v) * (canvasHeight/2);
+    }
+    
+    let timeOsc = 0;
+    const freq = 1;
+    const dt = 0.02;
+    let isThreePhase = false;
+    let isPaused = false;
+    
+    const phaseModeBtn = document.getElementById("phaseModeBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    
+    phaseModeBtn.addEventListener("click", () => {
+      isThreePhase = !isThreePhase;
+      phaseModeBtn.textContent = isThreePhase ? "Switch to 1-phase" : "Switch to 3-phase";
+    });
+    
+    pauseBtn.addEventListener("click", () => {
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? "Unpause Waveforms" : "Pause Waveforms";
+    });
+    
+    function animateOsc() {
+      requestAnimationFrame(animateOsc);
+      if(!isPaused) timeOsc += dt;
+      drawVoltage();
+      drawCurrent();
+    }
+    animateOsc();
+    
+    function drawVoltage() {
+      ctxVoltage.clearRect(0, 0, cwVoltage, chVoltage);
+      ctxVoltage.setLineDash([5,5]);
+      ctxVoltage.strokeStyle = "#999";
+      ctxVoltage.beginPath();
+      ctxVoltage.moveTo(0, puToY(1, chVoltage));
+      ctxVoltage.lineTo(cwVoltage, puToY(1, chVoltage));
+      ctxVoltage.moveTo(0, puToY(-1, chVoltage));
+      ctxVoltage.lineTo(cwVoltage, puToY(-1, chVoltage));
+      ctxVoltage.stroke();
+      ctxVoltage.setLineDash([]);
+    
+      if(!isThreePhase) {
+        ctxVoltage.strokeStyle = "blue";
+        ctxVoltage.lineWidth = 2;
+        ctxVoltage.beginPath();
+        for(let x=0; x<cwVoltage; x++){
+          let t = timeOsc + 0.01*x;
+          let v = Math.sin(2*Math.PI*freq*t);
+          let y = puToY(v, chVoltage);
+          (x===0) ? ctxVoltage.moveTo(x,y) : ctxVoltage.lineTo(x,y);
+        }
+        ctxVoltage.stroke();
+      } else {
+        const phaseOffsetsDeg = [0, -120, 120];
+        const phaseColors = ["red", "green", "blue"];
+        ctxVoltage.lineWidth = 2;
+        for(let i=0; i<3; i++){
+          let offsetRad = phaseOffsetsDeg[i]*Math.PI/180;
+          ctxVoltage.strokeStyle = phaseColors[i];
+          ctxVoltage.beginPath();
+          for(let x=0; x<cwVoltage; x++){
+            let t = timeOsc + 0.01*x;
+            let v = Math.sin(2*Math.PI*freq*t + offsetRad);
+            let y = puToY(v, chVoltage);
+            (x===0) ? ctxVoltage.moveTo(x,y) : ctxVoltage.lineTo(x,y);
+          }
+          ctxVoltage.stroke();
+        }
+      }
+    }
+    
+    function drawCurrent() {
+      ctxCurrent.clearRect(0, 0, cwCurrent, chCurrent);
+      ctxCurrent.setLineDash([5,5]);
+      ctxCurrent.strokeStyle = "#999";
+      ctxCurrent.beginPath();
+      ctxCurrent.moveTo(0, puToY(1, chCurrent));
+      ctxCurrent.lineTo(cwCurrent, puToY(1, chCurrent));
+      ctxCurrent.moveTo(0, puToY(-1, chCurrent));
+      ctxCurrent.lineTo(cwCurrent, puToY(-1, chCurrent));
+      ctxCurrent.stroke();
+      ctxCurrent.setLineDash([]);
+    
+      if(!isThreePhase) {
+        ctxCurrent.strokeStyle = "red";
+        ctxCurrent.lineWidth = 2;
+        ctxCurrent.beginPath();
+        for(let x=0; x<cwCurrent; x++){
+          let t = timeOsc + 0.01*x;
+          let S = Math.sqrt(currentP*currentP + currentQ*currentQ);
+          let phi = Math.atan2(currentQ, currentP);
+          if(currentP < 0 && phi < 0){ phi += 2*Math.PI; }
+          let iVal = S * Math.sin(2*Math.PI*freq*t - phi);
+          let y = puToY(iVal, chCurrent);
+          (x===0) ? ctxCurrent.moveTo(x,y) : ctxCurrent.lineTo(x,y);
+        }
+        ctxCurrent.stroke();
+      } else {
+        const phaseOffsetsDeg = [0, -120, 120];
+        const phaseColors = ["red", "green", "blue"];
+        ctxCurrent.lineWidth = 2;
+        for(let i=0; i<3; i++){
+          let offsetRad = phaseOffsetsDeg[i]*Math.PI/180;
+          ctxCurrent.strokeStyle = phaseColors[i];
+          ctxCurrent.beginPath();
+          for(let x=0; x<cwCurrent; x++){
+            let t = timeOsc + 0.01*x;
+            let S = Math.sqrt(currentP*currentP + currentQ*currentQ);
+            let phi = Math.atan2(currentQ, currentP);
+            if(currentP < 0 && phi < 0){ phi += 2*Math.PI; }
+            let iVal = (S/3) * Math.sin(2*Math.PI*freq*t - phi + offsetRad);
+            let y = puToY(iVal, chCurrent);
+            (x===0) ? ctxCurrent.moveTo(x,y) : ctxCurrent.lineTo(x,y);
+          }
+          ctxCurrent.stroke();
+        }
+      }
+    }
+    
+    // End of JavaScript code
+  </script>
+  
+  <!-- End of Power Triangle Toolkit code -->
+  
+  <!-- Include header.js and ticker.js files -->
+  <script src="header.js"></script>
+  <script src="ticker.js"></script>
+</body>
+</html>

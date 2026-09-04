@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Surge Impedance Loading (SIL) by Doug Millner</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f8;
+      color: #333;
+    }
+    /* Slider container styling */
+    #sliders {
+      padding: 10px 20px;
+      border-bottom: 1px solid #ccc;
+    }
+    /* Container for sliders and the "Near SIL Loading" button */
+    .slider-button-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      padding: 0 20px 10px 20px;
+    }
+    .slider-label {
+      width: 220px;
+      display: inline-block;
+    }
+    /* Make all range sliders wider */
+    input[type=range] {
+      width: 400px;
+    }
+    #results {
+      margin: 10px 20px;
+      white-space: pre;
+      font-family: monospace;
+      background: #f8f8f8;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    #diagram, #plot {
+      border: 1px solid #ccc;
+      background: #fafafa;
+      margin: 20px;
+      width: calc(100% - 40px);
+    }
+    #diagram {
+      height: 300px;
+    }
+    #plot {
+      height: 300px;
+    }
+    /* Explanation text styling at the bottom */
+    #explanation {
+      margin: 20px;
+      padding: 20px;
+      border-top: 1px solid #ccc;
+      background: #f4f4f4;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    /* Add some bottom padding for scrolling */
+    body::after {
+      content: "";
+      display: block;
+      height: 50px;
+    }
+    
+    /* Custom styles for this toolkit */
+    /* Button styling */
+    button {
+      padding: 8px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background-color: #f8f8f8;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #e8e8e8;
+    }
+    
+    /* Style the "Near SIL Loading" button */
+    #nearSILLoading {
+      color: white;
+      background-color: #0056b3;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+    #nearSILLoading:hover {
+      background-color: #004494;
+    }
+  </style>
+</head>
+<body>
+    <div class="slider-button-container">
+      <div id="sliders">
+        <!-- Basic Parameters -->
+        <div>
+          <span class="slider-label">Number of Nodes (N):</span>
+          <input type="range" id="sliderN" min="2" max="50" step="1" value="5" oninput="updateAll()">
+          <span id="labelN">5</span>
+        </div>
+        <div>
+          <span class="slider-label">Frequency (Hz):</span>
+          <input type="range" id="sliderFreq" min="40" max="70" step="1" value="60" oninput="updateAll()">
+          <span id="labelFreq">60</span>
+        </div>
+        <hr>
+        <!-- Line Parameters in p.u. -->
+        <div>
+          <span class="slider-label">Line Xₗ (p.u.):</span>
+          <input type="range" id="sliderXLine" min="0.01" max="0.30" step="0.01" value="0.15" oninput="updateAll()">
+          <span id="labelXLine">0.15</span>
+        </div>
+        <div>
+          <span class="slider-label">Line X/R Ratio:</span>
+          <input type="range" id="sliderXRLine" min="1" max="100" step="1" value="15.0" oninput="updateAll()">
+          <span id="labelXRLine">15.0</span>
+        </div>
+        <div>
+          <span class="slider-label">Total C (p.u.):</span>
+          <input type="range" id="sliderC" min="0" max="0.05" step="0.001" value="0.004" oninput="updateAll()">
+          <span id="labelC">0.004</span>
+        </div>
+        <hr>
+        <!-- Load Parameters in p.u. -->
+        <div>
+          <span class="slider-label">Load |Z| (p.u.):</span>
+          <input type="range" id="sliderZLoad" min="0" max="3" step="0.01" value="0.39" oninput="updateAll()">
+          <span id="labelZLoad">0.39</span>
+        </div>
+        <div>
+          <span class="slider-label">Load X/R Ratio:</span>
+          <input type="range" id="sliderXRLoad" min="0.1" max="100" step="0.1" value="0.1" oninput="updateAll()">
+          <span id="labelXRLoad">0.1</span>
+        </div>
+      </div>
+      <div>
+        <button id="nearSILLoading" onclick="setNearSILDefaults()">Near SIL Loading</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results display -->
+  <div id="results"></div>
+
+  <!-- Title for the diagram -->
+  <div id="diagramTitle" style="text-align: center; font-weight: bold; margin: 20px;">
+    Visual Representation of the Distributed Transmission Line Parameters (Series R + Xₗ and Shunt Capacitance X<sub>C</sub> at nodes N=1 to N-1, Voltage Source at Node=0, Load at Node=N) - Distributed Line Parameters is necessary as the voltage along the line can vary greatly from capacitive current passing over series inductances
+  </div>
+
+  <!-- SVG Diagram for the circuit -->
+  <svg id="diagram"></svg>
+
+  <!-- SVG Plot for voltage vs. node index -->
+  <svg id="plot"></svg>
+
+  <!-- Explanation text placed at the very bottom -->
+  <div id="explanation">
+    <h2>Surge Impedance Loading (SIL) Explained</h2>
+    <p>
+      <strong>Surge Impedance Loading (SIL)</strong> is a key concept in high-voltage transmission line analysis.
+      SIL represents the natural load level at which a transmission line operates without significant voltage rise or drop along its length.
+      At SIL, the reactive power produced by the line’s distributed capacitance is balanced by the reactive power absorbed by its series inductance.
+    </p>
+    <p>
+      In this tool, the transmission line is modeled as a series of discrete nodes (from Node 0 to Node N). Each node is connected by series elements representing a fraction of the total line impedance and by shunt elements representing a fraction of the total line capacitance. 
+      Node 0 is the sending end (maintained at 1.0 per unit), and Node N is the receiving end, where a load is connected.
+    </p>
+    <p>
+      <strong>What Each Slider Does:</strong>
+      <ul>
+        <li><strong>Number of Nodes (N):</strong> Defines the number of nodes in the model (from 2 to 50). More nodes mean a finer division of the line’s distributed parameters.</li>
+        <li><strong>Frequency (Hz):</strong> Sets the system frequency, which affects the shunt capacitor’s admittance (Y = j2πfC).</li>
+        <li><strong>Line Xₗ (p.u.):</strong> Sets the total reactance of the line in per unit, which is divided among the segments.</li>
+        <li><strong>Line X/R Ratio:</strong> Determines the ratio of the line’s reactance to resistance. The line’s resistance is calculated as (Line Xₗ)/(X/R ratio).</li>
+        <li><strong>Total C (p.u.):</strong> Sets the total shunt capacitance of the line in per unit. This capacitance is divided equally among the nodes.</li>
+        <li><strong>Load |Z| (p.u.):</strong> Sets the magnitude of the load impedance at Node N. A lower load impedance draws more current, helping to control voltage rises.</li>
+        <li><strong>Load X/R Ratio:</strong> Determines the ratio of the load’s reactive to resistive components.</li>
+      </ul>
+    </p>
+    <p>
+      <strong>Why a Load at Node N Can Manage Overvoltages:</strong> When a transmission line is lightly loaded, the distributed capacitance can cause the voltage to rise (an overvoltage condition). 
+      By connecting a load at the receiving end (Node N), extra current is drawn from the line, which helps absorb the charging current produced by the line capacitance.
+      This balancing of reactive power prevents excessive voltage buildup and maintains the voltage closer to its nominal value.
+    </p>
+  </div>
+  
+  <!-- ----------------------------------------------------
+       JavaScript Code
+       ---------------------------------------------------- -->
+  <script>
+    // ----------------------------------------------------
+    // 1) Complex arithmetic helpers
+    // ----------------------------------------------------
+    function cAdd(a, b){ return { re: a.re + b.re, im: a.im + b.im }; }
+    function cSub(a, b){ return { re: a.re - b.re, im: a.im - b.im }; }
+    function cMul(a, b){ return { re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re }; }
+    function cDiv(a, b){
+      const denom = b.re*b.re + b.im*b.im;
+      return {
+        re: (a.re*b.re + a.im*b.im) / denom,
+        im: (a.im*b.re - a.re*b.im) / denom
+      };
+    }
+    function cNeg(a){ return { re: -a.re, im: -a.im }; }
+    function cZero(){ return { re: 0, im: 0 }; }
+    function rectToPolar(a){
+      const mag = Math.sqrt(a.re*a.re + a.im*a.im);
+      const ang = Math.atan2(a.im, a.re) * 180 / Math.PI;
+      return { mag, ang };
+    }
+    function cMulScalar(a, s){ return { re: a.re*s, im: a.im*s }; }
+    
+    // Compute load admittance from R and X (all in per unit)
+    function loadAdmittance(R, X){
+      return cDiv({re: 1, im: 0}, {re: R, im: X});
+    }
+    
+    // ----------------------------------------------------
+    // 2) Solve node voltages in the N-lumped line model with load (per unit)
+    // ----------------------------------------------------
+    function solveVoltages(N, Rline, Xline, Ctotal, freq, Rload, Xload) {
+      const V0 = { re: 1.0, im: 0.0 }; // Fixed sending-end voltage (1.0 p.u.)
+    
+      // Each segment's series impedance in per unit
+      const Z_total_line = { re: Rline, im: Xline };
+      const Zs = cDiv(Z_total_line, { re: N, im: 0 });
+      
+      // Shunt admittance per node (from capacitance, in per unit)
+      const omega = 2 * Math.PI * freq;
+      const Y_total = { re: 0, im: omega * Ctotal };
+      const Ys = cDiv(Y_total, { re: N, im: 0 });
+    
+      // Load admittance at Node N (per unit)
+      const Yload = loadAdmittance(Rload, Xload);
+    
+      // Set up the tridiagonal system for nodes 1 to N (Node 0 is known)
+      const a = new Array(N+1).fill(null).map(() => cZero());
+      const b = new Array(N+1).fill(null).map(() => cZero());
+      const c = new Array(N+1).fill(null).map(() => cZero());
+      const r = new Array(N+1).fill(null).map(() => cZero());
+      
+      const oneOverZs = cDiv({re: 1, im: 0}, Zs);
+    
+      // Node 1:
+      // (V1 - V0)/Zs + (V1 - V2)/Zs + Ys*V1 = 0  =>  (2/Zs + Ys)*V1 - (1/Zs)*V2 = (1/Zs)*V0
+      b[1] = cAdd(cMulScalar(oneOverZs, 2), Ys);
+      c[1] = cNeg(oneOverZs);
+      r[1] = cMul(oneOverZs, V0);
+    
+      // Nodes 2 to N-1:
+      for (let i = 2; i <= N-1; i++){
+        a[i] = cNeg(oneOverZs);
+        b[i] = cAdd(cMulScalar(oneOverZs, 2), Ys);
+        c[i] = cNeg(oneOverZs);
+        r[i] = cZero();
+      }
+    
+      // Node N (with load):
+      // (V_N - V_{N-1})/Zs + Ys*V_N + Yload*V_N = 0  =>  -1/Zs * V_{N-1} + (1/Zs + Ys + Yload)*V_N = 0
+      a[N] = cNeg(oneOverZs);
+      b[N] = cAdd(cAdd(oneOverZs, Ys), Yload);
+      r[N] = cZero();
+    
+      // Forward elimination
+      for (let i = 2; i <= N; i++){
+        const m = cDiv(a[i], b[i-1]);
+        b[i] = cSub(b[i], cMul(m, c[i-1]));
+        r[i] = cSub(r[i], cMul(m, r[i-1]));
+      }
+    
+      // Back substitution
+      const V = new Array(N+1).fill(null).map(() => cZero());
+      V[N] = cDiv(r[N], b[N]);
+      for (let i = N-1; i >= 1; i--){
+        const tmp = cSub(r[i], cMul(c[i], V[i+1]));
+        V[i] = cDiv(tmp, b[i]);
+      }
+      
+      return V; // Returns V[1..N] (Node 0 remains fixed at 1.0 p.u.)
+    }
+    
+    // ----------------------------------------------------
+    // 3) Draw the circuit diagram (per unit) with auto scaling using viewBox.
+    // ----------------------------------------------------
+    function drawDiagram(N) {
+      const svg = document.getElementById("diagram");
+    
+      // Define coordinate system parameters
+      const margin = 20;
+      const segLength = 50; // Length per segment in coordinate units
+      const viewBoxWidth = margin * 2 + N * segLength;
+      const viewBoxHeight = 300; // Fixed height for the diagram
+      const yMid = viewBoxHeight / 2; // Horizontal series line at yMid
+      
+      // Define capacitor shunt limits and midpoint:
+      const capTop = yMid;                   // top of capacitor shunt line
+      const capBottom = 0.8 * viewBoxHeight;   // bottom of capacitor shunt line
+      const capMid = (capTop + capBottom) / 2; // midpoint of capacitor shunt
+    
+      svg.setAttribute("viewBox", `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+      while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    
+      // ----- Draw Node 0 (Vs) -----
+      const vsRadius = 12;
+      const vsCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      vsCircle.setAttribute("cx", margin);
+      vsCircle.setAttribute("cy", capMid);
+      vsCircle.setAttribute("r", vsRadius);
+      vsCircle.setAttribute("fill", "red");
+      svg.appendChild(vsCircle);
+      const vsText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      vsText.setAttribute("x", margin);
+      vsText.setAttribute("y", capMid + 4);
+      vsText.setAttribute("text-anchor", "middle");
+      vsText.setAttribute("fill", "white");
+      vsText.setAttribute("font-size", "10");
+      vsText.textContent = "Vs";
+      svg.appendChild(vsText);
+      // Draw a vertical connection from the top of the Vs circle up to the series line at yMid.
+      const vsTop = capMid - vsRadius;
+      const vsConnection = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      vsConnection.setAttribute("x1", margin);
+      vsConnection.setAttribute("y1", vsTop);
+      vsConnection.setAttribute("x2", margin);
+      vsConnection.setAttribute("y2", yMid);
+      vsConnection.setAttribute("stroke", "brown");
+      vsConnection.setAttribute("stroke-width", "2");
+      svg.appendChild(vsConnection);
+    
+      // ----- Draw transmission line segments and capacitor shunts for Nodes 1 to N-1 -----
+      let x0 = margin;
+      for (let i = 1; i <= N; i++){
+        let x1 = margin + i * segLength;
+        const lineSeg = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        lineSeg.setAttribute("x1", x0);
+        lineSeg.setAttribute("y1", yMid);
+        lineSeg.setAttribute("x2", x1);
+        lineSeg.setAttribute("y2", yMid);
+        lineSeg.setAttribute("stroke", "black");
+        lineSeg.setAttribute("stroke-width", "2");
+        svg.appendChild(lineSeg);
+        if (i < N) {
+          const capLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          capLine.setAttribute("x1", x1);
+          capLine.setAttribute("y1", capTop);
+          capLine.setAttribute("x2", x1);
+          capLine.setAttribute("y2", capBottom);
+          capLine.setAttribute("stroke", "blue");
+          capLine.setAttribute("stroke-width", "2");
+          svg.appendChild(capLine);
+          const capBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          capBox.setAttribute("x", x1 - 3);
+          capBox.setAttribute("y", capBottom - 6);
+          capBox.setAttribute("width", 6);
+          capBox.setAttribute("height", 6);
+          capBox.setAttribute("fill", "blue");
+          svg.appendChild(capBox);
+        }
+        x0 = x1;
+      }
+    
+      // ----- Draw Node N (Load) -----
+      const xN = margin + N * segLength;
+      const loadConnectLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      loadConnectLine.setAttribute("x1", xN);
+      loadConnectLine.setAttribute("y1", yMid);
+      loadConnectLine.setAttribute("x2", xN);
+      loadConnectLine.setAttribute("y2", capMid);
+      loadConnectLine.setAttribute("stroke", "green");
+      loadConnectLine.setAttribute("stroke-width", "2");
+      svg.appendChild(loadConnectLine);
+      
+      const loadRectWidth = 30;
+      const loadRectHeight = 20;
+      const loadRectX = xN - loadRectWidth/2; // center under xN
+      const loadRectY = capMid; // place directly at capMid
+      const loadRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      loadRect.setAttribute("x", loadRectX);
+      loadRect.setAttribute("y", loadRectY);
+      loadRect.setAttribute("width", loadRectWidth);
+      loadRect.setAttribute("height", loadRectHeight);
+      loadRect.setAttribute("fill", "green");
+      loadRect.setAttribute("stroke", "black");
+      loadRect.setAttribute("stroke-width", "1");
+      svg.appendChild(loadRect);
+      
+      const loadText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      loadText.setAttribute("x", loadRectX + loadRectWidth/2);
+      loadText.setAttribute("y", loadRectY + loadRectHeight/2 + 4);
+      loadText.setAttribute("text-anchor", "middle");
+      loadText.setAttribute("fill", "white");
+      loadText.setAttribute("font-size", "10");
+      loadText.textContent = "Load";
+      svg.appendChild(loadText);
+    }
+    
+    // ----------------------------------------------------
+    // 4) Draw a plot of voltage magnitude (in p.u.) from Node 0 to Node N.
+    // ----------------------------------------------------
+    function drawPlot(voltageData) {
+      const svg = document.getElementById("plot");
+      const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+      const width = 600;
+      const height = 300; // Increased plot height
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    
+      const n = voltageData.length;  // includes Node 0
+      const xScale = d3_scaleLinear(0, n - 1, margin.left, width - margin.right);
+      let vmin = Math.min(...voltageData);
+      let vmax = Math.max(...voltageData);
+      if (vmax - vmin < 0.1) {
+        vmin -= 0.05;
+        vmax += 0.05;
+      }
+      const yScale = d3_scaleLinear(vmin, vmax, height - margin.bottom, margin.top);
+    
+      let points = "";
+      for (let i = 0; i < n; i++) {
+        const x = xScale(i);
+        const y = yScale(voltageData[i]);
+        points += `${x},${y} `;
+      }
+    
+      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      polyline.setAttribute("points", points);
+      polyline.setAttribute("stroke", "blue");
+      polyline.setAttribute("stroke-width", "2");
+      polyline.setAttribute("fill", "none");
+      svg.appendChild(polyline);
+    
+      // Draw x-axis
+      const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      xAxis.setAttribute("x1", margin.left);
+      xAxis.setAttribute("y1", height - margin.bottom);
+      xAxis.setAttribute("x2", width - margin.right);
+      xAxis.setAttribute("y2", height - margin.bottom);
+      xAxis.setAttribute("stroke", "black");
+      xAxis.setAttribute("stroke-width", "1");
+      svg.appendChild(xAxis);
+      // Draw y-axis
+      const yAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      yAxis.setAttribute("x1", margin.left);
+      yAxis.setAttribute("y1", margin.top);
+      yAxis.setAttribute("x2", margin.left);
+      yAxis.setAttribute("y2", height - margin.bottom);
+      yAxis.setAttribute("stroke", "black");
+      yAxis.setAttribute("stroke-width", "1");
+      svg.appendChild(yAxis);
+    
+      // x-axis ticks and labels
+      for (let i = 0; i < n; i += Math.max(1, Math.floor(n/5))) {
+        const x = xScale(i);
+        const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        tick.setAttribute("x1", x);
+        tick.setAttribute("y1", height - margin.bottom);
+        tick.setAttribute("x2", x);
+        tick.setAttribute("y2", height - margin.bottom + 5);
+        tick.setAttribute("stroke", "black");
+        tick.setAttribute("stroke-width", "1");
+        svg.appendChild(tick);
+        const tickText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tickText.setAttribute("x", x);
+        tickText.setAttribute("y", height - margin.bottom + 15);
+        tickText.setAttribute("text-anchor", "middle");
+        tickText.setAttribute("font-size", "10");
+        tickText.textContent = i;
+        svg.appendChild(tickText);
+      }
+      // More y-axis ticks: use a tick step of (vmax-vmin)/10.
+      const tickStep = (vmax - vmin) / 10;
+      for (let v = vmin; v <= vmax + 0.0001; v += tickStep) {
+        const y = yScale(v);
+        const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        tick.setAttribute("x1", margin.left - 5);
+        tick.setAttribute("y1", y);
+        tick.setAttribute("x2", margin.left);
+        tick.setAttribute("y2", y);
+        tick.setAttribute("stroke", "black");
+        tick.setAttribute("stroke-width", "1");
+        svg.appendChild(tick);
+        const tickText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tickText.setAttribute("x", margin.left - 10);
+        tickText.setAttribute("y", y + 3);
+        tickText.setAttribute("text-anchor", "end");
+        tickText.setAttribute("font-size", "10");
+        tickText.textContent = v.toFixed(2);
+        svg.appendChild(tickText);
+      }
+    }
+    
+    // ----------------------------------------------------
+    // A simple linear scale function (similar to D3's scaleLinear)
+    // ----------------------------------------------------
+    function d3_scaleLinear(domainMin, domainMax, rangeMin, rangeMax) {
+      const domainSpan = domainMax - domainMin;
+      const rangeSpan = rangeMax - rangeMin;
+      return function(x) {
+        return rangeMin + ((x - domainMin) / domainSpan) * rangeSpan;
+      };
+    }
+    
+    // ----------------------------------------------------
+    // Function to reset sliders to default "Near SIL Loading" values
+    // ----------------------------------------------------
+    function setNearSILDefaults(){
+      document.getElementById("sliderN").value = "5";
+      document.getElementById("sliderFreq").value = "60";
+      document.getElementById("sliderXLine").value = "0.15";
+      document.getElementById("sliderXRLine").value = "15.0";
+      document.getElementById("sliderC").value = "0.004";
+      document.getElementById("sliderZLoad").value = "0.39";
+      document.getElementById("sliderXRLoad").value = "0.1";
+      updateAll();
+    }
+    
+    // ----------------------------------------------------
+    // 5) Main update function: read sliders, solve, update diagram/results, and draw voltage plot
+    // ----------------------------------------------------
+    function updateAll(){
+      const sliderN       = document.getElementById("sliderN");
+      const sliderXLine   = document.getElementById("sliderXLine");
+      const sliderXRLine  = document.getElementById("sliderXRLine");
+      const sliderC       = document.getElementById("sliderC");
+      const sliderFreq    = document.getElementById("sliderFreq");
+      const sliderZLoad   = document.getElementById("sliderZLoad");
+      const sliderXRLoad  = document.getElementById("sliderXRLoad");
+    
+      const N       = parseInt(sliderN.value);
+      const X_line  = parseFloat(sliderXLine.value);
+      const XR_line = parseFloat(sliderXRLine.value);
+      const C_tot   = parseFloat(sliderC.value);
+      const freq    = parseFloat(sliderFreq.value);
+      const Z_load  = parseFloat(sliderZLoad.value);
+      const XR_load = parseFloat(sliderXRLoad.value);
+    
+      document.getElementById("labelN").textContent       = N;
+      document.getElementById("labelXLine").textContent   = X_line.toFixed(2);
+      document.getElementById("labelXRLine").textContent  = XR_line.toFixed(1);
+      document.getElementById("labelC").textContent       = C_tot.toFixed(3);
+      document.getElementById("labelFreq").textContent    = freq.toFixed(0);
+      document.getElementById("labelZLoad").textContent   = Z_load.toFixed(2);
+      document.getElementById("labelXRLoad").textContent  = XR_load.toFixed(1);
+    
+      // Compute line R from X_line and XR_line (per unit): R_line = X_line / XR_line
+      const R_line = X_line / XR_line;
+    
+      // Compute load R and X (per unit) from Z_load and load XR ratio:
+      const denom = Math.sqrt(1 + XR_load*XR_load);
+      const R_load = Z_load / denom;
+      const X_load = XR_load * R_load;
+    
+      // Solve node voltages (per unit)
+      const V = solveVoltages(N, R_line, X_line, C_tot, freq, R_load, X_load);
+    
+      // Build voltage data and results output
+      let out = "";
+      const voltageData = [1.0];
+      for (let i = 1; i <= N; i++){
+        const pol = rectToPolar(V[i]);
+        voltageData.push(pol.mag);
+      }
+      const Vn = voltageData[voltageData.length - 1];
+      // Compute load power consumption in p.u. (assuming P = V_N² / |Z_load|)
+      const P_load = (Vn * Vn) / Z_load;
+    
+      // Compute SIL:
+      const omega = 2 * Math.PI * freq;
+      // Using the formula: SIL = 2 * sqrt((omega * C_tot) / X_line)
+      const SIL = 2 * Math.sqrt((omega * C_tot) / X_line);
+    
+      // Prepend SIL info and note about assumptions:
+      out += "SIL = " + SIL.toFixed(4) + " p.u., Power Consumed by Load = " + P_load.toFixed(4) + " p.u.\n";
+      out += "SIL loading assumes lossless line parameters (no resistance) so P_Load will deviate from SIL.\n\n";
+    
+      out += "--- Node Voltages ---\n";
+      out += "Node   Magnitude(p.u.)    Angle(deg)\n";
+      out += "-------------------------------------\n";
+      out += "V0   = 1.0000         0.000\n";
+      for (let i = 1; i <= N; i++){
+        const pol = rectToPolar(V[i]);
+        out += "V" + i + "   = " + pol.mag.toFixed(4) + "         " + pol.ang.toFixed(2) + "\n";
+      }
+      out += "\n--- Line ---\n";
+      out += "Line R = " + R_line.toFixed(4) + " p.u.,  X = " + X_line.toFixed(4) + " p.u.\n";
+      out += "Line X/R = " + XR_line.toFixed(3) + "\n";
+      out += "Total Capacitance in the Line = " + C_tot.toFixed(3) + " p.u.\n";
+      out += "\n--- Load ---\n";
+      out += "|Z_load| = " + Z_load.toFixed(4) + " p.u.\n";
+      out += "Load X/R = " + XR_load.toFixed(3) + "\n";
+      out += "Load R = " + R_load.toFixed(4) + " p.u.,  X = " + X_load.toFixed(4) + " p.u.\n";
+      document.getElementById("results").textContent = out;
+    
+      drawDiagram(N);
+      drawPlot(voltageData);
+    }
+    
+    // Initialize when the page loads
+    window.onload = updateAll;
+    
+    // ----------------------------------------------------
+    // Modal behavior for Other Toolkits
+    // End of JavaScript code
+  </script>
+  
+  <!-- Include header.js and ticker.js files -->
+  <script src="header.js"></script>
+  <script src="ticker.js"></script>
+</body>
+</html>

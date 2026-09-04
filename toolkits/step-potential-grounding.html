@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>Step-Potential and Grounding Grid Educational Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2a5885;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #555;
+      margin-top: 0;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    
+    .subtitle a {
+      color: #2a5885;
+      text-decoration: none;
+      transition: color 0.2s, text-decoration 0.2s;
+    }
+    
+    .subtitle a:hover {
+      color: #1e3f66;
+      text-decoration: underline;
+    }
+    .simulation-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .controls {
+      flex: 1;
+      min-width: 300px;
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    }
+    .simulation {
+      flex: 2;
+      min-width: 500px;
+      position: relative;
+    }
+    #simulationCanvas {
+      width: 100%;
+      height: 500px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .control-group {
+      margin-bottom: 15px;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #444;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .slider-container input[type="range"] {
+      flex: 1;
+    }
+    .slider-value {
+      min-width: 60px;
+      text-align: right;
+      font-family: monospace;
+    }
+    button {
+      background-color: #2a5885;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      margin-right: 5px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background-color: #1e3f66;
+    }
+    .preset-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .results {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+    }
+    .results-heading {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #2a5885;
+    }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .safety-status {
+      font-weight: bold;
+      padding: 5px 10px;
+      border-radius: 4px;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .safe {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .unsafe {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .legend {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+    }
+    /* Tooltip styles */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 250px;
+      background-color: #555;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 10px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-weight: normal;
+      font-size: 0.9em;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    .info-icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      background-color: #2a5885;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 16px;
+      font-size: 12px;
+      cursor: help;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Step-Potential and Grounding Grid Educational Tool</h1>
+    <p class="subtitle">
+      by Doug Miller <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a> |
+      Company: <a href="https://www.nerxpower.com" target="_blank">www.nerxpower.com</a> |
+      LinkedIn: <a href="https://www.linkedin.com/in/doug-millner-p-e-26607a184/" target="_blank">Doug Millner, P.E.</a>
+    </p>
+
+    <div class="simulation-container">
+      <!-- ====================== Controls ====================== -->
+      <div class="controls">
+        <div class="preset-buttons">
+          <button id="standardConfig">Standard Configuration</button>
+          <button id="safetyFocused">Safety-Focused Design</button>
+        </div>
+
+        <!-- Fault Current -->
+        <div class="control-group">
+          <label>
+            Fault Current (kA)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Higher fault current → higher voltage gradients.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="faultCurrent"
+              min="1"
+              max="50"
+              step="1"
+              value="10"
+            />
+            <span class="slider-value" id="faultCurrentValue">10 kA</span>
+          </div>
+        </div>
+
+        <!-- Fault Clearing Time -->
+        <div class="control-group">
+          <label>
+            Fault Clearing Time (s)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Shorter clearing time → safer step voltage limit.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="clearingTime"
+              min="0.1"
+              max="1"
+              step="0.1"
+              value="0.5"
+            />
+            <span class="slider-value" id="clearingTimeValue">0.5 s</span>
+          </div>
+        </div>
+
+        <!-- Soil Resistivity -->
+        <div class="control-group">
+          <label>
+            Soil Resistivity (Ω·m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Higher soil resistivity → higher step potentials for same
+                fault current.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="soilResistivity"
+              min="10"
+              max="2000"
+              step="10"
+              value="100"
+            />
+            <span class="slider-value" id="soilResistivityValue">100 Ω·m</span>
+          </div>
+        </div>
+
+        <!-- Crushed Rock Resistivity -->
+        <div class="control-group">
+          <label>
+            Crushed Rock Resistivity (Ω·m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Higher rock resistivity → safer permissible step voltage.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="rockResistivity"
+              min="1000"
+              max="10000"
+              step="100"
+              value="3000"
+            />
+            <span class="slider-value" id="rockResistivityValue"
+              >3000 Ω·m</span
+            >
+          </div>
+        </div>
+
+        <!-- Crushed Rock Thickness -->
+        <div class="control-group">
+          <label>
+            Crushed Rock Thickness (m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Increasing thickness further reduces step voltages.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="rockThickness"
+              min="0"
+              max="0.3"
+              step="0.01"
+              value="0.1"
+            />
+            <span class="slider-value" id="rockThicknessValue">0.10 m</span>
+          </div>
+        </div>
+
+        <!-- Grounding Grid Depth -->
+        <div class="control-group">
+          <label>
+            Grounding Grid Depth (m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Deeper grid may reduce surface potential, but costs more to
+                install.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="gridDepth"
+              min="0.3"
+              max="1.5"
+              step="0.05"
+              value="0.5"
+            />
+            <span class="slider-value" id="gridDepthValue">0.50 m</span>
+          </div>
+        </div>
+
+        <!-- Grounding Grid Density -->
+        <div class="control-group">
+          <label>
+            Grounding Grid Density (conductors/m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Higher density means more grid conductors per meter, resulting in lower surface potentials.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="gridDensity"
+              min="0.2"
+              max="2.0"
+              step="0.1"
+              value="0.5"
+            />
+            <span class="slider-value" id="gridDensityValue">0.50 conductors/m</span>
+          </div>
+        </div>
+
+        <!-- Step Size -->
+        <div class="control-group">
+          <label>
+            Step Size (m)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Distance between feet. Smaller step is generally safer.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="stepSize"
+              min="0.01"
+              max="1"
+              step="0.01"
+              value="0.3"
+            />
+            <span class="slider-value" id="stepSizeValue">0.30 m</span>
+          </div>
+        </div>
+
+        <!-- Body Weight -->
+        <div class="control-group">
+          <label>
+            Body Weight (kg)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Heavier persons can slightly tolerate higher step voltages.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="bodyWeight"
+              min="50"
+              max="100"
+              step="5"
+              value="70"
+            />
+            <span class="slider-value" id="bodyWeightValue">70 kg</span>
+          </div>
+        </div>
+
+        <!-- Step Frequency -->
+        <div class="control-group">
+          <label>
+            Step Frequency (steps/s)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Controls how quickly the stickman cycles his walking motion.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="stepFrequency"
+              min="0.5"
+              max="3"
+              step="0.1"
+              value="1.5"
+            />
+            <span class="slider-value" id="stepFrequencyValue"
+              >1.5 steps/s</span
+            >
+          </div>
+        </div>
+
+        <!-- Walking Speed -->
+        <div class="control-group">
+          <label>
+            Walking Speed (m/s)
+            <span class="tooltip">
+              <span class="info-icon">i</span>
+              <span class="tooltiptext"
+                >Speed horizontally across the substation yard.</span
+              >
+            </span>
+          </label>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="walkingSpeed"
+              min="0.2"
+              max="2.0"
+              step="0.1"
+              value="0.5"
+            />
+            <span class="slider-value" id="walkingSpeedValue">0.5 m/s</span>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <button id="animateButton">Animate Walking</button>
+        <button id="fixedStepButton">Fixed Step (No Walking)</button>
+      </div>
+
+      <!-- ====================== Main Simulation ====================== -->
+      <div class="simulation">
+        <canvas id="simulationCanvas"></canvas>
+
+        <div class="results">
+          <div class="results-heading">Calculated Values:</div>
+          <div class="result-row">
+            <span>Current Step Voltage:</span>
+            <span id="currentStepVoltage">0 V</span>
+          </div>
+          <div class="result-row">
+            <span>Permissible Step Voltage:</span>
+            <span id="permissibleStepVoltage">0 V</span>
+          </div>
+          <div class="result-row">
+            <span>Surface Layer Derating Factor (Cs):</span>
+            <span id="csValue">0</span>
+          </div>
+          <div class="safety-status" id="safetyStatus">CALCULATING...</div>
+
+          <!-- Legend -->
+          <div class="legend">
+            <div class="results-heading">Legend:</div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #ff0000"></div>
+              <span>High Potential</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #ffff00"></div>
+              <span>Medium Potential</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #00ff00"></div>
+              <span>Low Potential</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #0000ff"></div>
+              <span>Very Low Potential</span>
+            </div>
+            <div class="legend-item">
+              <div
+                class="legend-color"
+                style="background-color: #8B4513; height: 5px"
+              ></div>
+              <span>Soil</span>
+            </div>
+            <div class="legend-item">
+              <div
+                class="legend-color"
+                style="background-color: #D2B48C; height: 5px"
+              ></div>
+              <span>Crushed Rock</span>
+            </div>
+          </div>
+
+          <!-- Voltage Gradient Plot -->
+          <div class="results" style="margin-top: 25px;">
+            <div class="results-heading">Voltage Gradient Plot:</div>
+            <canvas
+              id="voltageGradientCanvas"
+              width="100%"
+              height="200"
+              style="border: 1px solid #ddd; width: 100%; margin-top: 15px"
+            ></canvas>
+            <div
+              style="
+                text-align: center;
+                margin-top: 5px;
+                font-style: italic;
+                font-size: 0.9em;
+              "
+            >
+              Position along ground (m) with red dots for foot positions
+            </div>
+          </div>
+
+          <!-- Body Current Flow Plot -->
+          <div class="results">
+            <div class="results-heading">Current Flow in Legs (mA):</div>
+            <canvas
+              id="currentFlowCanvas"
+              width="100%"
+              height="200"
+              style="border: 1px solid #ddd; width: 100%; margin-top: 15px"
+            ></canvas>
+            <div
+              style="
+                text-align: center;
+                margin-top: 5px;
+                font-style: italic;
+                font-size: 0.9em;
+              "
+            >
+              <strong>Red</strong> = current in Left Leg, <strong>Blue</strong> =
+              current in Right Leg (negative indicates opposite direction)
+            </div>
+          </div>
+
+          <!-- Circuit Diagram -->
+          <div class="results">
+            <div class="results-heading">Step Potential Circuit Diagram:</div>
+            <canvas
+              id="circuitDiagramCanvas"
+              width="100%"
+              height="250"
+              style="border: 1px solid #ddd; width: 100%; margin-top: 15px"
+            ></canvas>
+            <div
+              style="
+                text-align: center;
+                margin-top: 5px;
+                font-style: italic;
+                font-size: 0.9em;
+              "
+            >
+              Ground fault path through soil & rock, up left leg, across body,
+              down right leg, and back to earth
+            </div>
+          </div>
+
+          <!-- Step Potential Equation Explanation -->
+          <div class="results">
+            <div class="results-heading">Step Potential Equation (IEEE 80):</div>
+            <div style="margin-top: 10px; font-size: 0.95em">
+              <p style="text-align: center; font-family: serif; font-size: 1.1em">
+                E<sub>step</sub> = (1000 + 6C<sub>s</sub>ρ<sub>s</sub>)
+                (0.116 / √t<sub>s</sub>) (W / 50)
+              </p>
+              <ul style="list-style-type: none; padding-left: 10px">
+                <li>
+                  <strong>ρ<sub>s</sub></strong> = Crushed Rock Resistivity
+                </li>
+                <li><strong>C<sub>s</sub></strong> = Surface Layer Factor</li>
+                <li><strong>t<sub>s</sub></strong> = Fault Clearing Time (s)</li>
+                <li>
+                  <strong>W</strong> = Body Weight (kg) (standard formula
+                  references 50 kg)
+                </li>
+              </ul>
+              <p>
+                <strong>Leg currents</strong> are computed from the simplified
+                circuit bridging the two foot voltages via foot + body
+                resistances.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ------------------------------------------------------------------------
+    // CANVAS & GLOBAL PARAMETERS
+    // ------------------------------------------------------------------------
+    const canvas = document.getElementById("simulationCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const SIMULATION_WIDTH = 15; 
+    const SIMULATION_HALF_WIDTH = SIMULATION_WIDTH / 2;
+
+    // Basic resistances
+    const R_BODY = 1000;  // ohms
+    const R_FOOT = 500;   // ohms per foot
+
+    let leftLegData = [];
+    let rightLegData = [];
+
+    // Simulation params
+    const params = {
+      faultCurrent: 10, // kA
+      clearingTime: 0.5, // s
+      soilResistivity: 100,
+      rockResistivity: 3000,
+      rockThickness: 0.1,
+      gridDepth: 0.5,
+      gridDensity: 0.5, // conductors/m
+      stepSize: 0.3,
+      bodyWeight: 70,
+      stepFrequency: 1.5,
+      walkingSpeed: 0.5,
+
+      animating: false,
+      fixedStep: false,
+      personPosition: 0.5,
+      walkPhase: 0,
+      lastFrameTime: 0,
+      permissibleStepVoltage: 0,
+    };
+
+    // We'll track foot positions in canvas coordinates (pixels)
+    let currentFootPositions = {
+      leftFootX: 0,
+      rightFootX: 0,
+    };
+
+    // ------------------------------------------------------------------------
+    // CANVAS RESIZING
+    // ------------------------------------------------------------------------
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // ------------------------------------------------------------------------
+    // SLIDER SETUP & PRESETS
+    // ------------------------------------------------------------------------
+    function setupSliders() {
+      function linkSlider(id, valueId, paramKey, unit, cb = null, toFixed = 0) {
+        const slider = document.getElementById(id);
+        const valueSpan = document.getElementById(valueId);
+        slider.addEventListener("input", () => {
+          params[paramKey] = parseFloat(slider.value);
+          valueSpan.textContent =
+            params[paramKey].toFixed(toFixed) + (unit ? " " + unit : "");
+          if (cb) cb();
+          updateSimulation();
+        });
+      }
+
+      linkSlider("faultCurrent", "faultCurrentValue", "faultCurrent", "kA");
+      linkSlider("clearingTime", "clearingTimeValue", "clearingTime", "s", null, 1);
+      linkSlider("soilResistivity", "soilResistivityValue","soilResistivity","Ω·m");
+      linkSlider("rockResistivity", "rockResistivityValue","rockResistivity","Ω·m");
+      linkSlider("rockThickness", "rockThicknessValue","rockThickness","m",null,2);
+      linkSlider("gridDepth", "gridDepthValue","gridDepth","m",null,2);
+      linkSlider("gridDensity", "gridDensityValue","gridDensity","conductors/m",null,2);
+      linkSlider("stepSize", "stepSizeValue","stepSize","m",null,2);
+      linkSlider("bodyWeight", "bodyWeightValue","bodyWeight","kg");
+      linkSlider("stepFrequency", "stepFrequencyValue","stepFrequency","steps/s",null,1);
+      linkSlider("walkingSpeed", "walkingSpeedValue","walkingSpeed","m/s",null,1);
+
+      document.getElementById("standardConfig").addEventListener("click", () => {
+        document.getElementById("faultCurrent").value = 10;
+        document.getElementById("clearingTime").value = 0.5;
+        document.getElementById("soilResistivity").value = 100;
+        document.getElementById("rockResistivity").value = 3000;
+        document.getElementById("rockThickness").value = 0.1;
+        document.getElementById("gridDepth").value = 0.5;
+        document.getElementById("gridDensity").value = 0.5;
+        document.getElementById("stepSize").value = 0.3;
+        document.getElementById("bodyWeight").value = 70;
+
+        params.faultCurrent = 10;
+        params.clearingTime = 0.5;
+        params.soilResistivity = 100;
+        params.rockResistivity = 3000;
+        params.rockThickness = 0.1;
+        params.gridDepth = 0.5;
+        params.gridDensity = 0.5;
+        params.stepSize = 0.3;
+        params.bodyWeight = 70;
+
+        document.getElementById("faultCurrentValue").textContent = "10 kA";
+        document.getElementById("clearingTimeValue").textContent = "0.5 s";
+        document.getElementById("soilResistivityValue").textContent = "100 Ω·m";
+        document.getElementById("rockResistivityValue").textContent = "3000 Ω·m";
+        document.getElementById("rockThicknessValue").textContent = "0.10 m";
+        document.getElementById("gridDepthValue").textContent = "0.50 m";
+        document.getElementById("gridDensityValue").textContent = "0.50 conductors/m";
+        document.getElementById("stepSizeValue").textContent = "0.30 m";
+        document.getElementById("bodyWeightValue").textContent = "70 kg";
+
+        updateSimulation();
+      });
+
+      document.getElementById("safetyFocused").addEventListener("click", () => {
+        document.getElementById("faultCurrent").value = 10;
+        document.getElementById("clearingTime").value = 0.2;
+        document.getElementById("soilResistivity").value = 100;
+        document.getElementById("rockResistivity").value = 5000;
+        document.getElementById("rockThickness").value = 0.2;
+        document.getElementById("gridDepth").value = 0.8;
+        document.getElementById("gridDensity").value = 1.5;
+        document.getElementById("stepSize").value = 0.15;
+        document.getElementById("bodyWeight").value = 70;
+
+        params.faultCurrent = 10;
+        params.clearingTime = 0.2;
+        params.soilResistivity = 100;
+        params.rockResistivity = 5000;
+        params.rockThickness = 0.2;
+        params.gridDepth = 0.8;
+        params.gridDensity = 1.5;
+        params.stepSize = 0.15;
+        params.bodyWeight = 70;
+
+        document.getElementById("faultCurrentValue").textContent = "10 kA";
+        document.getElementById("clearingTimeValue").textContent = "0.2 s";
+        document.getElementById("soilResistivityValue").textContent = "100 Ω·m";
+        document.getElementById("rockResistivityValue").textContent = "5000 Ω·m";
+        document.getElementById("rockThicknessValue").textContent = "0.20 m";
+        document.getElementById("gridDepthValue").textContent = "0.80 m";
+        document.getElementById("gridDensityValue").textContent = "1.50 conductors/m";
+        document.getElementById("stepSizeValue").textContent = "0.15 m";
+        document.getElementById("bodyWeightValue").textContent = "70 kg";
+
+        updateSimulation();
+      });
+
+      // Fixed step toggle
+      document.getElementById("fixedStepButton").addEventListener("click", function() {
+        params.fixedStep = !params.fixedStep;
+        this.textContent = params.fixedStep
+          ? "Resume Walking"
+          : "Fixed Step (No Walking)";
+        updateSimulation();
+      });
+
+      // Animate walking
+      document.getElementById("animateButton").addEventListener("click", () => {
+        params.animating = !params.animating;
+        const btn = document.getElementById("animateButton");
+        btn.textContent = params.animating ? "Stop Animation" : "Animate Walking";
+
+        if (params.animating) {
+          // Reset to start
+          params.personPosition = 0.1;
+          params.walkPhase = 0;
+          params.lastFrameTime = performance.now();
+          leftLegData = [];
+          rightLegData = [];
+          requestAnimationFrame(animate);
+        }
+      });
+    }
+
+    // ------------------------------------------------------------------------
+    // ANIMATION LOOP
+    // ------------------------------------------------------------------------
+    function animate(timestamp) {
+      if (!params.animating) return;
+
+      const elapsed = timestamp - params.lastFrameTime;
+      params.lastFrameTime = timestamp;
+      const dt = elapsed / 1000;
+
+      // Update phase
+      const stepCycleTime = 1 / params.stepFrequency;
+      params.walkPhase += dt / stepCycleTime;
+      if (params.walkPhase > 1) {
+        params.walkPhase %= 1;
+      }
+
+      // Move horizontally
+      if (!params.fixedStep) {
+        const distanceTraveled = params.walkingSpeed * dt;
+        const fractionOfWidth = distanceTraveled / SIMULATION_WIDTH;
+        params.personPosition += fractionOfWidth;
+        if (params.personPosition > 1.0) {
+          params.personPosition = 0.0;
+        }
+      }
+
+      // Make sure foot positions are calculated & updated each frame
+      updateFootPositions();
+
+      // Now update the simulation & request next frame
+      updateSimulation();
+      requestAnimationFrame(animate);
+    }
+
+    // ------------------------------------------------------------------------
+    // IEEE STD 80 CALCULATIONS
+    // ------------------------------------------------------------------------
+    function calculateSurfaceDerating(h, soilR, rockR) {
+      if (h <= 0) return 1;
+      const ratio = (rockR - soilR) / (rockR + soilR);
+      return 1 - 0.09 * (1 - soilR / rockR) * (1 - Math.exp(-h * 0.09));
+    }
+
+    function calculatePermissibleStepVoltage(clearingTime, rockResistivity, cs, bodyWeight) {
+      // Estep = (1000 + 6*cs*rockResistivity) * (0.116 / √t) * (W/50)
+      const wf = bodyWeight / 50;
+      return (
+        (1000 + 6 * cs * rockResistivity) *
+        (0.116 / Math.sqrt(clearingTime)) *
+        wf
+      );
+    }
+
+    function calculateVoltageAtPoint(x) {
+      const faultCurrentA = params.faultCurrent * 1000;
+      const depth = params.gridDepth;
+      const soilR = params.soilResistivity;
+      const gridDensity = params.gridDensity;
+      
+      // If grid density is very low, revert to single conductor model
+      if (gridDensity <= 0.2) {
+        const dist = Math.sqrt(x * x + depth * depth);
+        return (faultCurrentA * soilR) / (2 * Math.PI * Math.max(dist, 0.1));
+      }
+      
+      // Calculate multiple conductors based on grid density
+      // Number of conductors = grid density * simulation width
+      const numConductors = Math.round(gridDensity * SIMULATION_WIDTH);
+      const conductorSpacing = SIMULATION_WIDTH / numConductors;
+      
+      // Current per conductor (assuming equal distribution)
+      const currentPerConductor = faultCurrentA / numConductors;
+      
+      // Calculate contribution from each conductor
+      let totalVoltage = 0;
+      for (let i = 0; i < numConductors; i++) {
+        // Position of this conductor (from -SIMULATION_HALF_WIDTH to +SIMULATION_HALF_WIDTH)
+        const conductorPos = -SIMULATION_HALF_WIDTH + i * conductorSpacing;
+        
+        // Distance from this conductor to the point x
+        const distX = x - conductorPos;
+        const dist = Math.sqrt(distX * distX + depth * depth);
+        
+        // Voltage contribution from this conductor
+        const voltageContribution = (currentPerConductor * soilR) / (2 * Math.PI * Math.max(dist, 0.1));
+        totalVoltage += voltageContribution;
+      }
+      
+      return totalVoltage;
+    }
+
+    function calculateActualStepVoltage() {
+      const cw = canvas.width / window.devicePixelRatio;
+      const { leftFootX, rightFootX } = currentFootPositions;
+
+      // If foot positions exist, measure them
+      if (leftFootX && rightFootX) {
+        const leftNorm = leftFootX / cw;
+        const rightNorm = rightFootX / cw;
+        const leftSimX = leftNorm * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH;
+        const rightSimX = rightNorm * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH;
+        const vL = calculateVoltageAtPoint(leftSimX);
+        const vR = calculateVoltageAtPoint(rightSimX);
+        return Math.abs(vL - vR);
+      } else {
+        // fallback
+        const midX = params.personPosition * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH;
+        const vFront = calculateVoltageAtPoint(midX);
+        const vBack = calculateVoltageAtPoint(midX - params.stepSize);
+        return Math.abs(vFront - vBack);
+      }
+    }
+
+    function calculateLegCurrents(stepVoltage) {
+      // single-loop model: I = stepVoltage / (R_BODY + 2*R_FOOT)
+      const I = stepVoltage / (R_BODY + 2 * R_FOOT);
+      return { I_left: I, I_right: -I };
+    }
+
+    // ------------------------------------------------------------------------
+    // 1) UPDATE FOOT POSITIONS (NO DRAWING)
+    // ------------------------------------------------------------------------
+    function updateFootPositions() {
+      // We compute the stickman's foot positions based on walkPhase & stepSize,
+      // but do NOT draw anything. We'll store in currentFootPositions.
+      const width = canvas.width / window.devicePixelRatio;
+      const groundLevel = (canvas.height / window.devicePixelRatio) * 0.4;
+
+      const xCenter = width * params.personPosition;
+
+      // Basic geometry
+      const headRadius = 18;
+      const bodyLength = 50;
+      const upperLegLength = 35;
+      const lowerLegLength = 30;
+
+      const phase = params.walkPhase;
+
+      // Let’s compute bob offset just for consistency
+      const bobbing = 4; 
+      const bobOffset = Math.sin(phase * Math.PI * 2) * bobbing;
+
+      const headBaseY = groundLevel - (upperLegLength + lowerLegLength) - bodyLength - headRadius;
+      const hipY = headBaseY + bobOffset + headRadius + 5 + bodyLength;
+
+      // Leg phases
+      const rightLegPhase = phase;
+      const leftLegPhase = (phase + 0.5) % 1;
+
+      // angles
+      const maxHipAngle = 0.4; 
+      const maxKneeBend = 0.6; 
+
+      // Remap stepSize to factor, ensuring even the smallest step size (0.01m)
+      // still results in a visible foot separation in the animation
+      const minStepSize = 0.01;
+      const maxStepSize = 1.0;
+      const range = maxStepSize - minStepSize;
+      const rawFactor = (params.stepSize - minStepSize) / range;
+      // Ensure a minimum scaling factor of 0.1 (10%) even at smallest step size
+      const stepSizeFactor = 0.1 + 0.9 * Math.max(0, Math.min(rawFactor, 1));
+
+      const rightHipAngle = Math.sin(rightLegPhase * 2 * Math.PI)
+                            * maxHipAngle
+                            * stepSizeFactor;
+      const leftHipAngle = Math.sin(leftLegPhase * 2 * Math.PI)
+                           * maxHipAngle
+                           * stepSizeFactor;
+
+      const rightKneeBend = Math.max(0, Math.sin(rightLegPhase * 2 * Math.PI + Math.PI / 2))
+                            * maxKneeBend
+                            * stepSizeFactor;
+      const leftKneeBend = Math.max(0, Math.sin(leftLegPhase * 2 * Math.PI + Math.PI / 2))
+                           * maxKneeBend
+                           * stepSizeFactor;
+
+      function legCoords(hipAngle, kneeBend) {
+        const kneeX = xCenter + upperLegLength * Math.sin(hipAngle);
+        const kneeY = hipY + upperLegLength * Math.cos(hipAngle);
+        const calfAngle = hipAngle + kneeBend;
+        const footX = kneeX + lowerLegLength * Math.sin(calfAngle);
+        // footY we won't store because we only need footX for horizontal position
+        return { footX };
+      }
+
+      const rightLeg = legCoords(rightHipAngle, rightKneeBend);
+      const leftLeg = legCoords(leftHipAngle, leftKneeBend);
+
+      // Store the X positions for later usage
+      currentFootPositions.leftFootX = leftLeg.footX;
+      currentFootPositions.rightFootX = rightLeg.footX;
+    }
+
+    // ------------------------------------------------------------------------
+    // 2) DRAWING THE STICKMAN (uses the foot positions we computed)
+    // ------------------------------------------------------------------------
+    function drawWalkingStickman() {
+      const width = canvas.width / window.devicePixelRatio;
+      const height = canvas.height / window.devicePixelRatio;
+      const groundLevel = height * 0.4;
+      const xCenter = width * params.personPosition;
+
+      // same geometry
+      const headRadius = 18;
+      const bodyLength = 50;
+      const upperLegLength = 35;
+      const lowerLegLength = 30;
+      const footLength = 10;
+      const armLength = 30;
+
+      const phase = params.walkPhase;
+      const bobbing = 4;
+      const bobOffset = Math.sin(phase * Math.PI * 2) * bobbing;
+
+      const headBaseY = groundLevel - (upperLegLength + lowerLegLength) - bodyLength - headRadius;
+      const headY = headBaseY + bobOffset;
+
+      const shoulderY = headY + headRadius + 5;
+      const hipY = shoulderY + bodyLength;
+
+      // Leg phases
+      const rightLegPhase = phase;
+      const leftLegPhase = (phase + 0.5) % 1;
+      const maxHipAngle = 0.4;
+      const maxKneeBend = 0.6;
+
+      // Step factor - handle minimum step size of 0.01m
+      const minStepSize = 0.01;
+      const maxStepSize = 1.0;
+      const range = maxStepSize - minStepSize;
+      const rawFactor = (params.stepSize - minStepSize) / range;
+      // Ensure a minimum scaling factor of 0.1 (10%) even at smallest step size
+      const stepSizeFactor = 0.1 + 0.9 * Math.max(0, Math.min(rawFactor, 1));
+
+      const rightHipAngle = Math.sin(rightLegPhase * 2 * Math.PI)
+                            * maxHipAngle
+                            * stepSizeFactor;
+      const leftHipAngle = Math.sin(leftLegPhase * 2 * Math.PI)
+                           * maxHipAngle
+                           * stepSizeFactor;
+
+      const rightKneeBend = Math.max(0, Math.sin(rightLegPhase * 2 * Math.PI + Math.PI / 2))
+                            * maxKneeBend
+                            * stepSizeFactor;
+      const leftKneeBend = Math.max(0, Math.sin(leftLegPhase * 2 * Math.PI + Math.PI / 2))
+                           * maxKneeBend
+                           * stepSizeFactor;
+
+      function legCoords(hipAngle, kneeBend) {
+        const kneeX = xCenter + upperLegLength * Math.sin(hipAngle);
+        const kneeY = hipY + upperLegLength * Math.cos(hipAngle);
+        const calfAngle = hipAngle + kneeBend;
+        const footX = kneeX + lowerLegLength * Math.sin(calfAngle);
+        const footY = kneeY + lowerLegLength * Math.cos(calfAngle);
+        return { kneeX, kneeY, footX, footY, calfAngle };
+      }
+
+      const rightLeg = legCoords(rightHipAngle, rightKneeBend);
+      const leftLeg = legCoords(leftHipAngle, leftKneeBend);
+
+      // Arms
+      const rightArmAngle = -rightHipAngle * 0.5;
+      const leftArmAngle = -leftHipAngle * 0.5;
+      const elbowFrac = 0.5;
+
+      function armCoords(armAngle) {
+        const elbowX = xCenter + armLength * elbowFrac * Math.sin(armAngle);
+        const elbowY = shoulderY + armLength * elbowFrac * Math.cos(armAngle);
+        const handX = elbowX + armLength * (1 - elbowFrac) * Math.sin(armAngle);
+        const handY = elbowY + armLength * (1 - elbowFrac) * Math.cos(armAngle);
+        return { elbowX, elbowY, handX, handY };
+      }
+      const rightArm = armCoords(rightArmAngle);
+      const leftArm = armCoords(leftArmAngle);
+
+      // HEAD
+      ctx.fillStyle = "#FF0000";
+      ctx.beginPath();
+      ctx.arc(xCenter, headY, headRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // BODY
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(xCenter, headY + headRadius);
+      ctx.lineTo(xCenter, shoulderY);
+      ctx.lineTo(xCenter, hipY);
+      ctx.stroke();
+
+      // ARMS
+      ctx.beginPath();
+      ctx.moveTo(xCenter, shoulderY);
+      ctx.lineTo(rightArm.elbowX, rightArm.elbowY);
+      ctx.lineTo(rightArm.handX, rightArm.handY);
+      ctx.moveTo(xCenter, shoulderY);
+      ctx.lineTo(leftArm.elbowX, leftArm.elbowY);
+      ctx.lineTo(leftArm.handX, leftArm.handY);
+      ctx.stroke();
+
+      // LEGS
+      ctx.beginPath();
+      ctx.moveTo(xCenter, hipY);
+      ctx.lineTo(rightLeg.kneeX, rightLeg.kneeY);
+      ctx.lineTo(rightLeg.footX, rightLeg.footY);
+      ctx.moveTo(xCenter, hipY);
+      ctx.lineTo(leftLeg.kneeX, leftLeg.kneeY);
+      ctx.lineTo(leftLeg.footX, leftLeg.footY);
+      ctx.stroke();
+
+      // Feet lines
+      ctx.beginPath();
+      ctx.moveTo(rightLeg.footX, rightLeg.footY);
+      ctx.lineTo(
+        rightLeg.footX + footLength * Math.cos(rightLeg.calfAngle),
+        rightLeg.footY - footLength * Math.sin(rightLeg.calfAngle)
+      );
+      ctx.moveTo(leftLeg.footX, leftLeg.footY);
+      ctx.lineTo(
+        leftLeg.footX + footLength * Math.cos(leftLeg.calfAngle),
+        leftLeg.footY - footLength * Math.sin(leftLeg.calfAngle)
+      );
+      ctx.stroke();
+
+      // Foot contact circles
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(leftLeg.footX, groundLevel, 4, 0, Math.PI * 2);
+      ctx.arc(rightLeg.footX, groundLevel, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Show foot voltages text
+      const cw = canvas.width / window.devicePixelRatio;
+      const leftNorm = leftLeg.footX / cw;
+      const rightNorm = rightLeg.footX / cw;
+      const vL = calculateVoltageAtPoint(leftNorm * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH);
+      const vR = calculateVoltageAtPoint(rightNorm * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH);
+
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#000";
+      ctx.textAlign = "center";
+      ctx.fillText(Math.round(vL) + " V", leftLeg.footX, groundLevel + 15);
+      ctx.fillText(Math.round(vR) + " V", rightLeg.footX, groundLevel + 15);
+
+      // Step potential
+      const stepVoltage = Math.abs(vL - vR);
+      ctx.fillStyle = stepVoltage > params.permissibleStepVoltage ? "#FF0000" : "#00AA00";
+      ctx.font = "bold 14px Arial";
+      ctx.fillText("Step: " + Math.round(stepVoltage) + " V", xCenter, groundLevel + 35);
+    }
+
+    // ------------------------------------------------------------------------
+    // DRAWING FUNCTIONS
+    // ------------------------------------------------------------------------
+    function drawCrossSection() {
+      const width = canvas.width / window.devicePixelRatio;
+      const height = canvas.height / window.devicePixelRatio;
+      ctx.clearRect(0, 0, width, height);
+
+      const groundLevel = height * 0.4;
+      const rockHeight = (params.rockThickness / 1.5) * height;
+      const soilHeight = height - groundLevel - rockHeight;
+
+      // Sky
+      ctx.fillStyle = "#87CEEB";
+      ctx.fillRect(0, 0, width, groundLevel);
+
+      // Rock
+      ctx.fillStyle = "#D2B48C";
+      ctx.fillRect(0, groundLevel, width, rockHeight);
+
+      // Soil
+      ctx.fillStyle = "#8B4513";
+      ctx.fillRect(0, groundLevel + rockHeight, width, soilHeight);
+
+      // Grid conductors based on density
+      const gridY = groundLevel + rockHeight + (params.gridDepth / 1.5) * height;
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 3;
+      
+      // Calculate number of conductors based on grid density
+      // At minimum density (0.2), we show just one conductor
+      // At maximum density (2.0), we show multiple conductors
+      const minSpacing = 40; // Minimum pixels between conductors
+      const maxPossibleConductors = Math.floor(width * 0.8 / minSpacing);
+      const desiredConductors = Math.max(1, Math.round(params.gridDensity * 5));
+      const numConductors = Math.min(desiredConductors, maxPossibleConductors);
+      
+      // Calculate spacing between conductors
+      const horizontalSpacing = (width * 0.8) / numConductors;
+      const startX = width * 0.1;
+      
+      // Draw the main grid line first
+      ctx.beginPath();
+      ctx.moveTo(startX, gridY);
+      ctx.lineTo(startX + width * 0.8, gridY);
+      ctx.stroke();
+      
+      // Draw the vertical connectors and grounding points
+      for (let i = 0; i <= numConductors; i++) {
+        const x = startX + i * horizontalSpacing;
+        
+        // Draw vertical conductor
+        ctx.beginPath();
+        ctx.moveTo(x, gridY);
+        ctx.lineTo(x, gridY + 15);
+        ctx.stroke();
+        
+        // Draw grounding point
+        ctx.fillStyle = "#333";
+        ctx.beginPath();
+        ctx.arc(x, gridY + 15, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Voltage gradient
+      drawVoltageGradient(groundLevel, rockHeight, soilHeight);
+
+      // draw fault
+      const faultX = width / 2;
+      ctx.fillStyle = "#FF0000";
+      ctx.beginPath();
+      ctx.arc(faultX, gridY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#FFF";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Fault", faultX, gridY - 15);
+
+      // Finally, draw the stickman
+      drawWalkingStickman();
+    }
+
+    function drawVoltageGradient(groundLevel, rockHeight, soilHeight) {
+      const width = canvas.width / window.devicePixelRatio;
+      const height = canvas.height / window.devicePixelRatio;
+      const faultX = width / 2;
+      const gridY = groundLevel + rockHeight + (params.gridDepth / 1.5) * height;
+
+      for (let x = 0; x < width; x += 5) {
+        for (let y = groundLevel + rockHeight; y < height; y += 5) {
+          const dx = x - faultX;
+          const dy = y - gridY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxDist = Math.sqrt((width / 2) ** 2 + height ** 2);
+          const ratio = 1 - Math.min(dist / maxDist, 1);
+          ctx.fillStyle = getColorForVoltage(ratio);
+          ctx.globalAlpha = 0.2;
+          ctx.fillRect(x, y, 5, 5);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+
+    function getColorForVoltage(ratio) {
+      if (ratio > 0.75) return "#FF0000";
+      if (ratio > 0.5) return "#FFFF00";
+      if (ratio > 0.25) return "#00FF00";
+      return "#0000FF";
+    }
+
+    // ------------------------------------------------------------------------
+    // VOLTAGE GRADIENT PLOT
+    // ------------------------------------------------------------------------
+    function drawVoltageGradientPlot() {
+      const gradientCanvas = document.getElementById("voltageGradientCanvas");
+      const gctx = gradientCanvas.getContext("2d");
+      const rect = gradientCanvas.getBoundingClientRect();
+      gradientCanvas.width = rect.width;
+      gradientCanvas.height = rect.height;
+      gctx.clearRect(0, 0, gradientCanvas.width, gradientCanvas.height);
+
+      const margin = { top: 20, right: 20, bottom: 30, left: 50 };
+      const w = gradientCanvas.width - margin.left - margin.right;
+      const h = gradientCanvas.height - margin.top - margin.bottom;
+
+      gctx.beginPath();
+      gctx.moveTo(margin.left, margin.top);
+      gctx.lineTo(margin.left, margin.top + h);
+      gctx.lineTo(margin.left + w, margin.top + h);
+      gctx.strokeStyle = "#000";
+      gctx.stroke();
+
+      // find max
+      let maxV = 0;
+      for (
+        let x = -SIMULATION_HALF_WIDTH;
+        x <= SIMULATION_HALF_WIDTH;
+        x += SIMULATION_WIDTH / 50
+      ) {
+        const v = calculateVoltageAtPoint(x);
+        if (v > maxV) maxV = v;
+      }
+
+      gctx.beginPath();
+      let first = true;
+      for (let i = 0; i <= w; i++) {
+        const simX = (i / w) * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH;
+        const v = calculateVoltageAtPoint(simX);
+        const y = margin.top + h - (v / maxV) * h;
+        if (first) {
+          gctx.moveTo(margin.left + i, y);
+          first = false;
+        } else {
+          gctx.lineTo(margin.left + i, y);
+        }
+      }
+      gctx.strokeStyle = "#0066CC";
+      gctx.lineWidth = 2;
+      gctx.stroke();
+
+      // labels
+      gctx.font = "12px Arial";
+      gctx.fillStyle = "#000";
+      gctx.save();
+      gctx.translate(15, margin.top + h / 2);
+      gctx.rotate(-Math.PI / 2);
+      gctx.textAlign = "center";
+      gctx.fillText("Voltage (V)", 0, 0);
+      gctx.restore();
+      gctx.textAlign = "center";
+      gctx.fillText("Position (m)", margin.left + w / 2, margin.top + h + 25);
+
+      for (let i = 0; i <= 4; i++) {
+        const tx = margin.left + (w * i) / 4;
+        const simVal = -SIMULATION_HALF_WIDTH + (SIMULATION_WIDTH * i) / 4;
+        gctx.beginPath();
+        gctx.moveTo(tx, margin.top + h);
+        gctx.lineTo(tx, margin.top + h + 5);
+        gctx.stroke();
+        gctx.fillText(simVal.toFixed(1), tx, margin.top + h + 18);
+
+        const ty = margin.top + h - (h * i) / 4;
+        const val = (maxV * i) / 4;
+        gctx.beginPath();
+        gctx.moveTo(margin.left - 5, ty);
+        gctx.lineTo(margin.left, ty);
+        gctx.stroke();
+        gctx.textAlign = "right";
+        gctx.fillText(Math.round(val), margin.left - 8, ty + 4);
+      }
+
+      // mark foot positions
+      const cw = canvas.width / window.devicePixelRatio;
+      const { leftFootX, rightFootX } = currentFootPositions;
+      if (leftFootX && rightFootX) {
+        const leftN = leftFootX / cw;
+        const rightN = rightFootX / cw;
+        const xL = margin.left + leftN * w;
+        const xR = margin.left + rightN * w;
+        const vLeft = calculateVoltageAtPoint(leftN * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH);
+        const vRight = calculateVoltageAtPoint(rightN * SIMULATION_WIDTH - SIMULATION_HALF_WIDTH);
+        const yL = margin.top + h - (vLeft / maxV) * h;
+        const yR = margin.top + h - (vRight / maxV) * h;
+
+        gctx.fillStyle = "#FF0000";
+        gctx.beginPath();
+        gctx.arc(xL, yL, 5, 0, Math.PI * 2);
+        gctx.fill();
+        gctx.beginPath();
+        gctx.arc(xR, yR, 5, 0, Math.PI * 2);
+        gctx.fill();
+
+        // step potential line
+        gctx.beginPath();
+        gctx.moveTo(xL, yL);
+        gctx.lineTo(xR, yR);
+        gctx.setLineDash([4, 2]);
+        gctx.strokeStyle = "#FF5555";
+        gctx.lineWidth = 2;
+        gctx.stroke();
+        gctx.setLineDash([]);
+
+        const stepV = Math.abs(vLeft - vRight);
+        const midX = (xL + xR) / 2;
+        const midY = (yL + yR) / 2;
+        gctx.fillStyle = stepV > params.permissibleStepVoltage ? "#FF0000" : "#00AA00";
+        gctx.font = "bold 12px Arial";
+        gctx.fillText(Math.round(stepV) + " V", midX, midY - 10);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // CURRENT FLOW PLOT
+    // ------------------------------------------------------------------------
+    function drawCurrentFlowPlot() {
+      const flowCanvas = document.getElementById("currentFlowCanvas");
+      const fctx = flowCanvas.getContext("2d");
+      const rect = flowCanvas.getBoundingClientRect();
+      flowCanvas.width = rect.width;
+      flowCanvas.height = rect.height;
+      fctx.clearRect(0, 0, flowCanvas.width, flowCanvas.height);
+
+      const margin = { top: 20, right: 20, bottom: 30, left: 50 };
+      const w = flowCanvas.width - margin.left - margin.right;
+      const h = flowCanvas.height - margin.top - margin.bottom;
+
+      fctx.beginPath();
+      fctx.moveTo(margin.left, margin.top);
+      fctx.lineTo(margin.left, margin.top + h);
+      fctx.lineTo(margin.left + w, margin.top + h);
+      fctx.strokeStyle = "#000";
+      fctx.stroke();
+
+      const N = leftLegData.length;
+      if (N < 2) return;
+
+      let minVal = 999999, maxVal = -999999;
+      for (let i = 0; i < N; i++) {
+        if (leftLegData[i] < minVal) minVal = leftLegData[i];
+        if (leftLegData[i] > maxVal) maxVal = leftLegData[i];
+        if (rightLegData[i] < minVal) minVal = rightLegData[i];
+        if (rightLegData[i] > maxVal) maxVal = rightLegData[i];
+      }
+      if (minVal === maxVal) {
+        minVal -= 0.1;
+        maxVal += 0.1;
+      }
+      const range = maxVal - minVal;
+
+      function xScale(i) {
+        return margin.left + (i / (N - 1)) * w;
+      }
+      function yScale(val) {
+        return margin.top + h - ((val - minVal) / range) * h;
+      }
+
+      // Left in red
+      fctx.strokeStyle = "#FF0000";
+      fctx.lineWidth = 2;
+      fctx.beginPath();
+      fctx.moveTo(xScale(0), yScale(leftLegData[0]));
+      for (let i = 1; i < N; i++) {
+        fctx.lineTo(xScale(i), yScale(leftLegData[i]));
+      }
+      fctx.stroke();
+
+      // Right in blue
+      fctx.strokeStyle = "#0000FF";
+      fctx.beginPath();
+      fctx.moveTo(xScale(0), yScale(rightLegData[0]));
+      for (let i = 1; i < N; i++) {
+        fctx.lineTo(xScale(i), yScale(rightLegData[i]));
+      }
+      fctx.stroke();
+
+      // Labels
+      fctx.font = "12px Arial";
+      fctx.fillStyle = "#000";
+      fctx.save();
+      fctx.translate(15, margin.top + h / 2);
+      fctx.rotate(-Math.PI / 2);
+      fctx.textAlign = "center";
+      fctx.fillText("Current (mA)", 0, 0);
+      fctx.restore();
+      fctx.textAlign = "center";
+      fctx.fillText("Time / Frames", margin.left + w / 2, margin.top + h + 25);
+
+      for (let i = 0; i <= 4; i++) {
+        const val = minVal + (range * i) / 4;
+        const y = yScale(val);
+        fctx.beginPath();
+        fctx.moveTo(margin.left - 5, y);
+        fctx.lineTo(margin.left, y);
+        fctx.stroke();
+        fctx.textAlign = "right";
+        fctx.fillText(val.toFixed(2), margin.left - 8, y + 4);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // CIRCUIT DIAGRAM
+    // ------------------------------------------------------------------------
+    function drawCircuitDiagram() {
+      const c = document.getElementById("circuitDiagramCanvas");
+      const cctx = c.getContext("2d");
+      const rect = c.getBoundingClientRect();
+      c.width = rect.width;
+      c.height = rect.height;
+      cctx.clearRect(0, 0, c.width, c.height);
+
+      const margin = 20;
+      const w = c.width - margin * 2;
+      const h = c.height - margin * 2;
+      const topY = margin + h * 0.2;
+      const midY = margin + h * 0.5;
+      const bottomY = margin + h * 0.8;
+      const leftX = margin + 30;
+      const rightX = margin + w - 30;
+      const centerX = margin + w * 0.5;
+
+      cctx.strokeStyle = "#000";
+      cctx.fillStyle = "#000";
+      cctx.lineWidth = 2;
+      cctx.font = "14px Arial";
+
+      drawGroundSymbol(cctx, leftX, midY);
+      drawGroundSymbol(cctx, rightX, midY);
+      cctx.textAlign = "center";
+      cctx.fillText("Faulted Earth", leftX, midY + 40);
+      cctx.fillText("Earth Return", rightX, midY + 40);
+
+      const topNodeX = leftX + 50;
+      drawResistor(cctx, leftX, midY, topNodeX, topY, "R_soil");
+      drawResistor(cctx, topNodeX, topY, centerX, topY, "R_rock");
+      drawResistor(cctx, centerX, topY, centerX, midY, "R_foot(L)");
+
+      const bottomNodeX = rightX - 50;
+      drawResistor(cctx, centerX, midY, centerX, bottomY, "R_foot(R)");
+      drawResistor(cctx, centerX, bottomY, bottomNodeX, bottomY, "R_rock");
+      drawResistor(cctx, bottomNodeX, bottomY, rightX, midY, "R_soil");
+
+      // Body
+      drawResistor(cctx, centerX, topY, centerX, bottomY, "R_body", "#FF0000");
+      cctx.save();
+      cctx.fillStyle = "#FF0000";
+      cctx.textAlign = "left";
+      cctx.fillText("Body", centerX + 5, (topY + bottomY) / 2);
+      cctx.restore();
+    }
+
+    function drawResistor(ctx, x1, y1, x2, y2, label, color = "#000") {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+      ctx.font = "12px Arial";
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.fillText(label, mx, my - 5);
+      ctx.restore();
+    }
+
+    function drawGroundSymbol(ctx, x, y) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 10, y + 10);
+      ctx.lineTo(x + 10, y + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x, y + 10);
+      ctx.lineTo(x, y + 20);
+      ctx.stroke();
+    }
+
+    // ------------------------------------------------------------------------
+    // UPDATE SIMULATION
+    // ------------------------------------------------------------------------
+    function updateSimulation() {
+      // STEP 1: Compute foot positions (no drawing yet)
+      updateFootPositions();
+
+      // STEP 2: Now compute step voltages & currents with the updated positions
+      const cs = calculateSurfaceDerating(
+        params.rockThickness,
+        params.soilResistivity,
+        params.rockResistivity
+      );
+      const permV = calculatePermissibleStepVoltage(
+        params.clearingTime,
+        params.rockResistivity,
+        cs,
+        params.bodyWeight
+      );
+      params.permissibleStepVoltage = permV;
+
+      const stepV = calculateActualStepVoltage();
+      const { I_left, I_right } = calculateLegCurrents(stepV);
+      const left_mA = I_left * 1000;
+      const right_mA = I_right * 1000;
+
+      leftLegData.push(left_mA);
+      rightLegData.push(right_mA);
+      if (leftLegData.length > 200) {
+        leftLegData.shift();
+        rightLegData.shift();
+      }
+
+      // STEP 3: Update UI
+      document.getElementById("currentStepVoltage").textContent = Math.round(stepV) + " V";
+      document.getElementById("permissibleStepVoltage").textContent = Math.round(permV) + " V";
+      document.getElementById("csValue").textContent = cs.toFixed(2);
+
+      const statusEl = document.getElementById("safetyStatus");
+      if (stepV <= permV) {
+        statusEl.textContent = "SAFE";
+        statusEl.className = "safety-status safe";
+      } else {
+        statusEl.textContent = "EXCEEDS PERMISSIBLE LIMIT!";
+        statusEl.className = "safety-status unsafe";
+      }
+
+      // STEP 4: Draw everything
+      drawCrossSection();
+      drawVoltageGradientPlot();
+      drawCurrentFlowPlot();
+      drawCircuitDiagram();
+    }
+
+    // ------------------------------------------------------------------------
+    // INIT
+    // ------------------------------------------------------------------------
+    function init() {
+      setupSliders();
+      updateSimulation();
+    }
+
+    window.onload = init;
+  </script>
+  
+  <!-- Include header.js and ticker.js files -->
+  <script src="header.js"></script>
+  <script src="ticker.js"></script>
+</body>
+</html>

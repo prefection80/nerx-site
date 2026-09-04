@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pilot Protection Schemes Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* General page styling */
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      background: #f8f9fa; /* Light grey background */
+      color: #222; /* Dark text */
+      line-height: 1.6; /* Improve readability */
+    }
+    #app-container {
+      max-width: 2200px; /* Wider container for large layout */
+      margin: auto;
+      padding: 2em;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Header styling */
+    header {
+      display: flex;
+      flex-wrap: wrap; /* Allow wrapping on smaller screens */
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2em;
+      border-bottom: 2px solid #eee; /* Separator line */
+      padding-bottom: 1em;
+    }
+    header h1 {
+      font-size: 3em; /* Large title */
+      margin: 0 2em 0.2em 0; /* Spacing */
+      color: #1976d2; /* Blue title */
+    }
+    #scheme-select {
+      font-size: 2em; /* Large dropdown */
+      padding: 0.6em;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    /* Main content layout */
+    main {
+      display: flex;
+      flex-wrap: wrap; /* Allow panels to wrap */
+      gap: 4em; /* Space between panels */
+      width: 100%;
+    }
+    /* Diagram panel styling */
+    #diagram-panel {
+      flex: 2 1 1000px; /* Flexible sizing, base 1000px */
+      min-width: 640px; /* Minimum width */
+      background: #fff; /* White background */
+      border-radius: 24px; /* Rounded corners */
+      box-shadow: 0 4px 16px #0001; /* Subtle shadow */
+      padding: 2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative; /* For tooltip positioning */
+      overflow: visible;
+      order: 5; /* Default order, might be overridden by media query */
+      height: auto; /* Allow height to adjust based on content */
+    }
+    /* Control panel styling */
+    #control-panel {
+      flex: 1 1 400px; /* Flexible sizing, base 400px */
+      min-width: 400px;
+      display: flex;
+      flex-direction: column; /* Stack controls vertically */
+      gap: 2em; /* Space between controls */
+      align-items: flex-start; /* Align controls to the left */
+      font-size: 1.8em; /* Larger font for controls */
+      order: 3;
+    }
+    .control-panel-button { /* Style for buttons in the control panel */
+        font-size: 1em;    /* Adjusted: 1em of parent's 1.8em = 1.8em */
+        padding: 0.8em 1.5em; /* Adjusted padding */
+        margin-top: 0.5em;
+        background-color: #5c6bc0; /* Indigo variant */
+        border: none;
+        color: white;
+        border-radius: 8px; /* Consistent with other inputs */
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: inline-block; /* Ensure it behaves well with other elements */
+        width: auto; /* Allow button to size to its content */
+    }
+    .control-panel-button:hover {
+        background-color: #3f51b5; /* Darker indigo */
+    }
+    /* Slider specific styling */
+    #fault-slider-container {
+        width: 100%; 
+    }
+    #fault-slider {
+        width: 100%; 
+        cursor: pointer;
+        height: 12px; 
+        background: #ddd; 
+        border-radius: 6px; 
+        appearance: none; 
+        margin-top: 0.5em;
+    }
+    #fault-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 32px;
+        height: 32px;
+        background: #1976d2; 
+        border-radius: 50%; 
+        cursor: pointer;
+    }
+    #fault-slider::-moz-range-thumb {
+        width: 32px;
+        height: 32px;
+        background: #1976d2;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none; 
+    }
+    #fault-pos-label {
+        font-weight: bold;
+        color: #1976d2; 
+    }
+
+    /* Legend styling */
+    #legend {
+      margin-top: 2em;
+      font-size: 1.9em; 
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2em; 
+      justify-content: center; 
+      padding: 1em;
+      background: #f0f2f5; 
+      border-radius: 16px;
+      order: 1; 
+    }
+    .legend-item {
+      display: flex;
+      align-items: center; 
+      margin-bottom: 0.6em;
+    }
+    .zone {
+      display: inline-block;
+      width: 2.4em;
+      height: 2.4em;
+      margin-right: 0.8em;
+      border-radius: 50%; 
+      border: 2px solid rgba(0,0,0,0.2); 
+    }
+    .zone1 { background: orange; }
+    .zone2 { background: gold; }
+    .zone3 { background: #4faaff; }
+    .zone4 { background: #b36aff; } /* Color for Z4 Reverse */
+    .breaker {
+      display: inline-block;
+      width: 2.4em;
+      height: 2.4em;
+      border: 4px solid #333; 
+      border-radius: 0.4em;
+      margin-right: 0.8em;
+      background: #eee; 
+      position: relative; 
+      vertical-align: middle; 
+    }
+    .breaker.closed::after {
+      content: '';
+      display: block;
+      width: 1.6em; 
+      height: 0.4em; 
+      background: #333; 
+      position: absolute;
+      top: 1em; left: 0.4em; 
+      transform-origin: center;
+    }
+    .breaker.open::after {
+      content: '';
+      display: block;
+      width: 1.6em;
+      height: 0.4em;
+      background: #e53935; 
+      position: absolute;
+      top: 1em; left: 0.4em;
+      transform: rotate(45deg); 
+      transform-origin: center;
+    }
+    .comm-arrow {
+      display: inline-block;
+      width: 2.4em;
+      height: 2.4em;
+      background: linear-gradient(90deg, #4caf50 60%, transparent 100%); 
+      border-radius: 50%; 
+      margin-right: 0.8em;
+      vertical-align: middle;
+    }
+    /* Zone Descriptions Styling */
+    #zone-descriptions {
+        width: 100%;
+        margin-top: 1em; 
+        padding: 1.5em;
+        background: #e9ecef; 
+        border-radius: 16px;
+        font-size: 1.6em; 
+        order: 2; 
+    }
+    #zone-descriptions h3 {
+        margin-top: 0;
+        margin-bottom: 0.8em;
+        text-align: center;
+        color: #555;
+    }
+    #zone-descriptions p {
+        margin: 0.5em 0;
+        line-height: 1.4;
+    }
+    #zone-descriptions strong {
+        color: #333;
+    }
+
+    /* Description panel styling */
+    #description-panel {
+      flex: 1 1 500px; 
+      min-width: 440px;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 4px 16px #0001;
+      padding: 2em;
+      font-size: 1.8em; /* Reduced font size slightly */
+      line-height: 1.5;
+      order: 4;
+    }
+
+    /* Event Log Panel Styling */
+    #event-log-panel {
+        width: 100%;
+        margin-top: 2em;
+        padding: 1.5em;
+        background: #2c3e50; 
+        color: #ecf0f1; 
+        border-radius: 16px;
+        font-size: 1.4em;
+        order: 6; 
+        box-shadow: 0 4px 16px #0001;
+        height: 300px; 
+        overflow-y: auto; 
+        font-family: 'Consolas', 'Monaco', monospace; 
+    }
+    #event-log-panel h3 {
+        margin-top: 0;
+        margin-bottom: 0.8em;
+        text-align: center;
+        color: #3498db; 
+        border-bottom: 1px solid #3498db;
+        padding-bottom: 0.5em;
+    }
+    #event-log-list {
+        list-style-type: none;
+        padding-left: 0;
+        margin: 0;
+    }
+    #event-log-list li {
+        padding: 0.3em 0.5em;
+        border-bottom: 1px dotted #34495e; 
+        line-height: 1.4;
+    }
+    #event-log-list li:last-child {
+        border-bottom: none;
+    }
+    .event-time {
+        font-weight: bold;
+        color: #f1c40f; 
+        min-width: 70px; 
+        display: inline-block;
+    }
+    .event-source {
+        color: #2ecc71; 
+        margin-right: 0.5em;
+    }
+    .event-message {
+        color: #ecf0f1;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1800px) {
+      main {
+        flex-direction: column; 
+        gap: 2em;
+      }
+      #diagram-panel, #description-panel, #control-panel, #legend, #zone-descriptions, #event-log-panel {
+        min-width: 0; 
+        width: 100%; 
+        order: initial; 
+      }
+      #legend { order: 1; }
+      #zone-descriptions { order: 2; }
+      #control-panel { order: 3; }
+      #description-panel { order: 4; }
+      #diagram-panel { order: 5; } 
+      #event-log-panel { order: 6; }
+      #time-delays-panel { order: 7; }
+    }
+
+    /* Button styling */
+    button {
+      font-size: 2.2em; 
+      padding: 1em 2.4em; 
+      border-radius: 12px; 
+      border: none;
+      background: #1976d2; 
+      color: #fff; 
+      cursor: pointer;
+      transition: background 0.2s; 
+    }
+    button:hover:not(:disabled) {
+        background: #1565c0; 
+    }
+    button:disabled {
+      background: #aaa; 
+      cursor: not-allowed;
+    }
+    /* Tooltip styling */
+    #svg-tooltip {
+      position: fixed; 
+      pointer-events: none; 
+      background: rgba(40, 40, 40, 0.9); 
+      color: #fff; 
+      padding: 0.8em 1.4em;
+      border-radius: 8px; 
+      font-size: 1.6em; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); 
+      z-index: 1000; 
+      display: none; 
+      max-width: 400px; 
+      word-break: break-word; 
+      white-space: pre-wrap; 
+    }
+
+    /* SVG specific styles for zones */
+    .zone-vis {
+        stroke: grey;
+        stroke-width: 1;
+        stroke-opacity: 0.6;
+        fill-opacity: 0.3;
+        transition: fill-opacity 0.3s ease, stroke-opacity 0.3s ease, stroke-width 0.3s ease; 
+    }
+    .zone-vis.active {
+        stroke-opacity: 1;
+        fill-opacity: 0.6; 
+        stroke-width: 3; 
+    }
+    .zone-vis.z1 { fill: orange; }
+    .zone-vis.z2 { fill: gold; }
+    .zone-vis.z3 { fill: #4faaff; }
+    .zone-vis.z4_reverse { /* Style for reverse zone */
+        fill: #b36aff; 
+        stroke: #8a2be2; /* Darker purple stroke */
+        stroke-dasharray: 5 5; /* Dashed line for reverse */
+    } 
+    /* Time Delays Panel Styling */
+    #time-delays-panel {
+        width: 100%;
+        margin-top: 1em;
+        padding: 1.5em;
+        background: #e3f2fd; /* Light blue background */
+        border-radius: 16px;
+        font-size: 1.6em;
+        order: 7; /* After event log */
+        box-shadow: 0 4px 16px #0001;
+    }
+    .time-delay-input {
+        width: 85px; /* Increased width */
+        padding: 0.4em; /* Increased padding */
+        border: 1px solid #bbdefb;
+        border-radius: 6px; /* Slightly more rounded */
+        font-size: 0.9em;
+        text-align: right;
+        transition: box-shadow 0.2s ease-in-out; /* Added transition for focus */
+    }
+    .time-delay-input:focus {
+        outline: none;
+        border-color: #1976d2; /* Highlight border on focus */
+        box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.25); /* Subtle glow on focus */
+    }
+    #time-delays-panel h3 {
+        margin-top: 0;
+        margin-bottom: 0.8em;
+        text-align: center;
+        color: #1976d2; /* Blue title */
+        border-bottom: 1px solid #1976d2;
+        padding-bottom: 0.5em;
+    }
+    #time-delays-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Increased minmax */
+        gap: 1.2em; /* Slightly increased gap */
+    }
+    .time-delay-item {
+        display: flex;
+        align-items: center; /* Changed from space-between for better vertical alignment */
+        gap: 0.8em; /* Added gap for spacing between elements in the item */
+        padding: 0.6em 0.5em; /* Adjusted padding */
+        border-bottom: 1px solid #d1e7fd; /* Softened border */
+    }
+    .time-delay-item:last-of-type { /* Remove border from last item if it's not the button */
+        border-bottom: none;
+    }
+    .time-delay-name {
+        font-weight: bold;
+        color: #0d47a1;
+        flex-basis: 180px; /* Give label a base width for alignment */
+        flex-shrink: 0; /* Prevent label from shrinking */
+    }
+    .time-delay-input-group { /* Wrapper for input and "ms" unit */
+        display: flex;
+        align-items: center;
+        gap: 0.4em;
+    }
+    .time-delay-checkbox-group { /* Wrapper for checkbox and its label */
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        margin-left: auto; /* Push to the right if space allows */
+    }
+    .time-delay-checkbox-group label {
+        font-size: 0.85em;
+        color: #333;
+    }
+    .time-delay-value {
+        color: #e91e63; /* Pink for emphasis */
+        font-weight: bold;
+    }
+  </style>
+  <style>
+    /* Trip Equation Panel Styling */
+    #trip-equation-panel {
+      width: 100%;
+      margin-top: 1em;
+      padding: 1.5em;
+      background: #e8f5e9; /* Light green background */
+      border-radius: 16px;
+      font-size: 1.6em;
+      order: 8; /* After time delays panel */
+      box-shadow: 0 4px 16px #0001;
+      position: relative; /* For positioning context */
+      z-index: 10; /* Ensure it's above other elements */
+      transition: all 0.3s ease; /* Smooth transition for any changes */
+    }
+    #trip-equation-panel h3 {
+      margin-top: 0;
+      margin-bottom: 0.8em;
+      text-align: center;
+      color: #2e7d32; /* Green title */
+      border-bottom: 1px solid #2e7d32;
+      padding-bottom: 0.5em;
+    }
+    .trip-equation-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5em;
+    }
+    .trip-equation-info {
+      flex: 1 1 400px;
+    }
+    .trip-equation-info ul {
+      padding-left: 1.5em;
+    }
+    .trip-equation-info li {
+      margin-bottom: 0.3em;
+    }
+    .trip-equation-info code {
+      background: #c8e6c9;
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .trip-equation-input {
+      flex: 1 1 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8em;
+    }
+    .trip-equation-field {
+      padding: 0.5em;
+      font-size: 1.1em;
+      font-family: monospace;
+      border: 1px solid #a5d6a7;
+      border-radius: 4px;
+    }
+    #apply-equation-btn {
+      padding: 0.5em 1em;
+      background: #2e7d32;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    #apply-equation-btn:hover {
+      background: #1b5e20;
+    }
+    /* Zone Variables Grid Styling */
+    .zone-variables-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .zone-variable-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px;
+      border-bottom: 1px dotted #a5d6a7;
+    }
+    .zone-variable-field {
+      width: 70%;
+      padding: 0.4em;
+      font-size: 0.9em;
+      font-family: monospace;
+      border: 1px solid #a5d6a7;
+      border-radius: 4px;
+      background-color: #f1f8e9;
+    }
+    .zone-variable-item label {
+      font-weight: bold;
+      color: #2e7d32;
+    }
+    /* Scheme Description Details Styling */
+    #scheme-description-details p {
+        margin-bottom: 1em;
+        padding-left: 1em;
+        border-left: 3px solid #a5d6a7;
+        font-size: 0.9em;
+        line-height: 1.5;
+    }
+     #scheme-description-details strong {
+        color: #1b5e20;
+     }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <header>
+      <h1>Pilot Protection Schemes Simulator</h1>
+      <select id="scheme-select">
+        <option value="POTT">POTT (Permissive Overreaching Transfer Trip)</option>
+        <option value="PUTT">PUTT (Permissive Underreaching Transfer Trip)</option>
+        <option value="DCB">DCB (Directional Comparison Blocking)</option>
+        <option value="DCUB">DCUB (Directional Comparison Unblocking)</option>
+        <option value="DTT">DTT (Direct Transfer Trip)</option>
+      </select>
+    </header>
+    <main>
+      <div id="diagram-panel">
+        </div>
+
+      <div id="legend">
+        <span class="legend-item"><span class="zone zone1"></span> Zone 1</span>
+        <span class="legend-item"><span class="zone zone2"></span> Zone 2</span>
+        <span class="legend-item"><span class="zone zone3"></span> Zone 3 (Fwd)</span> <span class="legend-item"><span class="zone zone4"></span> Zone 4 (Rev)</span> <span class="legend-item"><span class="breaker closed"></span> Breaker Closed</span>
+        <span class="legend-item"><span class="breaker open"></span> Breaker Open</span>
+        <span class="legend-item"><span class="comm-arrow"></span> Comm Signal</span>
+      </div>
+
+      <div id="zone-descriptions">
+          <h3>Protection Zone Characteristics</h3>
+          <p><strong>Zone 1:</strong> Typically set to 80-90% of the protected line length. Provides fast, instantaneous tripping for faults within this range. It is *underreaching* to avoid operating for faults beyond the remote bus.</p>
+          <p><strong>Zone 2:</strong> Typically set to 120-150% of the protected line length. It *overreaches* the remote bus to ensure coverage for all line faults. Operates with a time delay (e.g., 0.3-0.5s) to coordinate with Zone 1 at the remote end. Used for primary protection in pilot schemes and as backup.</p>
+          <p><strong>Zone 3 (Forward):</strong> Reaches further than Zone 2, often covering the protected line plus the next line section. Operates with a longer time delay (e.g., 0.6-1.2s). Provides remote backup for faults on adjacent lines or if remote breakers fail. Can be used for *forward* directional supervision.</p>
+          <p><strong>Zone 4 (Reverse):</strong> Typically set with a reach similar to Zone 3 but looking *backwards* from the relay location. Used primarily to determine if a fault is *reverse* (behind the relay). Essential for directional comparison schemes (DCB, DCUB) to prevent tripping for external faults.</p>
+      </div>
+
+      <div id="control-panel">
+        <button id="trigger-fault">Trigger Fault</button>
+        <div id="fault-slider-container">
+            <label for="fault-slider">Fault Position (A=0% to D=100%): <span id="fault-pos-label">50%</span></label>
+            <input type="range" id="fault-slider" min="0" max="100" value="50">
+        </div>
+        <label style="margin-top:0.5em;">
+          <input type="checkbox" id="comm-fail" style="transform: scale(1.5); margin-right: 0.5em; vertical-align: middle;"> Comm Failure
+        </label>
+        <button id="comm-failure-btn" class="control-panel-button">Toggle COMM Failure</button>
+      </div>
+
+      <aside id="description-panel">
+        </aside>
+      
+      <div id="event-log-panel">
+        <h3>Sequence of Events</h3>
+        <ul id="event-log-list">
+            </ul>
+      </div>
+      
+      <div id="time-delays-panel">
+        <h3>Assumed Time Delays</h3>
+        <div id="time-delays-grid">
+          <div class="time-delay-item">
+            <span class="time-delay-name">Relay Pickup:</span>
+            <div class="time-delay-input-group">
+              <input type="number" id="time-relay-pickup-input" min="0" max="100" value="5" class="time-delay-input"> ms
+            </div>
+          </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Zone 1 Trip:</span>
+            <div class="time-delay-input-group">
+              <input type="number" id="time-z1-input" min="0" max="500" value="0" class="time-delay-input"> ms
+            </div>
+          </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Zone 2 Trip Delay:</span> <div class="time-delay-input-group">
+              <input type="number" id="time-z2-input" min="0" max="1000" value="300" class="time-delay-input"> ms
+            </div>
+            </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Zone 3 Pickup Delay:</span> <div class="time-delay-input-group">
+              <input type="number" id="time-z3-input" min="0" max="500" value="0" class="time-delay-input"> ms
+            </div>
+             </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Zone 4 Reverse Delay:</span> <div class="time-delay-input-group">
+              <input type="number" id="time-z4-reverse-input" min="0" max="500" value="0" class="time-delay-input"> ms
+            </div>
+             </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Communication:</span>
+            <div class="time-delay-input-group">
+              <input type="number" id="time-comm-input" min="0" max="100" value="15" class="time-delay-input"> ms
+            </div>
+          </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Breaker Operation:</span>
+            <div class="time-delay-input-group">
+              <input type="number" id="time-breaker-input" min="0" max="200" value="50" class="time-delay-input"> ms
+            </div>
+          </div>
+          <div class="time-delay-item">
+            <span class="time-delay-name">Coordination:</span>
+            <div class="time-delay-input-group">
+              <input type="number" id="time-coord-input" min="0" max="200" value="80" class="time-delay-input"> ms
+            </div>
+          </div>
+          <div class="time-delay-item" style="grid-column: 1 / -1; justify-content: center; margin-top: 10px; border-bottom: none;">
+            <button id="apply-time-delays-btn">Apply Time Delays</button> </div>
+        </div>
+      </div>
+      
+      <div id="trip-equation-panel">
+        <h3>Trip Equation</h3>
+        <div class="trip-equation-container">
+          <div class="trip-equation-info">
+            <p>Define custom trip logic using zone pickup and trip signals:</p>
+            <h4>Available Bits:</h4>
+            <ul>
+              <li><strong>Local Relay Bits:</strong></li>
+              <ul>
+                <li><strong>Z1PU, Z2PU, Z3PU, Z4PU</strong>: Zone pickup signals (fault detected in zone)</li>
+                <li><strong>Z1, Z2, Z3, Z4</strong>: Zone trip signals (zone timer expired)</li>
+                <li><strong>Z4RPU</strong>: Zone 4 reverse pickup (fault detected behind relay)</li>
+                <li><strong>COMM</strong>: Communication signal received from remote relay</li>
+                <li><strong>COMM_TX</strong>: Communication signal sent to remote relay</li>
+                <li><strong>DTT_RX</strong>: Direct transfer trip received from remote relay</li>
+              </ul>
+              <li><strong>Remote Relay Bits (prefixed with R_):</strong></li>
+              <ul>
+                <li><strong>R_Z1PU, R_Z2PU, R_Z3PU, R_Z4PU</strong>: Remote relay zone pickup signals</li>
+                <li><strong>R_Z1, R_Z2, R_Z3, R_Z4</strong>: Remote relay zone trip signals</li>
+                <li><strong>R_Z4RPU</strong>: Remote relay Zone 4 reverse pickup</li>
+                <li><strong>R_COMM_TX</strong>: Communication signal sent by remote relay</li>
+              </ul>
+              <li><strong>Operators:</strong></li>
+              <ul>
+                <li><strong>+</strong>: OR operation</li>
+                <li><strong>*</strong>: AND operation</li>
+                <li><strong>!</strong>: NOT operation (negation)</li>
+              </ul>
+            </ul>
+            
+            <h4>Trip Equation:</h4>
+            <p>Determines when the local relay will trip its breaker:</p>
+            <ul>
+              <li><code>Z1 + (Z2PU * COMM)</code> - Trip on Zone 1 OR (Zone 2 pickup AND communication)</li>
+              <li><code>Z1 + (Z2PU * !Z4RPU)</code> - Trip on Zone 1 OR (Zone 2 pickup AND NOT Zone 4 reverse pickup)</li>
+            </ul>
+            
+            <h4>COMM Bit Equation:</h4>
+            <p>Determines when the relay sends its COMM bit to the other relay:</p>
+            <ul>
+              <li><strong>POTT</strong>: <code>COMM_TX = Z2PU * Z3PU</code> - Send COMM bit when forward fault detected (Zone 2 AND Zone 3)</li>
+              <li><strong>DCB</strong>: <code>COMM_TX = Z4RPU</code> - Send COMM bit when reverse fault detected (Zone 4 Reverse)</li>
+              <li><strong>DCUB</strong>: <code>COMM_TX = !Z4RPU</code> - Send COMM bit when no reverse fault detected (NOT Zone 4 Reverse)</li>
+              <li><strong>PUTT</strong>: <code>COMM_TX = Z1</code> - Send COMM bit when Zone 1 trips</li>
+            </ul>
+            
+            <p>The <code>COMM</code> bit in the trip equation represents the communication signal received from the remote relay, which is determined by the remote relay's <code>COMM_TX</code> equation.</p>
+
+            <h4 style="margin-top: 1.5em;">Scheme Descriptions:</h4>
+            <div id="scheme-description-details">
+              <p><strong>POTT (Permissive Overreaching Transfer Trip):</strong><br>
+                 POTT uses Zone 3 for directional supervision and to send permissive signals (COMM Eq: `COMM_TX = Z3PU`). The relay trips on Zone 1 or when it detects a forward fault and receives a permissive signal (Trip Eq: `Z1 + (Z3PU * COMM)`). If comms fail, it relies on Zone 1 protection.
+              </p>
+              <p><strong>PUTT (Permissive Underreaching Transfer Trip):</strong><br>
+                 PUTT uses underreaching Zone 1 to trigger permissive signals (COMM Eq: `COMM_TX = Z1`). If a relay detects a fault in Zone 1, it trips instantly and signals the other end. The remote end trips instantly if it sees the fault in Zone 2 and receives the permissive (Trip Eq: `Z1 + (Z2PU * COMM)`). Otherwise, relies on Zone 1 only.
+              </p>
+              <p><strong>DCB (Directional Comparison Blocking):</strong><br>
+                 DCB trips on forward Zone 2 detection (Trip Eq: `Z1 + (Z2PU * !COMM)`) unless a blocking signal is received from the remote end. Blocking is sent if a reverse fault is seen (COMM Eq: `COMM_TX = Z4RPU`). The trip logic requires *no* blocking signal received. Zone 1 trips instantly regardless.
+              </p>
+              <p><strong>DCUB (Directional Comparison Unblocking):</strong><br>
+                 DCUB normally blocks tripping. A relay sends an unblocking signal when *no* reverse fault is detected (COMM Eq: `COMM_TX = !Z4RPU`). Tripping occurs if the local relay sees a forward fault (Z2PU) *and* receives the unblock signal (Trip Eq: `Z1 + (Z2PU * COMM)`).
+              </p>
+              <p><strong>DTT (Direct Transfer Trip):</strong><br>
+                 DTT is a direct command initiated by external logic or another relay function (COMM Eq: `COMM_TX = Z1`). The receiving relay trips directly upon receiving the DTT signal (Trip Eq: `Z1 + COMM`). Zone 1 trips instantly regardless.
+              </p>
+            </div>
+          </div>
+          <div class="trip-equation-input">
+            <label for="trip-equation">Trip Equation:</label>
+            <input type="text" id="trip-equation" class="trip-equation-field" placeholder="Enter trip equation">
+            
+            <label for="comm-equation" style="margin-top: 15px;">COMM Bit Equation:</label>
+            <input type="text" id="comm-equation" class="trip-equation-field" placeholder="Enter COMM bit equation">
+            
+            <div style="margin-top: 25px; border-top: 1px dashed #a5d6a7; padding-top: 15px;">
+              <h4>Zone Pickup and Trip Variables</h4>
+              <p style="font-size: 0.8em; color: #2e7d32; margin-bottom: 10px;">
+                Note: Communication delay (currently ${config.times.comm}ms) is the time it takes for the COMM bit to be received after being sent by the remote relay.
+              </p>
+              <div class="zone-variables-grid">
+                <div class="zone-variable-item">
+                  <label for="z1pu-input">Z1PU:</label>
+                  <input type="text" id="z1pu-input" class="zone-variable-field" placeholder="Z1PU logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z1-input">Z1:</label>
+                  <input type="text" id="z1-input" class="zone-variable-field" placeholder="Z1 logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z2pu-input">Z2PU:</label>
+                  <input type="text" id="z2pu-input" class="zone-variable-field" placeholder="Z2PU logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z2-input">Z2:</label>
+                  <input type="text" id="z2-input" class="zone-variable-field" placeholder="Z2 logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z3pu-input">Z3PU:</label>
+                  <input type="text" id="z3pu-input" class="zone-variable-field" placeholder="Z3PU logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z3-input">Z3:</label>
+                  <input type="text" id="z3-input" class="zone-variable-field" placeholder="Z3 logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z4pu-input">Z4PU:</label>
+                  <input type="text" id="z4pu-input" class="zone-variable-field" placeholder="Z4PU logic">
+                </div>
+                <div class="zone-variable-item">
+                  <label for="z4-input">Z4:</label>
+                  <input type="text" id="z4-input" class="zone-variable-field" placeholder="Z4 logic">
+                </div>
+              </div>
+            </div>
+            
+            <button id="apply-equation-btn" style="margin-top: 15px;">Apply Equations</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="svg-tooltip"></div>
+  <script>
+    // --- App State ---
+    const schemes = { 
+      POTT: {
+        name: "POTT (Permissive Overreaching Transfer Trip)",
+        description: `POTT uses Zone 3 for directional supervision and to send permissive signals (COMM_TX = Z3PU). The relay trips on Zone 1 or when it detects a forward fault and receives a permissive signal (Trip = Z1 + (Z3PU * COMM)). If comms fail, it relies on Zone 1 protection. Click "Trigger Fault" to see the simulation.`,
+      },
+      PUTT: {
+        name: "PUTT (Permissive Underreaching Transfer Trip)",
+        description: `PUTT uses underreaching Zone 1 to trigger permissive signals (COMM_TX = Z1). If a relay detects a fault in Zone 1, it trips instantly and signals the other end. The remote end trips instantly if it sees the fault in Zone 2 and receives the permissive (Trip = Z1 + (Z2PU * COMM)). Otherwise, relies on Zone 1 only. (Event log not yet fully implemented for this scheme).`,
+      },
+      DCB: {
+        name: "DCB (Directional Comparison Blocking)",
+        description: `DCB trips on forward Zone 2 detection (Trip = Z1 + (Z2PU * !COMM)) unless a blocking signal is received from the remote end. Blocking is sent if a reverse fault is seen (COMM_TX = Z4RPU). Zone 1 trips instantly regardless. Animation assumes an internal fault. (Event log not yet fully implemented for this scheme).`,
+      },
+      DCUB: {
+        name: "DCUB (Directional Comparison Unblocking)",
+        description: `DCUB normally blocks tripping. A relay sends an unblocking signal when no reverse fault is detected (COMM_TX = !Z4RPU). Tripping occurs if the local relay sees a forward fault and receives the unblock signal (Trip = Z1 + (Z2PU * COMM)). Animation assumes an internal fault. (Event log not yet fully implemented for this scheme).`,
+      },
+      DTT: {
+        name: "DTT (Direct Transfer Trip)",
+        description: `DTT is a direct command from one protection system (COMM_TX = Z1) to trip a remote breaker (Trip = Z1 + COMM), bypassing local distance logic. Often used for bus faults or breaker failure protection. Animation shows Relay B initiating a DTT to Relay C. (Event log not yet fully implemented for this scheme).`,
+      }
+    };
+
+    let currentScheme = "POTT";
+    let commFail = false;
+    let animationRunning = false;
+    let faultPos = 50;
+    let simulationTime = 0.0;
+    let eventLog = [];
+    let simIntervalId = null;
+    let customTripEquation = ""; // Store the custom trip equation
+    let customCommEquation = ""; // Store the custom communication equation
+    // let customCommSendEquation = ""; // This was unused, can be removed or repurposed if needed
+    let storedCommEquationBeforeFailure = ""; // To store comm receive equation when Comm Failure is checked
+    // let storedCommSendEquationBeforeFailure = ""; // This was unused
+
+    // Default trip equations for each scheme
+    const defaultTripEquations = {
+      POTT: "Z1 + (Z3PU * COMM)", // Or Z2PU depending on overreach philosophy
+      PUTT: "Z1 + (Z2PU * COMM)",
+      DCB: "Z1 + (Z2PU * !COMM)", // COMM here means "blocking signal received"
+      DCUB: "Z1 + (Z2PU * COMM)", // COMM here means "unblocking signal received"
+      DTT: "Z1 + COMM"            // COMM here means "DTT signal received"
+    };
+    
+    // COMM bit equations for each scheme (when a relay sends its COMM bit to the other relay)
+    // This defines what COMM_TX (communication transmit) is based on local conditions.
+    // The COMM variable in the trip equation refers to COMM_RX (communication received).
+    const commBitEquations = { // These define what local conditions trigger sending a signal
+      POTT: "Z3PU",     // Send PERMISSIVE if Z3PU (forward overreaching zone picks up)
+      PUTT: "Z1",       // Send PERMISSIVE if Z1 (local underreaching zone trips)
+      DCB: "Z4RPU",     // Send BLOCKING if Z4RPU (reverse zone picks up)
+      DCUB: "!Z4RPU",   // Send UNBLOCKING if !Z4RPU (no reverse zone pickup)
+      DTT: "Z1"         // Send DTT if Z1 (local underreaching zone trips, or other DTT logic)
+    };
+
+    const SIM_TIME_STEP = 0.5; 
+    const REAL_TIME_ANIMATION_INTERVAL = 20; 
+    const MAX_SIM_DURATION = 5000; 
+
+    // --- DOM Elements ---
+    const diagramPanel = document.getElementById('diagram-panel');
+    const schemeSelect = document.getElementById('scheme-select');
+    const triggerBtn = document.getElementById('trigger-fault');
+    const commFailCheckbox = document.getElementById('comm-fail');
+    const descPanel = document.getElementById('description-panel');
+    const tooltip = document.getElementById('svg-tooltip');
+    const faultSlider = document.getElementById('fault-slider');
+    const faultPosLabel = document.getElementById('fault-pos-label');
+    const eventLogList = document.getElementById('event-log-list');
+    const eventLogPanelDOM = document.getElementById('event-log-panel');
+    const svgNS = "http://www.w3.org/2000/svg";
+    
+    // Time delay DOM elements
+    const timeRelayPickupInput = document.getElementById('time-relay-pickup-input');
+    const timeZ1Input = document.getElementById('time-z1-input');
+    const timeZ2Input = document.getElementById('time-z2-input');
+    const timeZ3Input = document.getElementById('time-z3-input');
+    const timeZ4ReverseInput = document.getElementById('time-z4-reverse-input');
+    const timeCommInput = document.getElementById('time-comm-input');
+    const timeBreakerInput = document.getElementById('time-breaker-input');
+    const timeCoordInput = document.getElementById('time-coord-input');
+    const applyTimeDelaysBtn = document.getElementById('apply-time-delays-btn');
+    
+    // Trip equation elements
+    const tripEquationInput = document.getElementById('trip-equation');
+    const applyEquationBtn = document.getElementById('apply-equation-btn');
+    const commEquationInputDOM = document.getElementById('comm-equation'); // Get the DOM element
+
+    // --- System Configuration ---
+    const config = {
+        w: 1600, h: 700, 
+        lineY: 350, 
+        busSpacing: 500,
+        get busA_X() { return this.busB_X - this.busSpacing * 0.6; },
+        busB_X: 550,
+        get busC_X() { return this.busB_X + this.busSpacing; },
+        get busD_X() { return this.busC_X + this.busSpacing * 0.6; },
+        busWidth: 80, busHeight: 120, busRX: 16,
+        breakerOffset: 40, breakerSize: 48, breakerRX: 8,
+        relayWidth: 72, relayHeight: 48, relayRX: 12,
+        relayYAbove: 50, 
+        relayYBelow: 50, 
+        commYOffset: 80, 
+        zoneHeights: [36, 42, 48, 54], 
+        zoneGap: 6,
+        zoneColors: { z1: 'orange', z2: 'gold', z3: '#4faaff', z4_reverse: '#b36aff' }, 
+        zoneOpacity: 0.35,
+        refPoints: { A: 0, B: 30, C: 70, D: 100 },
+        times: {
+            relayPickup: 5,
+            z1: 0,
+            z2: 300,
+            z3: 0,
+            z4_reverse: 0,
+            comm: 15,
+            breaker: 50,
+            coord: 80
+        }
+    };
+
+    // Define zones and line length after config is initialized
+    config.lineLengthBC = config.refPoints.C - config.refPoints.B;
+    config.zones = { // All percentages are relative to the A-D (0-100%) scale
+        B: { // Relay at Bus B, looking towards C
+            z1: { start: 30, end: 30 + 0.85 * config.lineLengthBC }, // 85% of line BC
+            z2: { start: 30, end: 30 + 1.20 * config.lineLengthBC }, // 120% of line BC
+            z3: { start: 30, end: 100 }, // Covers line BC and beyond (up to D)
+            z4_reverse: { start: 0, end: 30 } // Covers line AB (behind B)
+        },
+        C: { // Relay at Bus C, looking towards B
+            z1: { start: 70 - 0.85 * config.lineLengthBC, end: 70 }, // 85% of line CB
+            z2: { start: 70 - 1.20 * config.lineLengthBC, end: 70 }, // 120% of line CB
+            z3: { start: 0, end: 70 }, // Covers line CB and beyond (up to A)
+            z4_reverse: { start: 70, end: 100 } // Covers line CD (behind C)
+        }
+    };
+
+    // --- Helper Functions ---
+    function scaleX(percent) {
+        const totalSpan = config.busD_X - config.busA_X;
+        return config.busA_X + totalSpan * (percent / 100);
+    }
+
+    function createSVGElement(tag, attributes) {
+        const el = document.createElementNS(svgNS, tag);
+        for (const key in attributes) {
+            el.setAttribute(key, attributes[key]);
+        }
+        return el;
+    }
+
+    function isFaultInZone(faultLocationPercent, zone) {
+        if (!zone) return false;
+        // Ensure start is always less than end for comparison, even if defined reverse for convenience
+        const zoneStart = Math.min(zone.start, zone.end); 
+        const zoneEnd = Math.max(zone.start, zone.end);
+        return faultLocationPercent >= zoneStart && faultLocationPercent <= zoneEnd;
+    }
+
+    function addEventToLog(time, source, message) {
+        eventLog.push({ time: time.toFixed(1), source, message });
+        renderEventLog();
+    }
+
+    function renderEventLog() {
+        eventLogList.innerHTML = ''; 
+        eventLog.forEach(event => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="event-time">${event.time}ms</span> <span class="event-source">[${event.source}]</span> <span class="event-message">${event.message}</span>`;
+            eventLogList.appendChild(li);
+        });
+        if (eventLogPanelDOM) { 
+            eventLogPanelDOM.scrollTop = eventLogPanelDOM.scrollHeight;
+        }
+    }
+
+    function renderDiagram(state = {}, scheme = currentScheme) {
+      const {
+        fault = false,
+        breakerB_status = 'closed',
+        breakerC_status = 'closed',
+        zonesActive = {},
+        commBtoC_active = false,
+        commCtoB_active = false,
+        narration = "",
+      } = state;
+      
+      let svgHeight = config.h;
+      if (tripEquationInput && tripEquationInput.value.trim() !== '' ||
+          commEquationInputDOM && commEquationInputDOM.value.trim() !== '') {
+        svgHeight = config.h * 0.85; 
+      }
+
+      diagramPanel.innerHTML = '';
+      const svg = createSVGElement('svg', {
+          viewBox: `0 0 ${config.w} ${svgHeight}`,
+          width: "100%",
+          style: "max-width:100%; height:auto; font-family:'Segoe UI',Arial,sans-serif; display: block; margin: auto;"
+      });
+      diagramPanel.appendChild(svg);
+
+      svg.appendChild(createSVGElement('rect', { x: "0", y: "0", width: config.w, height: config.h, fill: "#f4f7fb" }));
+
+      const busLabels = ['A', 'B', 'C', 'D'];
+      const busCoords = [config.busA_X, config.busB_X, config.busC_X, config.busD_X];
+      const totalForwardZoneHeightAbove = config.zoneHeights.slice(0, 3).reduce((a, b) => a + b, 0) + (2 * config.zoneGap);
+      const busLabelY = config.lineY - config.relayYAbove - config.relayHeight - totalForwardZoneHeightAbove - config.zoneHeights[3] - config.zoneGap - 25; 
+
+      busCoords.forEach((x, i) => {
+          svg.appendChild(createSVGElement('rect', {
+              x: x - config.busWidth / 2, y: config.lineY - config.busHeight / 2,
+              width: config.busWidth, height: config.busHeight, rx: config.busRX,
+              fill: "#e0e0e0", stroke: "#888", "stroke-width": "4",
+              'data-tooltip': `Bus ${busLabels[i]}: Substation bus`
+          }));
+          const textLabel = createSVGElement('text', {
+              x: x, y: busLabelY, 'text-anchor': "middle", 'font-size': "32", fill: "#333", 'font-weight':'bold'
+          });
+          textLabel.textContent = `Bus ${busLabels[i]}`;
+          const textOutline = textLabel.cloneNode(true);
+          textOutline.setAttribute('stroke', '#f4f7fb'); textOutline.setAttribute('stroke-width', '6'); textOutline.setAttribute('paint-order', 'stroke');
+          svg.appendChild(textOutline); svg.appendChild(textLabel);
+      });
+
+      svg.appendChild(createSVGElement('line', {
+          x1: config.busA_X, y1: config.lineY, x2: config.busD_X, y2: config.lineY,
+          stroke: "#aaa", "stroke-width": "8", "stroke-dasharray": "15 10"
+      }));
+      svg.appendChild(createSVGElement('line', { 
+          x1: config.busB_X, y1: config.lineY, x2: config.busC_X, y2: config.lineY,
+          stroke: "#444", "stroke-width": "12",
+          'data-tooltip': `Line B-C: Main protected transmission line segment (${config.refPoints.B}% to ${config.refPoints.C}%)`
+      }));
+
+      const zoneBands = []; 
+      const zoneGroup = createSVGElement('g', { id: 'zone-bands' });
+      svg.appendChild(zoneGroup);
+
+      // Draw Zones for Relay B (Forward Above, Reverse Further Above)
+      let currentY_Above_Fwd = config.lineY - config.zoneGap; 
+      ['z1', 'z2', 'z3'].forEach((zoneId, index) => { 
+          const zoneDef = config.zones.B?.[zoneId];
+          if (!zoneDef) return;
+          const startX = scaleX(zoneDef.start);
+          const endX = scaleX(zoneDef.end);
+          const zoneWidth = Math.abs(endX - startX);
+          const zoneX = Math.min(startX, endX); // Ensure correct X for reverse zones
+          const zoneHeight = config.zoneHeights[index];
+          currentY_Above_Fwd -= zoneHeight; 
+          const isActive = zonesActive[`B_${zoneId}`] === true;
+          const zoneRect = createSVGElement('rect', {
+              id: `zone-B-${zoneId}`, x: zoneX, y: currentY_Above_Fwd,
+              width: zoneWidth, height: zoneHeight,
+              class: `zone-vis ${zoneId} ${isActive ? 'active' : ''}`,
+          });
+          zoneGroup.appendChild(zoneRect);
+          zoneBands.push({ x: zoneX, y: currentY_Above_Fwd, w: zoneWidth, h: zoneHeight, label: `Relay B ${zoneId.toUpperCase()} (${zoneDef.start}% to ${zoneDef.end}%)` });
+          currentY_Above_Fwd -= config.zoneGap; 
+      });
+      const zoneDefB_R = config.zones.B?.z4_reverse;
+      if (zoneDefB_R) {
+          const startX = scaleX(zoneDefB_R.start);
+          const endX = scaleX(zoneDefB_R.end);
+          const zoneWidth = Math.abs(endX - startX);
+          const zoneX = Math.min(startX, endX); 
+          const zoneHeight = config.zoneHeights[3]; 
+          currentY_Above_Fwd -= zoneHeight; 
+          const isActive = zonesActive[`B_z4_reverse`] === true;
+          const zoneRect = createSVGElement('rect', {
+              id: `zone-B-z4_reverse`, x: zoneX, y: currentY_Above_Fwd,
+              width: zoneWidth, height: zoneHeight,
+              class: `zone-vis z4_reverse ${isActive ? 'active' : ''}`, 
+          });
+          zoneGroup.appendChild(zoneRect);
+          zoneBands.push({ x: zoneX, y: currentY_Above_Fwd, w: zoneWidth, h: zoneHeight, label: `Relay B Z4 Reverse (${zoneDefB_R.start}% to ${zoneDefB_R.end}%)` });
+          currentY_Above_Fwd -= config.zoneGap;
+      }
+
+
+      // Draw Zones for Relay C (Forward Below, Reverse Further Below)
+      let currentY_Below_Fwd = config.lineY + config.zoneGap;
+      ['z1', 'z2', 'z3'].forEach((zoneId, index) => { 
+          const zoneDef = config.zones.C?.[zoneId];
+          if (!zoneDef) return;
+          const startX = scaleX(zoneDef.start);
+          const endX = scaleX(zoneDef.end);
+          const zoneWidth = Math.abs(endX - startX);
+          const zoneX = Math.min(startX, endX);
+          const zoneHeight = config.zoneHeights[index];
+          const isActive = zonesActive[`C_${zoneId}`] === true;
+          const zoneRect = createSVGElement('rect', {
+              id: `zone-C-${zoneId}`, x: zoneX, y: currentY_Below_Fwd,
+              width: zoneWidth, height: zoneHeight,
+              class: `zone-vis ${zoneId} ${isActive ? 'active' : ''}`,
+          });
+          zoneGroup.appendChild(zoneRect);
+          zoneBands.push({ x: zoneX, y: currentY_Below_Fwd, w: zoneWidth, h: zoneHeight, label: `Relay C ${zoneId.toUpperCase()} (${zoneDef.start}% to ${zoneDef.end}%)` });
+          currentY_Below_Fwd += (zoneHeight + config.zoneGap);
+      });
+      const zoneDefC_R = config.zones.C?.z4_reverse;
+      if (zoneDefC_R) {
+          const startX = scaleX(zoneDefC_R.start);
+          const endX = scaleX(zoneDefC_R.end);
+          const zoneWidth = Math.abs(endX - startX);
+          const zoneX = Math.min(startX, endX);
+          const zoneHeight = config.zoneHeights[3]; 
+          const isActive = zonesActive[`C_z4_reverse`] === true;
+          const zoneRect = createSVGElement('rect', {
+              id: `zone-C-z4_reverse`, x: zoneX, y: currentY_Below_Fwd,
+              width: zoneWidth, height: zoneHeight,
+              class: `zone-vis z4_reverse ${isActive ? 'active' : ''}`, 
+          });
+          zoneGroup.appendChild(zoneRect);
+          zoneBands.push({ x: zoneX, y: currentY_Below_Fwd, w: zoneWidth, h: zoneHeight, label: `Relay C Z4 Reverse (${zoneDefC_R.start}% to ${zoneDefC_R.end}%)` });
+          currentY_Below_Fwd += (zoneHeight + config.zoneGap); 
+      }
+
+      // --- Draw Breakers --- 
+      function drawBreaker(id, busX, direction, status, label) { 
+          const x = busX + (direction === 'R' ? config.breakerOffset : -config.breakerOffset);
+          const y = config.lineY;
+          const color = status === 'open' ? '#e53935' : '#333'; 
+          const angle = status === 'open' ? 45 : 0;
+          const group = createSVGElement('g', { 'data-tooltip': `${label}: ${status==='open'?'Open (tripped)':'Closed (normal)'} breaker` });
+          group.appendChild(createSVGElement('rect', { 
+              id: `breaker${id}`, x: x - config.breakerSize / 2, y: y - config.breakerSize / 2,
+              width: config.breakerSize, height: config.breakerSize, rx: config.breakerRX,
+              fill: "#fff", stroke: color, "stroke-width": "6"
+          }));
+          group.appendChild(createSVGElement('rect', { 
+              x: x - config.breakerSize * 0.33, y: y - config.breakerSize * 0.08,
+              width: config.breakerSize * 0.66, height: config.breakerSize * 0.16,
+              fill: color, transform: `rotate(${angle} ${x} ${y})`
+          }));
+          const text = createSVGElement('text', { x: x, y: y + config.breakerSize/2 + 24, 'text-anchor': "middle", 'font-size': "26", fill: "#333" });
+          text.textContent = label;
+          group.appendChild(text);
+          return group;
+      }
+      svg.appendChild(drawBreaker('B', config.busB_X, 'R', breakerB_status, `CB B`));
+      svg.appendChild(drawBreaker('C', config.busC_X, 'L', breakerC_status, `CB C`));
+
+      // --- Draw Relays --- 
+      function drawRelay(id, busX, label) {
+          const x = busX;
+          const y = config.lineY - config.relayYAbove; 
+          const group = createSVGElement('g', { 'data-tooltip': `${label}: Distance relay` });
+          group.appendChild(createSVGElement('rect', { 
+              id: `relay${id}`, x: x - config.relayWidth / 2, y: y - config.relayHeight,
+              width: config.relayWidth, height: config.relayHeight, rx: config.relayRX,
+              fill: "#b3e5fc", stroke: "#0288d1", "stroke-width": "4"
+          }));
+          const text = createSVGElement('text', { x: x, y: y - config.relayHeight / 2, 'text-anchor': "middle", 'dominant-baseline': "central", 'font-size': "26", fill: "#01579b", 'font-weight':'bold' });
+          text.textContent = label;
+          group.appendChild(text);
+          
+          const textBelowY = config.lineY + config.relayYBelow;
+          const textBelow = createSVGElement('text', { x: x, y: textBelowY, 'text-anchor': "middle", 'font-size': "28", fill: "#0288d1"});
+          textBelow.textContent = `Relay ${id}`;
+          const textBelowOutline = textBelow.cloneNode(true);
+          textBelowOutline.setAttribute('stroke', '#f4f7fb'); textBelowOutline.setAttribute('stroke-width', '5'); textBelowOutline.setAttribute('paint-order', 'stroke');
+          svg.appendChild(textBelowOutline); svg.appendChild(textBelow);
+          return group;
+      }
+      svg.appendChild(drawRelay('B', config.busB_X, `R-B`));
+      svg.appendChild(drawRelay('C', config.busC_X, `R-C`));
+
+      // --- Draw Comm Channel --- 
+      const commY = currentY_Below_Fwd + 10; 
+      const commStartX = config.busB_X + config.relayWidth/2 + 20; 
+      const commEndX = config.busC_X - config.relayWidth/2 - 20;
+      svg.appendChild(createSVGElement('line', {
+          x1: commStartX, y1: commY, x2: commEndX, y2: commY,
+          stroke: "#888", "stroke-dasharray": "16 12", "stroke-width": "6",
+          'data-tooltip': "Communication channel between Relay B and Relay C"
+      }));
+      const arrowSize = 20; 
+      const arrowLength = 20; 
+      if (commBtoC_active) {
+          svg.appendChild(createSVGElement('path', {
+              d: `M ${commStartX + arrowLength*1.5} ${commY - arrowSize/2} L ${commStartX + arrowLength*2.5} ${commY} L ${commStartX + arrowLength*1.5} ${commY + arrowSize/2} Z`,
+              fill: "#4caf50", 'data-tooltip': "Comm Signal B to C Active"
+          }));
+      }
+      if (commCtoB_active) {
+          svg.appendChild(createSVGElement('path', {
+              d: `M ${commEndX - arrowLength*1.5} ${commY - arrowSize/2} L ${commEndX - arrowLength*2.5} ${commY} L ${commEndX - arrowLength*1.5} ${commY + arrowSize/2} Z`,
+              fill: "#4caf50", 'data-tooltip': "Comm Signal C to B Active"
+          }));
+      }
+      const commLabel = createSVGElement('text', { x: (commStartX + commEndX) / 2, y: commY + 30, 'text-anchor': "middle", 'font-size': "26", fill: "#666" });
+      commLabel.textContent = `Comm B \u2194 C`; 
+      svg.appendChild(commLabel);
+
+      // --- Draw Fault Indicator --- 
+      if (fault) {
+        const faultX_coord = scaleX(faultPos); 
+        const faultY_coord = config.lineY; 
+        const faultGroup = createSVGElement('g', { 'data-tooltip': `Fault Location: ${faultPos}% (A-D)` });
+        faultGroup.appendChild(createSVGElement('circle', { cx: faultX_coord, cy: faultY_coord, r: 30, fill: 'rgba(255, 255, 255, 0.8)' }));
+        faultGroup.appendChild(createSVGElement('polygon', { 
+            points: `${faultX_coord-15},${faultY_coord-22} ${faultX_coord+5},${faultY_coord+5} ${faultX_coord-5},${faultY_coord+5} ${faultX_coord+15},${faultY_coord+22}`,
+            fill: "#e53935", stroke: "#b71c1c", "stroke-width": "4"
+        }));
+        const faultText = createSVGElement('text', { x: faultX_coord, y: faultY_coord - 38, 'text-anchor': "middle", 'font-size': "32", fill: "#e53935", 'font-weight': "bold" });
+        faultText.textContent = "⚡ FAULT";
+        const faultTextOutline = faultText.cloneNode(true);
+        faultTextOutline.setAttribute('stroke', 'rgba(255,255,255,0.8)'); faultTextOutline.setAttribute('stroke-width', '6'); faultTextOutline.setAttribute('paint-order', 'stroke');
+        faultGroup.appendChild(faultTextOutline);
+        faultGroup.appendChild(faultText);
+        svg.appendChild(faultGroup);
+      }
+
+      // --- Draw Narration Box --- 
+      const narrationY = svgHeight - 30; // Adjusted to be relative to potentially smaller svgHeight
+      if (narration) {
+          const narrRect = createSVGElement('rect', {
+              x: config.w / 2 - 450, y: narrationY - 25, width: 900, height: 40, rx: 15,
+              fill: "#fffbe7", stroke: "#ffe082", "stroke-width": "3"
+          });
+          const narrText = createSVGElement('text', {
+              x: config.w / 2, y: narrationY, 'text-anchor': "middle", 'dominant-baseline':"middle", 'font-size': "26", fill: "#bfa100", 'font-weight': '500'
+          });
+          narrText.textContent = narration;
+          svg.appendChild(narrRect);
+          svg.appendChild(narrText);
+      }
+
+      // --- Tooltip Functionality --- 
+      svg.addEventListener('mousemove', function(e) {
+          const svgRect = svg.getBoundingClientRect(); 
+          const pt = svg.createSVGPoint();
+          pt.x = e.clientX;
+          pt.y = e.clientY;
+          const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+          const mx = svgP.x;
+          const my = svgP.y;
+          let tooltipText = '';
+          let foundElem = false;
+          const hits = zoneBands.filter(z => mx >= z.x && mx <= z.x + z.w && my >= z.y && my <= z.y + z.h);
+          if (hits.length) {
+              tooltipText = hits.map(z => z.label).join('<br>'); 
+              foundElem = true;
+          }
+          if (!foundElem) {
+              const elems = Array.from(svg.querySelectorAll('[data-tooltip]')).reverse(); 
+              for (const el of elems) {
+                  const bbox = el.getBBox();
+                  if (mx >= bbox.x && mx <= bbox.x + bbox.width && my >= bbox.y && my <= bbox.y + bbox.height) {
+                      tooltipText = el.getAttribute('data-tooltip');
+                      foundElem = true;
+                      break; 
+                  }
+              }
+          }
+          if (foundElem && tooltipText) {
+              tooltip.innerHTML = tooltipText;
+              tooltip.style.display = 'block';
+              let left = e.clientX + 15;
+              let top = e.clientY - 10;
+              const tooltipRect = tooltip.getBoundingClientRect();
+              if (left + tooltipRect.width > window.innerWidth) {
+                  left = e.clientX - tooltipRect.width - 15;
+              }
+              if (top + tooltipRect.height > window.innerHeight) {
+                  top = e.clientY - tooltipRect.height - 10;
+              }
+              if (top < 0) top = 0;
+              tooltip.style.left = left + 'px';
+              tooltip.style.top = top + 'px';
+          } else {
+              tooltip.style.display = 'none';
+          }
+      });
+      svg.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
+    } // --- End of renderDiagram ---
+
+
+    // --- Simulation State Variables ---
+    let relayB_state, relayC_state, breakerB_state, breakerC_state;
+    let comm_BtoC_state, comm_CtoB_state; // Represent physical channel state
+    let currentNarration = "";
+    let diagramState = {};
+    
+    function resetSimulationStates() {
+        simulationTime = 0.0;
+        eventLog = [];
+        renderEventLog();
+        
+        relayB_state = {
+            name: "Relay B",
+            // Zone pickup flags and times
+            detectedFaultZ1: false, faultDetectTimeZ1: -1, 
+            detectedFaultZ2: false, faultDetectTimeZ2: -1,
+            detectedFaultZ3: false, faultDetectTimeZ3: -1, 
+            detectedFaultZ4R: false, faultDetectTimeZ4R: -1, // Z4 Reverse pickup
+            // Communication related flags (logical state based on scheme)
+            permissiveSent: false, permissiveSentTime: -1,     // POTT/PUTT
+            permissiveReceived: false, permissiveReceiveTime: -1, // POTT/PUTT/DCUB (unblock as permissive)
+            blockingSent: false, blockingSentTime: -1,         // DCB
+            blockingReceived: false, blockingReceiveTime: -1,   // DCB (COMM input to trip logic)
+            unblockSent: false, unblockSentTime: -1,           // DCUB
+            // unblockReceived is covered by permissiveReceived for DCUB in current model
+            dttSent: false, dttSentTime: -1,                   // DTT
+            dttReceived: false, dttReceiveTime: -1,             // DTT
+            // Trip signal
+            tripSignalSent: false, tripSignalTime: -1
+        };
+        relayC_state = JSON.parse(JSON.stringify(relayB_state)); 
+        relayC_state.name = "Relay C";
+
+        breakerB_state = { name: "CB B", status: 'closed', tripInitiateTime: -1, openTime: -1 };
+        breakerC_state = { name: "CB C", status: 'closed', tripInitiateTime: -1, openTime: -1 };
+
+        // Physical communication channel states
+        comm_BtoC_state = { signalType: null, sentTime: -1, receivedTime: -1, active: false };
+        comm_CtoB_state = { signalType: null, sentTime: -1, receivedTime: -1, active: false };
+        
+        currentNarration = "Simulation ready.";
+        diagramState = {
+            fault: false,
+            breakerB_status: 'closed',
+            breakerC_status: 'closed',
+            zonesActive: {},
+            commBtoC_active: false,
+            commCtoB_active: false,
+            narration: currentNarration
+        };
+    }
+
+
+    // --- Main Simulation Loop Step ---
+    function simulationStep() {
+        if (!animationRunning) return;
+
+        let newLogicalEventsProcessedThisOuterStep = false; 
+
+        for (let i = 0; i < (REAL_TIME_ANIMATION_INTERVAL / SIM_TIME_STEP); i++) {
+            if (!animationRunning) break; 
+            
+            simulationTime += SIM_TIME_STEP;
+            let newLogicalEventThisInnerStep = false; 
+
+            // --- Fault Detection Logic (Common for all relays) ---
+            function checkZoneDetection(relayState, relayZoneConfig, faultPosPercent) {
+                let eventDetected = false;
+                // Zone 1
+                if (!relayState.detectedFaultZ1 && isFaultInZone(faultPosPercent, relayZoneConfig.z1)) {
+                    if (simulationTime >= config.times.relayPickup + config.times.z1) {
+                        relayState.detectedFaultZ1 = true;
+                        relayState.faultDetectTimeZ1 = config.times.relayPickup + config.times.z1;
+                        addEventToLog(relayState.faultDetectTimeZ1, relayState.name, "Detects fault in Zone 1.");
+                        currentNarration = `${relayState.name} detects fault (Z1).`;
+                        eventDetected = true;
+                    }
+                }
+                // Zone 2
+                if (!relayState.detectedFaultZ2 && isFaultInZone(faultPosPercent, relayZoneConfig.z2)) {
+                    if (simulationTime >= config.times.relayPickup) { // Z2 pickup is usually faster than Z2 trip time
+                        relayState.detectedFaultZ2 = true;
+                        relayState.faultDetectTimeZ2 = config.times.relayPickup;
+                        addEventToLog(relayState.faultDetectTimeZ2, relayState.name, "Detects fault in Zone 2.");
+                        currentNarration = `${relayState.name} detects fault (Z2).`;
+                        eventDetected = true;
+                    }
+                }
+                // Zone 3
+                if (!relayState.detectedFaultZ3 && isFaultInZone(faultPosPercent, relayZoneConfig.z3)) {
+                     if (simulationTime >= config.times.relayPickup + config.times.z3) { 
+                        relayState.detectedFaultZ3 = true;
+                        relayState.faultDetectTimeZ3 = config.times.relayPickup + config.times.z3; 
+                        addEventToLog(relayState.faultDetectTimeZ3, relayState.name, "Detects fault in Zone 3 (Forward).");
+                        currentNarration = `${relayState.name} detects forward fault (Z3).`;
+                        eventDetected = true;
+                    }
+                }
+                // Zone 4 Reverse
+                if (!relayState.detectedFaultZ4R && isFaultInZone(faultPosPercent, relayZoneConfig.z4_reverse)) {
+                    if (simulationTime >= config.times.relayPickup + config.times.z4_reverse) {
+                        relayState.detectedFaultZ4R = true;
+                        relayState.faultDetectTimeZ4R = config.times.relayPickup + config.times.z4_reverse;
+                        addEventToLog(relayState.faultDetectTimeZ4R, relayState.name, "Detects fault in Zone 4 Reverse.");
+                        currentNarration = `${relayState.name} detects reverse fault (Z4R).`;
+                        eventDetected = true;
+                    }
+                }
+                return eventDetected;
+            }
+
+            if(checkZoneDetection(relayB_state, config.zones.B, faultPos)) newLogicalEventThisInnerStep = true;
+            if(checkZoneDetection(relayC_state, config.zones.C, faultPos)) newLogicalEventThisInnerStep = true;
+
+
+            // --- Scheme Specific Logic ---
+            // Determine what signal to send (COMM_TX logic)
+            let commEquationB_sendLogic = customCommEquation || commBitEquations[currentScheme];
+            let commEquationC_sendLogic = customCommEquation || commBitEquations[currentScheme];
+
+            // Relay B sends signal
+            if (!commFail) {
+                if ( (currentScheme === "POTT" && !relayB_state.permissiveSent) ||
+                     (currentScheme === "PUTT" && !relayB_state.permissiveSent) || // Assuming PUTT also uses permissiveSent state
+                     (currentScheme === "DCB"  && !relayB_state.blockingSent) ||
+                     (currentScheme === "DCUB" && !relayB_state.unblockSent) || // Assuming DCUB uses unblockSent state
+                     (currentScheme === "DTT"  && !relayB_state.dttSent) ) { // Assuming DTT uses dttSent state
+
+                    if (evaluateTripEquation(commEquationB_sendLogic, relayB_state, relayC_state)) {
+                        let signalSentTime = simulationTime; // Send immediately when conditions met
+                        let signalType = "";
+                        
+                        if (currentScheme === "POTT" || currentScheme === "PUTT") {
+                            relayB_state.permissiveSent = true; relayB_state.permissiveSentTime = signalSentTime;
+                            signalType = "PERMISSIVE";
+                        } else if (currentScheme === "DCB") {
+                            relayB_state.blockingSent = true; relayB_state.blockingSentTime = signalSentTime;
+                            signalType = "BLOCKING";
+                        } else if (currentScheme === "DCUB") {
+                            relayB_state.unblockSent = true; relayB_state.unblockSentTime = signalSentTime;
+                            signalType = "UNBLOCKING";
+                        } else if (currentScheme === "DTT") {
+                            relayB_state.dttSent = true; relayB_state.dttSentTime = signalSentTime;
+                            signalType = "DTT";
+                        }
+
+                        if (signalType && comm_BtoC_state.sentTime === -1) { // Ensure signal not already on channel
+                            comm_BtoC_state.sentTime = signalSentTime;
+                            comm_BtoC_state.signalType = signalType;
+                            addEventToLog(signalSentTime, relayB_state.name, `Sends ${signalType} signal (Eq: ${commEquationB_sendLogic}) to Relay C.`);
+                            currentNarration = `${relayB_state.name} sends ${signalType}.`;
+                            newLogicalEventThisInnerStep = true;
+                        }
+                    }
+                }
+            }
+            // Relay C sends signal (similar logic)
+            if (!commFail) {
+                 if ( (currentScheme === "POTT" && !relayC_state.permissiveSent) ||
+                     (currentScheme === "PUTT" && !relayC_state.permissiveSent) ||
+                     (currentScheme === "DCB"  && !relayC_state.blockingSent) ||
+                     (currentScheme === "DCUB" && !relayC_state.unblockSent) ||
+                     (currentScheme === "DTT"  && !relayC_state.dttSent) ) {
+
+                    if (evaluateTripEquation(commEquationC_sendLogic, relayC_state, relayB_state)) {
+                        let signalSentTime = simulationTime;
+                        let signalType = "";
+
+                        if (currentScheme === "POTT" || currentScheme === "PUTT") {
+                            relayC_state.permissiveSent = true; relayC_state.permissiveSentTime = signalSentTime;
+                            signalType = "PERMISSIVE";
+                        } else if (currentScheme === "DCB") {
+                            relayC_state.blockingSent = true; relayC_state.blockingSentTime = signalSentTime;
+                            signalType = "BLOCKING";
+                        } else if (currentScheme === "DCUB") {
+                            relayC_state.unblockSent = true; relayC_state.unblockSentTime = signalSentTime;
+                            signalType = "UNBLOCKING";
+                        } else if (currentScheme === "DTT") {
+                            relayC_state.dttSent = true; relayC_state.dttSentTime = signalSentTime;
+                            signalType = "DTT";
+                        }
+                        
+                        if (signalType && comm_CtoB_state.sentTime === -1) {
+                            comm_CtoB_state.sentTime = signalSentTime;
+                            comm_CtoB_state.signalType = signalType;
+                            addEventToLog(signalSentTime, relayC_state.name, `Sends ${signalType} signal (Eq: ${commEquationC_sendLogic}) to Relay B.`);
+                            currentNarration = `${relayC_state.name} sends ${signalType}.`;
+                            newLogicalEventThisInnerStep = true;
+                        }
+                    }
+                }
+            }
+
+            // Physical signal propagation and reception
+            // B -> C channel
+            if (comm_BtoC_state.sentTime !== -1 && comm_BtoC_state.receivedTime === -1 && !commFail) {
+                const expectedReceiveTime = comm_BtoC_state.sentTime + config.times.comm;
+                if (simulationTime >= expectedReceiveTime) {
+                    comm_BtoC_state.receivedTime = expectedReceiveTime;
+                    comm_BtoC_state.active = true; // Physical signal is now active on the channel
+                    addEventToLog(expectedReceiveTime, `Channel B->C`, `Physical ${comm_BtoC_state.signalType} signal arrived at Relay C.`);
+                    newLogicalEventThisInnerStep = true;
+                }
+            } else if (commFail && comm_BtoC_state.active) {
+                comm_BtoC_state.active = false; // Signal lost
+                addEventToLog(simulationTime, `Channel B->C`, `Physical signal lost due to comm failure.`);
+                newLogicalEventThisInnerStep = true;
+            }
+            // C -> B channel
+            if (comm_CtoB_state.sentTime !== -1 && comm_CtoB_state.receivedTime === -1 && !commFail) {
+                const expectedReceiveTime = comm_CtoB_state.sentTime + config.times.comm;
+                if (simulationTime >= expectedReceiveTime) {
+                    comm_CtoB_state.receivedTime = expectedReceiveTime;
+                    comm_CtoB_state.active = true;
+                    addEventToLog(expectedReceiveTime, `Channel C->B`, `Physical ${comm_CtoB_state.signalType} signal arrived at Relay B.`);
+                    newLogicalEventThisInnerStep = true;
+                }
+            } else if (commFail && comm_CtoB_state.active) {
+                comm_CtoB_state.active = false;
+                addEventToLog(simulationTime, `Channel C->B`, `Physical signal lost due to comm failure.`);
+                newLogicalEventThisInnerStep = true;
+            }
+
+            // Logical interpretation of received signals (COMM_RX logic)
+            // Relay B processes signal from C
+            if (!commFail && comm_CtoB_state.active) { // Physical signal is present
+                if (currentScheme === "POTT" || currentScheme === "PUTT") {
+                    if (!relayB_state.permissiveReceived && comm_CtoB_state.signalType === "PERMISSIVE") {
+                        relayB_state.permissiveReceived = true; relayB_state.permissiveReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayB_state.name, `Logically received PERMISSIVE from Relay C.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DCB") {
+                    if (!relayB_state.blockingReceived && comm_CtoB_state.signalType === "BLOCKING") {
+                        relayB_state.blockingReceived = true; relayB_state.blockingReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayB_state.name, `Logically received BLOCKING from Relay C.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DCUB") {
+                     if (!relayB_state.permissiveReceived && comm_CtoB_state.signalType === "UNBLOCKING") { // DCUB uses permissiveReceived for unblock
+                        relayB_state.permissiveReceived = true; relayB_state.permissiveReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayB_state.name, `Logically received UNBLOCKING from Relay C.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DTT") {
+                    if (!relayB_state.dttReceived && comm_CtoB_state.signalType === "DTT") {
+                        relayB_state.dttReceived = true; relayB_state.dttReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayB_state.name, `Logically received DTT from Relay C.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                }
+            } else { // No physical signal or comms failed
+                if (relayB_state.permissiveReceived) { relayB_state.permissiveReceived = false; newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayB_state.name, `Lost PERMISSIVE/UNBLOCK input.`);}
+                if (relayB_state.blockingReceived)  { relayB_state.blockingReceived = false;  newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayB_state.name, `Lost BLOCKING input.`);}
+                if (relayB_state.dttReceived)      { relayB_state.dttReceived = false;      newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayB_state.name, `Lost DTT input.`);}
+            }
+            // Relay C processes signal from B (similar logic)
+            if (!commFail && comm_BtoC_state.active) {
+                if (currentScheme === "POTT" || currentScheme === "PUTT") {
+                    if (!relayC_state.permissiveReceived && comm_BtoC_state.signalType === "PERMISSIVE") {
+                        relayC_state.permissiveReceived = true; relayC_state.permissiveReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayC_state.name, `Logically received PERMISSIVE from Relay B.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DCB") {
+                    if (!relayC_state.blockingReceived && comm_BtoC_state.signalType === "BLOCKING") {
+                        relayC_state.blockingReceived = true; relayC_state.blockingReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayC_state.name, `Logically received BLOCKING from Relay B.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DCUB") {
+                     if (!relayC_state.permissiveReceived && comm_BtoC_state.signalType === "UNBLOCKING") {
+                        relayC_state.permissiveReceived = true; relayC_state.permissiveReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayC_state.name, `Logically received UNBLOCKING from Relay B.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                } else if (currentScheme === "DTT") {
+                     if (!relayC_state.dttReceived && comm_BtoC_state.signalType === "DTT") {
+                        relayC_state.dttReceived = true; relayC_state.dttReceiveTime = simulationTime;
+                        addEventToLog(simulationTime, relayC_state.name, `Logically received DTT from Relay B.`);
+                        newLogicalEventThisInnerStep = true;
+                    }
+                }
+            } else {
+                if (relayC_state.permissiveReceived) { relayC_state.permissiveReceived = false; newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayC_state.name, `Lost PERMISSIVE/UNBLOCK input.`);}
+                if (relayC_state.blockingReceived)  { relayC_state.blockingReceived = false;  newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayC_state.name, `Lost BLOCKING input.`);}
+                if (relayC_state.dttReceived)      { relayC_state.dttReceived = false;      newLogicalEventThisInnerStep = true; addEventToLog(simulationTime, relayC_state.name, `Lost DTT input.`);}
+            }
+            
+            // --- Trip Logic (Common structure, context varies) ---
+            function evaluateRelayTrip(relayState, remoteRelayState, tripEqStr) {
+                if (relayState.tripSignalSent) return false; // Already tripped
+
+                // The 'COMM' variable in the trip equation string refers to the *relevant received signal* for that scheme.
+                // evaluateTripEquation will map this 'COMM' to the correct logical state from relayState.
+                const shouldTrip = evaluateTripEquation(tripEqStr, relayState, remoteRelayState);
+
+                if (shouldTrip) {
+                    relayState.tripSignalSent = true;
+                    relayState.tripSignalTime = simulationTime;
+                    // Link to breaker
+                    if (relayState.name === "Relay B") breakerB_state.tripInitiateTime = simulationTime;
+                    if (relayState.name === "Relay C") breakerC_state.tripInitiateTime = simulationTime;
+                    
+                    addEventToLog(simulationTime, relayState.name, `Initiates trip for ${relayState.name === "Relay B" ? "CB B" : "CB C"} (Eq: ${tripEqStr}).`);
+                    currentNarration = `${relayState.name} initiates trip.`;
+                    return true;
+                }
+                return false;
+            }
+
+            const tripEquationToUse = customTripEquation || defaultTripEquations[currentScheme];
+            if(evaluateRelayTrip(relayB_state, relayC_state, tripEquationToUse)) newLogicalEventThisInnerStep = true;
+            if(evaluateRelayTrip(relayC_state, relayB_state, tripEquationToUse)) newLogicalEventThisInnerStep = true;
+
+
+            // --- Breaker Opening Logic (Common) ---
+            if (breakerB_state.tripInitiateTime !== -1 && breakerB_state.status === 'closed') {
+                const expectedBreakerOpenTimeB = breakerB_state.tripInitiateTime + config.times.breaker;
+                if (simulationTime >= expectedBreakerOpenTimeB) {
+                    breakerB_state.status = 'open';
+                    breakerB_state.openTime = expectedBreakerOpenTimeB;
+                    addEventToLog(breakerB_state.openTime, breakerB_state.name, "Is now open.");
+                    currentNarration = "CB B is open.";
+                    newLogicalEventThisInnerStep = true;
+                }
+            }
+            if (breakerC_state.tripInitiateTime !== -1 && breakerC_state.status === 'closed') {
+                 const expectedBreakerOpenTimeC = breakerC_state.tripInitiateTime + config.times.breaker;
+                 if (simulationTime >= expectedBreakerOpenTimeC) {
+                    breakerC_state.status = 'open';
+                    breakerC_state.openTime = expectedBreakerOpenTimeC;
+                    addEventToLog(breakerC_state.openTime, breakerC_state.name, "Is now open.");
+                    currentNarration = "CB C is open.";
+                    newLogicalEventThisInnerStep = true;
+                }
+            }
+            
+            if (newLogicalEventThisInnerStep) {
+                newLogicalEventsProcessedThisOuterStep = true;
+            }
+
+            // --- Simulation End Conditions ---
+            if ((breakerB_state.status === 'open' && breakerC_state.status === 'open') || simulationTime >= MAX_SIM_DURATION) {
+                animationRunning = false; 
+                if (breakerB_state.status === 'open' && breakerC_state.status === 'open') {
+                    const finalTime = Math.max(
+                        breakerB_state.openTime !== -1 ? breakerB_state.openTime : 0, 
+                        breakerC_state.openTime !== -1 ? breakerC_state.openTime : 0
+                    );
+                    currentNarration = "Fault cleared. Line isolated.";
+                    addEventToLog(finalTime, "System", "Fault cleared. Line isolated.");
+                } else if (simulationTime >= MAX_SIM_DURATION) {
+                    currentNarration = "Simulation timed out.";
+                     addEventToLog(simulationTime, "System", "Simulation timed out.");
+                }
+                newLogicalEventsProcessedThisOuterStep = true; 
+                break; 
+            }
+        } // End of inner simulation loop
+
+        // --- Update Diagram State ---
+        diagramState.fault = true; 
+        diagramState.breakerB_status = breakerB_state.status;
+        diagramState.breakerC_status = breakerC_state.status;
+        diagramState.zonesActive = { 
+            B_z1: relayB_state.detectedFaultZ1, 
+            B_z2: relayB_state.detectedFaultZ2, 
+            B_z3: relayB_state.detectedFaultZ3, 
+            B_z4_reverse: relayB_state.detectedFaultZ4R,
+            C_z1: relayC_state.detectedFaultZ1, 
+            C_z2: relayC_state.detectedFaultZ2, 
+            C_z3: relayC_state.detectedFaultZ3, 
+            C_z4_reverse: relayC_state.detectedFaultZ4R,
+        };
+        diagramState.commBtoC_active = comm_BtoC_state.active;
+        diagramState.commCtoB_active = comm_CtoB_state.active;
+        diagramState.narration = currentNarration;
+        
+        if (newLogicalEventsProcessedThisOuterStep || animationRunning) { 
+            renderDiagram(diagramState, currentScheme);
+        }
+        
+        if (!animationRunning) {
+            triggerBtn.disabled = false;
+            commFailCheckbox.disabled = false;
+            faultSlider.disabled = false;
+            triggerBtn.textContent = "Trigger Fault"; 
+            if (simIntervalId) clearInterval(simIntervalId);
+            simIntervalId = null;
+            renderDiagram(diagramState, currentScheme); 
+        }
+    }
+
+
+    // --- Animation Control Functions ---
+    function startAnimation(scheme, isCommFailArgument) { 
+        if (animationRunning) return;
+        animationRunning = true;
+        triggerBtn.disabled = true;
+        commFailCheckbox.disabled = true;
+        faultSlider.disabled = true;
+        
+        commFail = isCommFailArgument; 
+
+        resetSimulationStates(); 
+
+        diagramState.fault = true; 
+        currentNarration = "Fault incepted on Line B-C.";
+        addEventToLog(0.0, "System", "Fault incepted on Line B-C.");
+        
+        diagramState.breakerB_status = breakerB_state.status; 
+        diagramState.breakerC_status = breakerC_state.status; 
+        diagramState.zonesActive = {}; 
+        diagramState.commBtoC_active = false;
+        diagramState.commCtoB_active = false;
+        diagramState.narration = currentNarration;
+        
+        renderDiagram(diagramState, scheme); 
+        renderEventLog();
+
+        if (simIntervalId) clearInterval(simIntervalId); 
+        simIntervalId = setInterval(simulationStep, REAL_TIME_ANIMATION_INTERVAL);
+    }
+    
+
+    // --- UI Handlers ---
+    function updateScheme() {
+      currentScheme = schemeSelect.value;
+      const schemeInfo = schemes[currentScheme];
+      if (schemeInfo) {
+        descPanel.innerHTML = `<h2>${schemeInfo.name}</h2><p>${schemeInfo.description}</p>`;
+      } else {
+        descPanel.innerHTML = `<h2>Scheme Not Found</h2><p>Description unavailable.</p>`;
+      }
+      
+      if (defaultTripEquations[currentScheme]) {
+        tripEquationInput.value = defaultTripEquations[currentScheme];
+        customTripEquation = defaultTripEquations[currentScheme];
+      }
+      
+      if (commEquationInputDOM) {
+        if (commFailCheckbox.checked) { 
+            commEquationInputDOM.value = "0"; // Or appropriate "no signal" logic
+            customCommEquation = "0";
+            storedCommEquationBeforeFailure = commBitEquations[currentScheme] || "";
+        } else { 
+             if (commBitEquations[currentScheme]) {
+                commEquationInputDOM.value = commBitEquations[currentScheme];
+                customCommEquation = commBitEquations[currentScheme];
+             } else { 
+                commEquationInputDOM.value = "";
+                customCommEquation = "";
+             }
+        }
+      }
+      
+      updateZoneVariables();
+
+      if (!animationRunning) {
+          resetSimulationStates();
+          renderDiagram(diagramState, currentScheme);
+      }
+    }
+    schemeSelect.addEventListener('change', updateScheme);
+
+    triggerBtn.addEventListener('click', () => {
+      if (animationRunning) { 
+          animationRunning = false;
+          if (simIntervalId) clearInterval(simIntervalId);
+          simIntervalId = null;
+          resetSimulationStates(); 
+          renderDiagram(diagramState, currentScheme);
+          triggerBtn.textContent = "Trigger Fault";
+          triggerBtn.disabled = false;
+          commFailCheckbox.disabled = false;
+          faultSlider.disabled = false;
+          return;
+      }
+      
+      triggerBtn.textContent = "Reset Simulation"; 
+      const currentCommFailStatus = commFailCheckbox.checked; 
+      startAnimation(currentScheme, currentCommFailStatus); // Generic start
+    });
+
+    const commFailureBtn = document.getElementById('comm-failure-btn');
+    if (commFailureBtn) {
+        commFailureBtn.addEventListener('click', () => {
+            commFailCheckbox.checked = !commFailCheckbox.checked;
+            commFailCheckbox.dispatchEvent(new Event('change')); 
+        });
+    }
+
+    commFailCheckbox.addEventListener('change', (event) => {
+      const isChecked = event.target.checked;
+      commFail = isChecked; 
+
+      if (isChecked) {
+        storedCommEquationBeforeFailure = customCommEquation || commBitEquations[currentScheme];
+        if (commEquationInputDOM) commEquationInputDOM.value = "0"; // Or some indicator of no signal
+        customCommEquation = "0"; // Logic for no signal
+        addEventToLog(simulationTime, "System", "COMM Failure Activated. COMM Send Equation effectively '0'.");
+        currentNarration = "COMM Failure Active. No signals sent.";
+      } else {
+        const prevCommEq = storedCommEquationBeforeFailure || commBitEquations[currentScheme];
+        if (commEquationInputDOM) commEquationInputDOM.value = prevCommEq;
+        customCommEquation = prevCommEq;
+        storedCommEquationBeforeFailure = "";
+        addEventToLog(simulationTime, "System", "COMM Failure Deactivated. COMM Send Equation restored.");
+        currentNarration = "COMM Failure Inactive. COMM Send Eq restored.";
+      }
+      
+      if(commFailureBtn) {
+        commFailureBtn.textContent = isChecked ? "Deactivate COMM Failure" : "Activate COMM Failure";
+      }
+
+      if (!animationRunning) {
+        diagramState.narration = currentNarration;
+        // Reset relevant comm states if simulation not running
+        comm_BtoC_state.active = false; comm_BtoC_state.sentTime = -1; comm_BtoC_state.receivedTime = -1;
+        comm_CtoB_state.active = false; comm_CtoB_state.sentTime = -1; comm_CtoB_state.receivedTime = -1;
+        if (relayB_state) { relayB_state.permissiveReceived = false; relayB_state.blockingReceived = false; relayB_state.dttReceived = false;}
+        if (relayC_state) { relayC_state.permissiveReceived = false; relayC_state.blockingReceived = false; relayC_state.dttReceived = false;}
+        renderDiagram(diagramState, currentScheme);
+      }
+    });
+
+    faultSlider.addEventListener('input', (e) => {
+        faultPos = parseInt(e.target.value);
+        faultPosLabel.textContent = `${faultPos}%`;
+        if (!animationRunning) {
+            const previewState = {
+                fault: true, breakerB_status: 'closed', breakerC_status: 'closed', 
+                zonesActive: {}, commBtoC_active: false, commCtoB_active: false, 
+                narration: "Adjusting fault position..." 
+            };
+            renderDiagram(previewState, currentScheme); 
+        }
+    });
+    faultSlider.addEventListener('change', () => { 
+        if (!animationRunning) {
+             const previewState = {
+                fault: true, breakerB_status: 'closed', breakerC_status: 'closed',
+                zonesActive: {}, commBtoC_active: false, commCtoB_active: false,
+                narration: "Fault position set." 
+            };
+            renderDiagram(previewState, currentScheme);
+        }
+    });
+
+    function initial() {
+      faultPos = parseInt(faultSlider.value);
+      faultPosLabel.textContent = `${faultPos}%`;
+      if (schemeSelect) { 
+          schemeSelect.value = "POTT";
+      }
+      currentScheme = "POTT"; 
+      resetSimulationStates(); 
+      updateScheme();          
+      updateTimeDelaysDisplay();
+    }
+    
+    const defaultZoneVariables = {
+      POTT: {
+        z1pu: "Fault detected in Zone 1 (instantaneous)",
+        z1: "Z1PU after Z1 timer expires (instantaneous trip)",
+        z2pu: "Fault detected in Zone 2 (overreaching)",
+        z2: "Z2PU after Z2 timer expires (time-delayed trip)",
+        z3pu: "Fault detected in Zone 3 (forward directional)",
+        z3: "Z3PU after Z3 timer expires",
+        z4pu: "Fault detected in Zone 4 (reverse)", // Generally not primary for POTT trip
+        z4: "Z4PU after Z4 timer expires"
+      },
+      PUTT: {
+        z1pu: "Fault detected in Zone 1 (underreaching)",
+        z1: "Z1PU after Z1 timer expires (instantaneous trip + sends permissive)",
+        z2pu: "Fault detected in Zone 2 (overreaching)",
+        z2: "Z2PU after Z2 timer expires (trips if COMM received)",
+        z3pu: "Fault detected in Zone 3 (forward directional)",
+        z3: "Z3PU after Z3 timer expires",
+        z4pu: "Fault detected in Zone 4 (reverse)",
+        z4: "Z4PU after Z4 timer expires"
+      },
+      DCB: {
+        z1pu: "Fault detected in Zone 1 (instantaneous)",
+        z1: "Z1PU after Z1 timer expires (instantaneous trip)",
+        z2pu: "Fault detected in Zone 2 (overreaching)",
+        z2: "Z2PU after Z2 timer expires (trips if no blocking COMM received)",
+        z3pu: "Fault detected in Zone 3 (forward directional)", // Can be Z2PU for DCB forward check
+        z3: "Z3PU after Z3 timer expires",
+        z4pu: "Fault detected in Zone 4 (reverse)",
+        z4: "Z4RPU after Z4 timer expires (sends blocking COMM)" // Z4RPU is key for sending block
+      },
+      DCUB: {
+        z1pu: "Fault detected in Zone 1 (instantaneous)",
+        z1: "Z1PU after Z1 timer expires (instantaneous trip)",
+        z2pu: "Fault detected in Zone 2 (overreaching)",
+        z2: "Z2PU after Z2 timer expires (trips if unblocking COMM received)",
+        z3pu: "Fault detected in Zone 3 (forward directional)",
+        z3: "Z3PU after Z3 timer expires",
+        z4pu: "Fault detected in Zone 4 (reverse)",
+        z4: "Z4RPU after Z4 timer (prevents sending unblock COMM if !Z4RPU is send logic)"
+      },
+      DTT: {
+        z1pu: "Fault detected in Zone 1 (instantaneous)",
+        z1: "Z1PU after Z1 timer expires (sends direct trip COMM to remote end)",
+        z2pu: "Fault detected in Zone 2 (overreaching)",
+        z2: "Z2PU after Z2 timer expires",
+        z3pu: "Fault detected in Zone 3 (forward directional)",
+        z3: "Z3PU after Z3 timer expires",
+        z4pu: "Fault detected in Zone 4 (reverse)",
+        z4: "Z4PU after Z4 timer expires"
+      }
+    };
+    
+    function updateZoneVariables() {
+      const scheme = currentScheme;
+      const variables = defaultZoneVariables[scheme];
+      
+      if (variables) {
+        document.getElementById('z1pu-input').value = variables.z1pu;
+        document.getElementById('z1-input').value = variables.z1;
+        document.getElementById('z2pu-input').value = variables.z2pu;
+        document.getElementById('z2-input').value = variables.z2;
+        document.getElementById('z3pu-input').value = variables.z3pu;
+        document.getElementById('z3-input').value = variables.z3;
+        document.getElementById('z4pu-input').value = variables.z4pu; // Z4PU is generic pickup
+        document.getElementById('z4-input').value = variables.z4;   // Z4 is generic trip
+      }
+    }
+    
+    function updateTimeDelaysDisplay() {
+      timeRelayPickupInput.value = config.times.relayPickup;
+      timeZ1Input.value = config.times.z1;
+      timeZ2Input.value = config.times.z2;
+      timeZ3Input.value = config.times.z3;
+      timeZ4ReverseInput.value = config.times.z4_reverse;
+      timeCommInput.value = config.times.comm;
+      timeBreakerInput.value = config.times.breaker;
+      timeCoordInput.value = config.times.coord;
+    }
+    
+    function applyTimeDelays() {
+      config.times.relayPickup = parseInt(timeRelayPickupInput.value) || 5;
+      config.times.z1 = parseInt(timeZ1Input.value) || 0;
+      config.times.z2 = parseInt(timeZ2Input.value) || 300;
+      config.times.z3 = parseInt(timeZ3Input.value) || 0; // Ensure this is parsed
+      config.times.z4_reverse = parseInt(timeZ4ReverseInput.value) || 0; // Ensure this is parsed
+      config.times.comm = parseInt(timeCommInput.value) || 15;
+      config.times.breaker = parseInt(timeBreakerInput.value) || 50;
+      config.times.coord = parseInt(timeCoordInput.value) || 80;
+      
+      addEventToLog(simulationTime, "System", "Time delay settings updated.");
+      currentNarration = "Time delay settings updated.";
+      if (!animationRunning) { // Only update diagram if not running to avoid conflicts
+          diagramState.narration = currentNarration;
+          renderDiagram(diagramState, currentScheme);
+      }
+    }
+    applyTimeDelaysBtn.addEventListener('click', applyTimeDelays);
+    
+    applyEquationBtn.addEventListener('click', function() {
+        customTripEquation = tripEquationInput.value.trim();
+        
+        if (commEquationInputDOM) {
+            const newCommEq = commEquationInputDOM.value.trim();
+            if (commFailCheckbox.checked && newCommEq !== "0") {
+                addEventToLog(simulationTime, "System", `Note: COMM Send Equation change ignored while COMM Failure is active. Remains '0'.`);
+            } else {
+                customCommEquation = newCommEq; // This is for COMM_TX (send logic)
+                addEventToLog(simulationTime, "System", `COMM Send Equation updated: ${customCommEquation || 'Using scheme default'}`);
+                if (!commFailCheckbox.checked) { 
+                    storedCommEquationBeforeFailure = customCommEquation;
+                }
+            }
+        }
+        
+        addEventToLog(simulationTime, "System", `Communication delay: ${config.times.comm}ms`);
+        
+        // Log zone variable descriptions (placeholders for now)
+        addEventToLog(simulationTime, "System", `Zone variable descriptions updated (see input fields).`);
+        
+        addEventToLog(simulationTime, "System", `Trip equation updated: ${customTripEquation}`);
+        currentNarration = "Trip/Comm equations and zone variables updated.";
+        diagramState.narration = currentNarration;
+        
+        if (!animationRunning) renderDiagram(diagramState, currentScheme);
+        
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+    
+    // Function to evaluate trip/communication SEND equation
+    function evaluateTripEquation(equation, localRelayState, remoteRelayState) {
+        try {
+            // Context for evaluating the equation.
+            // The 'COMM' variable in the trip equation string refers to the *relevant received signal* for that scheme.
+            let commSignalReceivedState = false;
+            if (currentScheme === "POTT" || currentScheme === "PUTT" || currentScheme === "DCUB") {
+                commSignalReceivedState = localRelayState.permissiveReceived; // Unblock for DCUB is treated as permissive
+            } else if (currentScheme === "DCB") {
+                commSignalReceivedState = localRelayState.blockingReceived;
+            } else if (currentScheme === "DTT") {
+                commSignalReceivedState = localRelayState.dttReceived;
+            }
+
+            const context = {
+                // Local relay zone pickup signals
+                Z1PU: localRelayState.detectedFaultZ1,
+                Z2PU: localRelayState.detectedFaultZ2,
+                Z3PU: localRelayState.detectedFaultZ3,
+                Z4PU: localRelayState.detectedFaultZ4R, // Generic Z4 pickup
+                Z4RPU: localRelayState.detectedFaultZ4R, // Specific Z4 Reverse pickup
+                
+                // Local relay zone trip signals (timer expired)
+                Z1: (localRelayState.detectedFaultZ1 && simulationTime >= localRelayState.faultDetectTimeZ1 + config.times.z1),
+                Z2: (localRelayState.detectedFaultZ2 && simulationTime >= localRelayState.faultDetectTimeZ2 + config.times.z2),
+                Z3: (localRelayState.detectedFaultZ3 && simulationTime >= localRelayState.faultDetectTimeZ3 + config.times.z3), // Assuming Z3 has its own timer in config.times.z3
+                Z4: (localRelayState.detectedFaultZ4R && simulationTime >= localRelayState.faultDetectTimeZ4R + config.times.z4_reverse), // Assuming Z4R has its own timer
+
+                // Communication signals
+                COMM: commSignalReceivedState, // This is COMM_RX (received signal state)
+                COMM_TX: false, // Placeholder, COMM_TX is determined by commBitEquations[currentScheme] before this function
+                DTT_RX: localRelayState.dttReceived, // Explicit DTT received
+
+                // Remote relay bits (simplified, actual remote state might be complex)
+                R_Z1PU: remoteRelayState.detectedFaultZ1,
+                R_Z2PU: remoteRelayState.detectedFaultZ2,
+                R_Z3PU: remoteRelayState.detectedFaultZ3,
+                R_Z4PU: remoteRelayState.detectedFaultZ4R,
+                R_Z4RPU: remoteRelayState.detectedFaultZ4R,
+                R_Z1: (remoteRelayState.detectedFaultZ1 && simulationTime >= remoteRelayState.faultDetectTimeZ1 + config.times.z1),
+                R_Z2: (remoteRelayState.detectedFaultZ2 && simulationTime >= remoteRelayState.faultDetectTimeZ2 + config.times.z2),
+                // R_COMM_TX: This would be complex, depends on remote's send logic. Not directly used in simple local trip equations.
+            };
+            
+            let expr = equation.replace(/\+/g, '||').replace(/\*/g, '&&');
+            
+            if (!/^[a-zA-Z0-9\s\(\)\|\&\!\<\>\=\+\-\*\/\?:_]+$/.test(expr)) {
+                console.error("Invalid characters in equation:", equation);
+                return false;
+            }
+            
+            const paramNames = Object.keys(context);
+            const paramValues = Object.values(context);
+            const func = new Function(...paramNames, `"use strict"; return (${expr});`);
+            const result = func(...paramValues);
+            return !!result; 
+        } catch (e) {
+            console.error(`Error evaluating equation "${equation}":`, e.message, "Context:", localRelayState);
+            return false;
+        }
+    }
+    
+    function adjustDiagramSize() {
+        if (!animationRunning) {
+            renderDiagram(diagramState, currentScheme);
+        }
+    }
+    
+    if (tripEquationInput) {
+        tripEquationInput.addEventListener('input', function() {
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(adjustDiagramSize, 300);
+        });
+    }
+    
+    if (commEquationInputDOM) {
+        commEquationInputDOM.addEventListener('input', function() {
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(adjustDiagramSize, 300);
+        });
+    }
+    
+    window.addEventListener('resize', function() {
+        clearTimeout(this.resizeTimer);
+        this.resizeTimer = setTimeout(adjustDiagramSize, 300);
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        initial();
+        adjustDiagramSize();
+    });
+    
+  </script>
+</body>
+</html>

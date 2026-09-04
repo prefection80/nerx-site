@@ -1,0 +1,1224 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Improved Fourier & Power Engineering Toolkit v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles that complement Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+            padding-top: 60px; /* Adjust based on fixed header height */
+            background-color: #f8fafc; /* Tailwind gray-50 */
+            color: #1f2937; /* Tailwind gray-800 */
+        }
+
+        /* Style for range inputs (sliders) */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #d1d5db; /* Tailwind gray-300 */
+            border-radius: 9999px; /* rounded-full */
+            outline: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            vertical-align: middle; /* Align sliders better with text */
+        }
+        input[type="range"]:hover {
+            background: #9ca3af; /* Tailwind gray-400 */
+        }
+        /* Style the thumb using the CSS variable set by JS */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--thumb-color, #3b82f6); /* Default to blue-500 */
+            border-radius: 50%;
+            border: 1px solid #1e40af; /* Tailwind blue-800 */
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--thumb-color, #3b82f6); /* Default to blue-500 */
+            border-radius: 50%;
+            border: 1px solid #1e40af; /* Tailwind blue-800 */
+            cursor: pointer;
+        }
+
+
+        /* Highlight class for active mode buttons */
+        .highlighted {
+            background-color: #fef3c7; /* Tailwind amber-100 */
+            border-color: #f59e0b; /* Tailwind amber-500 */
+            color: #b45309; /* Tailwind amber-700 */
+            font-weight: 600; /* semibold */
+        }
+
+        /* Canvas styles */
+        canvas {
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            background-color: #ffffff; /* White */
+            display: block;
+            /* Make canvas responsive within its container */
+            width: 100%;
+            height: auto; /* Maintain aspect ratio based on width */
+            max-width: 100%;
+            border-radius: 0.375rem; /* rounded-md */
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* shadow-sm */
+        }
+
+        /* Ensure container for canvas allows it to scale */
+        .canvas-container {
+            width: 100%;
+            position: relative; /* Needed for potential absolute positioning inside */
+        }
+        /* Specific aspect ratios if needed, e.g., for phasor plot */
+        #phasorCanvas {
+             aspect-ratio: 500 / 375; /* Maintain original aspect ratio */
+        }
+         #componentCanvas, #waveCanvas, #drawCanvas {
+             aspect-ratio: 500 / 250; /* Maintain original aspect ratio */
+         }
+
+
+        /* Modal styles */
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="fixed top-0 left-0 right-0 bg-gray-100 p-2 text-center text-sm shadow z-20 border-b border-gray-300">
+        <strong class="text-base">Fourier Analysis Toolkit v2</strong> – douglas.millner@nerxpower.com –
+        Company: <a href="http://www.nerxpower.com" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">www.nerxpower.com</a> –
+        Blog: <a href="https://www.linkedin.com/in/doug-millner-p-e-26607a184/" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">LinkedIn Profile</a>
+    </div>
+
+    <a href="index.html" class="fixed top-16 right-36 bg-blue-600 text-white px-4 py-2 rounded-md shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 z-30 text-sm font-medium">
+        Back to Main Menu
+    </a>
+
+
+
+    <div class="container mx-auto p-4 pt-8 max-w-6xl">
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6 border border-gray-200">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">Features</h2>
+            <ul class="list-disc list-inside space-y-1 text-gray-600">
+                <li>Adjustable harmonic count (up to 100) with individual magnitude and phase sliders.</li>
+                <li>Real-time Phasor Plot (standard convention: Real=horizontal, Imag=vertical).</li>
+                <li>Oscilloscope view showing individual harmonic components and the resulting summed waveform.</li>
+                <li>Comparison plot: Summed wave vs. ideal wave (for presets).</li>
+                <li>Interactive drawing canvas to create custom waveforms and analyze them.</li>
+                <li>Presets for Sine, Square, and Sawtooth waves.</li>
+                <li>Simulation of Current Transformer (CT) AC + DC Saturation effects.</li>
+                <li>Total Harmonic Distortion (THD) calculation display.</li>
+            </ul>
+        </div>
+
+        <div id="top-controls" class="bg-white p-4 rounded-lg shadow-md mb-6 border border-gray-200 flex flex-wrap items-center gap-4 md:gap-6">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap">
+                Harmonics (1-100):
+                <input id="harmonicCountSlider" type="range" min="1" max="100" step="1" value="12" class="w-32 md:w-48" />
+                <span id="harmonicCountLabel" class="font-semibold text-blue-600 w-8 text-right">12</span>
+            </label>
+
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap">
+                Speed:
+                <input id="speedSlider" type="range" min="0" max="0.25" step="0.005" value="0.25" class="w-24 md:w-40" />
+            </label>
+
+            <button id="pauseBtn" class="px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-md shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">Pause</button>
+
+             <div class="text-sm font-medium text-gray-700">
+                THD: <span id="thdValue" class="font-semibold text-red-600">0.00%</span>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow-md mb-6 border border-gray-200">
+             <h3 class="text-lg font-semibold mb-3 text-gray-700">Harmonic Controls</h3>
+            <div id="controls" class="space-y-1 max-h-96 overflow-y-auto pr-2">
+                <div class="control-row grid grid-cols-[50px_1fr_40px_1fr_40px] gap-x-2 items-center text-xs font-medium text-gray-500 mb-2 sticky top-0 bg-gray-50 py-1 z-10">
+                    <div class="text-right">Harm.</div>
+                    <div class="text-center">Magnitude</div>
+                    <div></div> <div class="text-center">Angle (°)</div >
+                    <div></div> </div>
+                </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="space-y-6">
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700">Phasor Plot (CCW)</h3>
+                    <p class="text-xs text-gray-500 mb-2">Standard Convention: Real = cos(θ) [Horizontal], Imag = sin(θ) [Vertical]. Origin at center.</p>
+                    <div class="canvas-container">
+                        <canvas id="phasorCanvas" width="500" height="375"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700">Components Plot</h3>
+                     <div class="canvas-container">
+                        <canvas id="componentCanvas" width="500" height="250"></canvas>
+                     </div>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                 <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700">Summed Wave vs Ideal</h3>
+                     <div class="canvas-container">
+                        <canvas id="waveCanvas" width="500" height="250"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700">Draw Custom Waveform</h3>
+                    <div class="canvas-container">
+                        <canvas id="drawCanvas" width="500" height="250" class="cursor-crosshair"></canvas>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button id="btnClearDraw" class="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-md shadow hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400">Clear Drawing</button>
+                        <button id="btnConvertDrawnWave" class="px-3 py-1.5 bg-green-500 text-white text-sm font-medium rounded-md shadow hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">Analyze Drawn Wave</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow-md mb-6 border border-gray-200">
+            <h3 class="text-lg font-semibold mb-3 text-gray-700">Waveform Presets & Simulation</h3>
+             <div id="mode-buttons" class="flex flex-wrap gap-2 mb-4">
+                <button id="btnSine" class="px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400">Sine Wave</button>
+                <button id="btnSquare" class="px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400">Square Wave</button>
+                <button id="btnSawtooth" class="px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400">Sawtooth Wave</button>
+            </div>
+
+             <h4 class="text-md font-semibold mb-3 text-gray-600 border-t pt-4">CT Saturation Simulation</h4>
+            <div class="flex flex-wrap items-center gap-4 md:gap-6">
+                <button id="btnAcDcSatur" class="px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400">Apply AC + DC Saturation</button>
+
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap">
+                    AC Saturation (0°-180°):
+                    <input type="range" id="acSatSlider" min="0" max="180" step="1" value="30" class="w-24 md:w-32" />
+                    <span id="acSatLabel" class="font-semibold text-blue-600 w-8 text-right">30°</span>
+                </label>
+
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap">
+                    DC Saturation (-2 to 2):
+                    <input type="range" id="dcSatSlider" min="-2" max="2" step="0.1" value="0" class="w-24 md:w-32" />
+                     <span id="dcSatLabel" class="font-semibold text-blue-600 w-10 text-right">0.0</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">Fourier Analysis & THD Explained</h2>
+            <p class="text-gray-600 leading-relaxed">
+                Fourier analysis decomposes any periodic waveform into a sum of simple sine waves: a fundamental frequency and its harmonics (integer multiples). Each component has an amplitude and phase. This toolkit lets you adjust these components to build waveforms or analyze drawn ones.
+            </p>
+             <p class="mt-3 text-gray-600 leading-relaxed">
+               <strong class="text-gray-700">Total Harmonic Distortion (THD)</strong> measures the distortion caused by these harmonics relative to the fundamental frequency. It's calculated as the square root of the sum of the squares of all harmonic amplitudes, divided by the amplitude of the fundamental. A pure sine wave has 0% THD. Higher THD indicates a more distorted waveform.
+               <br>
+               <code class="text-sm bg-gray-100 p-1 rounded">THD = (sqrt(H2² + H3² + H4² + ...)) / H1 * 100%</code>
+            </p>
+        </div>
+    </div>
+
+    <script>
+    /* ========================
+       CONSTANTS
+       ======================== */
+    const MAX_HARMONICS = 100;
+    const TWO_PI = 2 * Math.PI;
+    const BASE_TIME_STEP = 0.02; // Controls animation speed base
+    const NUM_ANALYSIS_SAMPLES = 2048; // Samples for numerical analysis (FFT, presets)
+
+    /* ========================
+       STATE VARIABLES
+       ======================== */
+    let harmonicCount = 12;
+    let currentTime = 0;
+    let speedFactor = 0.25;
+    let isPaused = false;
+    let activeMode = null; // Tracks preset modes ('Sine', 'Square', 'Sawtooth', 'Saturated')
+    let idealWaveFunction = null; // Function to draw the ideal wave for comparison
+
+    // Arrays to hold slider elements and their value display spans
+    let amplitudeSliders = [];
+    let amplitudeValueSpans = [];
+    let phaseSliders = [];
+    let phaseValueSpans = [];
+    let dcSlider = null, dcValueSpan = null; // For the DC component
+
+    // AC+DC saturation sliders and labels
+    let acSatSlider = null, acSatLabel = null;
+    let dcSatSlider = null, dcSatLabel = null;
+
+    // Colors for harmonics
+    const distinctColors = [ "#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#78716c" ];
+
+    // Drawing Canvas State
+    let userWaveData = null; // Initialized in init based on canvas width
+    let isDrawing = false;
+    let lastX = null, lastVal = null;
+    let animateDrawCanvas = false;
+
+    /* ========================
+       DOM ELEMENT REFERENCES
+       ======================== */
+    let harmonicCountSlider, harmonicCountLabel, speedSlider, pauseBtn, thdValueSpan;
+    let btnSine, btnSquare, btnSawtooth, btnAcDcSatur;
+    let btnClearDraw, btnConvertDrawnWave;
+    let acSatSliderElement, acSatLabelElement, dcSatSliderElement, dcSatLabelElement; // Renamed to avoid conflict
+    let controlsDiv;
+    let phasorCanvas, phasorCtx, componentCanvas, componentCtx, waveCanvas, waveCtx, drawCanvas, drawCtx;
+    let modal, openBtn, closeBtn, modalContent; // For modal
+
+    // Function to get all DOM elements after load
+    function getDOMElements() {
+        harmonicCountSlider = document.getElementById("harmonicCountSlider");
+        harmonicCountLabel = document.getElementById("harmonicCountLabel");
+        speedSlider = document.getElementById("speedSlider");
+        pauseBtn = document.getElementById("pauseBtn");
+        thdValueSpan = document.getElementById("thdValue"); // Get THD display span
+
+        btnSine = document.getElementById("btnSine");
+        btnSquare = document.getElementById("btnSquare");
+        btnSawtooth = document.getElementById("btnSawtooth");
+        btnClearDraw = document.getElementById("btnClearDraw");
+        btnConvertDrawnWave = document.getElementById("btnConvertDrawnWave");
+        btnAcDcSatur = document.getElementById("btnAcDcSatur");
+
+        acSatSliderElement = document.getElementById("acSatSlider");
+        acSatLabelElement = document.getElementById("acSatLabel");
+        dcSatSliderElement = document.getElementById("dcSatSlider");
+        dcSatLabelElement = document.getElementById("dcSatLabel");
+
+        controlsDiv = document.getElementById("controls");
+        phasorCanvas = document.getElementById("phasorCanvas");
+        componentCanvas = document.getElementById("componentCanvas");
+        waveCanvas = document.getElementById("waveCanvas");
+        drawCanvas = document.getElementById("drawCanvas");
+
+        // Get canvas contexts with error checking
+        phasorCtx = phasorCanvas?.getContext("2d");
+        componentCtx = componentCanvas?.getContext("2d");
+        waveCtx = waveCanvas?.getContext("2d");
+        drawCtx = drawCanvas?.getContext("2d");
+
+        if (!phasorCtx || !componentCtx || !waveCtx || !drawCtx) {
+            console.error("Fatal Error: Could not get canvas context for one or more canvases.");
+            // Optionally display an error message to the user
+            alert("Error initializing graphics. Please refresh the page or try a different browser.");
+            return false; // Indicate failure
+        }
+
+         // Initialize drawing buffer based on actual canvas width
+         userWaveData = new Float32Array(drawCanvas.width).fill(0);
+
+
+        return true; // Indicate success
+    }
+
+
+    /* ========================
+       HELPER FUNCTIONS
+       ======================== */
+
+    // Lighten hex color for slider backgrounds
+    function lightenHexColor(hex, factor = 0.75) { // Adjusted default factor
+        if (!hex || !hex.startsWith("#")) return 'rgb(240, 240, 240)'; // Default light gray
+        hex = hex.slice(1);
+        if (hex.length !== 6) return 'rgb(240, 240, 240)';
+
+        try {
+            let r = parseInt(hex.slice(0, 2), 16);
+            let g = parseInt(hex.slice(2, 4), 16);
+            let b = parseInt(hex.slice(4, 6), 16);
+            r = Math.round(r + (255 - r) * factor);
+            g = Math.round(g + (255 - g) * factor);
+            b = Math.round(b + (255 - b) * factor);
+            r = Math.min(255, Math.max(0, r));
+            g = Math.min(255, Math.max(0, g));
+            b = Math.min(255, Math.max(0, b));
+            return `rgb(${r}, ${g}, ${b})`;
+        } catch (e) {
+            console.error("Error lightening color:", hex, e);
+            return 'rgb(240, 240, 240)';
+        }
+    }
+
+    // Helper to clear a canvas
+    function clearCanvas(ctx) {
+         if (ctx && ctx.canvas) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+         }
+    }
+
+    // Calculate Total Harmonic Distortion (THD)
+    function calculateTHD() {
+        if (!amplitudeSliders || amplitudeSliders.length < 1) return 0;
+
+        const fundamentalAmp = parseFloat(amplitudeSliders[0].value);
+        if (fundamentalAmp < 1e-6) {
+            // Avoid division by zero and handle case with no fundamental
+            // THD is undefined or infinite if fundamental is zero but harmonics exist.
+            // We can return NaN or a large number, or 0 if no harmonics either.
+            let harmonicSumSq = 0;
+             for (let i = 1; i < harmonicCount; i++) {
+                 harmonicSumSq += Math.pow(parseFloat(amplitudeSliders[i].value), 2);
+             }
+             return (harmonicSumSq > 1e-6) ? Infinity : 0; // Return Infinity if harmonics exist, else 0
+        }
+
+        let harmonicSumSq = 0;
+        // Sum squares of harmonic amplitudes (starting from H2)
+        for (let i = 1; i < harmonicCount; i++) { // Index i=1 corresponds to H2
+            harmonicSumSq += Math.pow(parseFloat(amplitudeSliders[i].value), 2);
+        }
+
+        const thd = (Math.sqrt(harmonicSumSq) / fundamentalAmp) * 100;
+        return thd; // Return percentage
+    }
+
+    // Update the displayed THD value
+    function updateTHDDisplay() {
+        const thd = calculateTHD();
+        if (thdValueSpan) {
+            if (isFinite(thd)) {
+                thdValueSpan.textContent = `${thd.toFixed(2)}%`;
+            } else {
+                 thdValueSpan.textContent = "Inf%"; // Indicate infinite THD
+            }
+        }
+    }
+
+
+    /* =========================
+       UI & SLIDER MANAGEMENT
+       ========================= */
+    function createSliders() {
+        // Clear existing controls except the header
+        const header = controlsDiv.querySelector('.control-row.sticky');
+        controlsDiv.innerHTML = '';
+        if(header) controlsDiv.appendChild(header);
+
+        // --- DC Component Slider ---
+        let dcRowDiv = document.createElement("div");
+        dcRowDiv.className = "control-row grid grid-cols-[50px_1fr_40px_1fr_40px] gap-x-2 items-center text-sm";
+        dcRowDiv.style.background = lightenHexColor("#808080", 0.7);
+
+        let dcLbl = document.createElement("div");
+        dcLbl.className = "control-label text-right font-medium pr-1";
+        dcLbl.textContent = "DC";
+        dcRowDiv.appendChild(dcLbl);
+
+        dcSlider = document.createElement("input");
+        dcSlider.type = "range";
+        dcSlider.className = "slider-standard w-full";
+        dcSlider.min = "-2"; dcSlider.max = "2"; dcSlider.step = "0.01"; dcSlider.value = "0";
+        // Set initial thumb color for DC slider
+        dcSlider.style.setProperty("--thumb-color", "#4b5563"); // Gray thumb
+
+        dcValueSpan = document.createElement("span");
+        dcValueSpan.className = "value-span text-right font-mono text-xs w-[40px]";
+        dcValueSpan.textContent = "0.00";
+
+        dcRowDiv.appendChild(dcSlider);
+        dcRowDiv.appendChild(dcValueSpan);
+        dcRowDiv.appendChild(document.createElement("div")); // Placeholder
+        dcRowDiv.appendChild(document.createElement("div")); // Placeholder
+        controlsDiv.appendChild(dcRowDiv);
+
+        dcSlider.addEventListener("input", () => {
+            dcValueSpan.textContent = parseFloat(dcSlider.value).toFixed(2);
+            clearActiveMode();
+            updateTHDDisplay(); // Update THD when DC changes (it doesn't affect THD, but good practice)
+        });
+
+        // --- Harmonic Sliders ---
+        amplitudeSliders = []; amplitudeValueSpans = []; phaseSliders = []; phaseValueSpans = [];
+
+        for (let i = 1; i <= MAX_HARMONICS; i++) {
+            let idx = i - 1;
+            let rowDiv = document.createElement("div");
+            rowDiv.className = "control-row grid grid-cols-[50px_1fr_40px_1fr_40px] gap-x-2 items-center text-sm";
+
+            let colorIdx = idx % distinctColors.length;
+            let thumbColor = distinctColors[colorIdx];
+            rowDiv.style.background = lightenHexColor(thumbColor, 0.80); // Even lighter background
+
+            let lbl = document.createElement("div");
+            lbl.className = "control-label text-right font-medium pr-1"; lbl.textContent = "H" + i;
+            rowDiv.appendChild(lbl);
+
+            let ampSlider = document.createElement("input");
+            ampSlider.type = "range"; ampSlider.className = "slider-standard w-full";
+            ampSlider.min = "0"; ampSlider.max = "2"; ampSlider.step = "0.01";
+            ampSlider.value = (i === 1) ? "1" : "0";
+            ampSlider.style.setProperty("--thumb-color", thumbColor); // Set CSS variable for thumb
+            amplitudeSliders.push(ampSlider);
+
+            let ampValSpan = document.createElement("span");
+            ampValSpan.className = "value-span text-right font-mono text-xs w-[40px]";
+            ampValSpan.textContent = parseFloat(ampSlider.value).toFixed(2);
+            amplitudeValueSpans.push(ampValSpan);
+
+            let phSlider = document.createElement("input");
+            phSlider.type = "range"; phSlider.className = "slider-standard w-full";
+            phSlider.min = "-180"; phSlider.max = "180"; phSlider.step = "1"; phSlider.value = "0";
+            phSlider.style.setProperty("--thumb-color", thumbColor); // Set CSS variable for thumb
+            phaseSliders.push(phSlider);
+
+            let phValSpan = document.createElement("span");
+            phValSpan.className = "value-span text-right font-mono text-xs w-[40px]";
+            phValSpan.textContent = phSlider.value;
+            phaseValueSpans.push(phValSpan);
+
+            rowDiv.appendChild(ampSlider); rowDiv.appendChild(ampValSpan);
+            rowDiv.appendChild(phSlider); rowDiv.appendChild(phValSpan);
+            controlsDiv.appendChild(rowDiv);
+
+            // Add event listeners
+            ampSlider.addEventListener("input", () => {
+                ampValSpan.textContent = parseFloat(ampSlider.value).toFixed(2);
+                clearActiveMode();
+                updateTHDDisplay(); // Update THD when amplitude changes
+            });
+            phSlider.addEventListener("input", () => {
+                phValSpan.textContent = phSlider.value;
+                clearActiveMode();
+                // Phase doesn't affect THD, no need to update here
+            });
+        }
+        updateSliderVisibility();
+        updateTHDDisplay(); // Initial THD calculation
+    }
+
+    // Function to show/hide sliders based on harmonicCount
+    function updateSliderVisibility() {
+        for (let i = 0; i < MAX_HARMONICS; i++) {
+            let row = amplitudeSliders[i]?.parentNode;
+            if (row) {
+                 row.style.display = (i < harmonicCount) ? "grid" : "none";
+            }
+        }
+    }
+
+     /* --------------------------------------------------
+       EVENT LISTENERS SETUP
+       -------------------------------------------------- */
+    function setupEventListeners() {
+        harmonicCountSlider.addEventListener("input", () => {
+            harmonicCount = parseInt(harmonicCountSlider.value);
+            harmonicCountLabel.textContent = harmonicCount;
+            updateSliderVisibility();
+            // Recalculate presets if active
+             if (activeMode === "Square") setSquareWave();
+             else if (activeMode === "Sawtooth") setSawtoothWave();
+             else if (activeMode === "Saturated") {
+                 setAcDcSaturatedWave(parseFloat(acSatSliderElement.value), parseFloat(dcSatSliderElement.value));
+             }
+             updateTHDDisplay(); // THD depends on harmonic count
+        });
+
+        speedSlider.addEventListener("input", () => {
+            speedFactor = parseFloat(speedSlider.value);
+        });
+
+        pauseBtn.addEventListener("click", () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+            pauseBtn.classList.toggle('bg-yellow-500', isPaused);
+            pauseBtn.classList.toggle('hover:bg-yellow-600', isPaused);
+            pauseBtn.classList.toggle('bg-blue-500', !isPaused);
+            pauseBtn.classList.toggle('hover:bg-blue-600', !isPaused);
+        });
+
+        // Preset buttons
+        btnSine.addEventListener("click", () => { setSineWave(); setActiveMode("Sine"); });
+        btnSquare.addEventListener("click", () => { setSquareWave(); setActiveMode("Square"); });
+        btnSawtooth.addEventListener("click", () => { setSawtoothWave(); setActiveMode("Sawtooth"); });
+
+        // Drawing canvas buttons
+        btnClearDraw.addEventListener("click", () => {
+            userWaveData.fill(0);
+            animateDrawCanvas = false;
+            drawUserWave(); // Redraw cleared canvas
+            // Optionally reset sliders or just clear the drawing
+            // convertDrawnWaveToSliders(); // Uncomment to also reset sliders to zero
+        });
+        btnConvertDrawnWave.addEventListener("click", () => {
+            convertDrawnWaveToSliders();
+            clearActiveMode();
+            animateDrawCanvas = true;
+        });
+
+        // Saturation controls
+        btnAcDcSatur.addEventListener("click", () => {
+            setAcDcSaturatedWave(parseFloat(acSatSliderElement.value), parseFloat(dcSatSliderElement.value));
+            setActiveMode("Saturated");
+        });
+        acSatSliderElement.addEventListener("input", (e) => {
+            const val = parseFloat(e.target.value);
+            acSatLabelElement.textContent = `${val.toFixed(0)}°`;
+            if (activeMode === "Saturated") {
+                setAcDcSaturatedWave(val, parseFloat(dcSatSliderElement.value));
+            } else {
+                 clearActiveMode();
+            }
+             updateTHDDisplay(); // Saturation changes harmonics
+        });
+        dcSatSliderElement.addEventListener("input", (e) => {
+            const val = parseFloat(e.target.value);
+            dcSatLabelElement.textContent = val.toFixed(1);
+             if (activeMode === "Saturated") {
+                setAcDcSaturatedWave(parseFloat(acSatSliderElement.value), val);
+            } else {
+                 clearActiveMode();
+            }
+             updateTHDDisplay(); // Saturation changes harmonics
+        });
+
+        // Drawing canvas mouse/touch events
+        let drawingEventHandler = (e) => {
+            if (e.type.startsWith('touch')) e.preventDefault();
+            recordDrawPoint(e);
+        };
+        drawCanvas.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
+            isDrawing = true; lastX = null;
+            drawingEventHandler(e);
+            drawCanvas.addEventListener("mousemove", drawingEventHandler);
+        });
+        drawCanvas.addEventListener("touchstart", (e) => {
+            isDrawing = true; lastX = null;
+            drawingEventHandler(e);
+            drawCanvas.addEventListener("touchmove", drawingEventHandler);
+        });
+        let endDrawing = () => {
+            if (isDrawing) {
+                isDrawing = false; lastX = null;
+                animateDrawCanvas = true;
+                drawCanvas.removeEventListener("mousemove", drawingEventHandler);
+                drawCanvas.removeEventListener("touchmove", drawingEventHandler);
+            }
+        };
+        drawCanvas.addEventListener("mouseup", endDrawing);
+        drawCanvas.addEventListener("mouseleave", endDrawing);
+        drawCanvas.addEventListener("touchend", endDrawing);
+        drawCanvas.addEventListener("touchcancel", endDrawing);
+
+        // Optional: Resize canvases on window resize
+        // Note: This might require recalculating fixed-size elements if layout depends on canvas size
+        // window.addEventListener('resize', () => {
+        //     // Simple redraw might suffice if layout is fluid
+        //     // More complex resizing might involve recalculating scales etc.
+        //     // Need to re-initialize userWaveData if drawCanvas width changes
+        //     let oldWidth = userWaveData.length;
+        //     let newWidth = drawCanvas.clientWidth; // Use clientWidth for responsive size
+        //     if (newWidth !== oldWidth) {
+        //          console.log(`Draw canvas resized from ${oldWidth} to ${newWidth}`);
+        //          // Reinitialize or rescale userWaveData if needed
+        //          // For now, just re-init buffer. Drawn content will be lost on resize.
+        //          userWaveData = new Float32Array(newWidth).fill(0);
+        //          drawCanvas.width = newWidth; // Update internal canvas buffer size
+        //          // Also update other canvases if their buffer size should match client size
+        //          phasorCanvas.width = phasorCanvas.clientWidth;
+        //          componentCanvas.width = componentCanvas.clientWidth;
+        //          waveCanvas.width = waveCanvas.clientWidth;
+        //     }
+        // });
+    }
+
+    /* ==================================================
+       PLOTTING FUNCTIONS (Phasor, Components, Wave, User)
+       ================================================== */
+
+    /* --------------------------------------------------
+       PHASOR DIAGRAM PLOT (Standard Convention: Real=Cos, Imag=Sin)
+       -------------------------------------------------- */
+    function drawPhasors() {
+        if (!phasorCtx) return;
+        let ctx = phasorCtx;
+        let w = phasorCanvas.width;
+        let h = phasorCanvas.height;
+
+        let dcVal = parseFloat(dcSlider.value);
+
+        // Scaling (same logic as before)
+        let maxPossibleMagnitude = Math.abs(dcVal);
+        for (let i = 0; i < harmonicCount; i++) {
+            maxPossibleMagnitude += parseFloat(amplitudeSliders[i].value);
+        }
+        if (maxPossibleMagnitude < 1e-6) maxPossibleMagnitude = 1.0;
+        let maxDim = Math.min(w, h);
+        let radius = (maxDim / 2) * 0.85;
+        let scale = radius / maxPossibleMagnitude;
+        let cx = w / 2; let cy = h / 2;
+
+        // --- Draw Axes ---
+        ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, cy); ctx.lineTo(w, cy); // Horizontal axis (Real)
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, h); // Vertical axis (Imaginary)
+        ctx.stroke();
+
+        // Axis Labels (Standard Convention)
+        ctx.fillStyle = "#6b7280"; ctx.font = "10px Inter";
+        ctx.textAlign = "left";   ctx.fillText("Imag (sin) ↑", cx + 5, 12); // Imaginary on Y
+        ctx.textAlign = "right";  ctx.fillText("Real (cos) →", w - 5, cy - 5); // Real on X
+
+        // --- Draw Phasors ---
+        let currentX = cx; let currentY = cy;
+
+        // 1. DC Component (Offset along the Real axis)
+        // A DC component doesn't rotate, it's a fixed offset. Represent as point or offset vector.
+        // Let's draw it as a vector from origin along the real axis for clarity.
+        if (Math.abs(dcVal) > 1e-6) {
+             ctx.beginPath();
+             ctx.moveTo(cx, cy);
+             let dcEndX = cx + scale * dcVal; // DC offset along Real (horizontal) axis
+             let dcEndY = cy;
+             ctx.lineTo(dcEndX, dcEndY);
+             ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 2;
+             ctx.stroke();
+             // Start harmonics from the DC offset point if non-zero
+             currentX = dcEndX;
+             currentY = dcEndY;
+             // Mark the DC point itself
+             ctx.fillStyle = "#1f2937";
+             ctx.beginPath(); ctx.arc(currentX, currentY, 2, 0, TWO_PI); ctx.fill();
+        }
+
+        // 2. Harmonic Phasors (Tip-to-Tail)
+        for (let i = 0; i < harmonicCount; i++) {
+            let amp = parseFloat(amplitudeSliders[i].value);
+            if (amp < 1e-6) continue;
+
+            let phDeg = parseFloat(phaseSliders[i].value);
+            let phRad = phDeg * (Math.PI / 180);
+            let n = i + 1;
+            let angle = TWO_PI * n * currentTime + phRad; // Total angle for this harmonic
+
+            // Standard Convention: Real = cos(angle), Imag = sin(angle)
+            let dx = scale * amp * Math.cos(angle); // Real component (Horizontal)
+            let dy = -scale * amp * Math.sin(angle); // Imaginary component (Vertical, negative for Y-down canvas)
+
+            let nextX = currentX + dx;
+            let nextY = currentY + dy;
+
+            ctx.beginPath();
+            ctx.moveTo(currentX, currentY);
+            ctx.lineTo(nextX, nextY);
+            let colorIdx = i % distinctColors.length;
+            ctx.strokeStyle = distinctColors[colorIdx];
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            currentX = nextX;
+            currentY = nextY;
+        }
+
+        // 3. Final Resultant Point
+        ctx.beginPath();
+        ctx.arc(currentX, currentY, 5, 0, TWO_PI);
+        let lastColorIdx = (harmonicCount > 0 && parseFloat(amplitudeSliders[harmonicCount-1].value) > 1e-6)
+                           ? (harmonicCount - 1) % distinctColors.length : -1;
+        ctx.fillStyle = lastColorIdx !== -1 ? distinctColors[lastColorIdx] : "#1f2937";
+        ctx.fill();
+        ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 1; ctx.stroke();
+
+        // Optional: Draw line from origin (or end of DC offset if present) to final point
+        let startXOrigin = (Math.abs(dcVal) > 1e-6) ? cx + scale * dcVal : cx;
+        let startYOrigin = cy;
+        ctx.beginPath();
+        ctx.moveTo(startXOrigin, startYOrigin);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    /* --------------------------------------------------
+       COMPONENTS PLOT (Remains the same logic)
+       -------------------------------------------------- */
+    function drawComponents() {
+        if (!componentCtx) return;
+        let ctx = componentCtx;
+        let w = componentCanvas.width;
+        let h = componentCanvas.height;
+        let dcVal = parseFloat(dcSlider.value);
+
+        // Calculate wave data (same as before)
+        let harmWaves = Array(harmonicCount + 1).fill(null).map(() => new Float32Array(w));
+        let sumWave = new Float32Array(w);
+
+        for (let px = 0; px < w; px++) harmWaves[0][px] = dcVal; // DC
+
+        for (let i = 1; i <= harmonicCount; i++) { // Harmonics
+            let amp = parseFloat(amplitudeSliders[i - 1].value);
+            let phRad = parseFloat(phaseSliders[i - 1].value) * (Math.PI / 180);
+            for (let px = 0; px < w; px++) {
+                let fractionOfCycle = px / (w - 1);
+                let localTime = (currentTime + fractionOfCycle);
+                let angle = TWO_PI * i * localTime + phRad;
+                harmWaves[i][px] = amp * Math.sin(angle); // Each component is a sine wave
+            }
+        }
+        for (let px = 0; px < w; px++) { // Sum
+            sumWave[px] = harmWaves[0][px];
+            for (let i = 1; i <= harmonicCount; i++) sumWave[px] += harmWaves[i][px];
+        }
+
+        // Determine Plotting Range (same as before)
+        let minVal = Infinity, maxVal = -Infinity;
+        for (let i = 0; i <= harmonicCount; i++) {
+             let amp = (i > 0) ? parseFloat(amplitudeSliders[i-1].value) : Math.abs(dcVal);
+             if (i === 0 || amp > 1e-6) {
+                harmWaves[i].forEach(v => { if (v < minVal) minVal = v; if (v > maxVal) maxVal = v; });
+            }
+        }
+        sumWave.forEach(v => { if (v < minVal) minVal = v; if (v > maxVal) maxVal = v; });
+        if (!isFinite(minVal) || Math.abs(maxVal - minVal) < 1e-6) { minVal = -1.0; maxVal = 1.0; }
+        let range = maxVal - minVal; let margin = range * 0.1;
+        let plotMin = minVal - margin; let plotMax = maxVal + margin;
+        let plotRange = plotMax - plotMin; if (plotRange < 1e-6) plotRange = 1;
+        const getY = (value) => h - ((value - plotMin) / plotRange) * h;
+
+        // Draw Waves (same as before)
+        ctx.lineWidth = 1.5;
+        if (Math.abs(dcVal) > 1e-6 || harmonicCount === 0) { // DC Line
+            ctx.strokeStyle = "#6b7280"; ctx.lineWidth = 1; ctx.beginPath();
+            let yDC = getY(dcVal); ctx.moveTo(0, yDC); ctx.lineTo(w, yDC); ctx.stroke();
+        }
+        ctx.lineWidth = 1.5; // Harmonics
+        for (let i = 1; i <= harmonicCount; i++) {
+            if (parseFloat(amplitudeSliders[i - 1].value) < 1e-6) continue;
+            let colorIdx = (i - 1) % distinctColors.length;
+            ctx.strokeStyle = distinctColors[colorIdx]; ctx.beginPath();
+            for (let px = 0; px < w; px++) {
+                let py = getY(harmWaves[i][px]);
+                if (px === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+        ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 3; ctx.beginPath(); // Sum Wave
+        for (let px = 0; px < w; px++) {
+            let py = getY(sumWave[px]);
+            if (px === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        if (plotMin < 0 && plotMax > 0) { // Zero Line
+            ctx.strokeStyle = "#d1d5db"; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
+            ctx.beginPath(); let zeroY = getY(0); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY);
+            ctx.stroke(); ctx.setLineDash([]);
+        }
+    }
+
+    /* --------------------------------------------------
+       SUMMED WAVE PLOT (Remains the same logic)
+       -------------------------------------------------- */
+    function drawWave() {
+        if (!waveCtx) return;
+        let ctx = waveCtx;
+        let w = waveCanvas.width;
+        let h = waveCanvas.height;
+        let waveData = new Float32Array(w);
+        let dcVal = parseFloat(dcSlider.value);
+
+        // Calculate summed wave (same as before)
+        for (let px = 0; px < w; px++) {
+            let fractionOfCycle = px / (w - 1);
+            let localTime = (currentTime + fractionOfCycle);
+            let sumVal = dcVal;
+            for (let i = 0; i < harmonicCount; i++) {
+                let amp = parseFloat(amplitudeSliders[i].value);
+                let phRad = parseFloat(phaseSliders[i].value) * (Math.PI / 180);
+                let n = i + 1;
+                sumVal += amp * Math.sin(TWO_PI * n * localTime + phRad);
+            }
+            waveData[px] = sumVal;
+        }
+
+        // Calculate Ideal Wave (same as before)
+        let haveIdeal = (activeMode && idealWaveFunction);
+        let idealData = null;
+        if (haveIdeal) {
+            idealData = new Float32Array(w);
+            for (let px = 0; px < w; px++) {
+                let idealTime = (currentTime + px / (w - 1)) % 1.0;
+                 try { idealData[px] = idealWaveFunction(idealTime); }
+                 catch (error) { console.error("Ideal wave error:", error); idealData[px] = 0; haveIdeal = false; }
+            }
+        }
+
+        // Determine Plotting Range (same as before)
+        let minVal = Infinity, maxVal = -Infinity;
+        waveData.forEach(v => { if (v < minVal) minVal = v; if (v > maxVal) maxVal = v; });
+        if (haveIdeal) idealData.forEach(v => { if (v < minVal) minVal = v; if (v > maxVal) maxVal = v; });
+        if (!isFinite(minVal) || Math.abs(maxVal - minVal) < 1e-6) { minVal = -1.0; maxVal = 1.0; }
+        let range = maxVal - minVal; let margin = range * 0.1;
+        let plotMin = minVal - margin; let plotMax = maxVal + margin;
+        let plotRange = plotMax - plotMin; if (plotRange < 1e-6) plotRange = 1;
+        const getY = (value) => h - ((value - plotMin) / plotRange) * h;
+
+        // Draw Waves (same as before)
+        if (haveIdeal) { // Ideal Wave
+            ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1.5; ctx.beginPath();
+            for (let px = 0; px < w; px++) {
+                let py = getY(idealData[px]); if (!isFinite(py)) py = getY(0);
+                if (px === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+        ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2.5; ctx.beginPath(); // Summed Wave
+        for (let px = 0; px < w; px++) {
+            let py = getY(waveData[px]);
+            if (px === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        if (plotMin < 0 && plotMax > 0) { // Zero Line
+            ctx.strokeStyle = "#d1d5db"; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
+            ctx.beginPath(); let zeroY = getY(0); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY);
+            ctx.stroke(); ctx.setLineDash([]);
+        }
+    }
+
+    /* --------------------------------------------------
+       DRAWN WAVE CANVAS HANDLING (Remains the same logic)
+       -------------------------------------------------- */
+     function drawUserWave() {
+        if (!drawCtx || !userWaveData) return;
+        let ctx = drawCtx;
+        let w = drawCanvas.width;
+        let h = drawCanvas.height;
+        let waveDataToDraw = new Float32Array(w);
+        let drawWidth = userWaveData.length; // Use buffer length
+
+        if (!animateDrawCanvas) { // Static
+            for (let i = 0; i < w; i++) waveDataToDraw[i] = userWaveData[i % drawWidth]; // Use modulo if canvas width differs
+        } else { // Animated
+            for (let px = 0; px < w; px++) {
+                let localTime = (currentTime + px / (w - 1)) % 1.0;
+                let sourceIndexFloat = localTime * (drawWidth - 1);
+                let indexLow = Math.floor(sourceIndexFloat);
+                let indexHigh = (indexLow + 1) % drawWidth;
+                indexLow = indexLow % drawWidth;
+                let alpha = sourceIndexFloat - indexLow;
+                waveDataToDraw[px] = userWaveData[indexLow] + alpha * (userWaveData[indexHigh] - userWaveData[indexLow]);
+            }
+        }
+
+        // Determine Plotting Range (same as before)
+        let minVal = Infinity, maxVal = -Infinity;
+        let hasNonZero = false;
+        userWaveData.forEach(v => { if (v !== 0) hasNonZero = true; }); // Check original data
+        if (hasNonZero) {
+             waveDataToDraw.forEach(v => { if (v < minVal) minVal = v; if (v > maxVal) maxVal = v; });
+        }
+        if (!hasNonZero || !isFinite(minVal)) { minVal = -1.0; maxVal = 1.0; }
+        if (Math.abs(maxVal - minVal) < 1e-6) { maxVal = Math.max(Math.abs(maxVal), 1.0); minVal = -maxVal; }
+        let amplitude = Math.max(Math.abs(minVal), Math.abs(maxVal));
+        if (amplitude < 1e-6) amplitude = 1.0;
+        let plotMin = -amplitude * 1.1; let plotMax = amplitude * 1.1;
+        let plotRange = plotMax - plotMin; if (plotRange < 1e-6) plotRange = 1;
+        const getY = (value) => h - ((value - plotMin) / plotRange) * h;
+
+        // Draw Wave (same as before)
+        ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 2; ctx.beginPath();
+        for (let px = 0; px < w; px++) {
+            let py = getY(waveDataToDraw[px]);
+            if (px === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        // Draw Zero Line (same as before)
+        ctx.strokeStyle = "#d1d5db"; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
+        ctx.beginPath(); let zeroY = getY(0); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY);
+        ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Record drawing point (same logic)
+    function recordDrawPoint(e) {
+        if (!drawCanvas || !userWaveData) return;
+        let rect = drawCanvas.getBoundingClientRect();
+        let clientX, clientY;
+        if (e.type.startsWith('touch')) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+        else { clientX = e.clientX; clientY = e.clientY; }
+        let canvasX = clientX - rect.left; let canvasY = clientY - rect.top;
+        let drawWidth = userWaveData.length; let drawHeight = drawCanvas.height; // Use buffer width
+
+        canvasX = Math.max(0, Math.min(drawWidth - 1, canvasX));
+        canvasY = Math.max(0, Math.min(drawHeight - 1, canvasY));
+
+        let midY = drawHeight / 2;
+        let value = (midY - canvasY) / midY; // Value [-1, 1] relative to height
+        value = Math.max(-2, Math.min(2, value)); // Clamp to +/- 2
+
+        let currentXIndex = Math.floor(canvasX);
+
+        if (lastX === null) {
+            if (currentXIndex >= 0 && currentXIndex < drawWidth) userWaveData[currentXIndex] = value;
+        } else {
+            let startX = Math.min(lastX, currentXIndex); let endX = Math.max(lastX, currentXIndex);
+            let startVal = (startX === lastX) ? lastVal : value; let endVal = (endX === currentXIndex) ? value : lastVal;
+            if (endX - startX === 0) {
+                 if (startX >= 0 && startX < drawWidth) userWaveData[startX] = startVal;
+            } else {
+                for (let x = startX; x <= endX; x++) {
+                     if (x >= 0 && x < drawWidth) {
+                         let alpha = (x - startX) / (endX - startX);
+                         userWaveData[x] = startVal + alpha * (endVal - startVal);
+                     }
+                }
+            }
+        }
+        lastX = currentXIndex; lastVal = value;
+        animateDrawCanvas = false; // Static redraw while drawing
+        clearCanvas(drawCtx);
+        drawUserWave();
+    }
+
+
+    /* ==================================================
+       PRESET & ANALYSIS FUNCTIONS
+       ================================================== */
+
+    // Reset sliders
+    function resetSliders(h1Amplitude = 0) {
+        if (!dcSlider) return; // Check if sliders initialized
+        dcSlider.value = "0"; dcValueSpan.textContent = "0.00";
+        for (let i = 0; i < MAX_HARMONICS; i++) {
+            if (!amplitudeSliders[i]) continue; // Skip if slider doesn't exist
+            let amp = (i === 0) ? h1Amplitude : 0;
+            amplitudeSliders[i].value = amp.toFixed(3); amplitudeValueSpans[i].textContent = amp.toFixed(2);
+            phaseSliders[i].value = "0"; phaseValueSpans[i].textContent = "0";
+        }
+        updateSliderVisibility();
+        updateTHDDisplay(); // Update THD after reset
+    }
+
+    // Sine Wave Preset
+    function setSineWave() {
+        resetSliders(1.0);
+        idealWaveFunction = (t) => Math.sin(TWO_PI * t);
+        updateTHDDisplay();
+    }
+
+    // Square Wave Preset
+    function setSquareWave() {
+        resetSliders();
+        for (let i = 1; i <= harmonicCount; i++) {
+            let idx = i - 1;
+            if (i % 2 === 1) { // Odd harmonics
+                let amp = 4 / (Math.PI * i); amp = Math.min(2.0, amp);
+                amplitudeSliders[idx].value = amp.toFixed(3); amplitudeValueSpans[idx].textContent = amp.toFixed(2);
+                phaseSliders[idx].value = "0"; phaseValueSpans[idx].textContent = "0";
+            }
+        }
+        updateSliderVisibility();
+        idealWaveFunction = (t) => ( (TWO_PI * t) % TWO_PI > 0 && (TWO_PI * t) % TWO_PI < Math.PI) ? 1 : -1;
+        updateTHDDisplay();
+    }
+
+    // Sawtooth Wave Preset
+    function setSawtoothWave() {
+        resetSliders();
+        const dt = TWO_PI / NUM_ANALYSIS_SAMPLES;
+        function idealSawtooth(x) { x = x % TWO_PI; if (x < 0) x += TWO_PI; return (x / Math.PI) - 1; }
+
+        for (let n = 1; n <= harmonicCount; n++) {
+            let sumSin = 0, sumCos = 0;
+            for (let k = 0; k < NUM_ANALYSIS_SAMPLES; k++) {
+                let xx = k * dt; let val = idealSawtooth(xx);
+                sumSin += val * Math.sin(n * xx); sumCos += val * Math.cos(n * xx);
+            }
+            let scale = 2 / NUM_ANALYSIS_SAMPLES; let bn = scale * sumSin; let an = scale * sumCos;
+            let amp = Math.sqrt(an * an + bn * bn); let phiRad = (amp > 1e-12) ? Math.atan2(an, bn) : 0;
+            let phiDeg = phiRad * (180 / Math.PI);
+            let idx = n - 1; amp = Math.min(2.0, amp);
+            amplitudeSliders[idx].value = amp.toFixed(3); amplitudeValueSpans[idx].textContent = amp.toFixed(2);
+            phaseSliders[idx].value = phiDeg.toFixed(0); phaseValueSpans[idx].textContent = phiDeg.toFixed(0);
+        }
+        updateSliderVisibility();
+        idealWaveFunction = (t) => idealSawtooth(TWO_PI * t);
+        updateTHDDisplay();
+    }
+
+    // AC/DC Saturation Preset
+    function setAcDcSaturatedWave(alphaDeg, dcLim) {
+        resetSliders();
+        const dt = TWO_PI / NUM_ANALYSIS_SAMPLES;
+        let saturatedWave = new Float32Array(NUM_ANALYSIS_SAMPLES);
+        let alphaRad = alphaDeg * (Math.PI / 180);
+        let posCut = Math.PI - alphaRad; let negCut = TWO_PI - alphaRad;
+
+        // Generate saturated wave (same logic as before)
+        for (let k = 0; k < NUM_ANALYSIS_SAMPLES; k++) {
+            let angle = k * dt; let baseVal = Math.sin(angle); let satVal = 0;
+            if (angle >= 0 && angle < Math.PI) { if (angle >= alphaRad && angle < posCut) satVal = baseVal; }
+            else { if (angle >= (Math.PI + alphaRad) && angle < negCut) satVal = baseVal; }
+            if (dcLim > 0 && satVal > dcLim) satVal = dcLim;
+            else if (dcLim < 0 && satVal < dcLim) satVal = dcLim;
+            saturatedWave[k] = satVal;
+        }
+
+        // Analyze (same logic as before)
+        let sum = 0; saturatedWave.forEach(v => sum += v); let avg = sum / NUM_ANALYSIS_SAMPLES;
+        avg = Math.max(-2.0, Math.min(2.0, avg));
+        dcSlider.value = avg.toFixed(3); dcValueSpan.textContent = avg.toFixed(2);
+
+        for (let n = 1; n <= harmonicCount; n++) {
+            let sumSin = 0, sumCos = 0;
+            for (let k = 0; k < NUM_ANALYSIS_SAMPLES; k++) {
+                let angle = k * dt; let acValue = saturatedWave[k] - avg;
+                sumSin += acValue * Math.sin(n * angle); sumCos += acValue * Math.cos(n * angle);
+            }
+            let scale = 2 / NUM_ANALYSIS_SAMPLES; let bn = scale * sumSin; let an = scale * sumCos;
+            let amp = Math.sqrt(an * an + bn * bn); let phiRad = (amp > 1e-12) ? Math.atan2(an, bn) : 0;
+            let phiDeg = phiRad * (180 / Math.PI); let idx = n - 1; amp = Math.min(2.0, amp);
+            amplitudeSliders[idx].value = amp.toFixed(3); amplitudeValueSpans[idx].textContent = amp.toFixed(2);
+            phaseSliders[idx].value = phiDeg.toFixed(0); phaseValueSpans[idx].textContent = phiDeg.toFixed(0);
+        }
+        updateSliderVisibility();
+        // Ideal function (same logic as before)
+        idealWaveFunction = (t) => {
+            let angle = (TWO_PI * t) % TWO_PI; if (angle < 0) angle += TWO_PI;
+            let baseVal = Math.sin(angle); let satVal = 0;
+            if (angle >= 0 && angle < Math.PI) { if (angle >= alphaRad && angle < posCut) satVal = baseVal; }
+            else { if (angle >= (Math.PI + alphaRad) && angle < negCut) satVal = baseVal; }
+            if (dcLim > 0 && satVal > dcLim) satVal = dcLim; else if (dcLim < 0 && satVal < dcLim) satVal = dcLim;
+            return satVal;
+        };
+        updateTHDDisplay();
+    }
+
+    // Analyze Drawn Wave
+    function convertDrawnWaveToSliders() {
+        const N = userWaveData.length; if (N === 0) return;
+
+        // Calculate DC (same as before)
+        let sumWave = 0; userWaveData.forEach(v => sumWave += v); let avg = sumWave / N;
+
+        // Calculate AC Components (same as before)
+        let computedAmps = new Array(harmonicCount); let computedPhases = new Array(harmonicCount);
+        for (let n = 1; n <= harmonicCount; n++) {
+            let sumSin = 0, sumCos = 0;
+            for (let i = 0; i < N; i++) {
+                let t_fraction = i / N; let angle = TWO_PI * n * t_fraction;
+                let acValue = userWaveData[i] - avg;
+                sumSin += acValue * Math.sin(angle); sumCos += acValue * Math.cos(angle);
+            }
+            let scale = 2 / N; let bn = scale * sumSin; let an = scale * sumCos;
+            let amp = Math.sqrt(an * an + bn * bn); let phiRad = (amp > 1e-12) ? Math.atan2(an, bn) : 0;
+            computedAmps[n - 1] = amp; computedPhases[n - 1] = phiRad * (180 / Math.PI);
+        }
+
+        // Normalize and Set Sliders (same as before)
+        let maxAbsValue = Math.abs(avg);
+        computedAmps.forEach(amp => { if (amp > maxAbsValue) maxAbsValue = amp; });
+        const TARGET_MAX = 2.0; let scaleFactor = 1.0;
+        if (maxAbsValue > TARGET_MAX) scaleFactor = TARGET_MAX / maxAbsValue;
+        else if (maxAbsValue < 1e-6) { scaleFactor = 0.0; avg = 0; }
+
+        let scaledDC = avg * scaleFactor; scaledDC = Math.max(-2.0, Math.min(2.0, scaledDC));
+        dcSlider.value = scaledDC.toFixed(3); dcValueSpan.textContent = scaledDC.toFixed(2);
+
+        for (let i = 0; i < harmonicCount; i++) {
+            let scaledAmp = computedAmps[i] * scaleFactor; scaledAmp = Math.max(0.0, Math.min(2.0, scaledAmp));
+            let phaseDeg = computedPhases[i];
+            while (phaseDeg > 180) phaseDeg -= 360; while (phaseDeg <= -180) phaseDeg += 360;
+            amplitudeSliders[i].value = scaledAmp.toFixed(3); amplitudeValueSpans[i].textContent = scaledAmp.toFixed(2);
+            phaseSliders[i].value = phaseDeg.toFixed(0); phaseValueSpans[i].textContent = phaseDeg.toFixed(0);
+        }
+        for (let m = harmonicCount; m < MAX_HARMONICS; m++) { // Zero out rest
+             if(amplitudeSliders[m]) {
+                 amplitudeSliders[m].value="0"; amplitudeValueSpans[m].textContent="0.00";
+                 phaseSliders[m].value="0"; phaseValueSpans[m].textContent="0";
+             }
+        }
+        updateSliderVisibility();
+        updateTHDDisplay(); // Update THD after analysis
+        animateDrawCanvas = true;
+    }
+
+    /* ==================================================
+       ACTIVE MODE & HIGHLIGHTING
+       ================================================== */
+    function setActiveMode(modeName) {
+        activeMode = modeName;
+        highlightButton(modeName);
+        animateDrawCanvas = false;
+    }
+    function clearActiveMode() {
+        if (activeMode) {
+            activeMode = null; idealWaveFunction = null;
+            highlightButton(null);
+        }
+    }
+    function highlightButton(name) {
+        const buttons = [btnSine, btnSquare, btnSawtooth, btnAcDcSatur];
+        buttons.forEach(b => b?.classList.remove("highlighted")); // Add null check
+        let buttonToHighlight = null;
+        if (name === "Sine") buttonToHighlight = btnSine;
+        else if (name === "Square") buttonToHighlight = btnSquare;
+        else if (name === "Sawtooth") buttonToHighlight = btnSawtooth;
+        else if (name === "Saturated") buttonToHighlight = btnAcDcSatur;
+        buttonToHighlight?.classList.add("highlighted"); // Add null check
+    }
+
+    /* ========================
+       INITIALIZATION & ANIMATION LOOP
+       ======================== */
+    function animate() {
+        if (!isPaused) {
+            currentTime += BASE_TIME_STEP * speedFactor;
+        }
+        // Clear canvases
+        clearCanvas(phasorCtx); clearCanvas(componentCtx);
+        clearCanvas(waveCtx); clearCanvas(drawCtx);
+
+        // Redraw plots
+        drawPhasors();
+        drawComponents();
+        drawWave();
+        drawUserWave();
+
+        requestAnimationFrame(animate); // Loop
+    }
+
+    function init() {
+        // Get DOM elements and check for errors
+        if (!getDOMElements()) {
+             console.error("Initialization failed due to missing DOM elements or canvas contexts.");
+             return; // Stop initialization if critical elements are missing
+        }
+
+        // Setup UI components
+        createSliders();
+        setupEventListeners();
+
+        // Set initial state
+        setSineWave();
+        setActiveMode("Sine");
+
+        // Start animation
+        animate();
+    }
+
+    // Wait for the DOM to be fully loaded before initializing
+    document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+    
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

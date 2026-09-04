@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Distance Relaying Toolkit</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f8;
+      color: #333;
+    }
+    /* Sticky controls container for all buttons and sliders */
+    .sticky-controls {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 1200;
+      padding: 0; /* We'll include padding in the title style */
+      border-bottom: 2px solid #ccc;
+    }
+    /* Title style (matching your SIL style) */
+    .sticky-controls h2 {
+      background: #eee;
+      padding: 10px 20px;
+      border-bottom: 1px solid #ccc;
+      font-size: 14px;
+      margin: 0;
+    }
+    .sticky-controls h2 a {
+      color: #007acc;
+      text-decoration: none;
+    }
+    .top-buttons {
+      margin: 15px 10px 15px 10px;
+    }
+    button {
+      padding: 8px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background-color: #f8f8f8;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #e8e8e8;
+    }
+    button.active {
+      background-color: #ffeb3b;
+      border-color: #ffc107;
+    }
+    #backToMenu {
+      background-color: #0056b3;
+      color: white;
+      padding: 8px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+    #backToMenu:hover {
+      background-color: #004494;
+      border: none;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: background-color 0.3s ease;
+    }
+    #backToMenu:hover {
+      background-color: #003d82;
+    }
+    .section-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      margin: 15px 0 5px;
+    }
+    .controls-container {
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .control-group {
+      margin-right: 40px;
+      margin-bottom: 10px;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    input[type=range] {
+      width: 300px;
+    }
+    .sliderValue {
+      margin-left: 5px;
+      font-weight: bold;
+    }
+    /* Plot layout styles (omitted some details for brevity) */
+    .plot-row {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .canvases {
+      display: grid;
+      grid-template-columns: repeat(3, 420px);
+      grid-gap: 10px;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      background: #fafafa;
+    }
+    .plot-label {
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    .plot-container {
+      display: inline-block;
+      margin: 10px;
+    }
+    .plot-flex {
+      display: flex;
+      align-items: center;
+    }
+    .polar-info {
+      margin-left: 10px;
+      font-size: 1em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+    }
+    .impedance-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .impedance-plot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .impedance-values {
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      max-width: 600px;
+    }
+    .vector-label {
+      font-size: 1em;
+      margin: 5px 10px;
+      display: inline-block;
+    }
+    .explanation {
+      margin-top: 40px;
+      padding: 20px;
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+      font-size: 0.95em;
+      line-height: 1.5;
+      max-width: 1000px;
+    }
+    /* ------------------ Other Toolkits Button and Modal ------------------ */
+    @keyframes attention {
+      0%   { background-color: green; }
+      50%  { background-color: yellow; }
+      100% { background-color: green; }
+    }
+    /* Place the button at the top right */
+    #openToolkits {
+      color: white;
+      border: none;
+      padding: 20px 30px;
+      border-radius: 5px;
+      cursor: pointer;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1300;
+      font-size: 16px;
+      animation: attention 3s infinite;
+    }
+    #openToolkits:hover {
+      opacity: 0.9;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      z-index: 1400;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 300px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+
+<!-- Sticky Controls Container -->
+<div class="sticky-controls">
+  <!-- Header will be inserted by header.js -->
+  <!-- Global Rotation and Pause Buttons -->
+  <div class="top-buttons">
+    <button id="pauseBtn">Pause</button>
+    <button id="abcBtn" class="active">A-B-C Rotation</button>
+    <button id="cbaBtn">C-B-A Rotation</button>
+  </div>
+  <!-- Voltage Controls -->
+  <div class="controls-container">
+    <div class="section-title">Voltage Controls</div>
+    <button id="voltagePhaseModeBtn" class="active">Voltage: Phase Sliders</button>
+    <button id="voltageSeqModeBtn">Voltage: Sequence Sliders</button>
+    <div class="controls" id="voltageSliders">
+      <div class="control-group">
+        <label id="vSlider1Label">Phase A Voltage Magnitude</label>
+        <input type="range" id="vSlider1Mag" min="0" max="1" step="0.01" value="1">
+        <span id="vSlider1MagVal" class="sliderValue">1.00</span>
+        <label id="vSlider1AngLabel">Phase A Voltage Angle (°)</label>
+        <input type="range" id="vSlider1Ang" min="0" max="360" step="1" value="0">
+        <span id="vSlider1AngVal" class="sliderValue">0°</span>
+      </div>
+      <div class="control-group">
+        <label id="vSlider2Label">Phase B Voltage Magnitude</label>
+        <input type="range" id="vSlider2Mag" min="0" max="1" step="0.01" value="1">
+        <span id="vSlider2MagVal" class="sliderValue">1.00</span>
+        <label id="vSlider2AngLabel">Phase B Voltage Angle (°)</label>
+        <input type="range" id="vSlider2Ang" min="0" max="360" step="1" value="240">
+        <span id="vSlider2AngVal" class="sliderValue">240°</span>
+      </div>
+      <div class="control-group">
+        <label id="vSlider3Label">Phase C Voltage Magnitude</label>
+        <input type="range" id="vSlider3Mag" min="0" max="1" step="0.01" value="1">
+        <span id="vSlider3MagVal" class="sliderValue">1.00</span>
+        <label id="vSlider3AngLabel">Phase C Voltage Angle (°)</label>
+        <input type="range" id="vSlider3Ang" min="0" max="360" step="1" value="120">
+        <span id="vSlider3AngVal" class="sliderValue">120°</span>
+      </div>
+      <!-- Voltage Unison Shift -->
+      <div class="control-group">
+        <label id="vUnisonLabel">Voltage Unison Shift (°)</label>
+        <input type="range" id="vUnisonShift" min="-180" max="180" step="1" value="0">
+        <span id="vUnisonVal" class="sliderValue">0°</span>
+      </div>
+    </div>
+  </div>
+  <!-- Current Controls -->
+  <div class="controls-container">
+    <div class="section-title">Current Controls</div>
+    <button id="currentPhaseModeBtn" class="active">Current: Phase Sliders</button>
+    <button id="currentSeqModeBtn">Current: Sequence Sliders</button>
+    <div class="controls" id="currentSliders">
+      <div class="control-group">
+        <label id="iSlider1Label">Phase A Current Magnitude</label>
+        <input type="range" id="iSlider1Mag" min="0" max="1" step="0.01" value="1">
+        <span id="iSlider1MagVal" class="sliderValue">1.00</span>
+        <label id="iSlider1AngLabel">Phase A Current Angle (°)</label>
+        <input type="range" id="iSlider1Ang" min="0" max="360" step="1" value="0">
+        <span id="iSlider1AngVal" class="sliderValue">0°</span>
+      </div>
+      <div class="control-group">
+        <label id="iSlider2Label">Phase B Current Magnitude</label>
+        <input type="range" id="iSlider2Mag" min="0" max="1" step="0.01" value="1">
+        <span id="iSlider2MagVal" class="sliderValue">1.00</span>
+        <label id="iSlider2AngLabel">Phase B Current Angle (°)</label>
+        <input type="range" id="iSlider2Ang" min="0" max="360" step="1" value="240">
+        <span id="iSlider2AngVal" class="sliderValue">240°</span>
+      </div>
+      <div class="control-group">
+        <label id="iSlider3Label">Phase C Current Magnitude</label>
+        <input type="range" id="iSlider3Mag" min="0" max="1" step="0.01" value="1">
+        <span id="iSlider3MagVal" class="sliderValue">1.00</span>
+        <label id="iSlider3AngLabel">Phase C Current Angle (°)</label>
+        <input type="range" id="iSlider3Ang" min="0" max="360" step="1" value="120">
+        <span id="iSlider3AngVal" class="sliderValue">120°</span>
+      </div>
+      <!-- Current Unison Shift -->
+      <div class="control-group">
+        <label id="iUnisonLabel">Current Unison Shift (°)</label>
+        <input type="range" id="iUnisonShift" min="-180" max="180" step="1" value="0">
+        <span id="iUnisonVal" class="sliderValue">0°</span>
+      </div>
+    </div>
+  </div>
+  <!-- Ground Distance Controls -->
+  <div class="controls-container">
+    <div class="section-title">Ground Distance Controls</div>
+    <div class="controls">
+      <div class="control-group">
+        <label id="kSliderLabel">K (0 - 6)</label>
+        <input type="range" id="kSlider" min="0" max="6" step="0.1" value="0">
+        <span id="kSliderVal" class="sliderValue">0.0</span>
+      </div>
+      <div class="control-group">
+        <label id="mhoMagLabel">Mho Circle Magnitude (0 - 3)</label>
+        <input type="range" id="mhoMagSlider" min="0" max="3" step="0.1" value="1">
+        <span id="mhoMagVal" class="sliderValue">1.0</span>
+      </div>
+      <div class="control-group">
+        <label id="mhoTorqueLabel">Mho Circle Torque Angle (° 0 - 90)</label>
+        <input type="range" id="mhoTorqueSlider" min="0" max="90" step="1" value="85">
+        <span id="mhoTorqueVal" class="sliderValue">85°</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VOLTAGE PLOTS -->
+<div class="plot-row">
+  <div class="canvases">
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvasA" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfoA"></div>
+      </div>
+      <div class="plot-label">Voltage A</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvasB" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfoB"></div>
+      </div>
+      <div class="plot-label">Voltage B</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvasC" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfoC"></div>
+      </div>
+      <div class="plot-label">Voltage C</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvas0" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfo0"></div>
+      </div>
+      <div class="plot-label">V0 Seq</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvas1" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfo1"></div>
+      </div>
+      <div class="plot-label">V1 Seq</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="vCanvas2" width="300" height="300"></canvas>
+        <div class="polar-info" id="vInfo2"></div>
+      </div>
+      <div class="plot-label">V2 Seq</div>
+    </div>
+  </div>
+  <div>
+    <canvas id="vCanvasOscTime" width="600" height="300"></canvas>
+    <div class="plot-label">Voltage Oscillography (Real part)</div>
+  </div>
+</div>
+
+<!-- CURRENT PLOTS -->
+<div class="plot-row">
+  <div class="canvases">
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvasA" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfoA"></div>
+      </div>
+      <div class="plot-label">Current A</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvasB" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfoB"></div>
+      </div>
+      <div class="plot-label">Current B</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvasC" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfoC"></div>
+      </div>
+      <div class="plot-label">Current C</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvas0" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfo0"></div>
+      </div>
+      <div class="plot-label">I0 Seq</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvas1" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfo1"></div>
+      </div>
+      <div class="plot-label">I1 Seq</div>
+    </div>
+    <div class="plot-container">
+      <div class="plot-flex">
+        <canvas id="iCanvas2" width="300" height="300"></canvas>
+        <div class="polar-info" id="iInfo2"></div>
+      </div>
+      <div class="plot-label">I2 Seq</div>
+    </div>
+  </div>
+  <div>
+    <canvas id="iCanvasOscTime" width="600" height="300"></canvas>
+    <div class="plot-label">Current Oscillography (Real part)</div>
+  </div>
+</div>
+
+<!-- IMPEDANCE (DISTANCE) PLOTS -->
+<div class="plot-row">
+  <div class="impedance-container">
+    <div class="impedance-plot">
+      <canvas id="distanceCanvas" width="600" height="600"></canvas>
+      <div class="plot-label">Phase Distance Plot (Impedance Phasors)</div>
+      <div id="distanceLegend" style="margin-top:10px; font-weight:bold;"></div>
+      <div class="impedance-values" id="impedanceInfoPhase"></div>
+    </div>
+  </div>
+  <div class="impedance-container">
+    <div class="impedance-plot">
+      <canvas id="distanceCanvasGnd" width="600" height="600"></canvas>
+      <div class="plot-label">Ground Distance Plot (Impedance Phasors)</div>
+      <div id="distanceLegendG" style="margin-top:10px; font-weight:bold;"></div>
+      <div class="impedance-values" id="impedanceInfoGround"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Explanation Section -->
+<div class="explanation">
+  <h3>Page Explanation</h3>
+  <p>
+    <strong>Voltage Controls</strong><br>
+    <em>Phase A/B/C Voltage Magnitude &amp; Angle:</em> Sets each phase's magnitude and angle (in degrees). In Phase Mode, these sliders map directly to the three phases. In Sequence Mode, they represent V0, V1, V2 (zero/positive/negative sequence) magnitudes and angles.<br>
+    <em>Voltage Unison Shift (°):</em> Temporarily adds the same angle shift to all three phases (or sequences). This is a convenient way to push all the angles together.<br>
+    <em>Voltage: Phase Sliders / Voltage: Sequence Sliders:</em> Toggles how we input or display the voltage phasors — either directly as phase A/B/C or via symmetrical components (V0, V1, V2).
+  </p>
+  <p>
+    <strong>Current Controls</strong><br>
+    Similar to the voltage controls, Phase A/B/C Current Magnitude &amp; Angle set the three-phase currents in phase mode, or the zero/positive/negative sequence components in sequence mode.<br>
+    <em>Current Unison Shift (°):</em> Shifts all three phase (or sequence) angles together.<br>
+    <em>Current: Phase Sliders / Current: Sequence Sliders:</em> Same concept as for voltage but for current phasors.
+  </p>
+  <p>
+    <strong>Ground Distance Controls</strong><br>
+    <em>K (0 - 6):</em> The zero-sequence compensation factor used for ground-fault loops. In many relays, K is derived from line impedances (e.g., (Z0 - Z1)/Z1). A larger K typically indicates a large zero-sequence impedance difference for ground faults.<br>
+    <em>Mho Circle Magnitude (0 - 3):</em> Defines the diameter of the mho characteristic in the R-X plane (impedance plane). A bigger diameter means a more permissive characteristic that covers more impedance area.<br>
+    <em>Mho Circle Torque Angle (0 - 90):</em> The torque angle sets how the circle is oriented in the R-X plane, typically near the line angle. Setting it close to 90° rotates it to be mostly “reactive” coverage; smaller angles lean more in the resistive direction.
+  </p>
+  <p>
+    <strong>Significance of Each Plot</strong><br>
+    <em>Voltage/Current Phasor Plots:</em> Display individual phases (A, B, C) and sequence components (0, 1, 2) as rotating vectors with their magnitude and angle shown in real time.<br>
+    <em>Oscillography (Real part):</em> Shows the time-domain waveform of the real part of each phase’s voltage or current over a short window (e.g., 30 cycles), helping visualize phase shifts and magnitudes as sine waves over time.<br>
+    <em>Phase Distance Plot:</em> Plots the line-to-line fault loops (e.g., (VA - VB) / (IA - IB), etc.) in the complex impedance plane (R-X). Each arrow starts at the origin and extends out to the “seen” impedance at that moment.<br>
+    <em>Ground Distance Plot:</em> Plots line-to-ground fault loops (VA / (IA + K·I0), etc.) in the complex plane. The factor K determines how zero-sequence current is added for ground faults.
+  </p>
+  <p>
+    <strong>Mho Circle in Distance Relaying</strong><br>
+    In protective relaying, a mho element is a distance characteristic in the R-X plane shaped like a circle that passes through the origin. Its center is offset along the line’s impedance angle so that it covers a specific protection zone.<br>
+    The <em>Mho Circle Magnitude</em> slider sets the diameter (reach) of that circle, and the <em>Torque Angle</em> sets its orientation with respect to the R-X axes. Typically, the torque angle is set close to the line angle so the relay is most sensitive to faults along the intended line corridor.<br>
+    Any measured fault impedance that falls inside this circle is considered “within reach” by the mho distance element, indicating a fault on or near the protected line segment.
+  </p>
+</div>
+
+<!-- ------------------ Modal for Other Toolkits ------------------ -->
+<div id="toolkitsModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2>Other toolkits</h2>
+    <ul style="list-style: none; padding: 0;">
+      <li><a href="https://www.nerxpower.com/st.html" target="_blank">Symmetrical Components Toolkit</a></li>
+      <li><a href="https://www.nerxpower.com/pf.html" target="_blank">Power Factor Toolkit</a></li>
+      <li><a href="https://www.nerxpower.com/dr.html" target="_blank">Distance Relaying Toolkit</a></li>
+      <li><a href="https://www.nerxpower.com/ct.html" target="_blank">Current Transformer Saturation and Volt-Sec Rating</a></li>
+       <li><a href="https://www.nerxpower.com/sil.html" target="_blank">Surge Impedance Loading (SIL) </a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ------------------ JavaScript Code ------------------ -->
+<script>
+  // ------------------ Basic Math / Complex Helpers ------------------
+  function degToRad(deg){ return deg * Math.PI / 180; }
+  function mod360(angle) { return ((angle % 360) + 360) % 360; }
+  function cFromMagAng(m, aDeg){
+    const a = degToRad(aDeg);
+    return { re: m * Math.cos(a), im: m * Math.sin(a) };
+  }
+  function cToMagAng(c){
+    const mag = Math.sqrt(c.re * c.re + c.im * c.im);
+    let ang = Math.atan2(c.im, c.re) * 180 / Math.PI;
+    return { mag, ang: mod360(ang) };
+  }
+  function cAdd(a, b){ return { re: a.re + b.re, im: a.im + b.im }; }
+  function cSub(a, b){ return { re: a.re - b.re, im: a.im - b.im }; }
+  function cMul(a, b){
+    return { re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re };
+  }
+  function cDiv(a, b){
+    const denom = b.re * b.re + b.im * b.im || 1e-12;
+    return { re: (a.re * b.re + a.im * b.im) / denom, im: (a.im * b.re - a.re * b.im) / denom };
+  }
+  function cMulScalar(a, scalar){ return { re: a.re * scalar, im: a.im * scalar }; }
+
+  // alpha for symmetrical components
+  const alpha = { re: Math.cos(2 * Math.PI / 3), im: Math.sin(2 * Math.PI / 3) };
+  const alpha2 = { re: Math.cos(4 * Math.PI / 3), im: Math.sin(4 * Math.PI / 3) };
+
+  // ------------------ Compute Sequence Components ------------------
+  function computeSequenceComponents(A, B, C){
+    const I0 = { re: (A.re + B.re + C.re) / 3, im: (A.im + B.im + C.im) / 3 };
+    const alphaB = cMul(alpha, B);
+    const alpha2C = cMul(alpha2, C);
+    const I1 = { re: (A.re + alphaB.re + alpha2C.re) / 3, im: (A.im + alphaB.im + alpha2C.im) / 3 };
+    const alpha2B = cMul(alpha2, B);
+    const alphaC = cMul(alpha, C);
+    const I2 = { re: (A.re + alpha2B.re + alphaC.re) / 3, im: (A.im + alpha2B.im + alphaC.im) / 3 };
+    return { I0, I1, I2 };
+  }
+  function computePhaseFromSequence(I0, I1, I2){
+    const A = cAdd(cAdd(I0, I1), I2);
+    const B = cAdd(cAdd(I0, cMul(alpha2, I1)), cMul(alpha, I2));
+    const C = cAdd(cAdd(I0, cMul(alpha, I1)), cMul(alpha2, I2));
+    return { A, B, C };
+  }
+
+  // ------------------ Drawing Functions ------------------
+  function drawPolar(ctx, magnitude, angleRad, color){
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    const r = Math.min(cx, cy) - 10;
+    const scale = r / 2;
+    // Outer circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#ddd";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Axes
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx + r, cy);
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.strokeStyle = "#eee";
+    ctx.stroke();
+    // Vector
+    const x = cx + magnitude * scale * Math.cos(angleRad);
+    const y = cy - magnitude * scale * Math.sin(angleRad);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Tip dot
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  function drawMultipleWaveforms(ctx, times, dataSeries, yMin, yMax){
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    if (yMin < 0 && yMax > 0) {
+      ctx.beginPath();
+      const y0 = mapY(0, yMin, yMax, h);
+      ctx.moveTo(0, y0);
+      ctx.lineTo(w, y0);
+      ctx.strokeStyle = "#ccc";
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    dataSeries.forEach(ser => {
+      ctx.beginPath();
+      ctx.setLineDash(ser.dash || []);
+      for (let i = 0; i < times.length; i++){
+        const xC = mapX(times[i], times[0], times[times.length - 1], w);
+        const yC = mapY(ser.data[i], yMin, yMax, h);
+        if (i === 0) ctx.moveTo(xC, yC);
+        else         ctx.lineTo(xC, yC);
+      }
+      ctx.strokeStyle = ser.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    function mapX(t, t0, t1, W){ return ((t - t0) / (t1 - t0)) * W; }
+    function mapY(v, minV, maxV, H){
+      const frac = (v - minV) / (maxV - minV);
+      return (1 - frac) * H;
+    }
+  }
+  function drawDistancePlot(ctx, Zab, Zbc, Zca){
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const minRe = -2, maxRe = 2, minIm = -2, maxIm = 2;
+    function mapX(rVal){ return ((rVal - minRe) / (maxRe - minRe)) * w; }
+    function mapY(iVal){ return (1 - ((iVal - minIm) / (maxIm - minIm))) * h; }
+    const originX = mapX(0), originY = mapY(0);
+    // Draw axes
+    ctx.beginPath();
+    ctx.moveTo(originX, 0);
+    ctx.lineTo(originX, h);
+    ctx.moveTo(0, originY);
+    ctx.lineTo(w, originY);
+    ctx.strokeStyle = "#eee";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    function drawArrow(ctx, fromX, fromY, toX, toY, color) {
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      const headlen = 8;
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 8),
+                 toY - headlen * Math.sin(angle - Math.PI / 8));
+      ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 8),
+                 toY - headlen * Math.sin(angle + Math.PI / 8));
+      ctx.lineTo(toX, toY);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+    const colors = ["red", "green", "blue"];
+    [Zab, Zbc, Zca].forEach((series, idx) => {
+      series.forEach(pt => {
+        const toX = mapX(pt.re);
+        const toY = mapY(pt.im);
+        drawArrow(ctx, originX, originY, toX, toY, colors[idx]);
+      });
+    });
+  }
+  function drawMhoCircle(ctx) {
+    const minRe = -2, maxRe = 2, minIm = -2, maxIm = 2;
+    const width = ctx.canvas.width, height = ctx.canvas.height;
+    const r0 = mhoCircleMag / 2;
+    const theta = degToRad(mhoCircleTorqueAngle);
+    const centerX_imp = r0 * Math.cos(theta);
+    const centerY_imp = r0 * Math.sin(theta);
+    function mapX(x) { return ((x - minRe) / (maxRe - minRe)) * width; }
+    function mapY(y) { return (1 - ((y - minIm) / (maxIm - minIm))) * height; }
+    const centerX_canvas = mapX(centerX_imp);
+    const centerY_canvas = mapY(centerY_imp);
+    const canvasRadius = (r0 / (maxRe - minRe)) * width;
+    ctx.beginPath();
+    ctx.arc(centerX_canvas, centerY_canvas, canvasRadius, 0, 2 * Math.PI);
+    ctx.strokeStyle = "purple";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // ------------------ Global State ------------------
+  let rotation = "ABC";
+  let vMode = "phase";
+  let vPhaseData = { slider1: { mag: 1, ang: 0 }, slider2: { mag: 1, ang: 240 }, slider3: { mag: 1, ang: 120 } };
+  let vSeqData   = { slider1: { mag: 0, ang: 0 }, slider2: { mag: 0, ang: 0 }, slider3: { mag: 0, ang: 0 } };
+  let iMode = "phase";
+  let iPhaseData = { slider1: { mag: 1, ang: 0 }, slider2: { mag: 1, ang: 240 }, slider3: { mag: 1, ang: 120 } };
+  let iSeqData   = { slider1: { mag: 0, ang: 0 }, slider2: { mag: 0, ang: 0 }, slider3: { mag: 0, ang: 0 } };
+  let voltageUnisonShift = 0;
+  let currentUnisonShift = 0;
+  let kFactor = 0;
+  let mhoCircleMag = 1;
+  let mhoCircleTorqueAngle = 85;
+  let paused = false;
+  let startTime = null;
+  let pausedElapsedSec = 0;
+  const rotationSpeedDegPerSec = 36;
+  const rotationSpeedRadPerSec = degToRad(rotationSpeedDegPerSec);
+
+  // ------------------ Phase <-> Sequence Conversions ------------------
+  function updateSeqDataFromPhaseData(phaseObj, seqObj){
+    const A = cFromMagAng(phaseObj.slider1.mag, phaseObj.slider1.ang);
+    const B = cFromMagAng(phaseObj.slider2.mag, phaseObj.slider2.ang);
+    const C = cFromMagAng(phaseObj.slider3.mag, phaseObj.slider3.ang);
+    const sc = computeSequenceComponents(A, B, C);
+    const i0 = cToMagAng(sc.I0), i1 = cToMagAng(sc.I1), i2 = cToMagAng(sc.I2);
+    seqObj.slider1.mag = i0.mag; seqObj.slider1.ang = i0.ang;
+    seqObj.slider2.mag = i1.mag; seqObj.slider2.ang = i1.ang;
+    seqObj.slider3.mag = i2.mag; seqObj.slider3.ang = i2.ang;
+  }
+  function updatePhaseDataFromSeqData(seqObj, phaseObj){
+    const I0 = cFromMagAng(seqObj.slider1.mag, seqObj.slider1.ang);
+    const I1 = cFromMagAng(seqObj.slider2.mag, seqObj.slider2.ang);
+    const I2 = cFromMagAng(seqObj.slider3.mag, seqObj.slider3.ang);
+    const ph = computePhaseFromSequence(I0, I1, I2);
+    const aMA = cToMagAng(ph.A), bMA = cToMagAng(ph.B), cMA = cToMagAng(ph.C);
+    phaseObj.slider1.mag = aMA.mag; phaseObj.slider1.ang = aMA.ang;
+    phaseObj.slider2.mag = bMA.mag; phaseObj.slider2.ang = bMA.ang;
+    phaseObj.slider3.mag = cMA.mag; phaseObj.slider3.ang = cMA.ang;
+  }
+
+  // ------------------ UI Helpers ------------------
+  function togglePause(){
+    paused = !paused;
+    if(paused) {
+      pausedElapsedSec = (performance.now() - startTime) / 1000;
+    } else {
+      startTime = performance.now() - pausedElapsedSec * 1000;
+    }
+    document.getElementById("pauseBtn").textContent = paused ? "Unpause" : "Pause";
+  }
+  function setRotation(newRot){
+    if(newRot === rotation) return;
+    rotation = newRot;
+    if(newRot === "CBA"){
+      document.getElementById("abcBtn").classList.remove("active");
+      document.getElementById("cbaBtn").classList.add("active");
+      swapPhaseBC(vPhaseData);
+      swapPhaseBC(iPhaseData);
+    } else {
+      document.getElementById("abcBtn").classList.add("active");
+      document.getElementById("cbaBtn").classList.remove("active");
+      swapPhaseBC(vPhaseData);
+      swapPhaseBC(iPhaseData);
+    }
+    if(vMode === "sequence"){ updateSeqDataFromPhaseData(vPhaseData, vSeqData); }
+    if(iMode === "sequence"){ updateSeqDataFromPhaseData(iPhaseData, iSeqData); }
+    startTime = performance.now();
+    updateDistanceLegend();
+    updateDistanceLegendG();
+  }
+  function swapPhaseBC(phaseObj){
+    const oldB = { ...phaseObj.slider2 };
+    phaseObj.slider2.mag = phaseObj.slider3.mag;
+    phaseObj.slider2.ang = phaseObj.slider3.ang;
+    phaseObj.slider3.mag = oldB.mag;
+    phaseObj.slider3.ang = oldB.ang;
+  }
+  function updateDistanceLegend(){
+    const legendEl = document.getElementById("distanceLegend");
+    if (!legendEl) return;
+    if(rotation === "ABC"){
+      legendEl.innerHTML =
+        'Legend: <span style="color:red;">A-B</span>, <span style="color:green;">B-C</span>, <span style="color:blue;">C-A</span>';
+    } else {
+      legendEl.innerHTML =
+        'Legend: <span style="color:red;">C-B</span>, <span style="color:green;">B-A</span>, <span style="color:blue;">A-C</span>';
+    }
+  }
+  function updateDistanceLegendG(){
+    const legendEl = document.getElementById("distanceLegendG");
+    if (!legendEl) return;
+    if(rotation === "ABC"){
+      legendEl.innerHTML =
+        'Legend: <span style="color:red;">A-G</span>, <span style="color:green;">B-G</span>, <span style="color:blue;">C-G</span>';
+    } else {
+      legendEl.innerHTML =
+        'Legend: <span style="color:red;">C-G</span>, <span style="color:green;">B-G</span>, <span style="color:blue;">A-G</span>';
+    }
+  }
+  function setVoltageMode(m){
+    if(m === vMode) return;
+    if(m === "phase"){
+      vPhaseData.slider1.mag = parseFloat(document.getElementById("vSlider1Mag").value);
+      vPhaseData.slider1.ang = parseFloat(document.getElementById("vSlider1Ang").value);
+      vPhaseData.slider2.mag = parseFloat(document.getElementById("vSlider2Mag").value);
+      vPhaseData.slider2.ang = parseFloat(document.getElementById("vSlider2Ang").value);
+      vPhaseData.slider3.mag = parseFloat(document.getElementById("vSlider3Mag").value);
+      vPhaseData.slider3.ang = parseFloat(document.getElementById("vSlider3Ang").value);
+      updateSeqDataFromPhaseData(vPhaseData, vSeqData);
+      vMode = "phase";
+      document.getElementById("voltagePhaseModeBtn").classList.add("active");
+      document.getElementById("voltageSeqModeBtn").classList.remove("active");
+    } else {
+      vSeqData.slider1.mag = parseFloat(document.getElementById("vSlider1Mag").value);
+      vSeqData.slider1.ang = parseFloat(document.getElementById("vSlider1Ang").value);
+      vSeqData.slider2.mag = parseFloat(document.getElementById("vSlider2Mag").value);
+      vSeqData.slider2.ang = parseFloat(document.getElementById("vSlider2Ang").value);
+      vSeqData.slider3.mag = parseFloat(document.getElementById("vSlider3Mag").value);
+      vSeqData.slider3.ang = parseFloat(document.getElementById("vSlider3Ang").value);
+      updatePhaseDataFromSeqData(vSeqData, vPhaseData);
+      vMode = "sequence";
+      document.getElementById("voltagePhaseModeBtn").classList.remove("active");
+      document.getElementById("voltageSeqModeBtn").classList.add("active");
+    }
+    startTime = performance.now();
+    refreshVoltageSliders();
+  }
+  function refreshVoltageSliders(){
+    if(vMode === "phase"){
+      document.getElementById("vSlider1Label").textContent = "Phase A Voltage Magnitude";
+      document.getElementById("vSlider1AngLabel").textContent = "Phase A Voltage Angle (°)";
+      document.getElementById("vSlider2Label").textContent = "Phase B Voltage Magnitude";
+      document.getElementById("vSlider2AngLabel").textContent = "Phase B Voltage Angle (°)";
+      document.getElementById("vSlider3Label").textContent = "Phase C Voltage Magnitude";
+      document.getElementById("vSlider3AngLabel").textContent = "Phase C Voltage Angle (°)";
+      document.getElementById("vSlider1Mag").value = vPhaseData.slider1.mag.toFixed(2);
+      document.getElementById("vSlider1Ang").value = vPhaseData.slider1.ang;
+      document.getElementById("vSlider2Mag").value = vPhaseData.slider2.mag.toFixed(2);
+      document.getElementById("vSlider2Ang").value = vPhaseData.slider2.ang;
+      document.getElementById("vSlider3Mag").value = vPhaseData.slider3.mag.toFixed(2);
+      document.getElementById("vSlider3Ang").value = vPhaseData.slider3.ang;
+      document.getElementById("vSlider1MagVal").textContent = vPhaseData.slider1.mag.toFixed(2);
+      document.getElementById("vSlider1AngVal").textContent = vPhaseData.slider1.ang;
+      document.getElementById("vSlider2MagVal").textContent = vPhaseData.slider2.mag.toFixed(2);
+      document.getElementById("vSlider2AngVal").textContent = vPhaseData.slider2.ang;
+      document.getElementById("vSlider3MagVal").textContent = vPhaseData.slider3.mag.toFixed(2);
+      document.getElementById("vSlider3AngVal").textContent = vPhaseData.slider3.ang;
+    } else {
+      document.getElementById("vSlider1Label").textContent = "V0 Magnitude";
+      document.getElementById("vSlider1AngLabel").textContent = "V0 Angle (°)";
+      document.getElementById("vSlider2Label").textContent = "V1 Magnitude";
+      document.getElementById("vSlider2AngLabel").textContent = "V1 Angle (°)";
+      document.getElementById("vSlider3Label").textContent = "V2 Magnitude";
+      document.getElementById("vSlider3AngLabel").textContent = "V2 Angle (°)";
+      document.getElementById("vSlider1Mag").value = vSeqData.slider1.mag.toFixed(2);
+      document.getElementById("vSlider1Ang").value = vSeqData.slider1.ang;
+      document.getElementById("vSlider2Mag").value = vSeqData.slider2.mag.toFixed(2);
+      document.getElementById("vSlider2Ang").value = vSeqData.slider2.ang;
+      document.getElementById("vSlider3Mag").value = vSeqData.slider3.mag.toFixed(2);
+      document.getElementById("vSlider3Ang").value = vSeqData.slider3.ang;
+      document.getElementById("vSlider1MagVal").textContent = vSeqData.slider1.mag.toFixed(2);
+      document.getElementById("vSlider1AngVal").textContent = vSeqData.slider1.ang;
+      document.getElementById("vSlider2MagVal").textContent = vSeqData.slider2.mag.toFixed(2);
+      document.getElementById("vSlider2AngVal").textContent = vSeqData.slider2.ang;
+      document.getElementById("vSlider3MagVal").textContent = vSeqData.slider3.mag.toFixed(2);
+      document.getElementById("vSlider3AngVal").textContent = vSeqData.slider3.ang;
+    }
+  }
+  function setCurrentMode(m){
+    if(m === iMode) return;
+    if(m === "phase"){
+      iPhaseData.slider1.mag = parseFloat(document.getElementById("iSlider1Mag").value);
+      iPhaseData.slider1.ang = parseFloat(document.getElementById("iSlider1Ang").value);
+      iPhaseData.slider2.mag = parseFloat(document.getElementById("iSlider2Mag").value);
+      iPhaseData.slider2.ang = parseFloat(document.getElementById("iSlider2Ang").value);
+      iPhaseData.slider3.mag = parseFloat(document.getElementById("iSlider3Mag").value);
+      iPhaseData.slider3.ang = parseFloat(document.getElementById("iSlider3Ang").value);
+      updateSeqDataFromPhaseData(iPhaseData, iSeqData);
+      iMode = "phase";
+      document.getElementById("currentPhaseModeBtn").classList.add("active");
+      document.getElementById("currentSeqModeBtn").classList.remove("active");
+    } else {
+      iSeqData.slider1.mag = parseFloat(document.getElementById("iSlider1Mag").value);
+      iSeqData.slider1.ang = parseFloat(document.getElementById("iSlider1Ang").value);
+      iSeqData.slider2.mag = parseFloat(document.getElementById("iSlider2Mag").value);
+      iSeqData.slider2.ang = parseFloat(document.getElementById("iSlider2Ang").value);
+      iSeqData.slider3.mag = parseFloat(document.getElementById("iSlider3Mag").value);
+      iSeqData.slider3.ang = parseFloat(document.getElementById("iSlider3Ang").value);
+      updatePhaseDataFromSeqData(iSeqData, iPhaseData);
+      iMode = "sequence";
+      document.getElementById("currentPhaseModeBtn").classList.remove("active");
+      document.getElementById("currentSeqModeBtn").classList.add("active");
+    }
+    startTime = performance.now();
+    refreshCurrentSliders();
+  }
+  function refreshCurrentSliders(){
+    if(iMode === "phase"){
+      document.getElementById("iSlider1Label").textContent = "Phase A Current Magnitude";
+      document.getElementById("iSlider1AngLabel").textContent = "Phase A Current Angle (°)";
+      document.getElementById("iSlider2Label").textContent = "Phase B Current Magnitude";
+      document.getElementById("iSlider2AngLabel").textContent = "Phase B Current Angle (°)";
+      document.getElementById("iSlider3Label").textContent = "Phase C Current Magnitude";
+      document.getElementById("iSlider3AngLabel").textContent = "Phase C Current Angle (°)";
+      document.getElementById("iSlider1Mag").value = iPhaseData.slider1.mag.toFixed(2);
+      document.getElementById("iSlider1Ang").value = iPhaseData.slider1.ang;
+      document.getElementById("iSlider2Mag").value = iPhaseData.slider2.mag.toFixed(2);
+      document.getElementById("iSlider2Ang").value = iPhaseData.slider2.ang;
+      document.getElementById("iSlider3Mag").value = iPhaseData.slider3.mag.toFixed(2);
+      document.getElementById("iSlider3Ang").value = iPhaseData.slider3.ang;
+      document.getElementById("iSlider1MagVal").textContent = iPhaseData.slider1.mag.toFixed(2);
+      document.getElementById("iSlider1AngVal").textContent = iPhaseData.slider1.ang;
+      document.getElementById("iSlider2MagVal").textContent = iPhaseData.slider2.mag.toFixed(2);
+      document.getElementById("iSlider2AngVal").textContent = iPhaseData.slider2.ang;
+      document.getElementById("iSlider3MagVal").textContent = iPhaseData.slider3.mag.toFixed(2);
+      document.getElementById("iSlider3AngVal").textContent = iPhaseData.slider3.ang;
+    } else {
+      document.getElementById("iSlider1Label").textContent = "I0 Magnitude";
+      document.getElementById("iSlider1AngLabel").textContent = "I0 Angle (°)";
+      document.getElementById("iSlider2Label").textContent = "I1 Magnitude";
+      document.getElementById("iSlider2AngLabel").textContent = "I1 Angle (°)";
+      document.getElementById("iSlider3Label").textContent = "I2 Magnitude";
+      document.getElementById("iSlider3AngLabel").textContent = "I2 Angle (°)";
+      document.getElementById("iSlider1Mag").value = iSeqData.slider1.mag.toFixed(2);
+      document.getElementById("iSlider1Ang").value = iSeqData.slider1.ang;
+      document.getElementById("iSlider2Mag").value = iSeqData.slider2.mag.toFixed(2);
+      document.getElementById("iSlider2Ang").value = iSeqData.slider2.ang;
+      document.getElementById("iSlider3Mag").value = iSeqData.slider3.mag.toFixed(2);
+      document.getElementById("iSlider3Ang").value = iSeqData.slider3.ang;
+      document.getElementById("iSlider1MagVal").textContent = iSeqData.slider1.mag.toFixed(2);
+      document.getElementById("iSlider1AngVal").textContent = iSeqData.slider1.ang;
+      document.getElementById("iSlider2MagVal").textContent = iSeqData.slider2.mag.toFixed(2);
+      document.getElementById("iSlider2AngVal").textContent = iSeqData.slider2.ang;
+      document.getElementById("iSlider3MagVal").textContent = iSeqData.slider3.mag.toFixed(2);
+      document.getElementById("iSlider3AngVal").textContent = iSeqData.slider3.ang;
+    }
+  }
+  function onVoltageSliderChange(){
+    if(vMode === "phase"){
+      vPhaseData.slider1.mag = parseFloat(document.getElementById("vSlider1Mag").value);
+      vPhaseData.slider1.ang = parseFloat(document.getElementById("vSlider1Ang").value);
+      vPhaseData.slider2.mag = parseFloat(document.getElementById("vSlider2Mag").value);
+      vPhaseData.slider2.ang = parseFloat(document.getElementById("vSlider2Ang").value);
+      vPhaseData.slider3.mag = parseFloat(document.getElementById("vSlider3Mag").value);
+      vPhaseData.slider3.ang = parseFloat(document.getElementById("vSlider3Ang").value);
+      updateSeqDataFromPhaseData(vPhaseData, vSeqData);
+    } else {
+      vSeqData.slider1.mag = parseFloat(document.getElementById("vSlider1Mag").value);
+      vSeqData.slider1.ang = parseFloat(document.getElementById("vSlider1Ang").value);
+      vSeqData.slider2.mag = parseFloat(document.getElementById("vSlider2Mag").value);
+      vSeqData.slider2.ang = parseFloat(document.getElementById("vSlider2Ang").value);
+      vSeqData.slider3.mag = parseFloat(document.getElementById("vSlider3Mag").value);
+      vSeqData.slider3.ang = parseFloat(document.getElementById("vSlider3Ang").value);
+      updatePhaseDataFromSeqData(vSeqData, vPhaseData);
+    }
+    refreshVoltageSliders();
+  }
+  function onCurrentSliderChange(){
+    if(iMode === "phase"){
+      iPhaseData.slider1.mag = parseFloat(document.getElementById("iSlider1Mag").value);
+      iPhaseData.slider1.ang = parseFloat(document.getElementById("iSlider1Ang").value);
+      iPhaseData.slider2.mag = parseFloat(document.getElementById("iSlider2Mag").value);
+      iPhaseData.slider2.ang = parseFloat(document.getElementById("iSlider2Ang").value);
+      iPhaseData.slider3.mag = parseFloat(document.getElementById("iSlider3Mag").value);
+      iPhaseData.slider3.ang = parseFloat(document.getElementById("iSlider3Ang").value);
+      updateSeqDataFromPhaseData(iPhaseData, iSeqData);
+    } else {
+      iSeqData.slider1.mag = parseFloat(document.getElementById("iSlider1Mag").value);
+      iSeqData.slider1.ang = parseFloat(document.getElementById("iSlider1Ang").value);
+      iSeqData.slider2.mag = parseFloat(document.getElementById("iSlider2Mag").value);
+      iSeqData.slider2.ang = parseFloat(document.getElementById("iSlider2Ang").value);
+      iSeqData.slider3.mag = parseFloat(document.getElementById("iSlider3Mag").value);
+      iSeqData.slider3.ang = parseFloat(document.getElementById("iSlider3Ang").value);
+      updatePhaseDataFromSeqData(iSeqData, iPhaseData);
+    }
+    refreshCurrentSliders();
+  }
+  function onKsliderChange(){
+    kFactor = parseFloat(document.getElementById("kSlider").value);
+    document.getElementById("kSliderVal").textContent = kFactor.toFixed(1);
+  }
+  function onVoltageUnisonChange(){
+    voltageUnisonShift = parseFloat(document.getElementById("vUnisonShift").value);
+    document.getElementById("vUnisonVal").textContent = voltageUnisonShift + "°";
+    refreshVoltageSliders();
+  }
+  function onCurrentUnisonChange(){
+    currentUnisonShift = parseFloat(document.getElementById("iUnisonShift").value);
+    document.getElementById("iUnisonVal").textContent = currentUnisonShift + "°";
+    refreshCurrentSliders();
+  }
+
+  // Mho circle slider listeners
+  document.getElementById("mhoMagSlider").addEventListener("input", function(){
+    mhoCircleMag = parseFloat(this.value);
+    document.getElementById("mhoMagVal").textContent = mhoCircleMag.toFixed(1);
+  });
+  document.getElementById("mhoTorqueSlider").addEventListener("input", function(){
+    mhoCircleTorqueAngle = parseFloat(this.value);
+    document.getElementById("mhoTorqueVal").textContent = this.value + "°";
+  });
+
+  // Animate
+  function animate(timestamp){
+    requestAnimationFrame(animate);
+    let elapsedSec;
+    if (!paused) {
+      if(!startTime) startTime = timestamp;
+      elapsedSec = (timestamp - startTime) / 1000;
+      pausedElapsedSec = elapsedSec;
+    } else {
+      elapsedSec = pausedElapsedSec;
+    }
+    const rotAng = rotationSpeedRadPerSec * elapsedSec;
+    const eRot = { re: Math.cos(rotAng), im: Math.sin(rotAng) };
+
+    // --- Compute Voltage Phasors ---
+    let VAbase, VBbase, VCbase;
+    if(vMode === "phase"){
+      VAbase = cFromMagAng(vPhaseData.slider1.mag, mod360(vPhaseData.slider1.ang + voltageUnisonShift));
+      VBbase = cFromMagAng(vPhaseData.slider2.mag, mod360(vPhaseData.slider2.ang + voltageUnisonShift));
+      VCbase = cFromMagAng(vPhaseData.slider3.mag, mod360(vPhaseData.slider3.ang + voltageUnisonShift));
+    } else {
+      const V0 = cFromMagAng(vSeqData.slider1.mag, vSeqData.slider1.ang);
+      const V1 = cFromMagAng(vSeqData.slider2.mag, vSeqData.slider2.ang);
+      const V2 = cFromMagAng(vSeqData.slider3.mag, vSeqData.slider3.ang);
+      const phv = computePhaseFromSequence(V0, V1, V2);
+      let aMA = cToMagAng(phv.A); aMA.ang = mod360(aMA.ang + voltageUnisonShift);
+      let bMA = cToMagAng(phv.B); bMA.ang = mod360(bMA.ang + voltageUnisonShift);
+      let cMA = cToMagAng(phv.C); cMA.ang = mod360(cMA.ang + voltageUnisonShift);
+      VAbase = cFromMagAng(aMA.mag, aMA.ang);
+      VBbase = cFromMagAng(bMA.mag, bMA.ang);
+      VCbase = cFromMagAng(cMA.mag, cMA.ang);
+    }
+    const VA = cMul(VAbase, eRot);
+    const VB = cMul(VBbase, eRot);
+    const VC = cMul(VCbase, eRot);
+
+    // --- Compute Current Phasors ---
+    let IAbase, IBbase, ICbase;
+    if(iMode === "phase"){
+      IAbase = cFromMagAng(iPhaseData.slider1.mag, mod360(iPhaseData.slider1.ang + currentUnisonShift));
+      IBbase = cFromMagAng(iPhaseData.slider2.mag, mod360(iPhaseData.slider2.ang + currentUnisonShift));
+      ICbase = cFromMagAng(iPhaseData.slider3.mag, mod360(iPhaseData.slider3.ang + currentUnisonShift));
+    } else {
+      const I0 = cFromMagAng(iSeqData.slider1.mag, iSeqData.slider1.ang);
+      const I1 = cFromMagAng(iSeqData.slider2.mag, iSeqData.slider2.ang);
+      const I2 = cFromMagAng(iSeqData.slider3.mag, iSeqData.slider3.ang);
+      const phI = computePhaseFromSequence(I0, I1, I2);
+      let aMI = cToMagAng(phI.A); aMI.ang = mod360(aMI.ang + currentUnisonShift);
+      let bMI = cToMagAng(phI.B); bMI.ang = mod360(bMI.ang + currentUnisonShift);
+      let cMI = cToMagAng(phI.C); cMI.ang = mod360(cMI.ang + currentUnisonShift);
+      IAbase = cFromMagAng(aMI.mag, aMI.ang);
+      IBbase = cFromMagAng(bMI.mag, bMI.ang);
+      ICbase = cFromMagAng(cMI.mag, cMI.ang);
+    }
+    const IA = cMul(IAbase, eRot);
+    const IB = cMul(IBbase, eRot);
+    const IC = cMul(ICbase, eRot);
+
+    // --- Update Voltage Polar Info ---
+    const vAang = cToMagAng(VA);
+    drawPolar(document.getElementById("vCanvasA").getContext("2d"), vAang.mag, degToRad(vAang.ang), "red");
+    document.getElementById("vInfoA").innerHTML = vAang.mag.toFixed(2) + "&lt;" + Math.round(vAang.ang) + "°";
+    document.getElementById("vInfoA").style.color = "red";
+
+    const vBang = cToMagAng(VB);
+    drawPolar(document.getElementById("vCanvasB").getContext("2d"), vBang.mag, degToRad(vBang.ang), "blue");
+    document.getElementById("vInfoB").innerHTML = vBang.mag.toFixed(2) + "&lt;" + Math.round(vBang.ang) + "°";
+    document.getElementById("vInfoB").style.color = "blue";
+
+    const vCang = cToMagAng(VC);
+    drawPolar(document.getElementById("vCanvasC").getContext("2d"), vCang.mag, degToRad(vCang.ang), "green");
+    document.getElementById("vInfoC").innerHTML = vCang.mag.toFixed(2) + "&lt;" + Math.round(vCang.ang) + "°";
+    document.getElementById("vInfoC").style.color = "green";
+
+    const scV = computeSequenceComponents(VA, VB, VC);
+    const v0ang = cToMagAng(scV.I0);
+    drawPolar(document.getElementById("vCanvas0").getContext("2d"), v0ang.mag, degToRad(v0ang.ang), "orange");
+    document.getElementById("vInfo0").innerHTML = v0ang.mag.toFixed(2) + "&lt;" + Math.round(v0ang.ang) + "°";
+    document.getElementById("vInfo0").style.color = "orange";
+
+    const v1ang = cToMagAng(scV.I1);
+    drawPolar(document.getElementById("vCanvas1").getContext("2d"), v1ang.mag, degToRad(v1ang.ang), "purple");
+    document.getElementById("vInfo1").innerHTML = v1ang.mag.toFixed(2) + "&lt;" + Math.round(v1ang.ang) + "°";
+    document.getElementById("vInfo1").style.color = "purple";
+
+    const v2ang = cToMagAng(scV.I2);
+    drawPolar(document.getElementById("vCanvas2").getContext("2d"), v2ang.mag, degToRad(v2ang.ang), "brown");
+    document.getElementById("vInfo2").innerHTML = v2ang.mag.toFixed(2) + "&lt;" + Math.round(v2ang.ang) + "°";
+    document.getElementById("vInfo2").style.color = "brown";
+
+    // --- Update Current Polar Info ---
+    const iAang = cToMagAng(IA);
+    drawPolar(document.getElementById("iCanvasA").getContext("2d"), iAang.mag, degToRad(iAang.ang), "red");
+    document.getElementById("iInfoA").innerHTML = iAang.mag.toFixed(2) + "&lt;" + Math.round(iAang.ang) + "°";
+    document.getElementById("iInfoA").style.color = "red";
+
+    const iBang = cToMagAng(IB);
+    drawPolar(document.getElementById("iCanvasB").getContext("2d"), iBang.mag, degToRad(iBang.ang), "blue");
+    document.getElementById("iInfoB").innerHTML = iBang.mag.toFixed(2) + "&lt;" + Math.round(iBang.ang) + "°";
+    document.getElementById("iInfoB").style.color = "blue";
+
+    const iCang = cToMagAng(IC);
+    drawPolar(document.getElementById("iCanvasC").getContext("2d"), iCang.mag, degToRad(iCang.ang), "green");
+    document.getElementById("iInfoC").innerHTML = iCang.mag.toFixed(2) + "&lt;" + Math.round(iCang.ang) + "°";
+    document.getElementById("iInfoC").style.color = "green";
+
+    const scI = computeSequenceComponents(IA, IB, IC);
+    const i0ang = cToMagAng(scI.I0);
+    drawPolar(document.getElementById("iCanvas0").getContext("2d"), i0ang.mag, degToRad(i0ang.ang), "orange");
+    document.getElementById("iInfo0").innerHTML = i0ang.mag.toFixed(2) + "&lt;" + Math.round(i0ang.ang) + "°";
+    document.getElementById("iInfo0").style.color = "orange";
+
+    const i1ang = cToMagAng(scI.I1);
+    drawPolar(document.getElementById("iCanvas1").getContext("2d"), i1ang.mag, degToRad(i1ang.ang), "purple");
+    document.getElementById("iInfo1").innerHTML = i1ang.mag.toFixed(2) + "&lt;" + Math.round(i1ang.ang) + "°";
+    document.getElementById("iInfo1").style.color = "purple";
+
+    const i2ang = cToMagAng(scI.I2);
+    drawPolar(document.getElementById("iCanvas2").getContext("2d"), i2ang.mag, degToRad(i2ang.ang), "brown");
+    document.getElementById("iInfo2").innerHTML = i2ang.mag.toFixed(2) + "&lt;" + Math.round(i2ang.ang) + "°";
+    document.getElementById("iInfo2").style.color = "brown";
+
+    // --- Voltage Oscillography (Time-Domain) ---
+    const Tstart = elapsedSec, Tend = elapsedSec + 30, N = 200;
+    const times = [], vAreal = [], vBreal = [], vCreal = [];
+    for(let i=0; i<N; i++){
+      const t = Tstart + i*(Tend-Tstart)/(N-1);
+      times.push(t);
+      let VaP, VbP, VcP;
+      if(vMode==="phase"){
+        VaP = cFromMagAng(vPhaseData.slider1.mag, vPhaseData.slider1.ang);
+        VbP = cFromMagAng(vPhaseData.slider2.mag, vPhaseData.slider2.ang);
+        VcP = cFromMagAng(vPhaseData.slider3.mag, vPhaseData.slider3.ang);
+      } else {
+        const V0x = cFromMagAng(vSeqData.slider1.mag, vSeqData.slider1.ang);
+        const V1x = cFromMagAng(vSeqData.slider2.mag, vSeqData.slider2.ang);
+        const V2x = cFromMagAng(vSeqData.slider3.mag, vSeqData.slider3.ang);
+        const phv2 = computePhaseFromSequence(V0x, V1x, V2x);
+        VaP = phv2.A; VbP = phv2.B; VcP = phv2.C;
+      }
+      const angleT = rotationSpeedRadPerSec*t;
+      const eR2 = { re: Math.cos(angleT), im: Math.sin(angleT) };
+      const Va_t = cMul(VaP, eR2);
+      const Vb_t = cMul(VbP, eR2);
+      const Vc_t = cMul(VcP, eR2);
+      vAreal.push(Va_t.re);
+      vBreal.push(Vb_t.re);
+      vCreal.push(Vc_t.re);
+    }
+    const dataSeriesV = [
+      { data: vAreal, color: "red" },
+      { data: vBreal, color: "blue" },
+      { data: vCreal, color: "green" }
+    ];
+    drawMultipleWaveforms(document.getElementById("vCanvasOscTime").getContext("2d"), times, dataSeriesV, -3, 3);
+
+    // --- Current Oscillography (Time-Domain) ---
+    const TstartI = elapsedSec, TendI = elapsedSec + 30, NI = 200;
+    const timesI = [], iAreal = [], iBreal = [], iCreal = [];
+    for(let i=0; i<NI; i++){
+      const t = TstartI + i*(TendI - TstartI)/(NI-1);
+      timesI.push(t);
+      let IaP, IbP, IcP;
+      if(iMode==="phase"){
+        IaP = cFromMagAng(iPhaseData.slider1.mag, iPhaseData.slider1.ang);
+        IbP = cFromMagAng(iPhaseData.slider2.mag, iPhaseData.slider2.ang);
+        IcP = cFromMagAng(iPhaseData.slider3.mag, iPhaseData.slider3.ang);
+      } else {
+        const I0b = cFromMagAng(iSeqData.slider1.mag, iSeqData.slider1.ang);
+        const I1b = cFromMagAng(iSeqData.slider2.mag, iSeqData.slider2.ang);
+        const I2b = cFromMagAng(iSeqData.slider3.mag, iSeqData.slider3.ang);
+        const phIX = computePhaseFromSequence(I0b, I1b, I2b);
+        IaP = phIX.A; IbP = phIX.B; IcP = phIX.C;
+      }
+      const angleTx = rotationSpeedRadPerSec*t;
+      const eRx = { re: Math.cos(angleTx), im: Math.sin(angleTx) };
+      const Ia_t = cMul(IaP, eRx);
+      const Ib_t = cMul(IbP, eRx);
+      const Ic_t = cMul(IcP, eRx);
+      iAreal.push(Ia_t.re);
+      iBreal.push(Ib_t.re);
+      iCreal.push(Ic_t.re);
+    }
+    const dataSeriesI = [
+      { data: iAreal, color: "red" },
+      { data: iBreal, color: "blue" },
+      { data: iCreal, color: "green" }
+    ];
+    drawMultipleWaveforms(document.getElementById("iCanvasOscTime").getContext("2d"), timesI, dataSeriesI, -3, 3);
+
+    // --- Phase Distance Plot (Impedance) ---
+    const Zab = [], Zbc = [], Zca = [];
+    for(let i=0; i<200; i++){
+      const t = Tstart + i*(Tend - Tstart)/199;
+      const angleT = rotationSpeedRadPerSec * t;
+      const eR2 = { re: Math.cos(angleT), im: Math.sin(angleT) };
+      let VaB, VbB, VcB;
+      if(vMode==="phase"){
+        VaB = cFromMagAng(vPhaseData.slider1.mag, mod360(vPhaseData.slider1.ang+voltageUnisonShift));
+        VbB = cFromMagAng(vPhaseData.slider2.mag, mod360(vPhaseData.slider2.ang+voltageUnisonShift));
+        VcB = cFromMagAng(vPhaseData.slider3.mag, mod360(vPhaseData.slider3.ang+voltageUnisonShift));
+      } else {
+        VaB = cFromMagAng(vSeqData.slider1.mag, vSeqData.slider1.ang);
+        VbB = cFromMagAng(vSeqData.slider2.mag, vSeqData.slider2.ang);
+        VcB = cFromMagAng(vSeqData.slider3.mag, vSeqData.slider3.ang);
+      }
+      const Va_t = cMul(VaB, eR2);
+      const Vb_t = cMul(VbB, eR2);
+      const Vc_t = cMul(VcB, eR2);
+      let IaB, IbB, IcB;
+      if(iMode==="phase"){
+        IaB = cFromMagAng(iPhaseData.slider1.mag, mod360(iPhaseData.slider1.ang+currentUnisonShift));
+        IbB = cFromMagAng(iPhaseData.slider2.mag, mod360(iPhaseData.slider2.ang+currentUnisonShift));
+        IcB = cFromMagAng(iPhaseData.slider3.mag, mod360(iPhaseData.slider3.ang+currentUnisonShift));
+      } else {
+        IaB = cFromMagAng(iSeqData.slider1.mag, iSeqData.slider1.ang);
+        IbB = cFromMagAng(iSeqData.slider2.mag, iSeqData.slider2.ang);
+        IcB = cFromMagAng(iSeqData.slider3.mag, iSeqData.slider3.ang);
+      }
+      const Ia_t = cMul(IaB, eR2);
+      const Ib_t = cMul(IbB, eR2);
+      const Ic_t = cMul(IcB, eR2);
+      if(rotation==="ABC"){
+        const dvAB = cSub(Va_t, Vb_t);
+        const diAB = cSub(Ia_t, Ib_t);
+        Zab.push(cDiv(dvAB, diAB));
+        const dvBC = cSub(Vb_t, Vc_t);
+        const diBC = cSub(Ib_t, Ic_t);
+        Zbc.push(cDiv(dvBC, diBC));
+        const dvCA = cSub(Vc_t, Va_t);
+        const diCA = cSub(Ic_t, Ia_t);
+        Zca.push(cDiv(dvCA, diCA));
+      } else {
+        const dvCB = cSub(Vc_t, Vb_t);
+        const diCB = cSub(Ic_t, Ib_t);
+        Zab.push(cDiv(dvCB, diCB));
+        const dvBA = cSub(Vb_t, Va_t);
+        const diBA = cSub(Ib_t, Ia_t);
+        Zbc.push(cDiv(dvBA, diBA));
+        const dvAC = cSub(Va_t, Vc_t);
+        const diAC = cSub(Ia_t, Ic_t);
+        Zca.push(cDiv(dvAC, diAC));
+      }
+    }
+    drawDistancePlot(document.getElementById("distanceCanvas").getContext("2d"), Zab, Zbc, Zca);
+
+    // --- Ground Distance Plot (Impedance) ---
+    const Zag = [], Zbg = [], Zcg = [];
+    for(let i=0; i<200; i++){
+      const t = Tstart + i*(Tend - Tstart)/199;
+      const angleT = rotationSpeedRadPerSec * t;
+      const eR2 = { re: Math.cos(angleT), im: Math.sin(angleT) };
+      let VaB, VbB, VcB;
+      if(vMode==="phase"){
+        VaB = cFromMagAng(vPhaseData.slider1.mag, mod360(vPhaseData.slider1.ang+voltageUnisonShift));
+        VbB = cFromMagAng(vPhaseData.slider2.mag, mod360(vPhaseData.slider2.ang+voltageUnisonShift));
+        VcB = cFromMagAng(vPhaseData.slider3.mag, mod360(vPhaseData.slider3.ang+voltageUnisonShift));
+      } else {
+        VaB = cFromMagAng(vSeqData.slider1.mag, vSeqData.slider1.ang);
+        VbB = cFromMagAng(vSeqData.slider2.mag, vSeqData.slider2.ang);
+        VcB = cFromMagAng(vSeqData.slider3.mag, vSeqData.slider3.ang);
+      }
+      const Va_t = cMul(VaB, eR2);
+      const Vb_t = cMul(VbB, eR2);
+      const Vc_t = cMul(VcB, eR2);
+      let IaB, IbB, IcB;
+      if(iMode==="phase"){
+        IaB = cFromMagAng(iPhaseData.slider1.mag, mod360(iPhaseData.slider1.ang+currentUnisonShift));
+        IbB = cFromMagAng(iPhaseData.slider2.mag, mod360(iPhaseData.slider2.ang+currentUnisonShift));
+        IcB = cFromMagAng(iPhaseData.slider3.mag, mod360(iPhaseData.slider3.ang+currentUnisonShift));
+      } else {
+        IaB = cFromMagAng(iSeqData.slider1.mag, iSeqData.slider1.ang);
+        IbB = cFromMagAng(iSeqData.slider2.mag, iSeqData.slider2.ang);
+        IcB = cFromMagAng(iSeqData.slider3.mag, iSeqData.slider3.ang);
+      }
+      const Ia_t = cMul(IaB, eR2);
+      const Ib_t = cMul(IbB, eR2);
+      const Ic_t = cMul(IcB, eR2);
+      const I0_t = { re: (Ia_t.re+Ib_t.re+Ic_t.re)/3, im: (Ia_t.im+Ib_t.im+Ic_t.im)/3 };
+      if(rotation==="ABC"){
+        Zag.push(cDiv(Va_t, cAdd(Ia_t, cMulScalar(I0_t, kFactor))));
+        Zbg.push(cDiv(Vb_t, cAdd(Ib_t, cMulScalar(I0_t, kFactor))));
+        Zcg.push(cDiv(Vc_t, cAdd(Ic_t, cMulScalar(I0_t, kFactor))));
+      } else {
+        Zag.push(cDiv(Vc_t, cAdd(Ic_t, cMulScalar(I0_t, kFactor))));
+        Zbg.push(cDiv(Vb_t, cAdd(Ib_t, cMulScalar(I0_t, kFactor))));
+        Zcg.push(cDiv(Va_t, cAdd(Ia_t, cMulScalar(I0_t, kFactor))));
+      }
+    }
+    drawDistancePlot(document.getElementById("distanceCanvasGnd").getContext("2d"), Zag, Zbg, Zcg);
+
+    // Draw the Mho Circle on both impedance plots.
+    drawMhoCircle(document.getElementById("distanceCanvas").getContext("2d"));
+    drawMhoCircle(document.getElementById("distanceCanvasGnd").getContext("2d"));
+
+    // Update Phase Distance Plot Vector Labels
+    let phaseLabelsHTML = "";
+    if(rotation==="ABC"){
+      if(Zab.length > 0) {
+        const zMid = Zab[Math.floor(Zab.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:red;">A-B: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zbc.length > 0) {
+        const zMid = Zbc[Math.floor(Zbc.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:green;">B-C: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zca.length > 0) {
+        const zMid = Zca[Math.floor(Zca.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:blue;">C-A: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+    } else {
+      if(Zab.length > 0) {
+        const zMid = Zab[Math.floor(Zab.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:red;">C-B: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zbc.length > 0) {
+        const zMid = Zbc[Math.floor(Zbc.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:green;">B-A: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zca.length > 0) {
+        const zMid = Zca[Math.floor(Zca.length/2)];
+        const zMA = cToMagAng(zMid);
+        phaseLabelsHTML += '<div class="vector-label" style="color:blue;">A-C: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+    }
+    document.getElementById("impedanceInfoPhase").innerHTML = phaseLabelsHTML;
+
+    // Update Ground Distance Plot Vector Labels
+    let groundLabelsHTML = "";
+    if(rotation==="ABC"){
+      if(Zag.length > 0) {
+        const zMid = Zag[Math.floor(Zag.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:red;">A-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zbg.length > 0) {
+        const zMid = Zbg[Math.floor(Zbg.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:green;">B-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zcg.length > 0) {
+        const zMid = Zcg[Math.floor(Zcg.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:blue;">C-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+    } else {
+      if(Zag.length > 0) {
+        const zMid = Zag[Math.floor(Zag.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:red;">C-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zbg.length > 0) {
+        const zMid = Zbg[Math.floor(Zbg.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:green;">B-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+      if(Zcg.length > 0) {
+        const zMid = Zcg[Math.floor(Zcg.length/2)];
+        const zMA = cToMagAng(zMid);
+        groundLabelsHTML += '<div class="vector-label" style="color:blue;">A-G: ' +
+          zMA.mag.toFixed(2) + '&lt;' + Math.round(zMA.ang) + '°</div>';
+      }
+    }
+    document.getElementById("impedanceInfoGround").innerHTML = groundLabelsHTML;
+  }
+
+
+  // ------------------ Initialization ------------------
+  function init(){
+    // Basic buttons
+    document.getElementById("pauseBtn").addEventListener("click", togglePause);
+    document.getElementById("abcBtn").addEventListener("click", () => setRotation("ABC"));
+    document.getElementById("cbaBtn").addEventListener("click", () => setRotation("CBA"));
+    // Mode buttons for Voltage and Current
+    document.getElementById("voltagePhaseModeBtn").addEventListener("click", () => setVoltageMode("phase"));
+    document.getElementById("voltageSeqModeBtn").addEventListener("click", () => setVoltageMode("sequence"));
+    document.getElementById("currentPhaseModeBtn").addEventListener("click", () => setCurrentMode("phase"));
+    document.getElementById("currentSeqModeBtn").addEventListener("click", () => setCurrentMode("sequence"));
+    
+    // Slider event listeners for voltage and current
+    ["vSlider1Mag","vSlider1Ang","vSlider2Mag","vSlider2Ang","vSlider3Mag","vSlider3Ang"]
+      .forEach(id => document.getElementById(id).addEventListener("input", onVoltageSliderChange));
+    ["iSlider1Mag","iSlider1Ang","iSlider2Mag","iSlider2Ang","iSlider3Mag","iSlider3Ang"]
+      .forEach(id => document.getElementById(id).addEventListener("input", onCurrentSliderChange));
+    
+    document.getElementById("vUnisonShift").addEventListener("input", onVoltageUnisonChange);
+    document.getElementById("iUnisonShift").addEventListener("input", onCurrentUnisonChange);
+    document.getElementById("kSlider").addEventListener("input", onKsliderChange);
+    
+    updateSeqDataFromPhaseData(vPhaseData, vSeqData);
+    updateSeqDataFromPhaseData(iPhaseData, iSeqData);
+    refreshVoltageSliders();
+    refreshCurrentSliders();
+    updateDistanceLegend();
+    updateDistanceLegendG();
+    requestAnimationFrame(animate);
+  }
+
+  init();
+</script>
+
+<!-- Include header.js and ticker.js files -->
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+</body>
+</html>

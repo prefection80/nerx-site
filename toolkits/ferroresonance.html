@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ferroresonance — Nonlinear RLC Bench</title>
+<style>
+  :root{
+    --bg:#0a0f14; --panel:#111a21; --panel2:#0d151b; --sunk:#0a1218;
+    --line:#20303a; --grid:#152229; --gridhot:#1d2f38;
+    --ink:#e2eaed; --dim:#7f939e; --faint:#485a64;
+    --src:#e7b04a;      /* source voltage - amber */
+    --node:#31d5e6;     /* node overvoltage - cyan */
+    --flux:#b98cff;     /* flux linkage - violet */
+    --mag:#8fe04a;      /* magnetizing current - lime */
+    --hot:#ff5b3c;      /* ignition / overvoltage */
+    --ok:#39d29a;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased}
+  body{padding:18px 18px 60px;max-width:1180px;margin:0 auto} /* extra bottom padding for fixed ticker bar */
+  a{color:var(--node)}
+
+  /* ---- header ---- */
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+    gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+  .title h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0 0 4px}
+  .title .sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.02em}
+  .metrics{display:flex;gap:22px;flex-wrap:wrap}
+  .metric{min-width:78px}
+  .metric .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+  .metric .v{font-family:var(--mono);font-size:19px;font-weight:600;line-height:1;
+    font-variant-numeric:tabular-nums}
+  .metric .u{font-size:11px;color:var(--faint);font-weight:400}
+  #stateBadge{padding:5px 11px;border-radius:6px;font-family:var(--mono);font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);
+    color:var(--ok);white-space:nowrap;transition:color .25s,border-color .25s,background .25s}
+
+  /* ---- layout ---- */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+    padding:12px 13px 13px;position:relative}
+  .panel h2{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--dim);margin:0 0 9px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  .panel h2 .hint{color:var(--faint);letter-spacing:.04em;text-transform:none;font-size:10px}
+  canvas{display:block;width:100%;border-radius:6px;background:var(--sunk)}
+  #scope{height:300px} #sat,#phase{height:260px} #jump{height:200px}
+  svg{display:block;width:100%;height:300px;background:var(--sunk);border-radius:6px}
+
+  /* ---- controls ---- */
+  .controls{margin-top:14px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:11px;padding:14px}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .preset{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);
+    background:var(--sunk);border:1px solid var(--line);border-radius:7px;padding:8px 13px;
+    cursor:pointer;transition:.15s;text-align:left;line-height:1.35}
+  .preset b{display:block;color:var(--ink);font-weight:600;letter-spacing:.02em;margin-bottom:2px}
+  .preset:hover{border-color:var(--faint);color:var(--ink)}
+  .preset.active{border-color:var(--node);color:var(--ink);
+    box-shadow:0 0 0 1px var(--node) inset, 0 0 18px -8px var(--node)}
+  .preset.active b{color:var(--node)}
+
+  .sliders{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px}
+  .ctl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;
+    color:var(--dim);margin-bottom:5px;letter-spacing:.02em}
+  .ctl label .val{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;
+    background:var(--line);outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--ink);border:2px solid var(--panel);cursor:pointer;transition:.12s}
+  input[type=range]::-webkit-slider-thumb:hover{background:var(--node)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ink);
+    border:2px solid var(--panel);cursor:pointer}
+  input[type=range]:focus-visible{box-shadow:0 0 0 2px var(--node)}
+
+  .buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  button.act{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--ink);
+    background:var(--sunk);border:1px solid var(--line);border-radius:7px;padding:8px 13px;cursor:pointer;transition:.15s}
+  button.act:hover{border-color:var(--faint)}
+  button.act:focus-visible{outline:none;box-shadow:0 0 0 2px var(--node)}
+  button.act.hot{color:var(--hot);border-color:#3a2622}
+  button.act.hot:hover{border-color:var(--hot)}
+  .toggles{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap}
+  .tg.spd{gap:9px}
+  .tg.spd input[type=range]{width:96px}
+  .spdval{color:var(--ink);font-variant-numeric:tabular-nums;min-width:32px}
+  .tg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer}
+  .tg input{accent-color:var(--node)}
+  .swatch{width:16px;height:3px;border-radius:2px;display:inline-block}
+
+  .readouts{display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .ro{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+  .ro b{color:var(--ink);font-weight:600}
+
+  .exportbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+  .exlabel{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  select#exView,select#exRes{font-family:var(--mono);font-size:11px;background:var(--sunk);color:var(--ink);
+    border:1px solid var(--line);border-radius:7px;padding:7px 9px;cursor:pointer;outline:none}
+  select#exView:focus-visible,select#exRes:focus-visible{box-shadow:0 0 0 2px var(--node)}
+  .exdur{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .exdur input[type=range]{width:88px}
+  #vExDur{color:var(--ink);min-width:22px;font-variant-numeric:tabular-nums}
+  .exstatus{font-family:var(--mono);font-size:11px;color:var(--node);min-width:110px;letter-spacing:.02em}
+  button.act:disabled{opacity:.4;cursor:default}
+  select:disabled,input:disabled{opacity:.5}
+
+  .legend{position:absolute;top:11px;right:13px;display:flex;gap:12px;font-family:var(--mono);
+    font-size:9.5px;color:var(--dim);letter-spacing:.03em}
+  .legend span{display:flex;align-items:center;gap:5px}
+
+  footer{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.03em;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+  /* ---- explainer ---- */
+  .explainer{margin-top:16px;color:#a7b5bd;font-size:13px;line-height:1.62}
+  .explainer .lead{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--dim);margin:26px 0 12px;font-weight:600;
+    display:flex;align-items:center;gap:10px}
+  .explainer .lead::after{content:"";flex:1;height:1px;background:var(--line)}
+  .exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .exp-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 14px 14px}
+  .exp-card.wide{grid-column:1 / -1}
+  .exp-card h3{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);margin:0 0 7px;font-weight:600}
+  .exp-card p{margin:0 0 8px}
+  .exp-card p:last-child{margin-bottom:0}
+  .eqblock{background:var(--sunk);border:1px solid var(--line);border-radius:8px;
+    padding:11px 13px;margin:2px 0 10px}
+  .eqrow{font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink);
+    letter-spacing:.01em}
+  .eqrow .an{color:var(--faint);font-size:11px}
+  .m{font-family:var(--mono);font-size:.95em;color:var(--ink);letter-spacing:.01em}
+  .t-src{color:var(--src)} .t-node{color:var(--node)} .t-flux{color:var(--flux)} .t-mag{color:var(--mag)}
+  dl.optlist{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:0;align-items:baseline}
+  dl.optlist dt{font-family:var(--mono);font-size:11.5px;color:var(--node);white-space:nowrap;letter-spacing:.02em}
+  dl.optlist dd{margin:0}
+  dl.optlist dt.hot{color:var(--hot)}
+
+  @media (max-width:820px){
+    .g2{grid-template-columns:1fr}
+    .sliders{grid-template-columns:1fr 1fr}
+    .metrics{gap:16px}
+    .toggles{margin-left:0}
+    .exp-grid{grid-template-columns:1fr}
+    dl.optlist{grid-template-columns:1fr;gap:2px 0}
+    dl.optlist dd{margin-bottom:8px}
+  }
+  @media (max-width:520px){ .sliders{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1>Ferroresonance in a nonlinear RLC circuit</h1>
+    <div class="sub">series R–L feeding a parallel node: C ∥ saturable L(λ) ∥ R<sub>p</sub> · real-time RK4</div>
+  </div>
+  <div style="display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap">
+    <div class="metrics">
+      <div class="metric"><div class="k">V node pk</div><div class="v"><span id="mVpk">0.00</span> <span class="u">pu</span></div></div>
+      <div class="metric"><div class="k">Flux pk</div><div class="v"><span id="mLpk">0.00</span> <span class="u">λ</span></div></div>
+      <div class="metric"><div class="k">Mode</div><div class="v" style="font-size:14px"><span id="mMode">—</span></div></div>
+    </div>
+    <div id="stateBadge">nominal</div>
+  </div>
+</header>
+
+<div class="grid g2">
+  <div class="panel">
+    <h2>Circuit <span class="hint">current flow · node glow · core saturation</span></h2>
+    <svg id="sch" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="panel">
+    <h2>Oscilloscope <span class="hint">time → cycles</span></h2>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--src)"></i>Vsrc</span>
+      <span><i class="swatch" style="background:var(--node)"></i>Vnode</span>
+      <span id="lgFlux"><i class="swatch" style="background:var(--flux)"></i>λ</span>
+      <span id="lgMag"><i class="swatch" style="background:var(--mag)"></i>i<sub>L</sub></span>
+    </div>
+    <canvas id="scope" height="300"></canvas>
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:14px">
+  <div class="panel">
+    <h2>Saturation characteristic <span class="hint">i<sub>L</sub> = aλ + bλ<sup>q</sup></span></h2>
+    <canvas id="sat" height="260"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Phase portrait <span class="hint">v vs λ · ○ = once-per-cycle sample</span></h2>
+    <canvas id="phase" height="260"></canvas>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="panel">
+    <h2>Ignition curve — V<sub>node,pk</sub> vs V<sub>source</sub> <span class="hint">the ferroresonance jump &amp; hysteresis (uses current C, L, R<sub>p</sub>, core)</span></h2>
+    <canvas id="jump" height="200"></canvas>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="presets" id="presets"></div>
+
+  <div class="sliders">
+    <div class="ctl"><label>V source <span class="val"><span id="vVm">2.00</span> pu</span></label><input id="sVm" type="range" min="0.2" max="3" step="0.02" value="2"></div>
+    <div class="ctl"><label>Parallel C <span class="val"><span id="vC">1.60</span> pu</span></label><input id="sC" type="range" min="0.2" max="3" step="0.02" value="1.6"></div>
+    <div class="ctl"><label>Series L <span class="val"><span id="vLs">0.10</span> pu</span></label><input id="sLs" type="range" min="0.03" max="0.5" step="0.01" value="0.1"></div>
+    <div class="ctl"><label>Loss R<sub>p</sub> <span class="val"><span id="vRp">40</span> pu</span></label><input id="sRp" type="range" min="-0.4" max="3.08" step="0.005" value="1.602"></div>
+    <div class="ctl"><label>Sat. sharpness q <span class="val"><span id="vq">7</span></span></label><input id="sq" type="range" min="3" max="13" step="2" value="7"></div>
+    <div class="ctl"><label>Knee flux λ<sub>k</sub> <span class="val"><span id="vknee">1.15</span></span></label><input id="sknee" type="range" min="0.7" max="1.6" step="0.01" value="1.15"></div>
+  </div>
+
+  <div class="buttons">
+    <button class="act" id="btnPause">Pause</button>
+    <button class="act" id="btnReset">Reset state</button>
+    <button class="act hot" id="btnKick">⚡ Switching event</button>
+    <button class="act" id="btnSweep">Sweep ignition curve</button>
+    <div class="toggles">
+      <label class="tg"><input type="checkbox" id="tgFlux" checked> flux λ</label>
+      <label class="tg"><input type="checkbox" id="tgMag"> current i<sub>L</sub></label>
+      <label class="tg spd">speed <input id="sSpeed" type="range" min="0.1" max="4" step="0.1" value="1"><span id="vSpeed" class="spdval">1.0×</span></label>
+    </div>
+  </div>
+
+  <div class="readouts">
+    <div class="ro">X<sub>C</sub> = <b id="roXc">0.63</b></div>
+    <div class="ro">X<sub>Ls</sub> = <b id="roXls">0.10</b></div>
+    <div class="ro">X<sub>m</sub><span style="color:var(--faint)">(unsat)</span> = <b id="roXm">11.1</b></div>
+    <div class="ro">i<sub>L</sub> pk = <b id="roIl">0.0</b></div>
+    <div class="ro">V node rms = <b id="roVrms">0.00</b></div>
+    <div class="ro" id="roSweep" style="color:var(--faint)"></div>
+  </div>
+
+  <div class="exportbar">
+    <span class="exlabel">Export</span>
+    <select id="exView">
+      <option value="circuit">Circuit</option>
+      <option value="scope">Oscilloscope</option>
+      <option value="phase">Phase portrait</option>
+      <option value="sat">Saturation</option>
+      <option value="jump">Ignition curve</option>
+      <option value="cs">Circuit + scope</option>
+      <option value="ssp">Scope + sat + phase</option>
+      <option value="all">All four (2×2)</option>
+    </select>
+    <select id="exRes" title="output width">
+      <option value="480">480px</option>
+      <option value="720" selected>720px</option>
+      <option value="1080">1080px</option>
+    </select>
+    <label class="exdur">length <input id="exDur" type="range" min="1" max="8" step="1" value="3"><span id="vExDur">3s</span></label>
+    <button class="act" id="btnGif">Export GIF</button>
+    <button class="act" id="btnVid">Export video</button>
+    <span id="exStatus" class="exstatus"></span>
+  </div>
+</div>
+
+<section class="explainer">
+
+  <div class="lead">The model</div>
+  <div class="exp-grid">
+    <div class="exp-card wide">
+      <h3>State equations</h3>
+      <p>Three coupled first-order ODEs carry the circuit state <span class="m">[<span class="t-mag">i<sub>s</sub></span>, <span class="t-node">v</span>, <span class="t-flux">λ</span>]</span> — series current, node voltage, and core flux linkage. Colours match the oscilloscope traces.</p>
+      <div class="eqblock">
+        <div class="eqrow">L<sub>s</sub> · d<span class="t-mag">i<sub>s</sub></span>/dt = <span class="t-src">V<sub>m</sub> sin ωt</span> − R<sub>s</sub> <span class="t-mag">i<sub>s</sub></span> − <span class="t-node">v</span> &nbsp;<span class="an">series loop: source drives R<sub>s</sub>–L<sub>s</sub> against the node</span></div>
+        <div class="eqrow">C · d<span class="t-node">v</span>/dt = <span class="t-mag">i<sub>s</sub></span> − i<sub>L</sub>(<span class="t-flux">λ</span>) − <span class="t-node">v</span>/R<sub>p</sub> &nbsp;<span class="an">KCL at node A: capacitor, magnetizing branch, loss</span></div>
+        <div class="eqrow">d<span class="t-flux">λ</span>/dt = <span class="t-node">v</span> &nbsp;<span class="an">flux linkage is the integral of coil voltage</span></div>
+      </div>
+      <p>Integrated with fixed-step RK4 at <span class="m">Δt = 0.004</span> (≈1570 steps per cycle), verified step-size-robust so the jumps and chaos are real features of the equations, not numerical artifacts.</p>
+    </div>
+
+    <div class="exp-card">
+      <h3>The nonlinearity (the whole event)</h3>
+      <p>The magnetizing branch is a saturable inductor. Below the knee the linear term dominates and it looks like a large fixed inductance; past the knee the power term explodes and it draws huge current for tiny extra flux — the core has saturated.</p>
+      <div class="eqblock">
+        <div class="eqrow">i<sub>L</sub>(<span class="t-flux">λ</span>) = a·<span class="t-flux">λ</span> + b·sign(<span class="t-flux">λ</span>)·|<span class="t-flux">λ</span>|<sup>q</sup></div>
+        <div class="eqrow">b = a / λ<sub>k</sub><sup>(q−1)</sup> &nbsp;<span class="an">pins the knee at λ = λ<sub>k</sub></span></div>
+      </div>
+      <p>Pinning <span class="m">b</span> this way makes the two terms equal exactly at the knee flux, so slope <span class="m">a</span> and knee <span class="m">λ<sub>k</sub></span> move independently and the knee is a real physical location.</p>
+    </div>
+
+    <div class="exp-card">
+      <h3>Why it resonates</h3>
+      <p>The parallel C sees a magnetizing reactance that changes with voltage amplitude. Below the knee <span class="m">X<sub>m</sub></span> is enormous and nowhere near <span class="m">X<sub>C</sub></span> — no resonance. Drive the node hard enough to saturate the core and <span class="m">X<sub>m</sub></span> collapses toward <span class="m">X<sub>C</sub></span>; the parallel tank crosses resonance and sustains overvoltage.</p>
+      <p>Because the reactance depends on the very state it controls, you get the jump, the hysteresis, and the subharmonic and chaotic orbits. Normalized to <span class="m">ω = 1 pu</span>, so one source cycle = 2π time units and the scope's x-axis is <span class="m">t/2π</span>.</p>
+    </div>
+  </div>
+
+  <div class="lead">The plots</div>
+  <div class="exp-grid">
+    <div class="exp-card">
+      <h3>Circuit schematic</h3>
+      <p>Wire dashes move at a rate set by instantaneous <span class="t-mag">i<sub>s</sub></span>, so current visibly stalls and surges. Node A glows with <span class="t-node">|v|</span>; the iron core glows once <span class="t-flux">|λ|</span> passes the knee — that glow is the saturation event that triggers everything.</p>
+    </div>
+    <div class="exp-card">
+      <h3>Oscilloscope</h3>
+      <p>Time domain, x-axis in cycles. <span class="t-src">Source</span> and <span class="t-node">node</span> voltage always plot; <span class="t-flux">flux λ</span> and <span class="t-mag">current i<sub>L</sub></span> are toggle-on. Watch <span class="t-mag">i<sub>L</sub></span>: near-zero most of the cycle, then a sharp saturation spike — the classic pulsed magnetizing-current signature.</p>
+    </div>
+    <div class="exp-card">
+      <h3>Saturation characteristic</h3>
+      <p>The <span class="m">i<sub>L</sub>(λ)</span> curve with the live operating point riding on it. It sits on the gentle linear stretch near the origin in normal operation and swings out onto the steep saturated tails during ferroresonance — a direct picture of the nonlinearity above.</p>
+    </div>
+    <div class="exp-card">
+      <h3>Phase portrait</h3>
+      <p><span class="t-node">v</span> vs <span class="t-flux">λ</span> — the circuit's own state space, time implicit in the fading trail. Amber dots are a once-per-cycle (Poincaré) strobe: one dot = period-1, n dots = 1:n subharmonic, a scattered cloud = chaos. The cleanest read of the operating mode.</p>
+    </div>
+    <div class="exp-card wide">
+      <h3>Ignition curve &amp; header metrics</h3>
+      <p><span class="m">V<sub>node,pk</sub></span> vs <span class="m">V<sub>source</sub></span>, swept up then back down with the current circuit. The gap between the ascending and descending branches is the hysteresis loop — the band of source voltages where a nominal and a ferroresonant state both stably exist, and history decides which one you're in. This is the single plot that says "ferroresonance" rather than plain resonance. Up top, <span class="m">V node pk</span> is overvoltage severity, <span class="m">Flux pk</span> is saturation depth, <span class="m">Mode</span> is the live phase-portrait classification, and the badge flips nominal → ferroresonant → chaotic off those.</p>
+    </div>
+  </div>
+
+  <div class="lead">The options</div>
+  <div class="exp-grid">
+    <div class="exp-card wide">
+      <h3>The four presets</h3>
+      <p>Each button loads a complete, numerically verified parameter set — a known operating point on the map from calm to chaos. The screenshot shows them across the top of the control panel.</p>
+      <dl class="optlist">
+        <dt>Normal</dt><dd>Low drive (0.7 pu) on a stiff core. The operating point stays on the linear part of the saturation curve, the node sits near 1 pu, and the phase portrait collapses to a single Poincaré dot. Your healthy reference state.</dd>
+        <dt>Fundamental</dt><dd>Strong drive (2 pu) into a soft core (a = 0.09, q = 7) with C tuned near resonance. Period-1 but ~5 pu: the node locks onto one large odd-harmonic-rich orbit, <span class="t-mag">i<sub>L</sub></span> spikes ~20×, and the operating point slams onto the saturated tails every cycle. One Poincaré dot, far from the origin.</dd>
+        <dt>Subharmonic</dt><dd>Sharp core (q = 11), moderate drive. The orbit needs several source cycles to close, so the node rings at a submultiple of source frequency — a lower-frequency envelope on the scope and a small finite cluster of Poincaré dots. Stable, not chaotic (IC-divergence ≈ 0).</dd>
+        <dt class="hot">Chaotic</dt><dd>Sharp core with very low loss (R<sub>p</sub> = 1000). Aperiodic and broadband: the Poincaré dots never repeat and smear into a cloud — a slice of the strange attractor — confirmed by initial-condition divergence ≈ 1.65. Bounded but never repeating.</dd>
+      </dl>
+    </div>
+    <div class="exp-card">
+      <h3>Sliders</h3>
+      <dl class="optlist">
+        <dt>V source</dt><dd>Drive amplitude V<sub>m</sub> (0.2–3 pu). Push through ~1.8 pu on a saturable core to trip the jump.</dd>
+        <dt>Parallel C</dt><dd>Tank capacitance (0.2–3 pu). Sets X<sub>C</sub> = 1/ωC — the saturated X<sub>m</sub> the core must reach for resonance.</dd>
+        <dt>Series L</dt><dd>Source-side L<sub>s</sub> (0.03–0.5 pu). Series reactance feeding the node; larger softens and detunes.</dd>
+        <dt>Loss R<sub>p</sub></dt><dd>Parallel damping, log-scaled 0.4–1200 pu. High R<sub>p</sub> (low loss) lets subharmonics and chaos persist; drop it low and the loss current <span class="m">v/R<sub>p</sub></span> heavily damps the tank — the same effect as loading a VT secondary with a resistor, the classic ferroresonance mitigation. On the Fundamental preset, sliding R<sub>p</sub> down from 40 toward ~1 watches the ~5 pu overvoltage give way.</dd>
+        <dt>Sharpness q</dt><dd>Saturation exponent (3–13). Soft cores give clean fundamental mode; sharp cores unlock stable subharmonics and chaos.</dd>
+        <dt>Knee λ<sub>k</sub></dt><dd>Flux at which saturation sets in (0.7–1.6). Lower knee = easier to tip into ferroresonance.</dd>
+      </dl>
+    </div>
+    <div class="exp-card">
+      <h3>Buttons, toggles &amp; readouts</h3>
+      <dl class="optlist">
+        <dt>Pause / Run</dt><dd>Space bar also toggles. Reset returns to rest so you can re-approach a regime cleanly.</dd>
+        <dt class="hot">⚡ Switching event</dt><dd>Injects a flux/voltage surge — the realistic field trigger (breaker or pole operation). Fire it on a "normal" case and watch it latch into sustained overvoltage with parameters unchanged: ferroresonance is state-history dependent, not just a parameter condition.</dd>
+        <dt>Sweep</dt><dd>Runs the up/down sweep that draws the ignition/hysteresis curve for the current circuit.</dd>
+        <dt>λ · i<sub>L</sub> · speed</dt><dd>Toggle flux and magnetizing-current traces on the scope. The speed slider (0.1–4×) sets how fast simulation time advances per real second — slow it to watch the saturation transition frame by frame, or speed it up to reach steady state quickly. Integration step size is unchanged, so accuracy stays the same; only the playback rate changes.</dd>
+        <dt>Readouts</dt><dd>X<sub>C</sub> = 1/ωC, X<sub>Ls</sub> = ωL<sub>s</sub>, X<sub>m</sub>(unsat) = 1/a, i<sub>L</sub> pk, and V node rms. Watch X<sub>C</sub> against X<sub>m</sub>: the unsaturated gap is the distance the saturating core has to close to reach resonance.</dd>
+        <dt>Export</dt><dd>Record any single plot, the animated circuit schematic, or a composite — circuit + scope, scope + saturation + phase, or all four (circuit, oscilloscope, saturation, phase) tiled 2×2 — to an animated GIF or a video clip (1–8 s), at a selectable output width (480 / 720 / 1080 px). GIF is a self-contained encoder that autoplays and loops inline on social; video uses the browser's native recorder (MP4 where supported, otherwise WebM) for smaller, higher-quality files. Capture follows what's on screen, so the current mode and speed are what get recorded.</dd>
+      </dl>
+    </div>
+  </div>
+
+</section>
+
+<footer>
+  <span>ODE: L<sub>s</sub> i̇<sub>s</sub> = V<sub>m</sub>sin ωt − R<sub>s</sub>i<sub>s</sub> − v · C v̇ = i<sub>s</sub> − i<sub>L</sub>(λ) − v/R<sub>p</sub> · λ̇ = v · ω = 1 pu</span>
+  <span>NERX · nonlinear power-system dynamics</span>
+</footer>
+
+<script>
+// --- omggif GIF89a encoder (MIT, Dean McNamee) — encoder only ---
+function GifWriter(buf, width, height, gopts) {
+  var p = 0;
+
+  var gopts = gopts === undefined ? { } : gopts;
+  var loop_count = gopts.loop === undefined ? null : gopts.loop;
+  var global_palette = gopts.palette === undefined ? null : gopts.palette;
+
+  if (width <= 0 || height <= 0 || width > 65535 || height > 65535)
+    throw new Error("Width/Height invalid.");
+
+  function check_palette_and_num_colors(palette) {
+    var num_colors = palette.length;
+    if (num_colors < 2 || num_colors > 256 ||  num_colors & (num_colors-1)) {
+      throw new Error(
+          "Invalid code/color length, must be power of 2 and 2 .. 256.");
+    }
+    return num_colors;
+  }
+
+  // - Header.
+  buf[p++] = 0x47; buf[p++] = 0x49; buf[p++] = 0x46;  // GIF
+  buf[p++] = 0x38; buf[p++] = 0x39; buf[p++] = 0x61;  // 89a
+
+  // Handling of Global Color Table (palette) and background index.
+  var gp_num_colors_pow2 = 0;
+  var background = 0;
+  if (global_palette !== null) {
+    var gp_num_colors = check_palette_and_num_colors(global_palette);
+    while (gp_num_colors >>= 1) ++gp_num_colors_pow2;
+    gp_num_colors = 1 << gp_num_colors_pow2;
+    --gp_num_colors_pow2;
+    if (gopts.background !== undefined) {
+      background = gopts.background;
+      if (background >= gp_num_colors)
+        throw new Error("Background index out of range.");
+      // The GIF spec states that a background index of 0 should be ignored, so
+      // this is probably a mistake and you really want to set it to another
+      // slot in the palette.  But actually in the end most browsers, etc end
+      // up ignoring this almost completely (including for dispose background).
+      if (background === 0)
+        throw new Error("Background index explicitly passed as 0.");
+    }
+  }
+
+  // - Logical Screen Descriptor.
+  // NOTE(deanm): w/h apparently ignored by implementations, but set anyway.
+  buf[p++] = width & 0xff; buf[p++] = width >> 8 & 0xff;
+  buf[p++] = height & 0xff; buf[p++] = height >> 8 & 0xff;
+  // NOTE: Indicates 0-bpp original color resolution (unused?).
+  buf[p++] = (global_palette !== null ? 0x80 : 0) |  // Global Color Table Flag.
+             gp_num_colors_pow2;  // NOTE: No sort flag (unused?).
+  buf[p++] = background;  // Background Color Index.
+  buf[p++] = 0;  // Pixel aspect ratio (unused?).
+
+  // - Global Color Table
+  if (global_palette !== null) {
+    for (var i = 0, il = global_palette.length; i < il; ++i) {
+      var rgb = global_palette[i];
+      buf[p++] = rgb >> 16 & 0xff;
+      buf[p++] = rgb >> 8 & 0xff;
+      buf[p++] = rgb & 0xff;
+    }
+  }
+
+  if (loop_count !== null) {  // Netscape block for looping.
+    if (loop_count < 0 || loop_count > 65535)
+      throw new Error("Loop count invalid.")
+    // Extension code, label, and length.
+    buf[p++] = 0x21; buf[p++] = 0xff; buf[p++] = 0x0b;
+    // NETSCAPE2.0
+    buf[p++] = 0x4e; buf[p++] = 0x45; buf[p++] = 0x54; buf[p++] = 0x53;
+    buf[p++] = 0x43; buf[p++] = 0x41; buf[p++] = 0x50; buf[p++] = 0x45;
+    buf[p++] = 0x32; buf[p++] = 0x2e; buf[p++] = 0x30;
+    // Sub-block
+    buf[p++] = 0x03; buf[p++] = 0x01;
+    buf[p++] = loop_count & 0xff; buf[p++] = loop_count >> 8 & 0xff;
+    buf[p++] = 0x00;  // Terminator.
+  }
+
+
+  var ended = false;
+
+  this.addFrame = function(x, y, w, h, indexed_pixels, opts) {
+    if (ended === true) { --p; ended = false; }  // Un-end.
+
+    opts = opts === undefined ? { } : opts;
+
+    // TODO(deanm): Bounds check x, y.  Do they need to be within the virtual
+    // canvas width/height, I imagine?
+    if (x < 0 || y < 0 || x > 65535 || y > 65535)
+      throw new Error("x/y invalid.")
+
+    if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
+      throw new Error("Width/Height invalid.")
+
+    if (indexed_pixels.length < w * h)
+      throw new Error("Not enough pixels for the frame size.");
+
+    var using_local_palette = true;
+    var palette = opts.palette;
+    if (palette === undefined || palette === null) {
+      using_local_palette = false;
+      palette = global_palette;
+    }
+
+    if (palette === undefined || palette === null)
+      throw new Error("Must supply either a local or global palette.");
+
+    var num_colors = check_palette_and_num_colors(palette);
+
+    // Compute the min_code_size (power of 2), destroying num_colors.
+    var min_code_size = 0;
+    while (num_colors >>= 1) ++min_code_size;
+    num_colors = 1 << min_code_size;  // Now we can easily get it back.
+
+    var delay = opts.delay === undefined ? 0 : opts.delay;
+
+    // From the spec:
+    //     0 -   No disposal specified. The decoder is
+    //           not required to take any action.
+    //     1 -   Do not dispose. The graphic is to be left
+    //           in place.
+    //     2 -   Restore to background color. The area used by the
+    //           graphic must be restored to the background color.
+    //     3 -   Restore to previous. The decoder is required to
+    //           restore the area overwritten by the graphic with
+    //           what was there prior to rendering the graphic.
+    //  4-7 -    To be defined.
+    // NOTE(deanm): Dispose background doesn't really work, apparently most
+    // browsers ignore the background palette index and clear to transparency.
+    var disposal = opts.disposal === undefined ? 0 : opts.disposal;
+    if (disposal < 0 || disposal > 3)  // 4-7 is reserved.
+      throw new Error("Disposal out of range.");
+
+    var use_transparency = false;
+    var transparent_index = 0;
+    if (opts.transparent !== undefined && opts.transparent !== null) {
+      use_transparency = true;
+      transparent_index = opts.transparent;
+      if (transparent_index < 0 || transparent_index >= num_colors)
+        throw new Error("Transparent color index.");
+    }
+
+    if (disposal !== 0 || use_transparency || delay !== 0) {
+      // - Graphics Control Extension
+      buf[p++] = 0x21; buf[p++] = 0xf9;  // Extension / Label.
+      buf[p++] = 4;  // Byte size.
+
+      buf[p++] = disposal << 2 | (use_transparency === true ? 1 : 0);
+      buf[p++] = delay & 0xff; buf[p++] = delay >> 8 & 0xff;
+      buf[p++] = transparent_index;  // Transparent color index.
+      buf[p++] = 0;  // Block Terminator.
+    }
+
+    // - Image Descriptor
+    buf[p++] = 0x2c;  // Image Seperator.
+    buf[p++] = x & 0xff; buf[p++] = x >> 8 & 0xff;  // Left.
+    buf[p++] = y & 0xff; buf[p++] = y >> 8 & 0xff;  // Top.
+    buf[p++] = w & 0xff; buf[p++] = w >> 8 & 0xff;
+    buf[p++] = h & 0xff; buf[p++] = h >> 8 & 0xff;
+    // NOTE: No sort flag (unused?).
+    // TODO(deanm): Support interlace.
+    buf[p++] = using_local_palette === true ? (0x80 | (min_code_size-1)) : 0;
+
+    // - Local Color Table
+    if (using_local_palette === true) {
+      for (var i = 0, il = palette.length; i < il; ++i) {
+        var rgb = palette[i];
+        buf[p++] = rgb >> 16 & 0xff;
+        buf[p++] = rgb >> 8 & 0xff;
+        buf[p++] = rgb & 0xff;
+      }
+    }
+
+    p = GifWriterOutputLZWCodeStream(
+            buf, p, min_code_size < 2 ? 2 : min_code_size, indexed_pixels);
+
+    return p;
+  };
+
+  this.end = function() {
+    if (ended === false) {
+      buf[p++] = 0x3b;  // Trailer.
+      ended = true;
+    }
+    return p;
+  };
+
+  this.getOutputBuffer = function() { return buf; };
+  this.setOutputBuffer = function(v) { buf = v; };
+  this.getOutputBufferPosition = function() { return p; };
+  this.setOutputBufferPosition = function(v) { p = v; };
+}
+
+// Main compression routine, palette indexes -> LZW code stream.
+// |index_stream| must have at least one entry.
+function GifWriterOutputLZWCodeStream(buf, p, min_code_size, index_stream) {
+  buf[p++] = min_code_size;
+  var cur_subblock = p++;  // Pointing at the length field.
+
+  var clear_code = 1 << min_code_size;
+  var code_mask = clear_code - 1;
+  var eoi_code = clear_code + 1;
+  var next_code = eoi_code + 1;
+
+  var cur_code_size = min_code_size + 1;  // Number of bits per code.
+  var cur_shift = 0;
+  // We have at most 12-bit codes, so we should have to hold a max of 19
+  // bits here (and then we would write out).
+  var cur = 0;
+
+  function emit_bytes_to_buffer(bit_block_size) {
+    while (cur_shift >= bit_block_size) {
+      buf[p++] = cur & 0xff;
+      cur >>= 8; cur_shift -= 8;
+      if (p === cur_subblock + 256) {  // Finished a subblock.
+        buf[cur_subblock] = 255;
+        cur_subblock = p++;
+      }
+    }
+  }
+
+  function emit_code(c) {
+    cur |= c << cur_shift;
+    cur_shift += cur_code_size;
+    emit_bytes_to_buffer(8);
+  }
+
+  // I am not an expert on the topic, and I don't want to write a thesis.
+  // However, it is good to outline here the basic algorithm and the few data
+  // structures and optimizations here that make this implementation fast.
+  // The basic idea behind LZW is to build a table of previously seen runs
+  // addressed by a short id (herein called output code).  All data is
+  // referenced by a code, which represents one or more values from the
+  // original input stream.  All input bytes can be referenced as the same
+  // value as an output code.  So if you didn't want any compression, you
+  // could more or less just output the original bytes as codes (there are
+  // some details to this, but it is the idea).  In order to achieve
+  // compression, values greater then the input range (codes can be up to
+  // 12-bit while input only 8-bit) represent a sequence of previously seen
+  // inputs.  The decompressor is able to build the same mapping while
+  // decoding, so there is always a shared common knowledge between the
+  // encoding and decoder, which is also important for "timing" aspects like
+  // how to handle variable bit width code encoding.
+  //
+  // One obvious but very important consequence of the table system is there
+  // is always a unique id (at most 12-bits) to map the runs.  'A' might be
+  // 4, then 'AA' might be 10, 'AAA' 11, 'AAAA' 12, etc.  This relationship
+  // can be used for an effecient lookup strategy for the code mapping.  We
+  // need to know if a run has been seen before, and be able to map that run
+  // to the output code.  Since we start with known unique ids (input bytes),
+  // and then from those build more unique ids (table entries), we can
+  // continue this chain (almost like a linked list) to always have small
+  // integer values that represent the current byte chains in the encoder.
+  // This means instead of tracking the input bytes (AAAABCD) to know our
+  // current state, we can track the table entry for AAAABC (it is guaranteed
+  // to exist by the nature of the algorithm) and the next character D.
+  // Therefor the tuple of (table_entry, byte) is guaranteed to also be
+  // unique.  This allows us to create a simple lookup key for mapping input
+  // sequences to codes (table indices) without having to store or search
+  // any of the code sequences.  So if 'AAAA' has a table entry of 12, the
+  // tuple of ('AAAA', K) for any input byte K will be unique, and can be our
+  // key.  This leads to a integer value at most 20-bits, which can always
+  // fit in an SMI value and be used as a fast sparse array / object key.
+
+  // Output code for the current contents of the index buffer.
+  var ib_code = index_stream[0] & code_mask;  // Load first input index.
+  var code_table = { };  // Key'd on our 20-bit "tuple".
+
+  emit_code(clear_code);  // Spec says first code should be a clear code.
+
+  // First index already loaded, process the rest of the stream.
+  for (var i = 1, il = index_stream.length; i < il; ++i) {
+    var k = index_stream[i] & code_mask;
+    var cur_key = ib_code << 8 | k;  // (prev, k) unique tuple.
+    var cur_code = code_table[cur_key];  // buffer + k.
+
+    // Check if we have to create a new code table entry.
+    if (cur_code === undefined) {  // We don't have buffer + k.
+      // Emit index buffer (without k).
+      // This is an inline version of emit_code, because this is the core
+      // writing routine of the compressor (and V8 cannot inline emit_code
+      // because it is a closure here in a different context).  Additionally
+      // we can call emit_byte_to_buffer less often, because we can have
+      // 30-bits (from our 31-bit signed SMI), and we know our codes will only
+      // be 12-bits, so can safely have 18-bits there without overflow.
+      // emit_code(ib_code);
+      cur |= ib_code << cur_shift;
+      cur_shift += cur_code_size;
+      while (cur_shift >= 8) {
+        buf[p++] = cur & 0xff;
+        cur >>= 8; cur_shift -= 8;
+        if (p === cur_subblock + 256) {  // Finished a subblock.
+          buf[cur_subblock] = 255;
+          cur_subblock = p++;
+        }
+      }
+
+      if (next_code === 4096) {  // Table full, need a clear.
+        emit_code(clear_code);
+        next_code = eoi_code + 1;
+        cur_code_size = min_code_size + 1;
+        code_table = { };
+      } else {  // Table not full, insert a new entry.
+        // Increase our variable bit code sizes if necessary.  This is a bit
+        // tricky as it is based on "timing" between the encoding and
+        // decoder.  From the encoders perspective this should happen after
+        // we've already emitted the index buffer and are about to create the
+        // first table entry that would overflow our current code bit size.
+        if (next_code >= (1 << cur_code_size)) ++cur_code_size;
+        code_table[cur_key] = next_code++;  // Insert into code table.
+      }
+
+      ib_code = k;  // Index buffer to single input k.
+    } else {
+      ib_code = cur_code;  // Index buffer to sequence in code table.
+    }
+  }
+
+  emit_code(ib_code);  // There will still be something in the index buffer.
+  emit_code(eoi_code);  // End Of Information.
+
+  // Flush / finalize the sub-blocks stream to the buffer.
+  emit_bytes_to_buffer(1);
+
+  // Finish the sub-blocks, writing out any unfinished lengths and
+  // terminating with a sub-block of length 0.  If we have already started
+  // but not yet used a sub-block it can just become the terminator.
+  if (cur_subblock + 1 === p) {  // Started but unused.
+    buf[cur_subblock] = 0;
+  } else {  // Started and used, write length and additional terminator block.
+    buf[cur_subblock] = p - cur_subblock - 1;
+    buf[p++] = 0;
+  }
+  return p;
+}
+
+
+window.__GifWriter = GifWriter;
+
+</script>
+<script>
+(function(){
+"use strict";
+const REDUCE = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TAU = Math.PI*2, W = 1.0;           // normalized angular frequency
+const DT = 0.004;                          // integration step (verified stable)
+
+// ---------------- model ----------------
+function coreB(a,knee,q){ return a/Math.pow(knee,q-1); }
+function iL(lam,P){
+  const s = lam<0?-1:1, al = Math.abs(lam);
+  // guard huge powers if state runs away
+  const sat = al>6 ? P.b*Math.pow(6,P.q)*(al/6) : P.b*Math.pow(al,P.q);
+  return P.a*lam + s*sat;
+}
+function deriv(t,x,P,out){
+  const is=x[0], v=x[1], lam=x[2];
+  out[0] = (P.Vm*Math.sin(W*t) - P.Rs*is - v)/P.Ls;
+  out[1] = (is - iL(lam,P) - v/P.Rp)/P.C;
+  out[2] = v;
+}
+const k1=[0,0,0],k2=[0,0,0],k3=[0,0,0],k4=[0,0,0],xt=[0,0,0];
+function rk4(t,x,dt,P){
+  deriv(t,x,P,k1);
+  for(let i=0;i<3;i++) xt[i]=x[i]+dt/2*k1[i]; deriv(t+dt/2,xt,P,k2);
+  for(let i=0;i<3;i++) xt[i]=x[i]+dt/2*k2[i]; deriv(t+dt/2,xt,P,k3);
+  for(let i=0;i<3;i++) xt[i]=x[i]+dt*k3[i];   deriv(t+dt,xt,P,k4);
+  for(let i=0;i<3;i++) x[i]+=dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+}
+
+// ---------------- presets (all numerically verified) ----------------
+const PRESETS = {
+  normal:      {name:"Normal",      note:"calm · V≈1 pu",         Vm:0.70,Rs:0.02,Ls:0.20,C:0.90,Rp:200, a:0.28,q:11,knee:1.00},
+  fundamental: {name:"Fundamental", note:"period-1 · ~5 pu",       Vm:2.00,Rs:0.02,Ls:0.10,C:1.60,Rp:40,  a:0.09,q:7, knee:1.15},
+  subharmonic: {name:"Subharmonic", note:"stable · lower f",       Vm:1.45,Rs:0.02,Ls:0.20,C:0.75,Rp:120, a:0.28,q:11,knee:1.00},
+  chaotic:     {name:"Chaotic",     note:"broadband · aperiodic",  Vm:1.80,Rs:0.01,Ls:0.20,C:0.90,Rp:1000,a:0.28,q:11,knee:1.00},
+};
+
+// active params
+let P = {Vm:2,Rs:0.02,Ls:0.1,C:1.6,Rp:40,a:0.09,q:7,knee:1.15,b:0};
+function refreshB(){ P.b = coreB(P.a,P.knee,P.q); }
+
+// ---------------- state & buffers ----------------
+let x=[0,0,0], t=0, running=true;
+const SPAN = 7*TAU;                 // scope window (cycles)
+const buf=[];                       // {t,vs,vn,lam,il}
+const poinc=[];                     // {lam,v} sampled once per drive cycle
+let lastCycle=0;
+let peakDecay=1.2, peakV=0, ilPeak=0;
+const modeSamples=[];               // v at cycle boundaries, for mode id
+
+function resetState(hard){
+  x[0]=0;x[1]=0;x[2]= hard?0:1e-3; t=0; buf.length=0; poinc.length=0; modeSamples.length=0;
+  lastCycle=0; peakV=0; ilPeak=0;
+}
+
+// ---------------- integration per frame ----------------
+function stepSim(simTime){
+  const n = Math.max(1, Math.round(simTime/DT));
+  let sampleEvery = 3, cnt=0;
+  for(let i=0;i<n;i++){
+    rk4(t,x,DT,P); t+=DT;
+    if(!isFinite(x[1])||Math.abs(x[1])>1e5){ resetState(true); return; }
+    // cycle boundary → Poincaré + mode sample
+    const cyc = Math.floor(t/TAU);
+    if(cyc>lastCycle){
+      lastCycle=cyc;
+      poinc.push({lam:x[2],v:x[1]}); if(poinc.length>140) poinc.shift();
+      modeSamples.push(x[1]); if(modeSamples.length>26) modeSamples.shift();
+    }
+    if(++cnt>=sampleEvery){
+      cnt=0;
+      const il=iL(x[2],P);
+      buf.push({t:t, vs:P.Vm*Math.sin(W*t), vn:x[1], lam:x[2], il:il});
+      const av=Math.abs(x[1]); if(av>peakV) peakV=av;
+      const ai=Math.abs(il); if(ai>ilPeak) ilPeak=ai;
+    }
+  }
+  while(buf.length && buf[0].t < t-SPAN) buf.shift();
+  // slow-decay peak so display doesn't jitter but tracks changes
+  peakV*=0.9995; ilPeak*=0.999;
+}
+
+// ---------------- mode identification ----------------
+function identifyMode(){
+  if(modeSamples.length<12) return {label:"settling", chaotic:false};
+  const s=modeSamples.slice(-24);
+  const mx=Math.max(...s.map(Math.abs))+1e-9;
+  const tol=0.06*mx;
+  // cluster sorted samples
+  const sorted=[...s].sort((a,b)=>a-b), cl=[];
+  for(const v of sorted){ if(!cl.length||Math.abs(v-cl[cl.length-1])>tol) cl.push(v); }
+  // spread of raw sequence around cluster centers → chaos indicator
+  const mean=s.reduce((a,b)=>a+b,0)/s.length;
+  const varr=s.reduce((a,b)=>a+(b-mean)*(b-mean),0)/s.length;
+  const spread=Math.sqrt(varr)/mx;
+  const period=cl.length;
+  if(period>=6 || spread>0.34) return {label:"chaotic", chaotic:true};
+  if(period<=1) return {label:"fundamental (1:1)", chaotic:false};
+  return {label:"subharmonic (1:"+period+")", chaotic:false};
+}
+
+// ---------------- drawing helpers ----------------
+function fitCanvas(c){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=c.clientWidth, h=c.clientHeight;
+  if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){
+    c.width=Math.round(w*dpr); c.height=Math.round(h*dpr);
+  }
+  const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  return {g,w,h};
+}
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+const COL={};
+["--src","--node","--flux","--mag","--hot","--grid","--gridhot","--dim","--faint","--ink","--line","--ok"]
+  .forEach(k=>COL[k]=css(k));
+
+// ---------------- scope ----------------
+const scope=document.getElementById("scope");
+function drawScope(){
+  const {g,w,h}=fitCanvas(scope);
+  g.clearRect(0,0,w,h);
+  const pad=6, x0=pad, x1=w-pad, y0=pad, y1=h-pad, mid=(y0+y1)/2;
+  // graticule
+  g.lineWidth=1;
+  g.strokeStyle=COL["--grid"];
+  for(let i=1;i<10;i++){const gx=x0+(x1-x0)*i/10;g.beginPath();g.moveTo(gx,y0);g.lineTo(gx,y1);g.stroke();}
+  for(let i=1;i<8;i++){const gy=y0+(y1-y0)*i/8;g.beginPath();g.moveTo(x0,gy);g.lineTo(x1,gy);g.stroke();}
+  g.strokeStyle=COL["--gridhot"]; g.beginPath();g.moveTo(x0,mid);g.lineTo(x1,mid);g.stroke();
+
+  if(buf.length<2){requestScopeText(g,x0,y0);return;}
+  const tEnd=t, tStart=t-SPAN;
+  const vScale=Math.max(1.25, peakV*1.08);
+  const half=(y1-y0)/2 - 4;
+  const X=tt=> x0 + (x1-x0)*(tt-tStart)/SPAN;
+  const Yv=val=> mid - (val/vScale)*half;
+
+  // pu reference lines at ±1
+  g.strokeStyle=COL["--line"]; g.setLineDash([2,4]);
+  [1,-1].forEach(r=>{g.beginPath();g.moveTo(x0,Yv(r));g.lineTo(x1,Yv(r));g.stroke();});
+  g.setLineDash([]);
+
+  const drawTrace=(key,color,scaleFn,wid,glow)=>{
+    g.lineWidth=wid; g.strokeStyle=color;
+    if(glow){g.shadowColor=color;g.shadowBlur=glow;} else g.shadowBlur=0;
+    g.beginPath();let started=false;
+    for(const s of buf){
+      const px=X(s.t), py=scaleFn(s);
+      if(!started){g.moveTo(px,py);started=true;} else g.lineTo(px,py);
+    }
+    g.stroke(); g.shadowBlur=0;
+  };
+  // secondary: flux & current on their own normalized scales (dim)
+  if(tgFlux.checked){
+    const lm=Math.max(1e-6,...buf.map(s=>Math.abs(s.lam)));
+    drawTrace("lam",COL["--flux"],s=> mid-(s.lam/(lm*1.15))*half,1,0);
+  }
+  if(tgMag.checked){
+    const im=Math.max(1e-6,...buf.map(s=>Math.abs(s.il)));
+    drawTrace("il",COL["--mag"],s=> mid-(s.il/(im*1.15))*half,1,0);
+  }
+  // primary voltages
+  drawTrace("vs",COL["--src"],s=>Yv(s.vs),1.4,0);
+  const hot = peakV>1.25;
+  drawTrace("vn",hot?COL["--node"]:COL["--node"],s=>Yv(s.vn),1.8, hot?10:0);
+
+  // vscale label
+  g.fillStyle=COL["--faint"]; g.font="10px "+css('--mono');
+  g.textAlign="left"; g.fillText("±"+vScale.toFixed(1)+" pu", x0+4, y0+12);
+}
+function requestScopeText(g,x,y){
+  g.fillStyle=COL["--faint"]; g.font="11px "+css('--mono');
+  g.fillText("acquiring…", x+8, y+18);
+}
+
+// ---------------- saturation characteristic ----------------
+const sat=document.getElementById("sat");
+function drawSat(){
+  const {g,w,h}=fitCanvas(sat);
+  g.clearRect(0,0,w,h);
+  const pad=30, x0=pad, x1=w-8, y0=8, y1=h-22, cx=(x0+x1)/2, cy=(y0+y1)/2;
+  const lamMax=Math.max(1.4, Math.abs(x[2])*1.15, P.knee*1.25);
+  const ilMax=Math.max(1e-6, Math.abs(iL(lamMax,P)));
+  const X=l=> cx + (l/lamMax)*(x1-x0)/2;
+  const Y=i=> cy - (i/ilMax)*(y1-y0)/2;
+  // axes
+  g.strokeStyle=COL["--grid"]; g.lineWidth=1;
+  g.beginPath();g.moveTo(x0,cy);g.lineTo(x1,cy);g.stroke();
+  g.beginPath();g.moveTo(cx,y0);g.lineTo(cx,y1);g.stroke();
+  // knee markers
+  g.strokeStyle=COL["--line"]; g.setLineDash([3,4]);
+  [P.knee,-P.knee].forEach(k=>{g.beginPath();g.moveTo(X(k),y0);g.lineTo(X(k),y1);g.stroke();});
+  g.setLineDash([]);
+  // curve
+  g.strokeStyle=COL["--dim"]; g.lineWidth=1.6; g.beginPath();
+  let first=true;
+  for(let px=x0;px<=x1;px+=2){
+    const l=((px-cx)/((x1-x0)/2))*lamMax; const i=iL(l,P);
+    const py=Math.max(y0,Math.min(y1,Y(i)));
+    if(first){g.moveTo(px,py);first=false;} else g.lineTo(px,py);
+  }
+  g.stroke();
+  // operating point
+  const opL=x[2], opI=iL(opL,P);
+  const px=X(opL), py=Math.max(y0,Math.min(y1,Y(opI)));
+  const saturated=Math.abs(opL)>P.knee;
+  g.shadowColor=saturated?COL["--hot"]:COL["--flux"]; g.shadowBlur=14;
+  g.fillStyle=saturated?COL["--hot"]:COL["--flux"];
+  g.beginPath();g.arc(px,py,4.5,0,TAU);g.fill(); g.shadowBlur=0;
+  // labels
+  g.fillStyle=COL["--faint"]; g.font="10px "+css('--mono'); g.textAlign="left";
+  g.fillText("λ",x1-12,cy-6); g.fillText("i_L",cx+6,y0+11);
+  g.fillText("knee "+P.knee.toFixed(2),x0,y1+15);
+}
+
+// ---------------- phase portrait ----------------
+const phase=document.getElementById("phase");
+const trail=[];
+function drawPhase(){
+  const {g,w,h}=fitCanvas(phase);
+  g.clearRect(0,0,w,h);
+  const pad=10,x0=pad,x1=w-pad,y0=8,y1=h-8,cx=(x0+x1)/2,cy=(y0+y1)/2;
+  // record trail from recent buffer
+  const lamMax=Math.max(1.2,...buf.map(s=>Math.abs(s.lam)),0.5)*1.12;
+  const vMax=Math.max(1.2, peakV)*1.12;
+  const X=l=> cx + (l/lamMax)*(x1-x0)/2;
+  const Y=v=> cy - (v/vMax)*(y1-y0)/2;
+  // axes
+  g.strokeStyle=COL["--grid"];g.lineWidth=1;
+  g.beginPath();g.moveTo(x0,cy);g.lineTo(x1,cy);g.stroke();
+  g.beginPath();g.moveTo(cx,y0);g.lineTo(cx,y1);g.stroke();
+  // trajectory (recent window, fading)
+  const N=buf.length, show=Math.min(N, 900);
+  g.lineWidth=1;
+  for(let i=N-show+1;i<N;i++){
+    if(i<1) continue;
+    const a=buf[i-1], b=buf[i];
+    const alpha=(i-(N-show))/show;
+    g.strokeStyle="rgba(49,213,230,"+(0.08+0.5*alpha)+")";
+    g.beginPath();g.moveTo(X(a.lam),Y(a.vn));g.lineTo(X(b.lam),Y(b.vn));g.stroke();
+  }
+  // Poincaré dots (once per cycle) — finite set = periodic, cloud = chaos
+  for(let i=0;i<poinc.length;i++){
+    const p=poinc[i], age=i/poinc.length;
+    g.fillStyle="rgba(233,176,74,"+(0.25+0.6*age)+")";
+    g.beginPath();g.arc(X(p.lam),Y(p.v),2.1,0,TAU);g.fill();
+  }
+  g.fillStyle=COL["--faint"];g.font="10px "+css('--mono');g.textAlign="left";
+  g.fillText("λ →",x1-26,cy-6); g.fillText("v",cx+6,y0+11);
+}
+
+// ---------------- schematic ----------------
+const sch=document.getElementById("sch");
+sch.innerHTML = buildSchematic();
+function buildSchematic(){
+  // node A at (330,70); return rail y=250; source at left
+  return `
+  <defs>
+    <radialGradient id="nodeGlow"><stop offset="0" stop-color="var(--node)"/><stop offset="1" stop-color="var(--node)" stop-opacity="0"/></radialGradient>
+    <radialGradient id="coreGlow"><stop offset="0" stop-color="var(--hot)"/><stop offset="1" stop-color="var(--hot)" stop-opacity="0"/></radialGradient>
+  </defs>
+  <g fill="none" stroke="#33454f" stroke-width="2" stroke-linecap="round" font-family='${css('--mono')}'>
+    <!-- top rail -->
+    <line class="wire" x1="70" y1="70" x2="150" y2="70"/>
+    <!-- Rs resistor 150-200 -->
+    <path class="wire" d="M150 70 l7 -8 l10 16 l10 -16 l10 16 l10 -16 l7 8"/>
+    <line class="wire" x1="204" y1="70" x2="235" y2="70"/>
+    <!-- Ls inductor 235-300 (arcs) -->
+    <path class="wire" d="M235 70 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0"/>
+    <line class="wire" x1="299" y1="70" x2="330" y2="70"/>
+    <!-- node A down to branches / return -->
+    <line class="wire" x1="330" y1="70" x2="330" y2="90"/>
+    <!-- three branch verticals from a bus at y=90 -->
+    <line x1="380" y1="90" x2="470" y2="90" stroke="#33454f"/>
+    <line class="wire" x1="330" y1="90" x2="470" y2="90"/>
+    <!-- branch C @380 -->
+    <line class="wire" x1="380" y1="90" x2="380" y2="150"/>
+    <line class="wire" x1="366" y1="150" x2="394" y2="150"/>
+    <line class="wire" x1="366" y1="160" x2="394" y2="160"/>
+    <line class="wire" x1="380" y1="160" x2="380" y2="250"/>
+    <!-- branch nonlinear L @425 -->
+    <line class="wire" x1="425" y1="90" x2="425" y2="120"/>
+    <path class="wire" d="M425 120 a7 7 0 0 0 0 14 a7 7 0 0 0 0 14 a7 7 0 0 0 0 14 a7 7 0 0 0 0 14"/>
+    <line x1="440" y1="118" x2="440" y2="176" stroke="#4a6470" stroke-width="3"/>
+    <circle id="coreHalo" cx="432" cy="147" r="0" fill="url(#coreGlow)" stroke="none"/>
+    <line class="wire" x1="425" y1="176" x2="425" y2="250"/>
+    <!-- branch Rp @470 -->
+    <line class="wire" x1="470" y1="90" x2="470" y2="120"/>
+    <path class="wire" d="M470 120 l-8 7 l16 10 l-16 10 l16 10 l-16 10 l8 7"/>
+    <line class="wire" x1="470" y1="176" x2="470" y2="250"/>
+    <!-- return rail -->
+    <line class="wire" x1="70" y1="250" x2="470" y2="250"/>
+    <!-- source left vertical + symbol -->
+    <line class="wire" x1="70" y1="70" x2="70" y2="110"/>
+    <circle cx="70" cy="140" r="30" stroke="#5a7480"/>
+    <path d="M55 140 q7.5 -15 15 0 q7.5 15 15 0" stroke="var(--src)" stroke-width="2"/>
+    <line class="wire" x1="70" y1="170" x2="70" y2="250"/>
+    <!-- node A dot -->
+    <circle id="nodeHalo" cx="330" cy="80" r="0" fill="url(#nodeGlow)" stroke="none"/>
+    <circle cx="330" cy="70" r="3.5" fill="var(--node)" stroke="none"/>
+  </g>
+  <g font-family='${css('--mono')}' font-size="11" fill="#7f939e">
+    <text x="163" y="52">Rs</text>
+    <text x="250" y="52">Ls</text>
+    <text x="336" y="66">A</text>
+    <text x="356" y="185">C</text>
+    <text x="398" y="150">L(λ)</text>
+    <text x="480" y="150">Rp</text>
+    <text x="44" y="192" text-anchor="middle">Vₛ</text>
+  </g>`;
+}
+const wires=[...sch.querySelectorAll(".wire")];
+wires.forEach(w=>{const L=w.getTotalLength?w.getTotalLength():40; w.setAttribute("stroke-dasharray","6 8"); w._len=L;});
+const nodeHalo=sch.querySelector("#nodeHalo");
+const coreHalo=sch.querySelector("#coreHalo");
+let dashPhase=0;
+function drawSchematic(){
+  const is=x[0], v=x[1], sat=Math.abs(x[2])/P.knee;
+  // current-driven dash motion
+  if(!REDUCE){ dashPhase -= is*0.5; wires.forEach(w=>w.setAttribute("stroke-dashoffset",dashPhase)); }
+  // node glow scales with |v|
+  const gv=Math.min(1,Math.abs(v)/3.5);
+  nodeHalo.setAttribute("r", (6+gv*34).toFixed(1));
+  nodeHalo.setAttribute("fill-opacity",(0.15+gv*0.55).toFixed(2));
+  // core glow when saturated
+  const cs=Math.max(0,sat-0.85);
+  coreHalo.setAttribute("r",(cs*26).toFixed(1));
+  coreHalo.setAttribute("fill-opacity",Math.min(0.85,cs*0.9).toFixed(2));
+}
+
+// ---------------- jump / ignition curve ----------------
+const jump=document.getElementById("jump");
+let jumpData={up:[],down:[],running:false,busy:null};
+function drawJump(){
+  const {g,w,h}=fitCanvas(jump);
+  g.clearRect(0,0,w,h);
+  const pad=34,x0=pad,x1=w-10,y0=10,y1=h-22;
+  const Vmax=3, Ymax=Math.max(6, ...jumpData.up.map(p=>p[1]), ...jumpData.down.map(p=>p[1]),1)*1.05;
+  const X=vm=> x0+(x1-x0)*(vm/Vmax);
+  const Y=vp=> y1-(y1-y0)*(vp/Ymax);
+  // grid
+  g.strokeStyle=COL["--grid"];g.lineWidth=1;
+  for(let vm=0.5;vm<Vmax;vm+=0.5){g.beginPath();g.moveTo(X(vm),y0);g.lineTo(X(vm),y1);g.stroke();}
+  for(let vp=1;vp<Ymax;vp+=1){g.beginPath();g.moveTo(x0,Y(vp));g.lineTo(x1,Y(vp));g.stroke();}
+  g.strokeStyle=COL["--line"]; g.beginPath();g.moveTo(x0,y1);g.lineTo(x1,y1);g.stroke();
+  g.beginPath();g.moveTo(x0,y0);g.lineTo(x0,y1);g.stroke();
+  // labels
+  g.fillStyle=COL["--faint"];g.font="10px "+css('--mono');g.textAlign="center";
+  for(let vm=0;vm<=Vmax;vm+=1) g.fillText(vm.toFixed(0),X(vm),y1+14);
+  g.textAlign="right";
+  for(let vp=2;vp<Ymax;vp+=2) g.fillText(vp.toFixed(0),x0-4,Y(vp)+3);
+  g.textAlign="left"; g.fillText("Vsrc →",x1-46,y1+14);
+  g.fillText("Vnode pk",x0-28,y0+2);
+  const plot=(pts,color,dash)=>{
+    if(pts.length<1)return; g.strokeStyle=color;g.lineWidth=1.8;g.setLineDash(dash||[]);
+    g.beginPath();pts.forEach((p,i)=>{const px=X(p[0]),py=Y(p[1]); i?g.lineTo(px,py):g.moveTo(px,py);});g.stroke();g.setLineDash([]);
+    g.fillStyle=color; pts.forEach(p=>{g.beginPath();g.arc(X(p[0]),Y(p[1]),1.6,0,TAU);g.fill();});
+  };
+  plot(jumpData.up,COL["--src"]);
+  plot(jumpData.down,COL["--node"],[4,3]);
+  // legend
+  g.font="10px "+css('--mono');g.textAlign="left";
+  g.fillStyle=COL["--src"];g.fillText("● increasing (ignition jump ↑)",x0+8,y0+12);
+  g.fillStyle=COL["--node"];g.fillText("○ decreasing (extinction ↓)",x0+8,y0+26);
+  // current operating Vm marker
+  g.strokeStyle=COL["--hot"];g.setLineDash([2,3]);
+  g.beginPath();g.moveTo(X(P.Vm),y0);g.lineTo(X(P.Vm),y1);g.stroke();g.setLineDash([]);
+}
+// background sweep (sliced across frames)
+function startSweep(){
+  if(jumpData.running) return;
+  jumpData={up:[],down:[],running:true,busy:null};
+  const base={Rs:P.Rs,Ls:P.Ls,C:P.C,Rp:P.Rp,a:P.a,q:P.q,knee:P.knee,b:P.b};
+  const dtS=0.006, settle=110, meas=40;
+  const seq=[]; for(let vm=0.4;vm<=3.001;vm+=0.1) seq.push(+vm.toFixed(2));
+  for(let vm=3.0;vm>=0.399;vm-=0.1) seq.push(-(+vm.toFixed(2))); // negative flags "down"
+  let idx=0, st=[0,0,0];
+  document.getElementById("roSweep").textContent="sweeping… 0%";
+  function chunk(){
+    const perFrame=3;
+    for(let c=0;c<perFrame && idx<seq.length;c++,idx++){
+      const raw=seq[idx], down=raw<0, vm=Math.abs(raw);
+      const Pp={...base,Vm:vm};
+      const nSettle=Math.round(settle/dtS);
+      for(let i=0;i<nSettle;i++){ rk4mini(Pp,st,dtS); }
+      // measure peak over meas window
+      let tt=nSettle*dtS, pk=0; const nMeas=Math.round(meas/dtS);
+      for(let i=0;i<nMeas;i++){ rk4mini(Pp,st,dtS); const av=Math.abs(st[1]); if(av>pk)pk=av; }
+      (down?jumpData.down:jumpData.up).push([vm,pk]);
+    }
+    const pct=Math.round(100*idx/seq.length);
+    document.getElementById("roSweep").textContent = idx<seq.length? "sweeping… "+pct+"%" : "ignition curve ready";
+    if(idx<seq.length){ jumpData.busy=requestAnimationFrame(chunk); }
+    else { jumpData.running=false; }
+  }
+  // local time-tracking integrator for sweep (independent t)
+  let stT=0;
+  function rk4mini(Pp,s,dt){
+    const f=(tt,ss,o)=>{o[0]=(Pp.Vm*Math.sin(tt)-Pp.Rs*ss[0]-ss[1])/Pp.Ls;o[1]=(ss[0]-iL(ss[2],Pp)-ss[1]/Pp.Rp)/Pp.C;o[2]=ss[1];};
+    const a1=[0,0,0],a2=[0,0,0],a3=[0,0,0],a4=[0,0,0],tmp=[0,0,0];
+    f(stT,s,a1); for(let i=0;i<3;i++)tmp[i]=s[i]+dt/2*a1[i];
+    f(stT+dt/2,tmp,a2);for(let i=0;i<3;i++)tmp[i]=s[i]+dt/2*a2[i];
+    f(stT+dt/2,tmp,a3);for(let i=0;i<3;i++)tmp[i]=s[i]+dt*a3[i];
+    f(stT+dt,tmp,a4);for(let i=0;i<3;i++)s[i]+=dt/6*(a1[i]+2*a2[i]+2*a3[i]+a4[i]);
+    stT+=dt;
+  }
+  chunk();
+}
+
+// ---------------- metrics / readouts ----------------
+function updateMetrics(){
+  document.getElementById("mVpk").textContent=peakV.toFixed(2);
+  document.getElementById("mLpk").textContent=(Math.max(...buf.slice(-400).map(s=>Math.abs(s.lam)),0)).toFixed(2);
+  const m=identifyMode();
+  document.getElementById("mMode").textContent=m.label;
+  // rms over ~last cycles
+  const seg=buf.slice(-800); let ss=0; for(const s of seg) ss+=s.vn*s.vn;
+  const rms=seg.length?Math.sqrt(ss/seg.length):0;
+  document.getElementById("roVrms").textContent=rms.toFixed(2);
+  document.getElementById("roIl").textContent=ilPeak.toFixed(1);
+  // reactances
+  document.getElementById("roXc").textContent=(1/(W*P.C)).toFixed(2);
+  document.getElementById("roXls").textContent=(W*P.Ls).toFixed(2);
+  document.getElementById("roXm").textContent=(1/P.a).toFixed(1);
+  // state badge
+  const b=document.getElementById("stateBadge");
+  if(m.chaotic){ b.textContent="chaotic ferroresonance"; b.style.color=COL["--hot"];
+    b.style.borderColor="#3a2622"; b.style.background="rgba(255,91,60,.06)"; }
+  else if(peakV>1.25){ b.textContent="ferroresonant · overvoltage"; b.style.color=COL["--hot"];
+    b.style.borderColor="#3a2622"; b.style.background="rgba(255,91,60,.06)"; }
+  else { b.textContent="nominal"; b.style.color=COL["--ok"];
+    b.style.borderColor=COL["--line"]; b.style.background="transparent"; }
+}
+
+// ---------------- main loop ----------------
+let last=performance.now();
+function frame(now){
+  const dtWall=Math.min(0.05,(now-last)/1000); last=now;
+  if(running){
+    let cyclesPerSec = 1.6 * (+sSpeed.value);
+    stepSim(cyclesPerSec*TAU*dtWall);
+  }
+  drawScope(); drawSat(); drawPhase(); drawSchematic(); drawJump();
+  updateMetrics();
+  if(CAP) exTick(dtWall);
+  requestAnimationFrame(frame);
+}
+
+// ---------------- UI wiring ----------------
+const els={Vm:sVm,C:sC,Ls:sLs,Rp:sRp,q:sq,knee:sknee};
+function syncLabels(){
+  vVm.textContent=(+sVm.value).toFixed(2); vC.textContent=(+sC.value).toFixed(2);
+  vLs.textContent=(+sLs.value).toFixed(2); vRp.textContent=fmtRp(rpVal());
+  vq.textContent=sq.value; vknee.textContent=(+sknee.value).toFixed(2);
+}
+// Rp is a log-scaled slider (slider holds log10 Rp) so it can reach heavy-damping values
+function rpVal(){ return Math.pow(10, +sRp.value); }
+function fmtRp(r){ return r<1 ? r.toFixed(2) : r<10 ? r.toFixed(1) : r.toFixed(0); }
+function paramsFromUI(){
+  P.Vm=+sVm.value; P.C=+sC.value; P.Ls=+sLs.value; P.Rp=rpVal();
+  P.q=+sq.value; P.knee=+sknee.value; refreshB(); syncLabels();
+}
+Object.values(els).forEach(e=>e.addEventListener("input",()=>{clearActivePreset();paramsFromUI();}));
+
+// presets
+const pc=document.getElementById("presets");
+Object.entries(PRESETS).forEach(([key,pr])=>{
+  const b=document.createElement("button");
+  b.className="preset"; b.dataset.key=key;
+  b.innerHTML="<b>"+pr.name+"</b>"+pr.note;
+  b.addEventListener("click",()=>applyPreset(key));
+  pc.appendChild(b);
+});
+function clearActivePreset(){ pc.querySelectorAll(".preset").forEach(p=>p.classList.remove("active")); }
+function applyPreset(key){
+  const pr=PRESETS[key];
+  P.Vm=pr.Vm;P.Rs=pr.Rs;P.Ls=pr.Ls;P.C=pr.C;P.Rp=pr.Rp;P.a=pr.a;P.q=pr.q;P.knee=pr.knee;refreshB();
+  sVm.value=pr.Vm; sC.value=pr.C; sLs.value=pr.Ls; sRp.value=Math.log10(pr.Rp); sq.value=pr.q; sknee.value=pr.knee;
+  syncLabels();
+  clearActivePreset(); pc.querySelector('[data-key="'+key+'"]').classList.add("active");
+  resetState(true);
+}
+
+// buttons
+btnPause.addEventListener("click",()=>{running=!running;btnPause.textContent=running?"Pause":"Run";});
+btnReset.addEventListener("click",()=>resetState(true));
+btnKick.addEventListener("click",()=>{ x[2]+=1.6; x[1]+=1.2; }); // switching surge injects flux/voltage
+btnSweep.addEventListener("click",startSweep);
+[tgFlux,tgMag].forEach(t=>t.addEventListener("change",()=>{
+  lgFlux.style.opacity=tgFlux.checked?1:.35; lgMag.style.opacity=tgMag.checked?1:.35;
+}));
+lgMag.style.opacity=.35;
+
+// speed slider
+function syncSpeed(){ vSpeed.textContent=(+sSpeed.value).toFixed(1)+"×"; }
+sSpeed.addEventListener("input",syncSpeed);
+if(REDUCE){ sSpeed.value=0.6; }   // gentler default when reduced-motion is requested
+syncSpeed();
+
+// keyboard: space toggles run
+window.addEventListener("keydown",e=>{ if(e.code==="Space" && e.target.tagName!=="INPUT"){e.preventDefault();btnPause.click();} });
+
+// ---------------- export: GIF (omggif) + video (MediaRecorder) ----------------
+const GifWriter = window.__GifWriter;
+// fixed palette: 6·6·6 color cube (216) + 40-step dark blue-gray ramp for the background/grid
+const EXPAL = (function(){
+  const pal=[], L=[0,51,102,153,204,255];
+  for(let r=0;r<6;r++)for(let g=0;g<6;g++)for(let b=0;b<6;b++) pal.push((L[r]<<16)|(L[g]<<8)|L[b]);
+  for(let i=0;i<40;i++){ const t=i/39; pal.push((Math.round(t*46)<<16)|(Math.round(t*64)<<8)|Math.round(t*78)); }
+  while(pal.length<256) pal.push(0);
+  return pal;
+})();
+let EXLUT=null;
+function exBuildLUT(){                      // 5-bit-per-channel nearest-color lookup, built once
+  EXLUT=new Uint8Array(32768);
+  for(let ri=0;ri<32;ri++)for(let gi=0;gi<32;gi++)for(let bi=0;bi<32;bi++){
+    const r=ri<<3,g=gi<<3,b=bi<<3; let best=0,bd=1e12;
+    for(let p=0;p<256;p++){ const c=EXPAL[p], dr=r-((c>>16)&255),dg=g-((c>>8)&255),db=b-(c&255), d=dr*dr+dg*dg+db*db; if(d<bd){bd=d;best=p;} }
+    EXLUT[(ri<<10)|(gi<<5)|bi]=best;
+  }
+}
+function exQuantize(rgba,w,h){
+  if(!EXLUT) exBuildLUT();
+  const out=new Uint8Array(w*h);
+  for(let i=0,j=0;i<out.length;i++,j+=4) out[i]=EXLUT[((rgba[j]>>3)<<10)|((rgba[j+1]>>3)<<5)|(rgba[j+2]>>3)];
+  return out;
+}
+// which panels each export view contains ("sch" = the SVG schematic, rasterized)
+const VIEWS={
+  circuit:["sch"], scope:["scope"], phase:["phase"], sat:["sat"], jump:["jump"],
+  cs:["sch","scope"], ssp:["scope","sat","phase"], all:["sch","scope","sat","phase"]
+};
+const GRID_COLS={all:2};                    // views laid out as a grid rather than a vertical stack
+function partRect(id){ return (id==="sch"?sch:document.getElementById(id)).getBoundingClientRect(); }
+function partAspect(id){
+  if(id==="sch"){ const vb=sch.viewBox&&sch.viewBox.baseVal; if(vb&&vb.width) return vb.height/vb.width; }
+  const r=partRect(id); return r.height/r.width;
+}
+function viewHasSch(view){ return VIEWS[view].indexOf("sch")>=0; }
+const EX_GAP=8;
+function layoutHeight(view,w){              // exact laid-out height for a given width (matches exDraw)
+  const parts=VIEWS[view], cols=GRID_COLS[view]||1;
+  if(parts.length===1) return Math.round(w*partAspect(parts[0]));
+  if(cols===1){ let h=EX_GAP; for(const id of parts) h+=Math.round(w*partAspect(id))+EX_GAP; return h; }
+  const colW=Math.floor((w-EX_GAP*(cols+1))/cols); let h=EX_GAP;
+  for(let r=0;r<Math.ceil(parts.length/cols);r++){
+    let rowH=0; for(let c=0;c<cols;c++){ const id=parts[r*cols+c]; if(id) rowH=Math.max(rowH,Math.round(colW*partAspect(id))); }
+    h+=rowH+EX_GAP;
+  }
+  return h;
+}
+function exSize(view,targetW,maxA){         // pick even width within area budget; height follows exactly
+  let w=targetW, h=layoutHeight(view,w);
+  if(w*h>maxA){ w=Math.max(2,Math.round(w*Math.sqrt(maxA/(w*h)))); }
+  w&=~1; h=layoutHeight(view,w); if(h&1) h++;   // even dims; +1px pad never clips
+  return {w,h};
+}
+
+// ---- schematic rasteriser: serialize live SVG → resolve var() colours → decode to a canvas ----
+let schRaster=null, schBusy=false, schReady=false;
+function schPump(w,h){
+  if(!schRaster) schRaster=document.createElement("canvas");
+  if(schRaster.width!==w||schRaster.height!==h){ schRaster.width=w; schRaster.height=h; schReady=false; }
+  if(schBusy) return;
+  schBusy=true;
+  const clone=sch.cloneNode(true);
+  clone.setAttribute("width",w); clone.setAttribute("height",h);
+  const xml=new XMLSerializer().serializeToString(clone)
+    .replace(/var\(--([a-z0-9]+)\)/g,(m,n)=>COL["--"+n]||m);   // standalone SVG can't read doc CSS vars
+  const url=URL.createObjectURL(new Blob([xml],{type:"image/svg+xml;charset=utf-8"}));
+  const img=new Image();
+  img.onload=()=>{ const c=schRaster.getContext("2d"); c.setTransform(1,0,0,1,0,0);
+    c.fillStyle="#0a1218"; c.fillRect(0,0,schRaster.width,schRaster.height);
+    c.drawImage(img,0,0,schRaster.width,schRaster.height); URL.revokeObjectURL(url); schBusy=false; schReady=true; };
+  img.onerror=()=>{ URL.revokeObjectURL(url); schBusy=false; };
+  img.src=url;
+}
+function drawPart(ctx,id,x,y,w,h){
+  if(id==="sch"){ schPump(w,h); if(schReady&&schRaster.width===w) ctx.drawImage(schRaster,x,y,w,h); }
+  else ctx.drawImage(document.getElementById(id),x,y,w,h);
+}
+function exDraw(ctx,w,h,view){
+  ctx.fillStyle="#0a0f14"; ctx.fillRect(0,0,w,h);
+  const parts=VIEWS[view], cols=GRID_COLS[view]||1;
+  if(parts.length===1){ drawPart(ctx,parts[0],0,0,w,h); return; }
+  if(cols===1){ let y=EX_GAP; for(const id of parts){ const ph=Math.round(w*partAspect(id)); drawPart(ctx,id,0,y,w,ph); y+=ph+EX_GAP; } return; }
+  const colW=Math.floor((w-EX_GAP*(cols+1))/cols); let y=EX_GAP;
+  for(let r=0;r<Math.ceil(parts.length/cols);r++){
+    let rowH=0; for(let c=0;c<cols;c++){ const id=parts[r*cols+c]; if(id) rowH=Math.max(rowH,Math.round(colW*partAspect(id))); }
+    for(let c=0;c<cols;c++){ const id=parts[r*cols+c]; if(!id) continue; drawPart(ctx,id,EX_GAP+c*(colW+EX_GAP),y,colW,Math.round(colW*partAspect(id))); }
+    y+=rowH+EX_GAP;
+  }
+}
+function exDownload(blob,name){
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+function setExBtns(en){ btnGif.disabled=!en; btnVid.disabled=!en; exView.disabled=!en; exDur.disabled=!en; exRes.disabled=!en; }
+
+let CAP=null;
+function beginCapture(view,ctx,w,h,startFn){    // prime schematic raster so frame 1 isn't blank
+  if(!viewHasSch(view)){ startFn(); return; }
+  exDraw(ctx,w,h,view);                          // kicks schPump at the correct part size
+  let tries=0;
+  (function wait(){
+    if(schReady){ startFn(); return; }
+    if(++tries>30){ startFn(); return; }         // ~1.5 s cap, then start regardless
+    setTimeout(wait,50);
+  })();
+}
+function startGif(){
+  if(CAP) return;
+  const view=exView.value, dur=+exDur.value, fps=20, tw=+exRes.value;
+  const {w,h}=exSize(view,tw,600000);          // GIF area cap keeps files & memory sane
+  const off=document.createElement("canvas"); off.width=w; off.height=h;
+  const ctx=off.getContext("2d",{willReadFrequently:true});
+  const maxFrames=Math.ceil(dur*fps)+3;
+  const buf=new Uint8Array(w*h*2*maxFrames + 65536);
+  const gif=new GifWriter(buf,w,h,{loop:0});
+  exStatus.style.color="var(--node)"; exStatus.textContent="preparing…"; setExBtns(false);
+  beginCapture(view,ctx,w,h,()=>{
+    CAP={mode:"gif",view,w,h,ctx,fps,delayCS:Math.round(100/fps),dur,elapsed:0,acc:0,frames:0,gif,buf};
+    exStatus.textContent="recording… 0%";
+  });
+}
+function finishGif(){
+  const len=CAP.gif.end();
+  exDownload(new Blob([CAP.buf.subarray(0,len)],{type:"image/gif"}), "ferroresonance_"+CAP.view+"_"+CAP.w+"px.gif");
+  exStatus.textContent="done · "+CAP.frames+" frames · "+CAP.w+"×"+CAP.h+" GIF"; CAP=null; setExBtns(true);
+}
+function startVid(){
+  if(CAP) return;
+  if(typeof MediaRecorder==="undefined"){ exStatus.style.color="var(--hot)"; exStatus.textContent="video unsupported — use GIF"; return; }
+  const view=exView.value, dur=+exDur.value, fps=30, tw=+exRes.value;
+  const {w,h}=exSize(view,tw,2100000);
+  const off=document.createElement("canvas"); off.width=w; off.height=h;
+  const ctx=off.getContext("2d"); exDraw(ctx,w,h,view);
+  const stream=off.captureStream(fps);
+  const cand=["video/mp4;codecs=avc1.42E01E","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+  let mime=""; for(const m of cand){ if(MediaRecorder.isTypeSupported(m)){mime=m;break;} }
+  let rec; try{ rec=new MediaRecorder(stream, mime?{mimeType:mime,videoBitsPerSecond:8000000}:undefined); }
+  catch(e){ exStatus.style.color="var(--hot)"; exStatus.textContent="recorder error — use GIF"; return; }
+  const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  rec.onstop=()=>{
+    const type=rec.mimeType||mime||"video/webm", ext=type.indexOf("mp4")>=0?"mp4":"webm";
+    exDownload(new Blob(chunks,{type}), "ferroresonance_"+view+"_"+w+"px."+ext);
+    exStatus.textContent="done · "+w+"×"+h+" "+ext.toUpperCase(); CAP=null; setExBtns(true);
+  };
+  exStatus.style.color="var(--node)"; exStatus.textContent="preparing…"; setExBtns(false);
+  beginCapture(view,ctx,w,h,()=>{
+    CAP={mode:"video",view,w,h,ctx,fps,dur,elapsed:0,recorder:rec,stopping:false};
+    rec.start(); exStatus.textContent="recording… 0%";
+  });
+}
+function exTick(dtWall){
+  CAP.elapsed+=dtWall;
+  const pct=Math.min(100,Math.round(100*CAP.elapsed/CAP.dur));
+  if(CAP.mode==="gif"){
+    CAP.acc+=dtWall; const spf=1/CAP.fps;
+    if(CAP.acc>=spf){
+      CAP.acc-=spf; if(CAP.acc>spf) CAP.acc=spf;
+      exDraw(CAP.ctx,CAP.w,CAP.h,CAP.view);
+      const img=CAP.ctx.getImageData(0,0,CAP.w,CAP.h).data;
+      CAP.gif.addFrame(0,0,CAP.w,CAP.h,exQuantize(img,CAP.w,CAP.h),{palette:EXPAL,delay:CAP.delayCS});
+      CAP.frames++;
+    }
+    exStatus.textContent="recording… "+pct+"%";
+    if(CAP.elapsed>=CAP.dur) finishGif();
+  } else {
+    exDraw(CAP.ctx,CAP.w,CAP.h,CAP.view);
+    exStatus.textContent="recording… "+pct+"%";
+    if(CAP.elapsed>=CAP.dur && !CAP.stopping){ CAP.stopping=true; exStatus.textContent="finalizing…"; CAP.recorder.stop(); }
+  }
+}
+btnGif.addEventListener("click",startGif);
+btnVid.addEventListener("click",startVid);
+exDur.addEventListener("input",()=>{ vExDur.textContent=exDur.value+"s"; });
+
+// boot
+applyPreset("fundamental");
+requestAnimationFrame(frame);
+})();
+</script>
+<!-- Include header.js and ticker.js scripts -->
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+</body>
+</html>

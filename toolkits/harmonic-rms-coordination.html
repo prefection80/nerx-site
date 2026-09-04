@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonics & Relay Coordination Toolkit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    <style>
+        /* Custom styles for sliders and layout */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .slider-container {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.5rem; /* 8px */
+            margin-bottom: 0.5rem; /* 8px */
+        }
+        .slider {
+            width: 100%;
+            cursor: pointer;
+        }
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-variant-numeric: tabular-nums; /* Ensures numbers align */
+        }
+        .chart-container {
+            position: relative;
+            height: 400px; /* Maintained height */
+            width: 100%;
+            background-color: white;
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 1rem; /* p-4 */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* shadow-md */
+            margin-top: 1rem; /* mt-4 */
+            margin-bottom: 1.5rem; /* Added bottom margin */
+        }
+        canvas {
+            display: block;
+            box-sizing: border-box;
+            height: 100% !important;
+            width: 100% !important;
+        }
+        button, select {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border: 1px solid #d1d5db; /* gray-300 */
+            background-color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover, select:hover {
+            background-color: #e5e7eb; /* gray-200 */
+        }
+        input[type="range"] {
+            accent-color: #3b82f6; /* blue-500 */
+        }
+        .section-container {
+             background-color: white;
+             padding: 1rem; /* p-4 */
+             border-radius: 0.5rem; /* rounded-lg */
+             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* shadow-md */
+             width: 100%; /* Ensure full width */
+        }
+        /* Style for scrollable harmonic controls */
+        #harmonic-controls {
+            max-height: 24rem; /* max-h-96 (384px) */
+            overflow-y: auto; /* Enable vertical scroll if needed */
+            padding-right: 0.5rem; /* pr-2 Add padding for scrollbar */
+             /* Subtle scrollbar styling (optional) */
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af #e5e7eb; /* gray-400 gray-200 */
+        }
+        /* Webkit scrollbar styling (optional) */
+        #harmonic-controls::-webkit-scrollbar {
+            width: 8px;
+        }
+        #harmonic-controls::-webkit-scrollbar-track {
+            background: #e5e7eb; /* gray-200 */
+            border-radius: 4px;
+        }
+        #harmonic-controls::-webkit-scrollbar-thumb {
+            background-color: #9ca3af; /* gray-400 */
+            border-radius: 4px;
+            border: 2px solid #e5e7eb; /* gray-200 */
+        }
+        /* Styling for explanation section */
+        .explanation-section h2 {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+            margin-bottom: 1rem; /* mb-4 */
+            color: #374151; /* text-gray-700 */
+        }
+         .explanation-section h3 {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600; /* font-semibold */
+            margin-top: 1rem; /* mt-4 */
+            margin-bottom: 0.5rem; /* mb-2 */
+            color: #374151; /* text-gray-700 */
+        }
+        .explanation-section p, .explanation-section ul {
+            font-size: 0.875rem; /* text-sm */
+            color: #4b5563; /* text-gray-600 */
+            margin-bottom: 0.75rem; /* mb-3 */
+            line-height: 1.6;
+        }
+         .explanation-section ul {
+            list-style-type: disc;
+            padding-left: 1.5rem; /* pl-6 */
+        }
+        .explanation-section code {
+            background-color: #e5e7eb; /* gray-200 */
+            padding: 0.1em 0.4em;
+            border-radius: 0.25rem; /* rounded-sm */
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+         .explanation-section strong {
+            font-weight: 600; /* font-semibold */
+            color: #1f2937; /* text-gray-800 */
+        }
+    </style>
+    <style>
+        /* Additional styles for header and ticker compatibility */
+        body {
+            padding-top: 45px; /* Space for fixed header */
+            padding-bottom: 40px; /* Space for fixed ticker */
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding-top: 120px; /* Adjust for taller header on mobile */
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 bg-gray-100">
+
+    <!-- Original title hidden as header.js will display it in the header -->
+    <h1 class="text-2xl md:text-3xl font-bold mb-6 text-center text-gray-800" style="display: none;">Harmonics & Relay Coordination Toolkit</h1>
+
+    <div class="grid grid-cols-1 gap-6 max-w-4xl mx-auto">
+
+        <div class="section-container">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Harmonic Content</h2>
+            <p class="text-sm text-gray-600 mb-4">Adjust the magnitude (relative to fundamental) and phase angle of odd harmonics.</p>
+            <div id="harmonic-controls">
+                {/* Harmonics are dynamically added here by JS */}
+            </div>
+             <button id="reset-harmonics" class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                Reset Harmonics
+            </button>
+        </div>
+
+        <div class="section-container">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Resulting Waveform & RMS</h2>
+            <div class="chart-container mb-4">
+                <canvas id="waveformChart"></canvas>
+            </div>
+            <div class="space-y-2 text-gray-700">
+                 <div class="flex justify-between p-2 bg-blue-50 rounded-md">
+                    <span>Fundamental RMS (pu):</span>
+                    <span id="fundamental-rms" class="font-semibold value-display">1.000</span>
+                 </div>
+                 <div class="flex justify-between p-2 bg-green-50 rounded-md">
+                    <span>True RMS (pu):</span>
+                    <span id="true-rms" class="font-semibold value-display">1.000</span>
+                 </div>
+                 <div class="flex justify-between p-2 bg-yellow-50 rounded-md">
+                    <span>Difference (%):</span>
+                    <span id="rms-difference" class="font-semibold value-display">0.00</span>
+                 </div>
+            </div>
+        </div>
+
+        <div class="section-container">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Time-Overcurrent (TOC) Coordination</h2>
+
+            {/* TOC Controls */}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="toc-curve" class="block text-sm font-medium text-gray-700 mb-1">Curve Type:</label>
+                    <select id="toc-curve" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                         <optgroup label="IEC">
+                            <option value="IEC_SI">IEC Standard Inverse (SI)</option>
+                            <option value="IEC_VI">IEC Very Inverse (VI)</option>
+                            <option value="IEC_EI">IEC Extremely Inverse (EI)</option>
+                            <option value="IEC_LTI">IEC Long-Time Inverse (LTI)</option>
+                        </optgroup>
+                        <optgroup label="IEEE/ANSI">
+                            <option value="IEEE_MI">IEEE Moderately Inverse (MI)</option>
+                            <option value="IEEE_VI" selected>IEEE Very Inverse (VI)</option>
+                            <option value="IEEE_EI">IEEE Extremely Inverse (EI)</option>
+                            <option value="IEEE_II">IEEE Inverse (I)</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="mb-2 slider-container">
+                        <label for="time-dial" class="text-sm font-medium text-gray-700 whitespace-nowrap">Time Dial (TDS/TMS):</label>
+                        <input type="range" id="time-dial" min="0.1" max="10" step="0.1" value="1.0" class="slider">
+                        <span id="time-dial-value" class="text-sm value-display">1.0</span>
+                    </div>
+                    <div class="slider-container">
+                        <label for="pickup-multiplier" class="text-sm font-medium text-gray-700 whitespace-nowrap">Pickup Multiplier (M<sub>fund</sub>):</label>
+                        <input type="range" id="pickup-multiplier" min="1.1" max="50" step="0.1" value="5.0" class="slider">
+                        <span id="pickup-multiplier-value" class="text-sm value-display">5.0</span>
+                    </div>
+                </div>
+            </div>
+             <p class="text-xs text-gray-500 mb-4 text-center md:text-left">Pickup Multiplier (M<sub>fund</sub>) = Fundamental RMS Current / Relay Pickup Setting.</p>
+
+            {/* TOC Plot */}
+            <div class="chart-container">
+                <canvas id="tocChart"></canvas>
+                 {/* Equation is drawn on the canvas via JS */}
+            </div>
+
+             {/* Operating Time Display */}
+             <div class="mt-4 text-center text-gray-700 space-y-1">
+                 <div>
+                     Relay Op Time (M<sub>fund</sub>=<span id="display-m-fund">5.0</span>): <span id="operating-time-fund" class="font-semibold text-blue-600">---</span> s
+                 </div>
+                 <div>
+                     True RMS Op Time (M<sub>true</sub>=<span id="display-m-true">5.0</span>): <span id="operating-time-true" class="font-semibold text-red-600">---</span> s
+                 </div>
+            </div>
+
+        </div>
+
+        <div class="section-container explanation-section">
+            <h2>Understanding RMS Values in Protection</h2>
+
+            <p>This toolkit demonstrates the difference between <strong>Fundamental RMS</strong> and <strong>True RMS</strong> current values, especially when harmonics are present in the electrical system. Understanding this difference is crucial for coordinating protective devices correctly.</p>
+
+            <h3>Fundamental RMS</h3>
+            <ul>
+                <li><strong>Definition:</strong> The Root Mean Square (RMS) value calculated using <em>only</em> the fundamental frequency component (typically 50 Hz or 60 Hz) of the waveform. It ignores any harmonic distortion.</li>
+                <li><strong>Calculation:</strong> Digital relays often use algorithms like the Fast Fourier Transform (FFT) or Discrete Fourier Transform (DFT) to isolate the fundamental component's magnitude before calculating its RMS value (<code>I_fund_rms = Amplitude_fund / sqrt(2)</code>).</li>
+                <li><strong>Relevance:</strong> Many modern digital protective relays are designed to operate based on the fundamental RMS value for their primary overcurrent protection functions. This is often done intentionally to prevent nuisance tripping caused by harmonics that might not necessarily represent a dangerous overload or fault condition in terms of equipment heating or magnetic stress related to the fundamental frequency.</li>
+            </ul>
+
+            <h3>True RMS</h3>
+            <ul>
+                <li><strong>Definition:</strong> The Root Mean Square (RMS) value calculated considering the fundamental component <em>plus</em> all harmonic components present in the waveform.</li>
+                <li><strong>Calculation:</strong> It's calculated as the square root of the sum of the squares of the RMS values of the fundamental and each harmonic component:<br>
+                    <code>I_true_rms = sqrt( I_fund_rms² + I_h3_rms² + I_h5_rms² + I_h7_rms² + ... )</code><br>
+                    where <code>I_hn_rms</code> is the RMS value of the nth harmonic.</li>
+                <li><strong>Relevance:</strong> True RMS represents the <strong>actual heating effect</strong> of the current flowing through a resistive element. The total power dissipated as heat (<code>I²R</code>) is proportional to the square of the True RMS current.</li>
+            </ul>
+
+            <h3>Protective Device Response</h3>
+            <p>Different types of protective devices respond differently to harmonic content:</p>
+            <ul>
+                <li><strong>Fuses & Thermal Overload Relays/Breakers:</strong> These devices operate based on the heating effect of the current. Therefore, their operating time is primarily determined by the <strong>True RMS</strong> value of the current. Higher True RMS (due to harmonics) will cause them to operate faster for the same fundamental current.</li>
+                <li><strong>Electromechanical Relays (Induction Disc/Plunger):</strong> Their response is more complex and depends on the specific design. They often respond to a value somewhere between the fundamental and True RMS, or sometimes closer to the peak value, but generally, they are significantly affected by the total energy, leaning towards True RMS behaviour compared to purely fundamental-based relays.</li>
+                <li><strong>Digital (Microprocessor-Based) Relays:</strong>
+                    <ul>
+                        <li><em>Overcurrent Elements (e.g., 50/51):</em> Often use <strong>Fundamental RMS</strong> calculated via digital filtering (FFT/DFT). This makes them less sensitive to harmonic distortion for phase/ground fault detection, focusing on the fundamental power frequency component.</li>
+                        <li><em>Thermal Overload Elements (e.g., 49):</em> If included, these elements within a digital relay are typically designed to calculate or estimate the <strong>True RMS</strong> value to accurately model the heating effect on equipment like motors or transformers.</li>
+                        <li><em>Other Functions:</em> Some functions might use peak values or other derived quantities.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Coordination Challenge:</strong> As this toolkit demonstrates, if a digital relay operating on Fundamental RMS is protecting a circuit where a fuse or thermal breaker (operating on True RMS) is downstream, the presence of harmonics can cause miscoordination. The fuse/breaker might operate faster than expected (because it sees the higher True RMS current) before the relay (seeing only the lower Fundamental RMS current) has time to operate according to its settings. This requires careful consideration during protection coordination studies.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Constants and Configuration ---
+        const FUNDAMENTAL_FREQ = 60;
+        const OMEGA = 2 * Math.PI * FUNDAMENTAL_FREQ;
+        const MAX_HARMONIC = 25; // Increased max harmonic
+        const WAVEFORM_POINTS = 200;
+        const TOC_PLOT_POINTS = 100;
+        const FUNDAMENTAL_AMPLITUDE = 1.0;
+
+        // TOC Curve Parameters { A, P, B, equation }
+        const TOC_PARAMS = {
+            'IEC_SI':  { A: 0.14,  P: 0.02, B: 0,    equation: "t = TDS * [0.14 / (M^0.02 - 1)]" },
+            'IEC_VI':  { A: 13.5,  P: 1.0,  B: 0,    equation: "t = TDS * [13.5 / (M - 1)]" }, // M^1 = M
+            'IEC_EI':  { A: 80.0,  P: 2.0,  B: 0,    equation: "t = TDS * [80 / (M\u00B2 - 1)]" }, // M²
+            'IEC_LTI': { A: 120.0, P: 1.0,  B: 0,    equation: "t = TDS * [120 / (M - 1)]" },
+            'IEEE_MI': { A: 0.0515,P: 0.02, B: 0.1140, equation: "t = TDS * [0.0515 / (M^0.02 - 1) + 0.114]" },
+            'IEEE_VI': { A: 19.61, P: 2.0,  B: 0.491,  equation: "t = TDS * [19.61 / (M\u00B2 - 1) + 0.491]" }, // M²
+            'IEEE_EI': { A: 28.2,  P: 2.0,  B: 0.1217, equation: "t = TDS * [28.2 / (M\u00B2 - 1) + 0.1217]" }, // M²
+            'IEEE_II': { A: 0.18,  P: 0.02, B: 0.0,    equation: "t = TDS * [0.18 / (M^0.02 - 1)]" } // B=0 for simplified version
+        };
+
+        // --- State Variables ---
+        let harmonicState = {};
+        let waveformChart = null;
+        let tocChart = null;
+
+        // --- DOM Elements ---
+        const harmonicControlsContainer = document.getElementById('harmonic-controls');
+        const fundamentalRmsDisplay = document.getElementById('fundamental-rms');
+        const trueRmsDisplay = document.getElementById('true-rms');
+        const rmsDifferenceDisplay = document.getElementById('rms-difference');
+        const waveformCanvas = document.getElementById('waveformChart');
+        const tocCanvas = document.getElementById('tocChart');
+        const tocCurveSelect = document.getElementById('toc-curve');
+        const timeDialSlider = document.getElementById('time-dial');
+        const timeDialValue = document.getElementById('time-dial-value');
+        const pickupMultiplierSlider = document.getElementById('pickup-multiplier');
+        const pickupMultiplierValue = document.getElementById('pickup-multiplier-value');
+        const operatingTimeFundDisplay = document.getElementById('operating-time-fund');
+        const operatingTimeTrueDisplay = document.getElementById('operating-time-true');
+        const displayMFund = document.getElementById('display-m-fund');
+        const displayMTrue = document.getElementById('display-m-true');
+        const resetHarmonicsButton = document.getElementById('reset-harmonics');
+
+
+        // --- Utility Functions ---
+        const degToRad = (degrees) => degrees * (Math.PI / 180);
+
+        // --- Initialization ---
+        function initializeHarmonics() {
+            harmonicControlsContainer.innerHTML = '';
+            harmonicState = {};
+            // Loop up to the new MAX_HARMONIC
+            for (let n = 3; n <= MAX_HARMONIC; n += 2) {
+                harmonicState[n] = { magnitude: 0.0, angle: 0.0 };
+
+                const group = document.createElement('div');
+                group.classList.add('mb-3', 'p-2', 'border', 'border-gray-200', 'rounded');
+                // Slider creation logic
+                 const title = document.createElement('h3');
+                title.textContent = `Harmonic ${n}`;
+                title.classList.add('text-sm', 'font-medium', 'text-gray-600', 'mb-1');
+                group.appendChild(title);
+
+                // Magnitude Slider
+                const magContainer = document.createElement('div');
+                magContainer.classList.add('slider-container');
+                const magLabel = document.createElement('label'); magLabel.textContent = 'Mag (pu):'; magLabel.classList.add('text-xs');
+                const magSlider = document.createElement('input'); magSlider.type = 'range'; magSlider.min = 0; magSlider.max = 1; magSlider.step = 0.01; magSlider.value = 0.0; magSlider.classList.add('slider', 'harmonic-mag'); magSlider.dataset.harmonic = n;
+                const magValue = document.createElement('span'); magValue.textContent = '0.00'; magValue.classList.add('text-xs', 'value-display');
+                magSlider.addEventListener('input', (e) => { const val = parseFloat(e.target.value); harmonicState[n].magnitude = val; magValue.textContent = val.toFixed(2); updateAll(); });
+                magContainer.appendChild(magLabel); magContainer.appendChild(magSlider); magContainer.appendChild(magValue); group.appendChild(magContainer);
+
+                // Angle Slider
+                const angContainer = document.createElement('div'); angContainer.classList.add('slider-container');
+                const angLabel = document.createElement('label'); angLabel.textContent = 'Ang (deg):'; angLabel.classList.add('text-xs');
+                const angSlider = document.createElement('input'); angSlider.type = 'range'; angSlider.min = -180; angSlider.max = 180; angSlider.step = 1; angSlider.value = 0; angSlider.classList.add('slider', 'harmonic-ang'); angSlider.dataset.harmonic = n;
+                const angValue = document.createElement('span'); angValue.textContent = '0'; angValue.classList.add('text-xs', 'value-display');
+                angSlider.addEventListener('input', (e) => { const val = parseFloat(e.target.value); harmonicState[n].angle = val; angValue.textContent = val.toFixed(0); updateAll(); });
+                angContainer.appendChild(angLabel); angContainer.appendChild(angSlider); angContainer.appendChild(angValue); group.appendChild(angContainer);
+
+                harmonicControlsContainer.appendChild(group);
+            }
+        }
+
+        // --- Calculation Functions ---
+        function calculateWaveformData() {
+            const time = []; const waveform = []; const fundamentalWave = [];
+            const dt = (1 / FUNDAMENTAL_FREQ) / WAVEFORM_POINTS;
+            for (let i = 0; i <= WAVEFORM_POINTS * 1.5; i++) {
+                const t = i * dt; time.push(t * 1000);
+                let totalValue = FUNDAMENTAL_AMPLITUDE * Math.sin(OMEGA * t);
+                fundamentalWave.push(totalValue);
+                for (let n = 3; n <= MAX_HARMONIC; n += 2) {
+                    const { magnitude, angle } = harmonicState[n];
+                    if (magnitude > 0) {
+                        totalValue += magnitude * FUNDAMENTAL_AMPLITUDE * Math.sin(n * OMEGA * t + degToRad(angle));
+                    }
+                }
+                waveform.push(totalValue);
+            }
+            return { time, waveform, fundamentalWave };
+        }
+
+        function calculateRMS() {
+            const fundamentalRMS = FUNDAMENTAL_AMPLITUDE / Math.sqrt(2);
+            let sumOfSquares = fundamentalRMS ** 2;
+            for (let n = 3; n <= MAX_HARMONIC; n += 2) {
+                const { magnitude } = harmonicState[n];
+                if (magnitude > 0) {
+                    sumOfSquares += ((magnitude * FUNDAMENTAL_AMPLITUDE) / Math.sqrt(2)) ** 2;
+                }
+            }
+            const trueRMS = Math.sqrt(sumOfSquares);
+            const difference = fundamentalRMS > 1e-9 ? ((trueRMS - fundamentalRMS) / fundamentalRMS) * 100 : (trueRMS > 1e-9 ? Infinity : 0);
+            return { fundamentalRMS, trueRMS, difference };
+        }
+
+        function calculateTOCOperatingTime(curveKey, M, TDS) {
+            if (M <= 1.00001) return Infinity;
+            const params = TOC_PARAMS[curveKey];
+            if (!params) return NaN;
+            const { A, P, B } = params;
+            const M_pow_P = Math.pow(M, P);
+            const denominator = M_pow_P - 1;
+            if (Math.abs(denominator) < 1e-9) return Infinity;
+            let time = curveKey.startsWith('IEC')
+                     ? TDS * (A / denominator)
+                     : TDS * (A / denominator + B);
+            return time;
+        }
+
+
+        // --- Plotting Functions ---
+         function drawWaveformChart(data) {
+            const ctx = waveformCanvas.getContext('2d');
+            if (waveformChart) {
+                waveformChart.data.labels = data.time;
+                waveformChart.data.datasets[0].data = data.waveform;
+                waveformChart.update();
+            } else {
+                waveformChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.time,
+                        datasets: [{
+                            label: 'Total Waveform (pu)',
+                            data: data.waveform,
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { type: 'linear', title: { display: true, text: 'Time (ms)' }, ticks: { maxTicksLimit: 10 }},
+                            y: { title: { display: true, text: 'Amplitude (pu)' }, beginAtZero: false }
+                        },
+                        plugins: { legend: { display: false }, tooltip: { enabled: false }},
+                        animation: { duration: 0 }
+                    }
+                });
+            }
+        }
+
+
+        // --- Chart.js Plugin for TOC Equation ---
+        const tocEquationPlugin = {
+            id: 'tocEquation',
+            afterDraw: (chart, args, options) => {
+                const { ctx, chartArea } = chart;
+                const { curveKey } = options;
+
+                if (!chartArea || !curveKey || !TOC_PARAMS[curveKey]) { return; }
+                const equation = TOC_PARAMS[curveKey].equation;
+                if (!equation) return;
+
+                ctx.save();
+                ctx.font = '11px Arial';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                const xPos = chartArea.right - 10;
+                const yPos = chartArea.top + 10;
+                ctx.fillText(equation, xPos, yPos);
+                ctx.restore();
+            }
+        };
+        Chart.register(tocEquationPlugin);
+
+
+         function drawTOCChart(curveKey, TDS, M_fund, M_true, opTime_fund, opTime_true) {
+            const ctx = tocCanvas.getContext('2d');
+            // Curve data generation
+            const curveData = [];
+            const M_min_plot = 1.05; const M_max_plot = 100;
+            const logStep = Math.pow(M_max_plot / M_min_plot, 1 / TOC_PLOT_POINTS);
+            let currentM = M_min_plot;
+            for (let i = 0; i <= TOC_PLOT_POINTS; i++) {
+                const t = calculateTOCOperatingTime(curveKey, currentM, TDS);
+                if (isFinite(t) && t > 0) { curveData.push({ x: currentM, y: Math.min(t, 1000) }); }
+                currentM *= logStep;
+            }
+            // Operating point data
+            const opPointFundData = (isFinite(opTime_fund) && M_fund > 1) ? [{ x: M_fund, y: opTime_fund }] : [];
+            const opPointTrueData = (isFinite(opTime_true) && M_true > 1) ? [{ x: M_true, y: opTime_true }] : [];
+            // Axis limits
+            const yMin = 0.01;
+            const allValidTimes = [...curveData.map(p => p.y), ...(isFinite(opTime_fund) ? [opTime_fund] : []), ...(isFinite(opTime_true) ? [opTime_true] : [])].filter(t => t > 0);
+            const yMax = allValidTimes.length > 0 ? Math.max(10, ...allValidTimes) * 1.2 : 100;
+            const xMin = M_min_plot; const xMax = M_max_plot;
+
+
+            if (tocChart) { // Update existing chart
+                tocChart.data.datasets[0].data = curveData;
+                tocChart.data.datasets[0].label = `TOC Curve (${curveKey.replace('_', ' ')}, TDS=${TDS})`;
+                tocChart.data.datasets[1].data = opPointFundData;
+                tocChart.data.datasets[2].data = opPointTrueData;
+                tocChart.options.scales.y.max = yMax;
+                tocChart.options.scales.y.min = yMin;
+                tocChart.options.scales.x.max = xMax;
+                tocChart.options.scales.x.min = xMin;
+                tocChart.options.scales.x.title.text = `Pickup Multiplier (M = I_fund_rms / I_pickup)`;
+                tocChart.options.plugins.tocEquation.curveKey = curveKey; // Update plugin option
+                tocChart.update();
+            } else { // Create new chart
+                tocChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                         datasets: [
+                            { label: `TOC Curve (${curveKey.replace('_', ' ')}, TDS=${TDS})`, data: curveData, borderColor: 'rgb(75, 85, 99)', borderWidth: 2, pointRadius: 0, tension: 0.1, fill: false },
+                            { label: 'Op Point (Fund. RMS)', data: opPointFundData, backgroundColor: 'rgb(59, 130, 246)', borderColor: 'rgb(59, 130, 246)', pointStyle: 'circle', pointRadius: 6, pointHoverRadius: 8, showLine: false },
+                            { label: 'Op Point (True RMS)', data: opPointTrueData, backgroundColor: 'rgb(220, 38, 38)', borderColor: 'rgb(220, 38, 38)', pointStyle: 'triangle', pointRadius: 7, pointHoverRadius: 9, showLine: false }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                             x: {
+                                type: 'logarithmic',
+                                title: { display: true, text: `Pickup Multiplier (M = I_fund_rms / I_pickup)` },
+                                min: xMin, max: xMax,
+                                ticks: { callback: function(value, index, values) { const log10 = Math.log10(value); if (log10 === Math.floor(log10)) return value.toString(); const remainder = value / Math.pow(10, Math.floor(log10)); if (Math.abs(remainder - 2) < 0.01 || Math.abs(remainder - 5) < 0.01) return value.toString(); return null; }, autoSkip: false }
+                            },
+                            y: {
+                                type: 'logarithmic', title: { display: true, text: 'Operating Time (s)' },
+                                min: yMin, max: yMax,
+                                ticks: { callback: function(value, index, values) { const log10 = Math.log10(value); if (Math.abs(log10 - Math.round(log10)) < 1e-6) return value.toPrecision(1); return null; } }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } }},
+                            tooltip: { mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null && context.parsed.x !== null) { label += `M=${context.parsed.x.toFixed(2)}, T=${context.parsed.y.toFixed(3)}s`; } return label; }}},
+                            tocEquation: { // Pass options to plugin
+                                curveKey: curveKey
+                            }
+                        },
+                        animation: { duration: 0 }
+                    }
+                });
+            }
+        }
+
+
+        // --- Update Functions ---
+         function updateRMSDisplay(rmsResults) {
+            fundamentalRmsDisplay.textContent = rmsResults.fundamentalRMS.toFixed(3);
+            trueRmsDisplay.textContent = rmsResults.trueRMS.toFixed(3);
+            rmsDifferenceDisplay.textContent = rmsResults.difference.toFixed(2);
+        }
+
+        function updateTOCDisplay(M_fund, M_true, opTime_fund, opTime_true) {
+             displayMFund.textContent = M_fund.toFixed(2);
+             operatingTimeFundDisplay.textContent = isFinite(opTime_fund) ? opTime_fund.toFixed(3) : 'No Operation';
+             displayMTrue.textContent = M_true.toFixed(2);
+             operatingTimeTrueDisplay.textContent = isFinite(opTime_true) ? opTime_true.toFixed(3) : 'No Operation';
+        }
+
+         function updateAll() {
+            const waveformData = calculateWaveformData();
+            const rmsResults = calculateRMS();
+            drawWaveformChart(waveformData);
+            updateRMSDisplay(rmsResults);
+            const curveKey = tocCurveSelect.value;
+            const TDS = parseFloat(timeDialSlider.value);
+            const M_fund = parseFloat(pickupMultiplierSlider.value);
+            const M_true = rmsResults.fundamentalRMS > 1e-9 ? (rmsResults.trueRMS / rmsResults.fundamentalRMS) * M_fund : (rmsResults.trueRMS > 1e-9 ? Infinity : M_fund);
+            const opTime_fund = calculateTOCOperatingTime(curveKey, M_fund, TDS);
+            const opTime_true = calculateTOCOperatingTime(curveKey, M_true, TDS);
+            drawTOCChart(curveKey, TDS, M_fund, M_true, opTime_fund, opTime_true);
+            updateTOCDisplay(M_fund, M_true, opTime_fund, opTime_true);
+        }
+
+
+        // --- Event Listeners ---
+        timeDialSlider.addEventListener('input', (e) => { timeDialValue.textContent = parseFloat(e.target.value).toFixed(1); updateAll(); });
+        pickupMultiplierSlider.addEventListener('input', (e) => { pickupMultiplierValue.textContent = parseFloat(e.target.value).toFixed(1); updateAll(); });
+        tocCurveSelect.addEventListener('change', updateAll);
+        resetHarmonicsButton.addEventListener('click', () => { initializeHarmonics(); updateAll(); });
+
+
+        // --- Initial Setup ---
+        window.onload = () => {
+            initializeHarmonics();
+            timeDialValue.textContent = parseFloat(timeDialSlider.value).toFixed(1);
+            pickupMultiplierValue.textContent = parseFloat(pickupMultiplierSlider.value).toFixed(1);
+            updateAll();
+        };
+
+    </script>
+
+</body>
+</html>

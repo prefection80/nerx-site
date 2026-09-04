@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fault Energy Calculator</title>
+
+  <!-- Stub out Intercom to prevent errors if Intercom is injected elsewhere -->
+  <script>
+    window.intercomSettings = window.intercomSettings || {};
+    window.Intercom = window.Intercom || function() { (window.Intercom.q = window.Intercom.q || []).push(arguments); };
+  </script>
+
+  <!-- External Scripts -->
+  <script src="header.js"></script>
+  <script src="ticker.js"></script>
+  
+  <!-- Chart.js and DataLabels plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      padding-top: 45px;  /* Space for fixed header */
+      padding-bottom: 40px;  /* Space for fixed ticker */
+    }
+    .control { margin-bottom: 12px; }
+    .label { display: inline-block; width: 200px; font-weight: bold; }
+    .chart-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    #resultChart {
+      flex: 1 1 600px;
+      max-width: 600px;
+      height: 400px;
+    }
+    #punchCalc {
+      flex: 0 0 100%;
+      margin-top: 20px;
+    }
+    .note { font-size: 0.9em; color: #666; margin-top: 8px; }
+    #punchCalc pre { background: #f9f9f9; padding: 10px; border-radius: 4px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Electrical Fault Energy Calculator</h1>
+
+  <div class="control">
+    <label class="label" for="voltageSelect">Voltage Class:</label>
+    <select id="voltageSelect">
+      <option value="120">120 V</option>
+      <option value="208">208 V</option>
+      <option value="240">240 V</option>
+      <option value="480">480 V</option>
+      <option value="600">600 V</option>
+      <option value="4160">4.16 kV</option>
+      <option value="13800">13.8 kV</option>
+      <option value="34500">34.5 kV</option>
+      <option value="69000">69 kV</option>
+      <option value="115000">115 kV</option>
+      <option value="138000">138 kV</option>
+      <option value="230000">230 kV</option>
+      <option value="345000">345 kV</option>
+      <option value="500000">500 kV</option>
+      <option value="765000">765 kV</option>
+    </select>
+  </div>
+
+  <div class="control">
+    <label class="label">Fault Current Slider:</label>
+    <input type="range" id="currentRange" min="0" max="1" step="0.001" value="0.5">
+    <span id="currentDisplay"></span>
+  </div>
+
+  <div class="control">
+    <label class="label">Duration Slider:</label>
+    <input type="range" id="durationRange" min="0" max="1" step="0.001" value="0">
+    <span id="durationDisplay"></span>
+    <button id="toggleDurationUnit">Show cycles</button>
+  </div>
+
+  <div class="control">
+    <button id="togglePunch">Hide Punch Bar</button>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="resultChart"></canvas>
+  </div>
+
+  <p class="note">* Calculations: 120 V is single-phase; other classes are three-phase.</p>
+
+  <div id="punchCalc">
+    <h2>Elaborated Mike Tyson Punch Energy Calculation</h2>
+    <p>We model the punch as a mass of fist and arm acceleration. Using:</p>
+    <pre>
+    m = 100 kg    // approximate mass contributing to punch
+    v = 4.5 m/s   // estimated punch speed
+    </pre>
+    <p>Compute kinetic energy:</p>
+    <pre>
+    E = ½ m v²
+      = ½ × 100 kg × (4.5 m/s)²
+      = 50 × 20.25
+      = 1,012.5 J
+    </pre>
+    <p>Therefore, each punch delivers around <strong>≈1,010 J</strong> (≈1.01 kJ) of energy.</p>
+    <p id="punchYears"></p>
+  </div>
+
+  <script>
+    Chart.register(ChartDataLabels);
+    const voltageSettings = { /* ... same settings ... */ 120: {maxCurrent:30},208:{maxCurrent:30},240:{maxCurrent:30},480:{maxCurrent:50},600:{maxCurrent:50},4160:{maxCurrent:25},13800:{maxCurrent:25},34500:{maxCurrent:25},69000:{maxCurrent:20},115000:{maxCurrent:20},138000:{maxCurrent:20},230000:{maxCurrent:20},345000:{maxCurrent:20},500000:{maxCurrent:20},765000:{maxCurrent:63} };
+    const voltageSelect = document.getElementById('voltageSelect');
+    const currentRange = document.getElementById('currentRange');
+    const durationRange = document.getElementById('durationRange');
+    const currentDisplay = document.getElementById('currentDisplay');
+    const durationDisplay = document.getElementById('durationDisplay');
+    const toggleDurationUnit = document.getElementById('toggleDurationUnit');
+    const togglePunch = document.getElementById('togglePunch');
+    const punchYearsEl = document.getElementById('punchYears');
+    let showCycles = false;
+    let showPunch = true;
+    let chartInstance;
+
+    function updateDisplays() {
+      const v = voltageSelect.value;
+      if (!voltageSettings[v]) return;
+      const maxI = voltageSettings[v].maxCurrent;
+      const curSlider = parseFloat(currentRange.value);
+      const durSlider = parseFloat(durationRange.value);
+
+      const current_kA = 0.001 * Math.pow(maxI / 0.001, curSlider);
+      const duration_s = (1/60) * Math.pow(1/(1/60), durSlider);
+
+      currentDisplay.textContent = `${current_kA.toLocaleString(undefined,{maximumFractionDigits:3})} kA`;
+      if (showCycles) {
+        durationDisplay.textContent = `${(duration_s*60).toLocaleString(undefined,{maximumFractionDigits:1})} cycles`;
+      } else {
+        durationDisplay.textContent = `${duration_s.toLocaleString(undefined,{maximumFractionDigits:3})} s`;
+      }
+
+      drawChart(current_kA, duration_s);
+    }
+
+    function calculateEnergy(current_kA, duration_s) {
+      const V = parseFloat(voltageSelect.value);
+      const I = current_kA * 1000;
+      const t = duration_s;
+      const multiplier = V === 120 ? 1 : Math.sqrt(3);
+      const energyJ = multiplier * V * I * t;
+      const ballEnergy = 4.53592 * 9.80665 * 1609.34;
+
+      const eq = {
+        'Hamburgers (~1.05 MJ)': energyJ / 1.046e6,
+        'Dynamite (~2 MJ)': energyJ / 2e6,
+        'Cars @60mph (~0.54 MJ)': energyJ / 0.54e6,
+        'Phone (~40 kJ)': energyJ / 40e3,
+        'Bananas (~0.42 MJ)': energyJ / 0.418e6,
+        'Coffee (~70 kJ)': energyJ / 70e3,
+        'Bowling @1mi (~71.6 kJ)': energyJ / ballEnergy
+      };
+      if (showPunch) eq['Tyson Punch (~1 kJ)'] = energyJ / 1000;
+      return eq;
+    }
+
+    function drawChart(current_kA, duration_s) {
+      const eq = calculateEnergy(current_kA, duration_s);
+      const labels = Object.keys(eq);
+      const data = labels.map(label => Number(eq[label].toFixed(1)));
+
+      if (chartInstance) chartInstance.destroy();
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: 'rgba(75,192,192,0.6)' }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 40, right: 20, bottom: 50, left: 20 } },
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              font: { size: 14 },
+              text: `V: ${voltageSelect.value} V | I: ${currentDisplay.textContent} | Duration: ${durationDisplay.textContent}`
+            },
+            datalabels: { font: { size: 12 }, clip: false, anchor: 'end', align: 'end', formatter: value => value.toLocaleString() }
+          },
+          scales: {
+            x: { 
+              categoryPercentage: 1.1,
+              barPercentage: 1.1,
+              ticks: { 
+                maxRotation: 45, 
+                minRotation: 45,
+                font: { size: 12 }
+              }
+            },
+            y: {
+              beginAtZero: true,
+              grace: '10%',
+              ticks: {
+                font: { size: 12 }
+              }
+            }
+          }
+        }
+      });
+
+                  // Update time for punches at one per second (days, hours, minutes, seconds)
+      if (showPunch) {
+        const punchCount = eq['Tyson Punch (~1 kJ)'];
+        const totalSeconds = Math.round(punchCount);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        let timeStr = `${days} day${days !== 1 ? 's' : ''}`;
+        timeStr += `, ${hours} hour${hours !== 1 ? 's' : ''}`;
+        timeStr += `, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        timeStr += `, and ${seconds} second${seconds !== 1 ? 's' : ''}`;
+        punchYearsEl.textContent = `At one punch per second, it would take approximately ${timeStr}.`;
+      } else {
+        punchYearsEl.textContent = '';
+      }
+    }voltageSelect.addEventListener('change', updateDisplays);
+    currentRange.addEventListener('input', updateDisplays);
+    durationRange.addEventListener('input', updateDisplays);
+    toggleDurationUnit.addEventListener('click', () => {
+      showCycles = !showCycles;
+      toggleDurationUnit.textContent = showCycles ? 'Show seconds' : 'Show cycles';
+      updateDisplays();
+    });
+    togglePunch.addEventListener('click', () => {
+      showPunch = !showPunch;
+      togglePunch.textContent = showPunch ? 'Hide Punch Bar' : 'Show Punch Bar';
+      updateDisplays();
+    });
+
+    // Initialize on load
+    updateDisplays();
+  </script>
+</body>
+</html>

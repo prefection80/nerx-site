@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harmonic Sequence Analyzer</title>
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg0:#f4f6f9;--bg1:#ffffff;--bg2:#ffffff;--bg3:#eef1f6;
+  --brd:#d0d7e2;--brd2:#a8b4c4;
+  --t1:#1a2538;--t2:#4a5568;--t3:#7a8a9e;
+  --pa:#cc2233;--pb:#cc8800;--pc:#1a6baa;
+  --sp:#0a8a54;--sn:#cc5500;--sz:#8833bb;
+  --neut:#333;
+  --warn-bg:#fff8e6;--warn-t:#b8860b;
+  --danger:#cc1133;--safe:#0a8a54;
+  --cvs-bg:#f8f9fc;--cvs-grid:#dde2ea;--cvs-grid2:#e8ecf2;--cvs-axis:#c0c8d4;--cvs-text:#6a7a8e
+}
+body{background:var(--bg0);color:var(--t1);font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.5;padding-top:80px !important;padding-bottom:60px !important}
+.app{max-width:1360px;margin:0 auto;padding:20px}
+.header{text-align:center;padding:24px 0 16px;border-bottom:2px solid var(--brd);margin-bottom:20px}
+.header h1{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#1a2538}
+.header .sub{font-size:13px;color:var(--t2)}
+.panel{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.panel-h{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;padding:12px 16px 8px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#f8fafc}
+.panel-b{padding:12px}
+canvas{display:block;width:100%;background:var(--cvs-bg);border-radius:4px;border:1px solid #e2e8f0}
+.rule-bar{background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;flex-wrap:wrap;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.rule-item{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;border:1px solid transparent;transition:all .2s}
+.rule-item.hl{border-color:var(--brd2);background:rgba(0,0,0,.03)}
+.rule-dot{width:8px;height:8px;border-radius:50%}
+.sel-panel{background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.sel-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+.h-strip{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+.hb{width:44px;height:52px;border:1px solid var(--brd);border-radius:5px;background:var(--bg3);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .15s}
+.hb:hover{border-color:var(--brd2);background:#e4e8ee}
+.hb.act{border-width:2px}
+.hb.act.sp{border-color:var(--sp);background:rgba(10,138,84,.06);box-shadow:0 0 8px rgba(10,138,84,.15)}
+.hb.act.sn{border-color:var(--sn);background:rgba(204,85,0,.06);box-shadow:0 0 8px rgba(204,85,0,.15)}
+.hb.act.sz{border-color:var(--sz);background:rgba(136,51,187,.06);box-shadow:0 0 8px rgba(136,51,187,.15)}
+.hb .hn{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--t1)}
+.hb .hs{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;margin-top:2px}
+.hs.pos{color:var(--sp)}.hs.neg{color:var(--sn)}.hs.zero{color:var(--sz)}
+.srow{display:flex;align-items:center;gap:16px}
+.srow input[type=range]{flex:1;-webkit-appearance:none;height:6px;background:#e2e8f0;border-radius:3px;border:1px solid var(--brd);outline:none}
+.srow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#4a5568;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sinfo{font-family:'IBM Plex Mono',monospace;font-size:13px;white-space:nowrap;min-width:260px;text-align:right}
+.seq-badge{display:inline-block;padding:2px 10px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-left:8px}
+.seq-badge.pos{background:rgba(10,138,84,.1);color:var(--sp);border:1px solid rgba(10,138,84,.25)}
+.seq-badge.neg{background:rgba(204,85,0,.1);color:var(--sn);border:1px solid rgba(204,85,0,.25)}
+.seq-badge.zero{background:rgba(136,51,187,.1);color:var(--sz);border:1px solid rgba(136,51,187,.25)}
+.mgrid{display:grid;grid-template-columns:380px 1fr;gap:16px;margin-bottom:16px}
+.lcol,.rcol{display:flex;flex-direction:column;gap:16px}
+.ctrls{display:flex;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.cb{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 12px;border:1px solid var(--brd);border-radius:4px;background:var(--bg3);color:var(--t2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.cb:hover{border-color:var(--brd2);color:var(--t1)}
+.cb.act{border-color:var(--sp);color:var(--sp);background:rgba(10,138,84,.06)}
+.info-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e8ecf2;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.info-row:last-child{border-bottom:none}
+.pleg{display:flex;gap:16px;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.pleg-i{display:flex;align-items:center;gap:5px}
+.pleg-s{width:14px;height:3px;border-radius:1px}
+.neut-ann{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 16px;color:var(--t2);text-align:center}
+.edu{font-size:13px;line-height:1.7;color:var(--t2);padding:4px}
+.edu strong{color:var(--t1)}
+.warn{background:var(--warn-bg);border:1px solid #e6cc66;border-radius:8px;padding:16px 20px;margin-bottom:16px;display:none}
+.warn.vis{display:block}
+.warn-t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--warn-t);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.warn-tx{font-size:13px;color:#7a6520;line-height:1.7}
+.warn-tx strong{color:#5a4a10}
+.sdiv{text-align:center;padding:28px 0 20px;border-top:2px solid var(--brd);margin-top:24px}
+.sdiv h2{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.sdiv .sub{font-size:12px;color:var(--t2)}
+.cfg-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.cfg-card{flex:1;min-width:280px;background:var(--bg1);border:2px solid var(--brd);border-radius:8px;padding:16px 20px;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.cfg-card:hover{border-color:var(--brd2)}
+.cfg-card.sel-s{border-color:var(--safe);background:rgba(10,138,84,.03);box-shadow:0 0 12px rgba(10,138,84,.1)}
+.cfg-card.sel-d{border-color:var(--danger);background:rgba(204,17,51,.03);box-shadow:0 0 12px rgba(204,17,51,.1)}
+.cfg-title{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;margin-bottom:4px}
+.cfg-desc{font-size:12px;color:var(--t2);line-height:1.5}
+.cfg-desc strong{color:var(--t1)}
+.cfg-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-top:8px}
+.tag-s{background:rgba(10,138,84,.1);color:var(--safe);border:1px solid rgba(10,138,84,.2)}
+.tag-d{background:rgba(204,17,51,.08);color:var(--danger);border:1px solid rgba(204,17,51,.2)}
+.imp-row{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.imp-c{flex:1;min-width:200px;background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.imp-lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.imp-val{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--t1);font-weight:600;margin-bottom:6px}
+.imp-c input[type=range]{width:100%;-webkit-appearance:none;height:5px;background:#e2e8f0;border-radius:3px;border:1px solid var(--brd);outline:none}
+.imp-c input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#4a5568;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.imp-hint{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:4px;font-family:'IBM Plex Mono',monospace}
+.htbl-wrap{background:var(--bg1);border:1px solid var(--brd);border-radius:8px;margin-bottom:16px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.htbl{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.htbl th{padding:8px 6px;text-align:center;color:var(--t3);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--brd);white-space:nowrap;background:#f8fafc}
+.htbl td{padding:4px 4px;text-align:center;border-bottom:1px solid #eef1f6;vertical-align:middle}
+.htbl tr:last-child td{border-bottom:none}
+.htbl tr:hover td{background:#f4f7fb}
+.htbl input[type=number]{width:62px;background:#f4f6f9;border:1px solid var(--brd);border-radius:3px;color:var(--t1);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:3px 4px;text-align:center;outline:none}
+.htbl input:focus{border-color:var(--brd2);background:#fff}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap}
+.pb{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 14px;border:1px solid var(--brd);border-radius:4px;background:var(--bg3);color:var(--t2);cursor:pointer;transition:all .15s}
+.pb:hover{border-color:var(--brd2);color:var(--t1);background:#e4e8ee}
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.rcard{background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.rcard.dng{border-color:rgba(204,17,51,.35);background:rgba(204,17,51,.03)}
+.rcard.ok{border-color:rgba(10,138,84,.3);background:rgba(10,138,84,.03)}
+.rc-t{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.rc-v{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;margin-bottom:4px}
+.rc-d{font-size:12px;color:var(--t2);line-height:1.5}
+.cex{background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.cex-t{font-size:13px;color:var(--t2);line-height:1.7}
+.cex-t strong{color:var(--t1)}
+@media(max-width:860px){.mgrid,.res-grid{grid-template-columns:1fr}}
+
+/* Fix header layout to prevent overlapping */
+.header-container {
+    min-height: 50px !important;
+}
+.header-container h1 {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+}
+.toolkit-title {
+    font-size: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    position: absolute !important;
+    left: 50% !important;
+    right: auto !important;
+    width: auto !important;
+    max-width: 400px !important;
+    margin-left: -200px !important;
+}
+.header-left {
+    max-width: 35% !important;
+    z-index: 1 !important;
+}
+.header-right {
+    z-index: 1 !important;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header"><h1>Harmonic Sequence Analyzer</h1><div class="sub">Phase Sequence Classification &amp; Circuit Simulation</div></div>
+
+  <div class="rule-bar">
+    <span style="color:var(--t3)">RULE ›</span>
+    <div class="rule-item" id="rp"><div class="rule-dot" style="background:var(--sp)"></div><span style="color:var(--t3)">n%3=1→</span><span style="color:var(--sp);font-weight:600">Pos(+)</span></div>
+    <div class="rule-item" id="rn"><div class="rule-dot" style="background:var(--sn)"></div><span style="color:var(--t3)">n%3=2→</span><span style="color:var(--sn);font-weight:600">Neg(−)</span></div>
+    <div class="rule-item" id="rz"><div class="rule-dot" style="background:var(--sz)"></div><span style="color:var(--t3)">n%3=0→</span><span style="color:var(--sz);font-weight:600">Zero(0)</span></div>
+    <span style="color:var(--t3);margin-left:auto" id="rc"></span>
+  </div>
+
+  <div class="sel-panel">
+    <div class="sel-label">Select Harmonic Order</div>
+    <div class="h-strip" id="hStrip"></div>
+    <div class="srow">
+      <input type="range" id="hSlider" min="1" max="25" value="1">
+      <div class="sinfo" id="sInfo"></div>
+    </div>
+  </div>
+
+  <div class="mgrid">
+    <div class="lcol">
+      <div class="panel">
+        <div class="panel-h"><span>Phasor Diagram</span><span id="pFreq" style="color:var(--t2)"></span></div>
+        <div class="panel-b" style="padding:8px"><canvas id="pCvs" width="712" height="600"></canvas></div>
+        <div class="ctrls">
+          <button class="cb" id="bAnim" onclick="togAnim()">▶ Animate</button>
+          <button class="cb" id="bFRef" onclick="togFRef()">Show Fundamental</button>
+        </div>
+      </div>
+      <div class="panel" style="font-family:'IBM Plex Mono',monospace">
+        <div class="panel-h"><span>Phase Angles</span></div>
+        <div class="panel-b" id="siBody"></div>
+      </div>
+    </div>
+    <div class="rcol">
+      <div class="panel">
+        <div class="panel-h"><span>Oscillography — Phase Waveforms</span>
+          <div class="pleg">
+            <div class="pleg-i"><div class="pleg-s" style="background:var(--pa)"></div><span style="color:var(--pa)">A</span></div>
+            <div class="pleg-i"><div class="pleg-s" style="background:var(--pb)"></div><span style="color:var(--pb)">B</span></div>
+            <div class="pleg-i"><div class="pleg-s" style="background:var(--pc)"></div><span style="color:var(--pc)">C</span></div>
+          </div>
+        </div>
+        <div class="panel-b" style="padding:8px"><canvas id="oCvs" width="1600" height="480"></canvas></div>
+        <div class="ctrls"><button class="cb" id="bFOvl" onclick="togFOvl()">Fundamental Overlay</button></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><span>Neutral / Sum — Σ(A+B+C)</span>
+          <div class="pleg"><div class="pleg-i"><div class="pleg-s" style="background:var(--neut)"></div><span style="color:var(--neut)">Sum</span></div></div>
+        </div>
+        <div class="panel-b" style="padding:8px"><canvas id="nCvs" width="1600" height="280"></canvas></div>
+        <div class="neut-ann" id="nAnn"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel"><div class="panel-h"><span>Engineering Significance</span></div><div class="panel-b"><div class="edu" id="eduTx"></div></div></div>
+  <div class="warn" id="warnP"><div class="warn-t">⚠ Triplen Harmonic — Zero Sequence Alert</div><div class="warn-tx" id="warnTx"></div></div>
+
+  <!-- ═══ CIRCUIT SIMULATION ═══ -->
+  <div class="sdiv"><h2>Circuit Simulation</h2><div class="sub">Harmonic Current Source → Transformer → System — Triplen overvoltage demonstration</div></div>
+
+  <div class="cfg-row">
+    <div class="cfg-card sel-s" id="cfgDY" onclick="setCfg('dy')">
+      <div class="cfg-title" style="color:var(--safe)">Δ–Y Grounded</div>
+      <div class="cfg-desc">Delta primary, grounded-wye secondary. Neutral provides a <strong>low-impedance return path</strong> for zero-sequence. Triplen harmonics flow safely through neutral/ground.</div>
+      <div class="cfg-tag tag-s">Zero-Seq Path Available</div>
+    </div>
+    <div class="cfg-card" id="cfgDD" onclick="setCfg('dd')">
+      <div class="cfg-title" style="color:var(--danger)">Δ–Δ (Ungrounded)</div>
+      <div class="cfg-desc">Delta-delta, no neutral. Zero-sequence currents see <strong>only stray capacitance</strong> (very high Z). Triplen harmonics develop large voltages with no low-impedance path.</div>
+      <div class="cfg-tag tag-d">No Zero-Seq Path — Overvoltage Risk</div>
+    </div>
+  </div>
+
+  <div class="imp-row">
+    <div class="imp-c">
+      <div class="imp-lbl">Base MVA</div>
+      <div class="imp-val" id="mvaD">1.0 MVA</div>
+      <input type="range" id="mvaS" min="0.1" max="100" step="0.1" value="1.0" oninput="updCkt()">
+      <div class="imp-hint"><span>0.1 MVA</span><span>100 MVA</span></div>
+    </div>
+    <div class="imp-c">
+      <div class="imp-lbl">Base kV (L-L)</div>
+      <div class="imp-val" id="kvD">0.48 kV</div>
+      <input type="range" id="kvS" min="0.208" max="34.5" step="0.001" value="0.48" oninput="updCkt()">
+      <div class="imp-hint"><span>208V</span><span>34.5kV</span></div>
+    </div>
+  </div>
+
+  <div class="imp-row">
+    <div class="imp-c">
+      <div class="imp-lbl">Source Z<sub>s</sub> Magnitude (pu)</div>
+      <div class="imp-val" id="zsmD">0.05 pu</div>
+      <input type="range" id="zsmS" min="0.001" max="0.5" step="0.001" value="0.05" oninput="updCkt()">
+      <div class="imp-hint"><span>0.001 pu (stiff)</span><span>0.5 pu (weak)</span></div>
+    </div>
+    <div class="imp-c">
+      <div class="imp-lbl">Source Z<sub>s</sub> Angle (°)</div>
+      <div class="imp-val" id="zsaD">85°</div>
+      <input type="range" id="zsaS" min="0" max="90" step="1" value="85" oninput="updCkt()">
+      <div class="imp-hint"><span>0° (pure R)</span><span>90° (pure X)</span></div>
+    </div>
+    <div class="imp-c">
+      <div class="imp-lbl">Transformer X<sub>t</sub> (pu) — reactance only</div>
+      <div class="imp-val" id="xtD">0.06 pu</div>
+      <input type="range" id="xtS" min="0.01" max="0.20" step="0.001" value="0.06" oninput="updCkt()">
+      <div class="imp-hint"><span>0.01 pu</span><span>0.20 pu</span></div>
+    </div>
+    <div class="imp-c" id="rgWrap">
+      <div class="imp-lbl">Ground R<sub>g</sub> (pu) — Δ-Y only, resistance</div>
+      <div class="imp-val" id="rgD">0.005 pu</div>
+      <input type="range" id="rgS" min="0.001" max="1.0" step="0.001" value="0.005" oninput="updCkt()">
+      <div class="imp-hint"><span>0.001 pu (solid)</span><span>1.0 pu (high-R)</span></div>
+    </div>
+  </div>
+
+  <div class="imp-row">
+    <div class="imp-c">
+      <div class="imp-lbl">Stray Capacitance Z<sub>c</sub> (pu) — Δ-Δ zero-seq path</div>
+      <div class="imp-val" id="zcD">50 pu</div>
+      <input type="range" id="zcS" min="5" max="500" step="1" value="50" oninput="updCkt()">
+      <div class="imp-hint"><span>5 pu</span><span>500 pu (very high)</span></div>
+    </div>
+    <div class="imp-c" style="flex:2">
+      <div class="imp-lbl">Per-Unit Base Summary</div>
+      <div class="imp-val" id="puSummary" style="font-size:12px;line-height:1.6">—</div>
+    </div>
+  </div>
+
+  <div class="htbl-wrap">
+    <div class="panel-h"><span>Harmonic Current Sources (per-phase, per-unit of fundamental)</span>
+      <div class="preset-row">
+        <button class="pb" onclick="ldPre('dc')">Data Center</button>
+        <button class="pb" onclick="ldPre('vfd')">6-Pulse VFD</button>
+        <button class="pb" onclick="ldPre('led')">LED Lighting</button>
+        <button class="pb" onclick="ldPre('clr')">Clear All</button>
+      </div>
+    </div>
+    <table class="htbl"><thead><tr>
+      <th>H#</th><th>Freq</th><th>Seq</th><th>I<sub>h</sub> (pu)</th><th>Angle (°)</th><th>I<sub>h</sub> (A)</th><th>Z<sub>0</sub> (pu)</th><th>V₀ Rise (pu)</th><th>V₀ Rise (V)</th>
+    </tr></thead><tbody id="htBody"></tbody></table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><span>One-Line Diagram — Current Paths</span></div>
+    <div class="panel-b" style="padding:8px"><canvas id="cCvs" width="1600" height="500"></canvas></div>
+  </div>
+
+  <div class="res-grid">
+    <div class="rcard" id="rTI"><div class="rc-t">Total Triplen (Zero-Seq) Neutral Current</div><div class="rc-v" id="rTIv" style="color:var(--sz)">—</div><div class="rc-d" id="rTId"></div></div>
+    <div class="rcard" id="rNV"><div class="rc-t">Neutral-to-Ground Voltage Rise</div><div class="rc-v" id="rNVv">—</div><div class="rc-d" id="rNVd"></div></div>
+    <div class="rcard" id="rPV"><div class="rc-t">Phase-to-Ground Voltage (with displacement)</div><div class="rc-v" id="rPVv">—</div><div class="rc-d" id="rPVd"></div></div>
+    <div class="rcard" id="rST"><div class="rc-t">System Status</div><div class="rc-v" id="rSTv">—</div><div class="rc-d" id="rSTd"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><span>Neutral-to-Ground Voltage Waveform</span>
+      <div class="pleg">
+        <div class="pleg-i"><div class="pleg-s" style="background:#cc55ff"></div><span style="color:#cc55ff">V<sub>NG</sub></span></div>
+        <div class="pleg-i"><div class="pleg-s" style="background:rgba(255,255,255,.2)"></div><span style="color:var(--t3)">Nominal L-N</span></div>
+      </div>
+    </div>
+    <div class="panel-b" style="padding:8px"><canvas id="vCvs" width="1600" height="360"></canvas></div>
+  </div>
+
+  <!-- Bus Voltage Oscillography -->
+  <div class="panel">
+    <div class="panel-h"><span>Bus Voltage Oscillography — Harmonic Distortion Through System Impedances</span>
+      <div class="pleg">
+        <div class="pleg-i"><div class="pleg-s" style="background:var(--pa)"></div><span style="color:var(--pa)">V<sub>a-n</sub></span></div>
+        <div class="pleg-i"><div class="pleg-s" style="background:var(--pb)"></div><span style="color:var(--pb)">V<sub>b-n</sub></span></div>
+        <div class="pleg-i"><div class="pleg-s" style="background:var(--pc)"></div><span style="color:var(--pc)">V<sub>c-n</sub></span></div>
+        <div class="pleg-i"><div class="pleg-s" style="background:var(--neut)"></div><span style="color:var(--neut)">V<sub>n-g</sub></span></div>
+        <div class="pleg-i"><div class="pleg-s" style="background:rgba(255,255,255,.2);border:1px dashed rgba(255,255,255,.3)"></div><span style="color:var(--t3)">Undistorted</span></div>
+      </div>
+    </div>
+    <div class="panel-b" style="padding:8px"><canvas id="compCvs" width="1600" height="560"></canvas></div>
+  </div>
+
+  <div class="cex" id="cexP"><div class="cex-t" id="cexTx"></div></div>
+
+  <!-- Article -->
+  <div class="panel" style="margin-top:8px">
+    <div class="panel-h"><span>Why Do Triplen Harmonics Act Like Zero Sequence — And Why Should I Care?</span></div>
+    <div class="panel-b">
+      <div class="edu" style="padding:8px 12px">
+        This shows up in systems with a lot of power electronics, data centers, rectifiers, VFDs. Switch mode supplies inject harmonic currents. Sometimes it matters. Sometimes it does not.<br><br>
+        In industrial plants you will often exceed IEEE 519 recommendations. A big reason is that much of the load is motors and pumps. They are usually less sensitive to harmonic voltage distortion than electronics. When harmonics do become a problem, you will see shunt capacitor bank filters and detuned banks added. The goal is simple. Reduce the impedance seen by harmonic current so the harmonic voltage stays lower. V equals I times Z.<br><br>
+        <strong>The part that confuses people is sequence behavior.</strong><br><br>
+        The fundamental acts like positive sequence because whatever phase rotation you define as the fundamental, ABC or CBA, that becomes the definition of positive sequence. Harmonics then fall into a pattern. Harmonics of order 3k + 1 tend to be positive sequence. Harmonics of order 3k − 1 tend to be negative sequence. Harmonics of order 3k are triplen harmonics, and they behave like zero sequence. Positive and negative harmonics want to go to neutral. Zero sequence harmonics want to go to ground.<br><br>
+        Triplen harmonics are in phase on all three phases. That means they add in the neutral if a neutral exists. If there is no neutral they will try to return through whatever stray path exists, usually system capacitance to ground. That path is often high impedance. High impedance means higher voltage deviation. A delta winding, of a delta-wye, can trap triplens and keep them from flowing upstream, but it can also mean extra heating in that delta.<br><br>
+        Even harmonics are usually uncommon in power systems. They tend to imply half wave behavior or a badly biased converter. In practice you mostly deal with odd harmonics.<br><br>
+        Power electronics produce these components because their switching is synchronized to the same phase angle of their phase. It is not random between phases. That repeatable switching creates a repeatable harmonic current injection profile, and therefore sequence components.<br><br>
+        <strong>In the toolkit, the takeaway is that you should care about the path from the load back to a ground source.</strong> You can switch between delta-wye grounded and delta-delta with no ground reference transformers. Then adjust the harmonic profile. If triplen harmonics are present, voltage distortion jumps when there is no ground reference because the triplen current is forced into the high impedance capacitive path. This goes to show that this ground source path is essential for maintaining power quality with high triplen harmonic loads.<br><br>
+        <strong>Bottom line.</strong> Triplen harmonics are not just a number on a report. They are a wiring and transformer configuration problem. Pick the wrong transformer connection for a system full of power electronics, and voltage distortion can get ugly fast. An alternative is to use shunt filters, series reactors, and STATCOM, but these are more complicated mitigations.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ STATE ═══
+let cH=1, animOn=false, animA=0, showFR=false, showFO=false, afId=null;
+let cfg='dy';
+const BASE_I=100;
+let harms=[];
+
+// Canvas color theme (light)
+const C={
+  phA:'#cc2233',phB:'#cc8800',phC:'#1a6baa',
+  phA_dim:'rgba(204,34,51,.12)',phB_dim:'rgba(204,136,0,.12)',phC_dim:'rgba(26,107,170,.12)',
+  phA_glow:'rgba(204,34,51,.08)',phB_glow:'rgba(204,136,0,.08)',phC_glow:'rgba(26,107,170,.08)',
+  seqP:'#0a8a54',seqN:'#cc5500',seqZ:'#8833bb',
+  neut:'#333333',
+  grid:'#dde2ea',grid2:'#e8ecf2',axis:'#c0c8d4',
+  text:'#6a7a8e',textDark:'#3a4a5e',
+  bg:'#f8f9fc',
+  dot:'#b0bac8',
+  safe:'#0a8a54',danger:'#cc1133',warn:'#b8860b',
+  srcBox:'#e4e8f0',srcBrd:'#b0bac8',
+  xfmrBox:'#e8e4f0',xfmrBrd_dy:'rgba(10,138,84,.5)',xfmrBrd_dd:'rgba(204,17,51,.5)',
+  loadBox:'#f0e8f4',loadBrd:'#8833bb',
+  busLine:'#6a7a8e',
+  capLine:'#aa7788'
+};
+function initH(){harms=[];for(let i=0;i<12;i++)harms.push({mag:i===0?1:0,ang:0})}
+initH();
+
+// ═══ MATH ═══
+function seq(n){const m=n%3;return m===1?'pos':m===2?'neg':'zero'}
+function seqL(s){return{pos:'Positive (+)',neg:'Negative (−)',zero:'Zero (0)'}[s]}
+function seqC(s){return{pos:C.seqP,neg:C.seqN,zero:C.seqZ}[s]}
+function norm(d){return((d%360)+360)%360}
+function pAng(n){return{A:0,B:norm(n*(-120)),C:norm(n*(-240))}}
+function d2r(d){return d*Math.PI/180}
+function ordS(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])}
+function fmtA(d){if(d>180)d-=360;return d.toFixed(0)+'°'}
+
+// ═══ HARMONIC STRIP ═══
+function buildStrip(){
+  const s=document.getElementById('hStrip');s.innerHTML='';
+  for(let i=1;i<=25;i++){const sq=seq(i),sym=sq==='pos'?'+':sq==='neg'?'−':'0';
+    const b=document.createElement('div');
+    b.className='hb'+(i===cH?' act '+({pos:'sp',neg:'sn',zero:'sz'}[sq]):'');
+    b.innerHTML=`<span class="hn">${i}</span><span class="hs ${sq==='pos'?'pos':sq==='neg'?'neg':'zero'}">${sym}</span>`;
+    b.onclick=()=>selH(i);s.appendChild(b);
+  }
+}
+
+function selH(n){cH=n;document.getElementById('hSlider').value=n;updView()}
+
+function updView(){
+  const n=cH,s=seq(n),a=pAng(n);
+  document.querySelectorAll('.hb').forEach((b,i)=>{
+    const h=i+1,sq=seq(h);b.className='hb'+(h===n?' act '+({pos:'sp',neg:'sn',zero:'sz'}[sq]):'');
+  });
+  document.getElementById('sInfo').innerHTML=
+    `<span style="color:var(--t1)">${ordS(n)} Harmonic</span> <span style="color:var(--t3)">(${n*60}Hz)</span>`+
+    `<span class="seq-badge ${s==='pos'?'pos':s==='neg'?'neg':'zero'}">${seqL(s)}</span>`;
+  document.getElementById('pFreq').textContent=n*60+' Hz';
+  ['rp','rn','rz'].forEach(id=>document.getElementById(id).classList.remove('hl'));
+  document.getElementById({pos:'rp',neg:'rn',zero:'rz'}[s]).classList.add('hl');
+  document.getElementById('rc').innerHTML=`<span style="color:${seqC(s)}">${n} mod 3 = ${n%3}</span>`;
+  const rot=s==='pos'?'A→B→C (same as fund.)':s==='neg'?'A→C→B (reversed)':'A=B=C (co-phasal)';
+  document.getElementById('siBody').innerHTML=
+    `<div class="info-row"><span style="color:var(--t3)">Sequence</span><span style="color:${seqC(s)};font-weight:500">${seqL(s)}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Rotation</span><span style="color:var(--t1);font-weight:500">${rot}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Phase A</span><span style="color:var(--pa);font-weight:500">${fmtA(a.A)}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Phase B</span><span style="color:var(--pb);font-weight:500">${fmtA(a.B)}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Phase C</span><span style="color:var(--pc);font-weight:500">${fmtA(a.C)}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Triplen?</span><span style="color:var(--t1);font-weight:500">${n%3===0?'Yes':'No'}</span></div>`+
+    `<div class="info-row"><span style="color:var(--t3)">Neutral Sum</span><span style="color:var(--t1);font-weight:500">${n%3===0?'3× (additive)':'0 (cancels)'}</span></div>`;
+  document.getElementById('eduTx').innerHTML=eduTx(n,s);
+  const wp=document.getElementById('warnP');
+  if(s==='zero'){wp.classList.add('vis');document.getElementById('warnTx').innerHTML=warnTx(n)}else wp.classList.remove('vis');
+  document.getElementById('nAnn').innerHTML=s==='zero'
+    ?'<span style="color:var(--sz)">Σ(A+B+C) = 3×</span> — co-phasal, <strong style="color:var(--sz)">adds in neutral</strong>'
+    :`<span style="color:${seqC(s)}">Σ(A+B+C) = 0</span> — <strong>cancels</strong> at neutral`;
+  drawP();drawO();drawN();
+}
+
+// ═══ PHASOR DIAGRAM ═══
+function drawP(){
+  const c=document.getElementById('pCvs'),x=c.getContext('2d'),W=c.width,H=c.height,cx=W/2,cy=H/2,R=Math.min(W,H)*.36;
+  x.clearRect(0,0,W,H);
+  x.fillStyle=C.bg;x.fillRect(0,0,W,H);
+  x.strokeStyle=C.grid2;x.lineWidth=1;
+  for(let r=R*.25;r<=R*1.1;r+=R*.25){x.beginPath();x.arc(cx,cy,r,0,2*Math.PI);x.stroke()}
+  x.strokeStyle=C.grid;x.beginPath();x.moveTo(cx-R*1.15,cy);x.lineTo(cx+R*1.15,cy);x.moveTo(cx,cy-R*1.15);x.lineTo(cx,cy+R*1.15);x.stroke();
+  const n=cH,s=seq(n),a=pAng(n),pc=[C.phA,C.phB,C.phC],pn=['A','B','C'],pa=[a.A,a.B,a.C];
+  if(showFR){const fa=[0,-120,-240];for(let i=0;i<3;i++){const r2=d2r(90-fa[i])+(animOn?animA/n:0);const ex=cx+R*.85*Math.cos(r2),ey=cy-R*.85*Math.sin(r2);x.strokeStyle=pc[i];x.globalAlpha=.2;x.lineWidth=2;x.setLineDash([6,4]);x.beginPath();x.moveTo(cx,cy);x.lineTo(ex,ey);x.stroke();x.setLineDash([]);x.globalAlpha=1}}
+  const ro=animOn?animA:0,lw=[10,6,2.5],gw=[16,10,5],as=[22,17,12];
+  for(let di=0;di<3;di++){const i=di,ra=d2r(90-pa[i])+ro;const ex=cx+R*Math.cos(ra),ey=cy-R*Math.sin(ra);
+    x.strokeStyle=pc[i];x.lineWidth=gw[di];x.globalAlpha=.12;x.beginPath();x.moveTo(cx,cy);x.lineTo(ex,ey);x.stroke();
+    x.globalAlpha=1;x.lineWidth=lw[di];x.beginPath();x.moveTo(cx,cy);x.lineTo(ex,ey);x.stroke();
+    const al=as[di],aa=d2r(25),la=Math.atan2(-(ey-cy),ex-cx);x.fillStyle=pc[i];x.beginPath();x.moveTo(ex,ey);
+    x.lineTo(ex-al*Math.cos(la-aa),ey+al*Math.sin(la-aa));x.lineTo(ex-al*Math.cos(la+aa),ey+al*Math.sin(la+aa));x.closePath();x.fill();
+    const sp=s==='zero'?(di-1)*14:0;const lx=cx+(R+28)*Math.cos(ra),ly=cy-(R+28)*Math.sin(ra)+sp;
+    x.font='600 16px "IBM Plex Mono",monospace';x.fillStyle=pc[i];x.textAlign='center';x.textBaseline='middle';x.fillText(pn[i],lx,ly);
+    if(s!=='zero'||di===0){const ax=cx+(R+48)*Math.cos(ra),ay=cy-(R+48)*Math.sin(ra)+sp;x.font='400 11px "IBM Plex Mono",monospace';x.fillStyle=C.text;x.fillText(fmtA(pa[i]),ax,ay)}
+  }
+  x.fillStyle=C.dot;x.beginPath();x.arc(cx,cy,4,0,2*Math.PI);x.fill();
+  x.font='700 14px "IBM Plex Mono",monospace';x.fillStyle=seqC(s);x.textAlign='center';x.fillText(seqL(s).toUpperCase(),cx,28);
+}
+
+// ═══ OSCILLOGRAPHY ═══
+function drawO(){
+  const c=document.getElementById('oCvs'),x=c.getContext('2d'),W=c.width,H=c.height;
+  const p={l:50,r:20,t:20,b:30},pw=W-p.l-p.r,ph=H-p.t-p.b;x.clearRect(0,0,W,H);
+  x.fillStyle=C.bg;x.fillRect(0,0,W,H);
+  const n=cH,f0=60,cy2=2,T=cy2/f0,sm=1200,zy=p.t+ph/2;
+  x.strokeStyle=C.axis;x.lineWidth=1;x.beginPath();x.moveTo(p.l,zy);x.lineTo(p.l+pw,zy);x.stroke();
+  x.strokeStyle=C.grid2;x.setLineDash([4,4]);x.beginPath();x.moveTo(p.l,p.t+ph*.05);x.lineTo(p.l+pw,p.t+ph*.05);x.moveTo(p.l,p.t+ph*.95);x.lineTo(p.l+pw,p.t+ph*.95);x.stroke();x.setLineDash([]);
+  x.strokeStyle=C.grid;for(let c2=0;c2<=cy2*2;c2++){const xp=p.l+(c2/(cy2*2))*pw;x.beginPath();x.moveTo(xp,p.t);x.lineTo(xp,p.t+ph);x.stroke()}
+  x.font='400 11px "IBM Plex Mono",monospace';x.fillStyle=C.text;x.textAlign='right';
+  x.fillText('+1.0',p.l-6,p.t+ph*.05+4);x.fillText(' 0.0',p.l-6,zy+4);x.fillText('−1.0',p.l-6,p.t+ph*.95+4);
+  x.textAlign='center';for(let c2=0;c2<=cy2*2;c2++){const xp=p.l+(c2/(cy2*2))*pw;x.fillText(((c2/(cy2*2))*T*1000).toFixed(1)+'ms',xp,H-8)}
+  const a=pAng(n),of=[a.A,a.B,a.C],cl=[C.phA,C.phB,C.phC],dc=[C.phA_dim,C.phB_dim,C.phC_dim];
+  if(showFO){const fo=[0,-120,-240];for(let pp=0;pp<3;pp++){x.strokeStyle=dc[pp];x.lineWidth=1.5;x.setLineDash([5,3]);x.beginPath();for(let i=0;i<=sm;i++){const t=(i/sm)*T,v=Math.sin(2*Math.PI*f0*t+d2r(fo[pp])),xx=p.l+(i/sm)*pw,yy=zy-v*(ph*.43);i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}x.stroke();x.setLineDash([])}}
+  const olw=[7,4.5,2],ogw=[12,8,4];
+  for(let di=0;di<3;di++){x.strokeStyle=cl[di];x.lineWidth=ogw[di];x.globalAlpha=.1;x.beginPath();
+    for(let i=0;i<=sm;i++){const t=(i/sm)*T,v=Math.sin(2*Math.PI*n*f0*t+d2r(of[di])),xx=p.l+(i/sm)*pw,yy=zy-v*(ph*.43);i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke();x.globalAlpha=1;x.lineWidth=olw[di];x.beginPath();
+    for(let i=0;i<=sm;i++){const t=(i/sm)*T,v=Math.sin(2*Math.PI*n*f0*t+d2r(of[di])),xx=p.l+(i/sm)*pw,yy=zy-v*(ph*.43);i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke()}
+}
+
+// ═══ NEUTRAL SUM ═══
+function drawN(){
+  const c=document.getElementById('nCvs'),x=c.getContext('2d'),W=c.width,H=c.height;
+  const p={l:50,r:20,t:15,b:25},pw=W-p.l-p.r,ph=H-p.t-p.b;x.clearRect(0,0,W,H);
+  x.fillStyle=C.bg;x.fillRect(0,0,W,H);
+  const n=cH,s=seq(n),f0=60,cy2=2,T=cy2/f0,sm=1200,a=pAng(n),of=[a.A,a.B,a.C],zy=p.t+ph/2;
+  x.strokeStyle=C.axis;x.lineWidth=1;x.beginPath();x.moveTo(p.l,zy);x.lineTo(p.l+pw,zy);x.stroke();
+  const sd=[];let mx=0;
+  for(let i=0;i<=sm;i++){const t=(i/sm)*T;let sum=0;for(let pp=0;pp<3;pp++)sum+=Math.sin(2*Math.PI*n*f0*t+d2r(of[pp]));sd.push(sum);if(Math.abs(sum)>mx)mx=Math.abs(sum)}
+  const sc=mx>.1?(ph*.4)/mx:(ph*.4),col=s==='zero'?C.seqZ:C.neut;
+  x.strokeStyle=col;x.lineWidth=5;x.globalAlpha=.1;x.beginPath();for(let i=0;i<=sm;i++){const xx=p.l+(i/sm)*pw,yy=zy-sd[i]*sc;i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}x.stroke();
+  x.globalAlpha=1;x.lineWidth=2.5;x.beginPath();for(let i=0;i<=sm;i++){const xx=p.l+(i/sm)*pw,yy=zy-sd[i]*sc;i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}x.stroke();
+  x.font='600 13px "IBM Plex Mono",monospace';x.fillStyle=col;x.textAlign='left';x.fillText(s==='zero'?'Σ = 3× (additive)':'Σ = 0 (cancels)',p.l+8,p.t+14);
+}
+
+function togAnim(){animOn=!animOn;const b=document.getElementById('bAnim');b.textContent=animOn?'⏸ Pause':'▶ Animate';b.classList.toggle('act',animOn);if(animOn)aLoop();else if(afId)cancelAnimationFrame(afId)}
+function aLoop(){if(!animOn)return;animA+=.02;drawP();afId=requestAnimationFrame(aLoop)}
+function togFRef(){showFR=!showFR;document.getElementById('bFRef').classList.toggle('act',showFR);drawP()}
+function togFOvl(){showFO=!showFO;document.getElementById('bFOvl').classList.toggle('act',showFO);drawO()}
+
+// ═══ EDUCATIONAL TEXT ═══
+function eduTx(n,s){return specTx(n)+'<br><br>'+genTx(s)}
+function specTx(n){
+  const t={1:'The <strong>1st harmonic</strong> (60 Hz) defines the positive-sequence reference.',
+    3:'The <strong>3rd harmonic</strong> is the dominant triplen. 3×120°=360°=0° — all phases co-phasal. Neutral carries <strong>3×</strong> per-phase current.',
+    5:'The <strong>5th harmonic</strong> is negative sequence (A-C-B) — produces counter-torque in motors. Dominant from 6-pulse rectifiers.',
+    7:'The <strong>7th harmonic</strong> is positive sequence (A-B-C). Pairs with 5th as characteristic 6-pulse harmonics.',
+    9:'The <strong>9th harmonic</strong> is another triplen. Combined triplens (3+9+15…) can push neutral current above phase current.',
+    11:'The <strong>11th harmonic</strong> is negative sequence — characteristic of 12-pulse systems.',
+    12:'The <strong>12th harmonic</strong> is triplen (zero-seq), typically small in 12-pulse systems except under imbalance.'};
+  if(t[n])return t[n];
+  const sq=seq(n),f=n*60;
+  if(sq==='zero')return`The <strong>${ordS(n)} harmonic</strong> (${f} Hz) is <strong>triplen/zero-seq</strong> — co-phasal, adds in neutral.`;
+  if(sq==='neg')return`The <strong>${ordS(n)} harmonic</strong> (${f} Hz) is <strong>negative sequence</strong> — reversed rotation.`;
+  return`The <strong>${ordS(n)} harmonic</strong> (${f} Hz) is <strong>positive sequence</strong> — same rotation as fundamental.`;
+}
+function genTx(s){
+  if(s==='pos')return'<strong>Positive-seq</strong> harmonics rotate with the fundamental and cancel at the neutral.';
+  if(s==='neg')return'<strong>Negative-seq</strong> harmonics rotate opposite, causing counter-torque in motors. They cancel at neutral.';
+  return'<strong>Zero-seq (triplen)</strong> harmonics are co-phasal — they <strong>add 3×</strong> in the neutral. Without adequate grounding, this causes <strong>dangerous overvoltages</strong>.';
+}
+function warnTx(n){
+  return`The <strong>${ordS(n)} harmonic</strong> is zero-seq — neutral carries <strong>3× per-phase</strong>.<br>`+
+    '• Size neutrals for triplen current (often 200% in data centers)<br>'+
+    '• Ungrounded systems → neutral voltage displacement → phase-ground overvoltages<br>'+
+    '• Delta windings trap triplen currents by design';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CIRCUIT SIMULATION — PER-UNIT SEQUENCE NETWORK
+// ═══════════════════════════════════════════════════════════
+const presets={
+  dc:[{m:1,a:0},{m:.01,a:0},{m:.33,a:180},{m:.01,a:0},{m:.20,a:0},{m:.02,a:0},{m:.14,a:180},{m:.01,a:0},{m:.11,a:0},{m:.01,a:0},{m:.08,a:180},{m:.01,a:0}],
+  vfd:[{m:1,a:0},{m:.01,a:0},{m:.02,a:0},{m:.01,a:0},{m:.23,a:180},{m:.01,a:0},{m:.11,a:180},{m:.01,a:0},{m:.02,a:0},{m:.01,a:0},{m:.05,a:0},{m:.01,a:0}],
+  led:[{m:1,a:0},{m:.02,a:0},{m:.77,a:180},{m:.01,a:0},{m:.43,a:0},{m:.01,a:0},{m:.25,a:180},{m:.01,a:0},{m:.15,a:0},{m:.01,a:0},{m:.09,a:180},{m:.01,a:0}]
+};
+function ldPre(p){if(p==='clr'){initH()}else{harms=presets[p].map(h=>({mag:h.m,ang:h.a}))}buildHT();updCkt()}
+function setCfg(c){cfg=c;
+  document.getElementById('cfgDY').className='cfg-card'+(c==='dy'?' sel-s':'');
+  document.getElementById('cfgDD').className='cfg-card'+(c==='dd'?' sel-d':'');
+  document.getElementById('rgWrap').style.opacity=c==='dy'?'1':'0.3';
+  updCkt();
+}
+
+// Complex math
+function cRect(mag,angDeg){return{r:mag*Math.cos(d2r(angDeg)),i:mag*Math.sin(d2r(angDeg))}}
+function cAdd(a,b){return{r:a.r+b.r,i:a.i+b.i}}
+function cMag(z){return Math.sqrt(z.r*z.r+z.i*z.i)}
+function cAng(z){return Math.atan2(z.i,z.r)*180/Math.PI}
+function cDiv(a,b){const d=b.r*b.r+b.i*b.i;return{r:(a.r*b.r+a.i*b.i)/d,i:(a.i*b.r-a.r*b.i)/d}}
+function cMul(a,b){return{r:a.r*b.r-a.i*b.i,i:a.r*b.i+a.i*b.r}}
+
+function buildHT(){
+  const tb=document.getElementById('htBody');tb.innerHTML='';
+  for(let i=0;i<12;i++){const n=i+1,s=seq(n),sym=s==='pos'?'+':s==='neg'?'−':'0';
+    const tr=document.createElement('tr');
+    tr.innerHTML=
+      `<td style="font-weight:600;color:${seqC(s)}">${n}</td>`+
+      `<td style="color:var(--t3)">${n*60}Hz</td>`+
+      `<td style="font-weight:600;color:${seqC(s)}">${sym}</td>`+
+      `<td><input type="number" id="hm${i}" value="${harms[i].mag.toFixed(3)}" min="0" max="1" step="0.01" onchange="onHC(${i})"></td>`+
+      `<td><input type="number" id="ha${i}" value="${harms[i].ang.toFixed(0)}" min="-180" max="180" step="5" onchange="onHC(${i})"></td>`+
+      `<td id="hi${i}" style="color:var(--t2)">—</td>`+
+      `<td id="hz${i}" style="color:var(--t3)">—</td>`+
+      `<td id="hv${i}" style="font-weight:600">—</td>`+
+      `<td id="hvv${i}" style="font-weight:600">—</td>`;
+    tb.appendChild(tr);
+  }
+}
+function onHC(i){
+  harms[i].mag=Math.max(0,Math.min(1,parseFloat(document.getElementById('hm'+i).value)||0));
+  harms[i].ang=parseFloat(document.getElementById('ha'+i).value)||0;
+  updCkt();
+}
+
+function updCkt(){
+  // Read per-unit parameters
+  const MVAb=parseFloat(document.getElementById('mvaS').value);
+  const kVb=parseFloat(document.getElementById('kvS').value);
+  const Zsm=parseFloat(document.getElementById('zsmS').value);
+  const Zsa=parseFloat(document.getElementById('zsaS').value);
+  const Xt_pu=parseFloat(document.getElementById('xtS').value);
+  const Rg_pu=parseFloat(document.getElementById('rgS').value);
+  const Zc_pu=parseFloat(document.getElementById('zcS').value);
+
+  // Base values
+  const Zbase=(kVb*kVb)/MVAb;
+  const Ibase=(MVAb*1000)/(Math.sqrt(3)*kVb);
+  const Vbase_LN=kVb*1000/Math.sqrt(3);
+
+  // Decompose source Z into R and X at fundamental
+  const Rs_pu=Zsm*Math.cos(d2r(Zsa)); // resistance (constant with h)
+  const Xs_pu=Zsm*Math.sin(d2r(Zsa)); // reactance at fundamental (scales with h)
+
+  // Display impedance values
+  document.getElementById('mvaD').textContent=MVAb.toFixed(1)+' MVA';
+  document.getElementById('kvD').textContent=kVb.toFixed(3)+' kV';
+  document.getElementById('zsmD').textContent=Zsm.toFixed(3)+' pu ('+(Zsm*Zbase).toFixed(4)+' Ω)';
+  document.getElementById('zsaD').textContent=Zsa.toFixed(0)+'°';
+  document.getElementById('xtD').textContent=Xt_pu.toFixed(3)+' pu (j'+(Xt_pu*Zbase).toFixed(4)+' Ω)';
+  document.getElementById('rgD').textContent=Rg_pu.toFixed(3)+' pu ('+(Rg_pu*Zbase).toFixed(4)+' Ω)';
+  document.getElementById('zcD').textContent=Zc_pu.toFixed(0)+' pu ('+(Zc_pu*Zbase).toFixed(1)+' Ω)';
+  document.getElementById('puSummary').innerHTML=
+    `Z<sub>base</sub> = kV²/MVA = <strong>${Zbase.toFixed(4)} Ω</strong> &nbsp;│&nbsp; `+
+    `I<sub>base</sub> = <strong>${Ibase.toFixed(1)} A</strong> &nbsp;│&nbsp; `+
+    `V<sub>base(L-N)</sub> = <strong>${Vbase_LN.toFixed(1)} V</strong> &nbsp;│&nbsp; `+
+    `Z<sub>s</sub> = ${Rs_pu.toFixed(4)}+j${Xs_pu.toFixed(4)} pu`;
+
+  // ── Per-harmonic sequence network analysis ──
+  let tI0_sq_pu=0, tV0_sq_pu=0, tV0_pk_pu=0, tripV=[];
+
+  for(let i=0;i<12;i++){
+    const h=i+1;
+    const s=seq(h);
+    const Ih_pu=harms[i].mag; // pu of Ibase
+    let Z0h_mag=0, V0h_pu=0, V0h_V=0;
+
+    if(s==='zero' && Ih_pu>0.001){
+      // ── Zero-sequence impedances at harmonic order h ──
+      // Delta primary BLOCKS zero-seq from reaching source — Zs is NOT in this network
+      // Transformer zero-seq reactance scales with h
+      const Zt_h={r:0, i:Xt_pu*h};
+
+      if(cfg==='dy'){
+        // Δ-Y grounded: zero-seq network is Zt_h + 3*Rg
+        // Delta isolates source; zero-seq current circulates in delta, returns through Rg
+        // 3*Rg because neutral current = 3*I0 (sequence domain: Zg0 = 3*Rg)
+        const Zg={r:3*Rg_pu, i:0};
+        const Z0_total=cAdd(Zt_h,Zg);
+        Z0h_mag=cMag(Z0_total);
+
+        // Voltage at neutral-to-ground = I0 * 3*Rg (resistive, in phase with current)
+        V0h_pu=Ih_pu*3*Rg_pu;
+        V0h_V=V0h_pu*Vbase_LN;
+      } else {
+        // Δ-Δ: no neutral, no winding zero-seq path at all.
+        // Both delta windings present open circuit to zero-seq.
+        // Only path is stray/distributed capacitance to ground: -jZc/h
+        const Zc_h={r:0, i:-Zc_pu/h};
+        Z0h_mag=Math.abs(Zc_pu/h); // capacitance magnitude
+
+        // Current source forces Ih through high-Z capacitive path → overvoltage
+        // Voltage across capacitance = I0 * |Zc/h| (leads current by 90°)
+        V0h_pu=Ih_pu*(Zc_pu/h);
+        V0h_V=V0h_pu*Vbase_LN;
+      }
+
+      // Accumulate: RSS for RMS total, arithmetic for worst-case peak
+      const In_pu=3*Ih_pu; // neutral current for this harmonic
+      tI0_sq_pu+=In_pu*In_pu;
+      tV0_sq_pu+=V0h_pu*V0h_pu; // RSS accumulation for RMS
+      tV0_pk_pu+=V0h_pu; // arithmetic sum for worst-case peak
+      tripV.push({n:h, V0_pu:V0h_pu, mag:Ih_pu, ang:harms[i].ang, isCapacitive:cfg==='dd'});
+    }
+
+    // ── Update table row ──
+    const ic=document.getElementById('hi'+i);
+    const zc=document.getElementById('hz'+i);
+    const vc=document.getElementById('hv'+i);
+    const vvc=document.getElementById('hvv'+i);
+    if(!ic) continue;
+
+    ic.textContent=Ih_pu>0.001?(Ih_pu*Ibase).toFixed(1)+' A':'—';
+
+    if(s==='zero'){
+      zc.textContent=Z0h_mag>0?Z0h_mag.toFixed(3)+' pu':'—';
+      zc.style.color=cfg==='dd'?'#ff7744':'var(--t3)';
+      if(Ih_pu>0.001){
+        const pct=V0h_pu*100;
+        const col=pct>20?C.danger:pct>5?C.phB:C.safe;
+        vc.textContent=V0h_pu.toFixed(4)+' pu';vc.style.color=col;
+        vvc.textContent=V0h_V.toFixed(0)+' V';vvc.style.color=col;
+      } else {
+        vc.textContent='0';vc.style.color='var(--t3)';
+        vvc.textContent='0 V';vvc.style.color='var(--t3)';
+      }
+    } else {
+      zc.textContent='—';zc.style.color='var(--t3)';
+      vc.textContent='N/A';vc.style.color='var(--t3)';
+      vvc.textContent='cancels';vvc.style.color='var(--t3)';
+    }
+  }
+
+  // ── Totals ──
+  const tIn_pu=Math.sqrt(tI0_sq_pu); // RMS neutral current (pu)
+  const tIn_A=tIn_pu*Ibase;
+  const tV0_rms_pu=Math.sqrt(tV0_sq_pu); // RMS neutral voltage (RSS of harmonics)
+  const tV0_pk_V=tV0_pk_pu*Vbase_LN; // worst-case peak (all harmonics in phase)
+  const tV0_rms_V=tV0_rms_pu*Vbase_LN;
+  const pctRise=tV0_rms_pu*100; // RMS percentage for status
+  const pctPeak=tV0_pk_pu*100;  // peak percentage
+  const Vpd_pu=Math.sqrt(1+tV0_rms_pu*tV0_rms_pu); // displaced phase voltage (pu)
+  const Vpd_V=Vpd_pu*Vbase_LN;
+
+  // ── Result Cards ──
+  document.getElementById('rTIv').textContent=tIn_pu.toFixed(4)+' pu ('+tIn_A.toFixed(1)+' A)';
+  document.getElementById('rTId').textContent='Combined RMS zero-seq neutral current. I_base='+Ibase.toFixed(1)+' A.';
+
+  const nvv=document.getElementById('rNVv');
+  nvv.textContent=tV0_rms_pu.toFixed(4)+' pu RMS ('+tV0_rms_V.toFixed(0)+' V)';
+  nvv.style.color=pctRise>20?C.danger:pctRise>5?C.phB:C.safe;
+  document.getElementById('rNVd').textContent=
+    'RMS: '+pctRise.toFixed(2)+'% | Peak: '+pctPeak.toFixed(2)+'% of V_base. '+
+    (cfg==='dd'?'Δ-Δ: zero-seq through Zc='+Zc_pu+' pu stray capacitance only.':
+     'Δ-Y: returns through 3Rg='+(3*Rg_pu).toFixed(3)+' pu + Xt (delta blocks source).');
+  document.getElementById('rNV').className='rcard'+(pctRise>20?' dng':pctRise<5?' ok':'');
+
+  const pvv=document.getElementById('rPVv');
+  pvv.textContent=Vpd_pu.toFixed(4)+' pu ('+Vpd_V.toFixed(0)+' V)';
+  pvv.style.color=pctRise>20?C.danger:pctRise>5?C.phB:C.safe;
+  document.getElementById('rPVd').textContent=
+    'Nominal: 1.000 pu ('+Vbase_LN.toFixed(0)+' V L-N). RMS displacement: '+tV0_rms_pu.toFixed(4)+' pu.';
+  document.getElementById('rPV').className='rcard'+(pctRise>20?' dng':pctRise<5?' ok':'');
+
+  const sv=document.getElementById('rSTv'),sd=document.getElementById('rSTd'),sr=document.getElementById('rST');
+  if(pctRise>20){sv.textContent='⚠ OVERVOLTAGE';sv.style.color=C.danger;sr.className='rcard dng';
+    sd.textContent='Neutral displacement >20% RMS. Equipment insulation at risk.'}
+  else if(pctRise>5){sv.textContent='⚡ ELEVATED';sv.style.color=C.phB;sr.className='rcard';
+    sd.textContent='Neutral rise '+pctRise.toFixed(1)+'% RMS. Review grounding and consider filtering.'}
+  else{sv.textContent='✓ NORMAL';sv.style.color=C.safe;sr.className='rcard ok';
+    sd.textContent='Neutral voltage '+pctRise.toFixed(2)+'% RMS — within limits.'}
+
+  drawCD();
+  drawVW(tripV,Vbase_LN);
+  drawComp();
+  updCEx(tIn_pu,tIn_A,tV0_rms_pu,tV0_rms_V,Vbase_LN,pctRise,Zsm,Zsa,Xt_pu,Rg_pu,Zc_pu,Zbase);
+}
+
+// ═══ ONE-LINE DIAGRAM ═══
+function drawCD(){
+  const c=document.getElementById('cCvs'),x=c.getContext('2d'),W=c.width,H=c.height;
+  x.clearRect(0,0,W,H);
+  x.fillStyle=C.bg;x.fillRect(0,0,W,H);
+  const isDY=cfg==='dy';
+  // Layout positions
+  const sX=140,tX=520,bX=880,lX=1280,mY=H/2-10;
+  const boxH=220,boxHalf=boxH/2;
+  const pY=[mY-70,mY,mY+70],nY=mY+boxHalf+50;
+  const pc=[C.phA,C.phB,C.phC];
+  const Zsm=parseFloat(document.getElementById('zsmS').value);
+  const Zsa=parseFloat(document.getElementById('zsaS').value);
+  const Xt_pu=parseFloat(document.getElementById('xtS').value);
+  const Rg_pu=parseFloat(document.getElementById('rgS').value);
+  const Zc_pu=parseFloat(document.getElementById('zcS').value);
+  const boxW=110;
+
+  // ── SOURCE BOX ──
+  const sL=sX-boxW/2, sT=mY-boxHalf;
+  x.fillStyle=C.srcBox;x.fillRect(sL,sT,boxW,boxH);
+  x.strokeStyle=C.srcBrd;x.lineWidth=2;x.strokeRect(sL,sT,boxW,boxH);
+  // Title inside box, padded from top
+  x.fillStyle=C.textDark;x.font='600 13px "IBM Plex Mono",monospace';x.textAlign='center';
+  x.fillText('UTILITY',sX,sT+20);x.fillText('SOURCE',sX,sT+36);
+  // Delta symbol centered in box
+  const sdY=mY-15;
+  x.strokeStyle=C.text;x.lineWidth=2;x.beginPath();x.moveTo(sX,sdY-30);x.lineTo(sX+22,sdY+10);x.lineTo(sX-22,sdY+10);x.closePath();x.stroke();
+  x.fillStyle=C.text;x.font='500 12px "IBM Plex Mono",monospace';x.fillText('Δ',sX,sdY+30);
+  // Impedance label BELOW box
+  x.fillStyle=C.textDark;x.font='500 11px "IBM Plex Mono",monospace';
+  x.fillText('Zs = '+Zsm.toFixed(3)+'∠'+Zsa+'° pu',sX,sT+boxH+18);
+
+  // ── Lines src → xfmr ──
+  for(let i=0;i<3;i++){x.strokeStyle=pc[i];x.lineWidth=3;x.beginPath();x.moveTo(sX+boxW/2,pY[i]);x.lineTo(tX-boxW/2-5,pY[i]);x.stroke()}
+
+  // ── TRANSFORMER BOX ──
+  const tL=tX-boxW/2, tT=mY-boxHalf;
+  x.fillStyle=C.xfmrBox;x.fillRect(tL,tT,boxW,boxH);
+  x.strokeStyle=isDY?C.xfmrBrd_dy:C.xfmrBrd_dd;x.lineWidth=2;x.strokeRect(tL,tT,boxW,boxH);
+  // Title inside box
+  x.fillStyle=C.textDark;x.font='600 13px "IBM Plex Mono",monospace';x.textAlign='center';
+  x.fillText('XFMR',tX,tT+20);
+  // Primary delta (upper half of box)
+  const tpY=mY-40;
+  x.strokeStyle=C.text;x.lineWidth=1.5;x.beginPath();x.moveTo(tX-20,tpY-25);x.lineTo(tX,tpY+10);x.lineTo(tX-40,tpY+10);x.closePath();x.stroke();
+  x.fillStyle=C.text;x.font='500 11px "IBM Plex Mono",monospace';x.fillText('Δ',tX-20,tpY+26);
+  // Divider line
+  x.strokeStyle=C.axis;x.lineWidth=1;x.setLineDash([3,3]);x.beginPath();x.moveTo(tL+8,mY);x.lineTo(tL+boxW-8,mY);x.stroke();x.setLineDash([]);
+  // Secondary (lower half of box)
+  if(isDY){
+    const syY=mY+18;
+    x.strokeStyle=C.safe;x.lineWidth=1.5;x.beginPath();
+    x.moveTo(tX+20,syY);x.lineTo(tX+20,syY+25);x.moveTo(tX+8,syY);x.lineTo(tX+20,syY+25);x.moveTo(tX+32,syY);x.lineTo(tX+20,syY+25);x.stroke();
+    // Ground symbol
+    x.beginPath();x.moveTo(tX+20,syY+25);x.lineTo(tX+20,syY+40);x.stroke();
+    for(let g=0;g<3;g++){const gw=14-g*4;x.beginPath();x.moveTo(tX+20-gw/2,syY+40+g*5);x.lineTo(tX+20+gw/2,syY+40+g*5);x.stroke()}
+    x.fillStyle=C.safe;x.font='600 11px "IBM Plex Mono",monospace';x.fillText('Y-Gnd',tX+20,syY+70);
+  }else{
+    const syY=mY+15;
+    x.strokeStyle=C.danger;x.lineWidth=1.5;x.beginPath();x.moveTo(tX+20,syY);x.lineTo(tX+38,syY+32);x.lineTo(tX+2,syY+32);x.closePath();x.stroke();
+    x.fillStyle=C.danger;x.font='600 11px "IBM Plex Mono",monospace';x.fillText('Δ',tX+20,syY+50);
+    x.font='500 10px "IBM Plex Mono",monospace';x.fillText('NO GND',tX+20,syY+64);
+  }
+  // Impedance label BELOW box
+  x.fillStyle=C.textDark;x.font='500 11px "IBM Plex Mono",monospace';x.textAlign='center';
+  x.fillText('Xt = j'+Xt_pu.toFixed(3)+' pu',tX,tT+boxH+18);
+  if(isDY){x.fillText('Rg = '+Rg_pu.toFixed(3)+' pu',tX,tT+boxH+34);}
+
+  // ── Lines xfmr → bus ──
+  for(let i=0;i<3;i++){x.strokeStyle=pc[i];x.lineWidth=3;x.beginPath();x.moveTo(tX+boxW/2,pY[i]);x.lineTo(bX-10,pY[i]);x.stroke()}
+  if(isDY){x.strokeStyle=C.safe;x.lineWidth=2;x.beginPath();x.moveTo(tX+boxW/2,nY);x.lineTo(bX-10,nY);x.stroke();
+    x.fillStyle=C.safe;x.font='600 11px "IBM Plex Mono",monospace';x.textAlign='center';x.fillText('N',(tX+boxW/2+bX-10)/2,nY-10)}
+
+  // ── BUS ──
+  x.strokeStyle=C.busLine;x.lineWidth=5;x.beginPath();x.moveTo(bX,pY[0]-30);x.lineTo(bX,pY[2]+30);x.stroke();
+  x.fillStyle=C.textDark;x.font='600 13px "IBM Plex Mono",monospace';x.textAlign='center';x.fillText('BUS',bX,pY[0]-42);
+
+  // ── Lines bus → load ──
+  for(let i=0;i<3;i++){x.strokeStyle=pc[i];x.lineWidth=3;x.beginPath();x.moveTo(bX+5,pY[i]);x.lineTo(lX-boxW/2-5,pY[i]);x.stroke()}
+
+  // ── LOAD BOX ──
+  const llL=lX-boxW/2, llT=mY-boxHalf;
+  x.fillStyle=C.loadBox;x.fillRect(llL,llT,boxW,boxH);x.strokeStyle=C.seqZ;x.lineWidth=2;x.strokeRect(llL,llT,boxW,boxH);
+  // Title inside box
+  x.fillStyle='#6622aa';x.font='600 12px "IBM Plex Mono",monospace';x.textAlign='center';
+  x.fillText('HARMONIC',lX,llT+20);x.fillText('LOAD',lX,llT+36);
+  // Current source symbol centered in box
+  x.strokeStyle=C.seqZ;x.lineWidth=2;x.beginPath();x.arc(lX,mY,26,0,2*Math.PI);x.stroke();
+  x.beginPath();x.moveTo(lX,mY+12);x.lineTo(lX,mY-12);x.stroke();
+  x.fillStyle=C.seqZ;x.beginPath();x.moveTo(lX-7,mY-4);x.lineTo(lX,mY-14);x.lineTo(lX+7,mY-4);x.fill();
+  // Description below symbol, inside box
+  x.fillStyle='#6644aa';x.font='500 10px "IBM Plex Mono",monospace';
+  x.fillText('(Current Source)',lX,mY+46);x.fillText('Data Center / VFDs',lX,mY+60);
+
+  // ── Zero-seq flow annotation ──
+  const hasTrip=harms.some((h,i)=>h.mag>.01&&seq(i+1)==='zero');
+  if(hasTrip){
+    if(isDY){
+      x.strokeStyle=C.safe;x.lineWidth=2;x.setLineDash([6,3]);
+      x.beginPath();x.moveTo(lX,pY[2]+30);x.lineTo(lX,nY);x.lineTo(bX,nY);x.stroke();x.setLineDash([]);
+      x.fillStyle=C.safe;x.font='600 11px "IBM Plex Mono",monospace';x.textAlign='center';
+      x.fillText('◄── I₀ flows through neutral (3Rg = '+(3*Rg_pu).toFixed(3)+' pu) ──',(bX+lX)/2,nY+18);
+    }else{
+      x.strokeStyle=C.danger;x.lineWidth=2;x.setLineDash([4,4]);
+      x.beginPath();x.moveTo(lX,pY[2]+30);x.lineTo(lX,nY);x.lineTo(lX-40,nY);x.stroke();x.setLineDash([]);
+      const bx2=lX-60;x.strokeStyle=C.danger;x.lineWidth=3;
+      x.beginPath();x.moveTo(bx2-10,nY-10);x.lineTo(bx2+10,nY+10);x.moveTo(bx2+10,nY-10);x.lineTo(bx2-10,nY+10);x.stroke();
+      x.fillStyle=C.danger;x.font='700 11px "IBM Plex Mono",monospace';x.textAlign='center';
+      x.fillText('✗ NO ZERO-SEQ PATH',(bX+lX)/2,nY+18);
+      x.font='500 11px "IBM Plex Mono",monospace';
+      x.fillText('I₀ × Zc ('+Zc_pu+' pu) → OVERVOLTAGE',(bX+lX)/2,nY+34);
+      // Stray cap symbol
+      const capX=bX+60;x.strokeStyle=C.capLine;x.lineWidth=1;
+      x.beginPath();x.moveTo(capX,pY[2]+30);x.lineTo(capX,nY-12);x.stroke();
+      x.lineWidth=2;x.beginPath();x.moveTo(capX-10,nY-12);x.lineTo(capX+10,nY-12);
+      x.moveTo(capX-10,nY-4);x.lineTo(capX+10,nY-4);x.stroke();
+      x.beginPath();x.moveTo(capX,nY-4);x.lineTo(capX,nY+8);x.stroke();
+      for(let g=0;g<3;g++){const gw=12-g*4;x.beginPath();x.moveTo(capX-gw/2,nY+8+g*5);x.lineTo(capX+gw/2,nY+8+g*5);x.stroke()}
+      x.fillStyle=C.capLine;x.font='500 10px "IBM Plex Mono",monospace';x.textAlign='center';x.fillText('Zc = '+Zc_pu+' pu',capX,nY+32);
+    }
+  }
+}
+
+// ═══ VOLTAGE WAVEFORM (per-unit based) ═══
+function drawVW(tv,Vbase_LN){
+  const c=document.getElementById('vCvs'),x=c.getContext('2d'),W=c.width,H=c.height;
+  const p={l:60,r:20,t:20,b:30},pw=W-p.l-p.r,ph=H-p.t-p.b;x.clearRect(0,0,W,H);
+  const f0=60,cy2=2,T=cy2/f0,sm=1200,zy=p.t+ph/2;
+  x.strokeStyle=C.grid;x.lineWidth=1;x.beginPath();x.moveTo(p.l,zy);x.lineTo(p.l+pw,zy);x.stroke();
+
+  // Compute waveform in volts
+  let vData=[],mx=0;
+  for(let i=0;i<=sm;i++){
+    const t=(i/sm)*T;let v=0;
+    for(const h of tv){
+      const Vh=h.V0_pu*Vbase_LN;
+      // For resistive path (Δ-Y): voltage in phase with current → use current angle
+      // For capacitive path (Δ-Δ): V = I * (-jZc/h), voltage leads current by 90°
+      const phaseShift=h.isCapacitive ? -90 : 0;
+      v+=Vh*Math.sin(2*Math.PI*h.n*f0*t+d2r(h.ang)+d2r(phaseShift));
+    }
+    vData.push(v);if(Math.abs(v)>mx)mx=Math.abs(v);
+  }
+
+  const dispMax=Math.max(Vbase_LN*1.2,mx*1.1);
+  const sc=(ph*.45)/dispMax;
+
+  // Nominal L-N band
+  x.fillStyle='rgba(0,0,0,.02)';
+  x.fillRect(p.l,zy-Vbase_LN*sc,pw,Vbase_LN*2*sc);
+  x.strokeStyle='rgba(0,0,0,.1)';x.lineWidth=1;x.setLineDash([4,4]);
+  x.beginPath();x.moveTo(p.l,zy-Vbase_LN*sc);x.lineTo(p.l+pw,zy-Vbase_LN*sc);
+  x.moveTo(p.l,zy+Vbase_LN*sc);x.lineTo(p.l+pw,zy+Vbase_LN*sc);x.stroke();x.setLineDash([]);
+
+  // Y labels
+  x.font='400 11px "IBM Plex Mono",monospace';x.fillStyle=C.text;x.textAlign='right';
+  x.fillText('+'+(Vbase_LN).toFixed(0)+'V (1.0 pu)',p.l-6,zy-Vbase_LN*sc+4);
+  x.fillText('0V',p.l-6,zy+4);
+  x.fillText('-'+(Vbase_LN).toFixed(0)+'V',p.l-6,zy+Vbase_LN*sc+4);
+  if(mx>Vbase_LN*1.1){x.fillStyle=C.danger;x.fillText('+'+mx.toFixed(0)+'V!',p.l-6,zy-mx*sc+4)}
+
+  // Waveform
+  if(mx>.1){
+    x.strokeStyle=C.seqZ;x.lineWidth=4;x.globalAlpha=.2;x.beginPath();
+    for(let i=0;i<=sm;i++){const xx=p.l+(i/sm)*pw,yy=zy-vData[i]*sc;i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}x.stroke();
+    x.globalAlpha=1;x.lineWidth=2.5;x.beginPath();
+    for(let i=0;i<=sm;i++){const xx=p.l+(i/sm)*pw,yy=zy-vData[i]*sc;i===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}x.stroke();
+  }
+
+  // Peak label
+  if(mx>Vbase_LN*.05){
+    x.font='600 14px "IBM Plex Mono",monospace';x.textAlign='left';
+    x.fillStyle=mx>Vbase_LN*.2?C.danger:mx>Vbase_LN*.05?C.phB:C.safe;
+    x.fillText('V_NG peak: '+mx.toFixed(0)+' V ('+(mx/Vbase_LN*100).toFixed(1)+'% of V_base)',p.l+10,p.t+16);
+  }else{
+    x.font='600 13px "IBM Plex Mono",monospace';x.fillStyle=C.safe;x.textAlign='left';
+    x.fillText('V_NG ≈ 0V — No significant neutral voltage',p.l+10,p.t+16);
+  }
+}
+
+// ═══ BUS VOLTAGE OSCILLOGRAPHY ═══
+// Computes V_bus for each phase by passing harmonic currents through the
+// sequence impedance network: source Zs, transformer Xt, ground Rg / stray Zc
+function drawComp(){
+  const c=document.getElementById('compCvs'),x=c.getContext('2d'),W=c.width,H=c.height;
+  const pad={l:60,r:20,t:28,b:30},pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  x.clearRect(0,0,W,H);
+  const f0=60,cycles=2,T=cycles/f0,sm=1600;
+  const zy=pad.t+ph/2;
+
+  // Read system parameters
+  const Zsm=parseFloat(document.getElementById('zsmS').value);
+  const Zsa=parseFloat(document.getElementById('zsaS').value);
+  const Xt_pu=parseFloat(document.getElementById('xtS').value);
+  const Rg_pu=parseFloat(document.getElementById('rgS').value);
+  const Zc_pu=parseFloat(document.getElementById('zcS').value);
+  const Rs_pu=Zsm*Math.cos(d2r(Zsa));
+  const Xs_pu=Zsm*Math.sin(d2r(Zsa));
+  const isDY=cfg==='dy';
+
+  // For each harmonic h, compute the complex voltage drop per phase.
+  // V_bus,h = -I_h * Z_total,h  (voltage drop due to current source)
+  // For positive/negative sequence: Z = Zs_h + Zt_h (current flows through to source)
+  // For zero sequence (Δ-Y): Z = Zt_h + 3Rg (delta blocks source, returns through ground)
+  // For zero sequence (Δ-Δ): Z = Zt_h + Zc_h (delta blocks source, only stray cap path)
+
+  const hVoltages = [];
+
+  for(let hi=0;hi<12;hi++){
+    const h=hi+1;
+    const Ih_pu=harms[hi].mag;
+    const Ih_ang=harms[hi].ang;
+    if(Ih_pu<0.001) continue;
+
+    const s=seq(h);
+    // Source impedance at harmonic h: R + j*h*X
+    const Zs_h={r:Rs_pu, i:Xs_pu*h};
+    // Transformer at harmonic h: j*h*Xt
+    const Zt_h={r:0, i:Xt_pu*h};
+
+    if(s==='pos'||s==='neg'){
+      // Pos/neg sequence: voltage drop across Zs+Zt
+      const Ztot=cAdd(Zs_h,Zt_h);
+      const Ih_c=cRect(Ih_pu, Ih_ang);
+      const Vdrop=cMul(Ih_c, Ztot);
+      hVoltages.push({
+        h, seq:s,
+        Vdrop_mag:cMag(Vdrop), Vdrop_ang:cAng(Vdrop),
+        Vng_mag:0, Vng_ang:0
+      });
+    } else {
+      // Zero sequence — delta primary blocks source impedance
+      let Vdrop, Vng;
+      if(isDY){
+        // Δ-Y grounded: Zt_h + 3Rg (no Zs — delta isolates source)
+        const Zg={r:3*Rg_pu, i:0};
+        const Ztot=cAdd(Zt_h,Zg);
+        const Ih_c=cRect(Ih_pu, Ih_ang);
+        Vdrop=cMul(Ih_c, Ztot);
+        Vng=cMul(Ih_c, Zg);
+      } else {
+        // Δ-Δ: both delta windings present open circuit to zero-seq.
+        // Only path is stray capacitance (no Zs, no Zt)
+        const Zc_h={r:0, i:-Zc_pu/h};
+        const Ih_c=cRect(Ih_pu, Ih_ang);
+        Vdrop=cMul(Ih_c, Zc_h);
+        Vng=cMul(Ih_c, Zc_h);
+      }
+      hVoltages.push({
+        h, seq:'zero',
+        Vdrop_mag:cMag(Vdrop), Vdrop_ang:cAng(Vdrop),
+        Vng_mag:cMag(Vng), Vng_ang:cAng(Vng)
+      });
+    }
+  }
+
+  // Now compute time-domain waveforms
+  // V_phase_p(t) = V_fund_p(t) - sum[ Vdrop_h * sin(2π*h*f0*t + phase_offset + Vdrop_ang) ]
+  // Neutral voltage: V_ng(t) = sum[ Vng_h * sin(2π*h*f0*t + Vng_ang) ] (zero-seq only)
+  const phaseData=[[],[],[]];
+  const neutData=[];
+  const fundData=[[],[],[]]; // pure fundamental for reference
+  let maxV=0;
+
+  const fundOffsets=[0,-120,-240];
+
+  for(let si=0;si<=sm;si++){
+    const t=(si/sm)*T;
+    let phV=[0,0,0], vng=0;
+
+    // Start with 1.0 pu fundamental on each phase
+    for(let p=0;p<3;p++){
+      phV[p]=1.0*Math.sin(2*Math.PI*f0*t+d2r(fundOffsets[p]));
+      fundData[p].push(phV[p]); // save undistorted
+    }
+
+    // Subtract voltage drops from each harmonic
+    for(const hv of hVoltages){
+      const h=hv.h;
+      for(let p=0;p<3;p++){
+        const phOff=norm(h*fundOffsets[p]); // phase offset for this harmonic on this phase
+        // Voltage drop on this phase
+        phV[p]-=hv.Vdrop_mag*Math.sin(2*Math.PI*h*f0*t+d2r(phOff)+d2r(hv.Vdrop_ang));
+      }
+      // Neutral voltage (zero-seq harmonics only contribute)
+      if(hv.seq==='zero'){
+        // Zero-seq: all phases same angle, so no phase offset needed
+        vng+=hv.Vng_mag*Math.sin(2*Math.PI*hv.h*f0*t+d2r(hv.Vng_ang));
+      }
+    }
+
+    for(let p=0;p<3;p++){
+      phaseData[p].push(phV[p]);
+      if(Math.abs(phV[p])>maxV) maxV=Math.abs(phV[p]);
+    }
+    neutData.push(vng);
+    if(Math.abs(vng)>maxV) maxV=Math.abs(vng);
+  }
+
+  if(maxV<0.5) maxV=1.2; // minimum scale to show 1.0 pu
+  const sc=(ph*0.42)/maxV;
+
+  // Grid
+  x.strokeStyle=C.grid;x.lineWidth=1;
+  x.beginPath();x.moveTo(pad.l,zy);x.lineTo(pad.l+pw,zy);x.stroke();
+  // ±1.0 pu reference lines
+  x.strokeStyle=C.grid2;x.setLineDash([4,4]);
+  x.beginPath();
+  x.moveTo(pad.l,zy-1.0*sc);x.lineTo(pad.l+pw,zy-1.0*sc);
+  x.moveTo(pad.l,zy+1.0*sc);x.lineTo(pad.l+pw,zy+1.0*sc);
+  x.stroke();x.setLineDash([]);
+  // Vertical grid at fund zero-crossings
+  x.strokeStyle=C.grid;
+  for(let cc=0;cc<=cycles*2;cc++){
+    const xp=pad.l+(cc/(cycles*2))*pw;
+    x.beginPath();x.moveTo(xp,pad.t);x.lineTo(xp,pad.t+ph);x.stroke();
+  }
+  // Y-axis
+  x.font='400 11px "IBM Plex Mono",monospace';x.fillStyle=C.text;x.textAlign='right';
+  x.fillText('+1.0 pu',pad.l-6,zy-1.0*sc+4);
+  x.fillText('0',pad.l-6,zy+4);
+  x.fillText('−1.0 pu',pad.l-6,zy+1.0*sc+4);
+  if(maxV>1.15){x.fillStyle=C.danger;x.fillText('+'+maxV.toFixed(2)+' pu',pad.l-6,pad.t+ph*0.03+4);}
+  // X-axis
+  x.fillStyle=C.text;x.textAlign='center';
+  for(let cc=0;cc<=cycles*2;cc++){
+    const xp=pad.l+(cc/(cycles*2))*pw;
+    x.fillText(((cc/(cycles*2))*T*1000).toFixed(1)+'ms',xp,H-8);
+  }
+
+  // Draw undistorted fundamental as faint dashed reference
+  for(let p=0;p<3;p++){
+    x.strokeStyle=[C.phA_dim,C.phB_dim,C.phC_dim][p];
+    x.lineWidth=1.5;x.setLineDash([5,4]);
+    x.beginPath();
+    for(let si=0;si<=sm;si++){
+      const xx=pad.l+(si/sm)*pw,yy=zy-fundData[p][si]*sc;
+      si===0?x.moveTo(xx,yy):x.lineTo(xx,yy);
+    }
+    x.stroke();x.setLineDash([]);
+  }
+
+  // Draw phase voltage waveforms (back-to-front layering)
+  const colors=[C.phA,C.phB,C.phC];
+  const lws=[6,4,2];const gws=[10,7,4];
+
+  for(let di=0;di<3;di++){
+    x.strokeStyle=colors[di];x.lineWidth=gws[di];x.globalAlpha=.12;
+    x.beginPath();
+    for(let si=0;si<=sm;si++){const xx=pad.l+(si/sm)*pw,yy=zy-phaseData[di][si]*sc;si===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke();
+    x.globalAlpha=.9;x.lineWidth=lws[di];
+    x.beginPath();
+    for(let si=0;si<=sm;si++){const xx=pad.l+(si/sm)*pw,yy=zy-phaseData[di][si]*sc;si===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke();
+    x.globalAlpha=1;
+  }
+
+  // Draw neutral-to-ground voltage (white)
+  const neutPk=Math.max(...neutData.map(Math.abs));
+  if(neutPk>0.001){
+    x.strokeStyle=C.neut;x.lineWidth=4;x.globalAlpha=.15;
+    x.beginPath();
+    for(let si=0;si<=sm;si++){const xx=pad.l+(si/sm)*pw,yy=zy-neutData[si]*sc;si===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke();
+    x.globalAlpha=1;x.lineWidth=2;
+    x.beginPath();
+    for(let si=0;si<=sm;si++){const xx=pad.l+(si/sm)*pw,yy=zy-neutData[si]*sc;si===0?x.moveTo(xx,yy):x.lineTo(xx,yy)}
+    x.stroke();
+  }
+
+  // Annotation
+  x.font='600 13px "IBM Plex Mono",monospace';x.textAlign='left';
+  // THD estimate
+  let fundMag=harms[0].mag, harmSq=0;
+  for(let i=1;i<12;i++) harmSq+=harms[i].mag*harms[i].mag;
+  const thd=fundMag>0.001?Math.sqrt(harmSq)/fundMag*100:0;
+
+  let label='Bus Voltage: ';
+  if(neutPk>0.2){
+    x.fillStyle=C.danger;
+    label+=`THD=${thd.toFixed(1)}% | V_ng peak=${neutPk.toFixed(3)} pu — SEVERE NEUTRAL DISPLACEMENT`;
+  }else if(neutPk>0.02){
+    x.fillStyle=C.phB;
+    label+=`THD=${thd.toFixed(1)}% | V_ng peak=${neutPk.toFixed(3)} pu — neutral shift visible`;
+  }else if(thd>5){
+    x.fillStyle=C.phB;
+    label+=`THD=${thd.toFixed(1)}% — distortion visible, neutral balanced`;
+  }else{
+    x.fillStyle=C.safe;
+    label+=thd>0.5?`THD=${thd.toFixed(1)}% — clean waveform`:'No harmonic content';
+  }
+  x.fillText(label,pad.l+8,pad.t+14);
+}
+
+// ═══ EXPLANATION (per-unit) ═══
+function updCEx(tIn_pu,tIn_A,tV0_rms_pu,tV0_rms_V,Vbase_LN,pctR,Zsm,Zsa,Xt,Rg,Zc,Zbase){
+  const e=document.getElementById('cexTx');
+  if(cfg==='dy'){
+    e.innerHTML=
+      `<strong>Δ-Y Grounded — Per-Unit Sequence Analysis:</strong> `+
+      `Source impedance Z<sub>s</sub> = ${Zsm.toFixed(3)}∠${Zsa}° pu participates in positive and negative sequence networks only. `+
+      `Transformer X<sub>t</sub> = j${Xt.toFixed(3)} pu (reactance scales with harmonic order h).<br><br>`+
+      `For zero-sequence harmonics, the delta primary presents an open circuit to the source. The zero-seq network is: Z<sub>t,h</sub> + 3R<sub>g</sub>. `+
+      `The grounded neutral (R<sub>g</sub> = ${Rg.toFixed(3)} pu = ${(Rg*Zbase).toFixed(4)} Ω) provides the return path. `+
+      `Neutral-to-ground voltage V<sub>ng</sub> = I₀ × 3R<sub>g</sub>; this is resistive so V is in phase with I.<br><br>`+
+      `Total V<sub>ng</sub> = <strong>${tV0_rms_pu.toFixed(4)} pu RMS (${tV0_rms_V.toFixed(0)} V)</strong> = ${pctR.toFixed(2)}% of V<sub>base</sub>. `+
+      (pctR<5?'Grounding is adequate for the current harmonic content.':
+       pctR<20?'Elevated — review Rg sizing and consider triplen harmonic filtering.':
+       'Excessive — reduce Rg, add filtering, or review harmonic content.')+
+      `<br><br>The delta primary winding traps triplen harmonics, preventing upstream propagation to the utility source.`;
+  }else{
+    e.innerHTML=
+      `<strong>Δ-Δ Ungrounded — Per-Unit Sequence Analysis:</strong> `+
+      `With no grounded neutral and both windings in delta, zero-sequence sees an open circuit from the transformer. `+
+      `The only zero-seq path to ground is stray/distributed capacitance: Z<sub>c</sub> = ${Zc.toFixed(0)} pu (${(Zc*Zbase).toFixed(1)} Ω at fundamental). `+
+      `Capacitive reactance decreases with harmonic order (Z<sub>c,h</sub> = Z<sub>c</sub>/h), but remains very high.<br><br>`+
+      `The harmonic load acts as a <strong>current source</strong>. Since both delta windings block zero-seq, the current is forced entirely through the stray capacitance. `+
+      `The voltage developed across the capacitance leads the current by 90° (capacitive): V₀ = I₀ × Z<sub>c</sub>/h.<br><br>`+
+      `Total V<sub>ng</sub> = <strong>${tV0_rms_pu.toFixed(4)} pu RMS (${tV0_rms_V.toFixed(0)} V)</strong> = ${pctR.toFixed(2)}% of V<sub>base</sub>. `+
+      (pctR>20?`<strong style="color:${C.danger}">This is a dangerous overvoltage condition.</strong> Phase-to-ground voltages are severely displaced, stressing insulation and equipment.`:
+       pctR>5?'Notable displacement — triplen content developing significant voltage across stray capacitance.':
+       'Low displacement at current levels, but increases dramatically with higher triplen content.')+
+      `<br><br><strong>This demonstrates why grounding matters:</strong> nonlinear loads produce triplen harmonics that act as zero-sequence current sources. Without a low-impedance neutral path (as in Δ-Y grounded), those currents are forced through very high stray impedance, producing dangerous overvoltages.`;
+  }
+}
+
+// ═══ INIT ═══
+document.getElementById('hSlider').addEventListener('input',function(){selH(parseInt(this.value))});
+buildStrip();updView();buildHT();updCkt();
+</script>
+</body>
+</html>

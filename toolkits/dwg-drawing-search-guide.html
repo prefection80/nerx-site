@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DWG/DXF Drawing Search System - Complete User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .step {
+            margin-bottom: 50px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 15px;
+            float: left;
+        }
+        
+        .step h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            padding-left: 65px;
+        }
+        
+        .step-content {
+            clear: both;
+            padding-top: 10px;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .info-box.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .info-box.success {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #1976d2;
+        }
+        
+        .info-box.warning strong {
+            color: #f57c00;
+        }
+        
+        .info-box.success strong {
+            color: #388e3c;
+        }
+        
+        ul, ol {
+            margin-left: 20px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .workflow-diagram {
+            text-align: center;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            margin: 30px 0;
+        }
+        
+        .workflow-item {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin: 10px;
+            font-weight: bold;
+        }
+        
+        .workflow-arrow {
+            display: inline-block;
+            color: #667eea;
+            font-size: 2em;
+            margin: 0 10px;
+        }
+        
+        .file-structure {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        
+        .highlight {
+            background: #fff176;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        footer {
+            background: #2d2d2d;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin: 10px 5px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .disclaimer {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 5px;
+        }
+        
+        .disclaimer strong {
+            color: #856404;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📐 DWG/DXF Drawing Search System</h1>
+            <p>Complete User Guide for Converting, Indexing, Searching, and Opening CAD Drawings</p>
+        </header>
+        
+        <div class="content">
+            <!-- Overview Section -->
+            <section class="step">
+                <div class="step-number">📋</div>
+                <h2>System Overview</h2>
+                <div class="step-content">
+                    <p>This is a complete CAD drawing management system that allows you to convert, index, search, and open thousands of drawings instantly. The system consists of four main components working together seamlessly.</p>
+                    
+                    <div class="workflow-diagram">
+                        <div class="workflow-item">1. Convert DWG→DXF</div>
+                        <span class="workflow-arrow">→</span>
+                        <div class="workflow-item">2. Build Text Index</div>
+                        <span class="workflow-arrow">→</span>
+                        <div class="workflow-item">3. Search Interface</div>
+                        <span class="workflow-arrow">→</span>
+                        <div class="workflow-item">4. Open in TrueView</div>
+                    </div>
+                    
+                    <div class="features">
+                        <div class="feature-card">
+                            <div class="feature-icon">🔄</div>
+                            <h3>Batch Conversion</h3>
+                            <p>Automatically converts all DWG files to searchable DXF format</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">📊</div>
+                            <h3>Smart Indexing</h3>
+                            <p>Extracts and indexes all text from drawings with intelligent estimates</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🔍</div>
+                            <h3>Instant Search</h3>
+                            <p>Search thousands of drawings in milliseconds with advanced filters</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🖱️</div>
+                            <h3>One-Click Open</h3>
+                            <p>Click any result to instantly open in Autodesk DWG TrueView</p>
+                        </div>
+                    </div>
+                    
+                    <div class="disclaimer">
+                        <strong>📝 Written by Douglas Millner</strong><br>
+                        NERX Power Consultants LLC<br>
+                        Social, Website, and Blog - <a href="https://linktr.ee/nerxpower" target="_blank" style="color: #667eea;">https://linktr.ee/nerxpower</a>
+                        <br><br>
+                        <strong>⚠️ DISCLAIMER:</strong> The software is free for distribution. The user assumes all risk.
+                    </div>
+                </div>
+            </section>
+
+            <!-- Prerequisites -->
+            <section class="step">
+                <div class="step-number">📦</div>
+                <h2>Prerequisites & Installation</h2>
+                <div class="step-content">
+                    <h3>Required Software:</h3>
+                    
+                    <h4>1. Python 3.6 or Higher</h4>
+                    <ul>
+                        <li>Download from: <a href="https://www.python.org/downloads/" target="_blank">https://www.python.org/downloads/</a></li>
+                        <li>During installation, check "Add Python to PATH"</li>
+                        <li>No additional Python packages required - uses only built-in libraries</li>
+                    </ul>
+                    
+                    <h4>2. ODA File Converter (Free)</h4>
+                    <ul>
+                        <li>Download from: <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank">https://www.opendesign.com/guestfiles/oda_file_converter</a></li>
+                        <li>Completely free, no registration required</li>
+                        <li>Install to default location for automatic detection</li>
+                        <li>Converts between DWG and DXF formats</li>
+                    </ul>
+                    
+                    <h4>3. Autodesk DWG TrueView (Free)</h4>
+                    <ul>
+                        <li>Download from: <a href="https://www.autodesk.com/products/dwg/viewers" target="_blank">https://www.autodesk.com/products/dwg/viewers</a></li>
+                        <li>Free official Autodesk viewer</li>
+                        <li>Opens DWG and DXF files</li>
+                        <li>Allows viewing, measuring, and printing</li>
+                    </ul>
+                    
+                    <div class="info-box">
+                        <strong>💡 Note:</strong>
+                        All required software is completely free. The Python scripts use only standard library, so no pip installations are needed.
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 1: Convert -->
+            <section class="step">
+                <div class="step-number">1</div>
+                <h2>Convert DWG to DXF</h2>
+                <div class="step-content">
+                    <p>Run <span class="highlight" style="font-weight: bold;">convert_dwg_to_dxf.py</span> to batch convert all DWG files to DXF format.</p>
+                    
+                    <div style="margin: 15px 0;">
+                        <a href="convert_dwg_to_dxf.py" download class="btn">📥 Download convert_dwg_to_dxf.py</a>
+                    </div>
+                    
+                    <h3>🚀 How to Run:</h3>
+                    <div class="code-block">
+                        <code>python convert_dwg_to_dxf.py</code>
+                    </div>
+                    
+                    <h3>📂 What It Does:</h3>
+                    <ul>
+                        <li><strong>Scans recursively</strong> through current directory and ALL subdirectories</li>
+                        <li><strong>Counts files first</strong> and displays accurate conversion time estimates</li>
+                        <li><strong>Creates parallel directory structure</strong> with '-dxf' suffix for organization</li>
+                        <li><strong>Converts to DXF</strong> using ODA File Converter (AutoCAD 2018 DXF format)</li>
+                        <li><strong>Skips existing files</strong> to save time on subsequent runs</li>
+                        <li><strong>Shows progress</strong> for each file with success/failure status</li>
+                        <li><strong>Provides summary</strong> of successful, failed, and skipped conversions</li>
+                    </ul>
+                    
+                    <h3>📁 Directory Structure Example:</h3>
+                    <div class="file-structure">
+                        <strong>Before:</strong><br>
+                        📁 c:/selkirk4/autocad print - DXF/<br>
+                        &nbsp;&nbsp;├── drawing1.dwg<br>
+                        &nbsp;&nbsp;├── 📁 HRSG/<br>
+                        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── boiler.dwg<br>
+                        &nbsp;&nbsp;└── 📁 2-POA/<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── panel.dwg<br><br>
+                        
+                        <strong>After:</strong><br>
+                        📁 c:/selkirk4/autocad print - DXF/<br>
+                        &nbsp;&nbsp;├── drawing1.dwg<br>
+                        &nbsp;&nbsp;├── drawing1.dxf &nbsp;<span style="color: #4caf50;">← New!</span><br>
+                        &nbsp;&nbsp;├── 📁 HRSG/<br>
+                        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── boiler.dwg<br>
+                        &nbsp;&nbsp;├── 📁 HRSG-dxf/ &nbsp;<span style="color: #4caf50;">← New parallel structure!</span><br>
+                        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── boiler.dxf<br>
+                        &nbsp;&nbsp;├── 📁 2-POA/<br>
+                        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── panel.dwg<br>
+                        &nbsp;&nbsp;└── 📁 2-POA-dxf/ &nbsp;<span style="color: #4caf50;">← New parallel structure!</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── panel.dxf
+                    </div>
+                    
+                    <div class="info-box success">
+                        <strong>✅ Benefits:</strong>
+                        <ul>
+                            <li>Original DWG files are never modified or touched</li>
+                            <li>Easy to identify converted files (all in -dxf directories)</li>
+                            <li>Can delete all DXF directories easily if needed</li>
+                            <li>Maintains exact organizational structure</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Index -->
+            <section class="step">
+                <div class="step-number">2</div>
+                <h2>Build Search Index</h2>
+                <div class="step-content">
+                    <p>Run <span class="highlight" style="font-weight: bold;">build_drawing_index.py</span> to extract text from DXF files and create searchable index.</p>
+                    
+                    <div style="margin: 15px 0;">
+                        <a href="build_drawing_index.py" download class="btn">📥 Download build_drawing_index.py</a>
+                    </div>
+                    
+                    <h3>🚀 How to Run:</h3>
+                    <div class="code-block">
+                        <code>python build_drawing_index.py</code>
+                    </div>
+                    
+                    <h3>📊 What It Does:</h3>
+                    <ul>
+                        <li><strong>Counts DXF files first</strong> and provides smart estimates:
+                            <ul>
+                                <li>Actual file count detected</li>
+                                <li>Processing time estimated (based on ~0.08-0.15 sec/file)</li>
+                                <li>Index file size estimated (based on ~8-10 KB/file)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Extracts ALL text</strong> from DXF files including:
+                            <ul>
+                                <li>Drawing titles and numbers</li>
+                                <li>Part numbers and specifications</li>
+                                <li>Notes and annotations</li>
+                                <li>Dimensions and labels</li>
+                                <li>Table data and schedules</li>
+                            </ul>
+                        </li>
+                        <li><strong>Creates two JSON files</strong>:
+                            <ul>
+                                <li><code>drawing_index.json</code> - Complete searchable index</li>
+                                <li><code>drawing_index_keywords.json</code> - Keyword statistics</li>
+                            </ul>
+                        </li>
+                        <li><strong>Shows progress</strong> for every 50 files</li>
+                        <li><strong>Provides statistics</strong> on text entries and averages</li>
+                    </ul>
+                    
+                    <div class="info-box">
+                        <strong>💡 How It Works:</strong>
+                        The script reads DXF files as text (they're text-based format) and extracts content following specific DXF code patterns (codes 1, 3, 7). No external libraries needed!
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>⏱️ Processing Time:</strong>
+                        Now with smart estimates! The script counts files first and calculates realistic processing time based on your actual file count.
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Server -->
+            <section class="step">
+                <div class="step-number">3</div>
+                <h2>Start Drawing Opener Server</h2>
+                <div class="step-content">
+                    <p>Run <span class="highlight" style="font-weight: bold;">open_drawing_server.py</span> to enable one-click opening of drawings from the search interface.</p>
+                    
+                    <div style="margin: 15px 0;">
+                        <a href="open_drawing_server.py" download class="btn">📥 Download open_drawing_server.py</a>
+                    </div>
+                    
+                    <h3>🚀 How to Run:</h3>
+                    <div class="code-block">
+                        <code>python open_drawing_server.py</code>
+                    </div>
+                    
+                    <h3>🌐 What It Does:</h3>
+                    <ul>
+                        <li><strong>Starts HTTP server</strong> on localhost:8765</li>
+                        <li><strong>Auto-detects DWG TrueView</strong> installation location</li>
+                        <li><strong>Accepts drawing open requests</strong> from the web interface</li>
+                        <li><strong>Opens drawings</strong> in Autodesk DWG TrueView automatically</li>
+                        <li><strong>Shows diagnostics</strong> for TrueView detection</li>
+                        <li><strong>Logs all operations</strong> with success/failure status</li>
+                    </ul>
+                    
+                    <h3>📋 Server Features:</h3>
+                    <ul>
+                        <li>Runs in the background while you search</li>
+                        <li>Automatically finds TrueView 2020-2026 versions</li>
+                        <li>Handles multiple drawing open requests</li>
+                        <li>Press Ctrl+C to stop the server</li>
+                    </ul>
+                    
+                    <div class="info-box">
+                        <strong>💡 Important:</strong>
+                        Keep this server running in a terminal window while using the search interface. It's what makes the one-click opening work!
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>⚠️ Note:</strong>
+                        The search interface will work without the server, but you won't be able to open drawings with one click. You'll need to navigate to them manually.
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Search -->
+            <section class="step">
+                <div class="step-number">4</div>
+                <h2>Search and View Drawings</h2>
+                <div class="step-content">
+                    <p>Open <span class="highlight" style="font-weight: bold;">search_drawings_local.html</span> in your web browser to search through all indexed drawings.</p>
+                    
+                    <div style="margin: 15px 0;">
+                        <a href="search_drawings_local.html" download class="btn">📥 Download search_drawings_local.html</a>
+                    </div>
+                    
+                    <h3>🚀 How to Use:</h3>
+                    <ol>
+                        <li><strong>Make sure the server is running</strong> (open_drawing_server.py)</li>
+                        <li><strong>Open in browser:</strong> <code>http://127.0.0.1:8765</code> (the server serves the HTML)</li>
+                        <li><strong>Load index:</strong> Click "Choose drawing_index.json" and select the file</li>
+                        <li><strong>Start searching:</strong> Type any term and results appear instantly</li>
+                        <li><strong>Click to open:</strong> Click any result to open in DWG TrueView</li>
+                    </ol>
+                    
+                    <h3>✨ Search Features:</h3>
+                    <ul>
+                        <li><strong>Instant Results:</strong> Search happens as you type (or click Update Results)</li>
+                        <li><strong>Multiple Search Modes:</strong>
+                            <ul>
+                                <li>Match ALL words (AND logic) - default</li>
+                                <li>Match ANY word (OR logic)</li>
+                                <li>Exact phrases (use quotes: "motor control center")</li>
+                                <li>Regex patterns (advanced users)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Advanced Filters:</strong>
+                            <ul>
+                                <li>Case sensitive option</li>
+                                <li>Whole word matching</li>
+                                <li>Exclusion terms (exclude unwanted results)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Result Features:</strong>
+                            <ul>
+                                <li>Expandable text preview with highlighting</li>
+                                <li>Match count for each file</li>
+                                <li>Export results to CSV</li>
+                            </ul>
+                        </li>
+                        <li><strong>Quick Search Buttons:</strong> Transformer, XFMR, CT, Bus, Breaker, etc.</li>
+                    </ul>
+                    
+                    <h3>🔍 Search Examples:</h3>
+                    <div class="file-structure">
+                        <strong>Individual Words (AND):</strong><br>
+                        transformer 480V panel<br>
+                        → Finds drawings with ALL three words<br><br>
+                        
+                        <strong>Individual Words (OR):</strong><br>
+                        Select "Match ANY word", then: transformer relay motor<br>
+                        → Finds drawings with ANY of these words<br><br>
+                        
+                        <strong>Exact Phrase:</strong><br>
+                        "motor control center"<br>
+                        → Finds this EXACT phrase in this EXACT order<br><br>
+                        
+                        <strong>Mixed Search:</strong><br>
+                        480V "control panel" breaker<br>
+                        → Finds 480V and breaker anywhere, plus exact phrase<br><br>
+                        
+                        <strong>With Exclusions:</strong><br>
+                        Search: transformer<br>
+                        Exclude: backup old temp<br>
+                        → Finds transformer but excludes backup/old/temp files
+                    </div>
+                    
+                    <div class="info-box success">
+                        <strong>✅ Pro Tips:</strong>
+                        <ul>
+                            <li>Use quotes for exact phrases</li>
+                            <li>Combine individual words and phrases in one search</li>
+                            <li>Use exclusion box to filter out unwanted results</li>
+                            <li>Click result to expand and see all matching text highlighted</li>
+                            <li>Export to CSV to share search results with colleagues</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="step">
+                <div class="step-number">🔧</div>
+                <h2>Troubleshooting</h2>
+                <div class="step-content">
+                    <h3>Common Issues and Solutions:</h3>
+                    
+                    <div class="info-box warning">
+                        <strong>❌ "ODA File Converter not found"</strong>
+                        <ul>
+                            <li>Install ODA File Converter to default location</li>
+                            <li>Check installation in: C:\Program Files\ODA\ or C:\Program Files (x86)\ODA\</li>
+                            <li>Script searches common locations automatically</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>❌ "DWG TrueView not found"</strong>
+                        <ul>
+                            <li>Install DWG TrueView to default location</li>
+                            <li>Script searches versions 2020-2026 automatically</li>
+                            <li>Check installation in: C:\Program Files\Autodesk\</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>❌ "Cannot connect to server"</strong>
+                        <ul>
+                            <li>Make sure open_drawing_server.py is running</li>
+                            <li>Access page via http://127.0.0.1:8765 (not file:///)</li>
+                            <li>Check firewall isn't blocking localhost:8765</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>❌ "No search results"</strong>
+                        <ul>
+                            <li>Verify you loaded drawing_index.json in the search page</li>
+                            <li>Make sure build_drawing_index.py completed successfully</li>
+                            <li>Check that DXF files exist in your directory</li>
+                            <li>Try a broader search term first (e.g., just "panel")</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-box warning">
+                        <strong>❌ "Drawing won't open"</strong>
+                        <ul>
+                            <li>Verify DWG TrueView is installed and working</li>
+                            <li>Check that the DXF file exists at the displayed path</li>
+                            <li>Manually try to open the file in TrueView to test</li>
+                            <li>Check server console for error messages</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Best Practices -->
+            <section class="step">
+                <div class="step-number">💡</div>
+                <h2>Best Practices & Tips</h2>
+                <div class="step-content">
+                    <h3>Recommended Workflow:</h3>
+                    <ol>
+                        <li><strong>Initial Setup:</strong>
+                            <ul>
+                                <li>Install all prerequisites (Python, ODA, TrueView)</li>
+                                <li>Run conversion once on all drawings</li>
+                                <li>Build initial index</li>
+                                <li>Test search with known drawing numbers</li>
+                            </ul>
+                        </li>
+                        <li><strong>Daily Use:</strong>
+                            <ul>
+                                <li>Start open_drawing_server.py in a terminal</li>
+                                <li>Access search page at http://127.0.0.1:8765</li>
+                                <li>Search and open drawings as needed</li>
+                            </ul>
+                        </li>
+                        <li><strong>Updates:</strong>
+                            <ul>
+                                <li>Re-run convert_dwg_to_dxf.py when adding new drawings</li>
+                                <li>Re-run build_drawing_index.py to update the index</li>
+                                <li>Index updates in minutes, not hours</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    
+                    <div class="info-box success">
+                        <strong>✅ Performance Tips:</strong>
+                        <ul>
+                            <li><strong>Search is extremely fast</strong> - handles 1000s of drawings instantly</li>
+                            <li><strong>Keep index up-to-date</strong> - re-index when drawings change</li>
+                            <li><strong>Use exclusion filters</strong> - eliminate old/backup files from results</li>
+                            <li><strong>Bookmark the server URL</strong> - quick access to search</li>
+                            <li><strong>Keep DWG originals</strong> - DXF files are for searching only</li>
+                        </ul>
+                    </div>
+                    
+                    <h3>System Requirements:</h3>
+                    <ul>
+                        <li><strong>Disk Space:</strong> DXF files = ~same size as DWG files</li>
+                        <li><strong>Index Size:</strong> ~8-10 KB per drawing (e.g., 3,879 files = ~35 MB)</li>
+                        <li><strong>RAM:</strong> Minimal - index loads into browser memory</li>
+                        <li><strong>CPU:</strong> Any modern processor - indexing is I/O bound</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- File Reference -->
+            <section class="step">
+                <div class="step-number">📁</div>
+                <h2>Complete File Reference</h2>
+                <div class="step-content">
+                    <h3>Python Scripts:</h3>
+                    
+                    <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 8px; border: 2px solid #667eea;">
+                        <strong style="color: #667eea; font-size: 1.1em;">📥 Download All Required Files:</strong>
+                        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;">
+                            <a href="convert_dwg_to_dxf.py" download class="btn" style="margin: 0;">convert_dwg_to_dxf.py</a>
+                            <a href="build_drawing_index.py" download class="btn" style="margin: 0;">build_drawing_index.py</a>
+                            <a href="open_drawing_server.py" download class="btn" style="margin: 0;">open_drawing_server.py</a>
+                            <a href="search_drawings_local.html" download class="btn" style="margin: 0;">search_drawings_local.html</a>
+                        </div>
+                    </div>
+                    
+                    <ul>
+                        <li><strong>convert_dwg_to_dxf.py</strong> - <a href="convert_dwg_to_dxf.py" download style="color: #667eea;">Download</a>
+                            <ul>
+                                <li>Batch converts DWG to DXF using ODA File Converter</li>
+                                <li>Creates parallel directory structure</li>
+                                <li>Shows progress and provides conversion statistics</li>
+                            </ul>
+                        </li>
+                        <li><strong>build_drawing_index.py</strong> - <a href="build_drawing_index.py" download style="color: #667eea;">Download</a>
+                            <ul>
+                                <li>Extracts text from DXF files</li>
+                                <li>Creates searchable JSON index</li>
+                                <li>Provides smart estimates based on file count</li>
+                                <li>Generates keyword statistics</li>
+                            </ul>
+                        </li>
+                        <li><strong>open_drawing_server.py</strong> - <a href="open_drawing_server.py" download style="color: #667eea;">Download</a>
+                            <ul>
+                                <li>HTTP server for opening drawings</li>
+                                <li>Auto-detects DWG TrueView installation</li>
+                                <li>Serves the search interface</li>
+                                <li>Handles drawing open requests</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    
+                    <h3>Web Interface:</h3>
+                    <ul>
+                        <li><strong>search_drawings_local.html</strong> - <a href="search_drawings_local.html" download style="color: #667eea;">Download</a>
+                            <ul>
+                                <li>Full-featured search interface</li>
+                                <li>Advanced search options (AND/OR, regex, exclusions)</li>
+                                <li>One-click drawing opening via server</li>
+                                <li>Result highlighting and CSV export</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    
+                    <h3>Generated Files:</h3>
+                    <ul>
+                        <li><strong>drawing_index.json</strong> - Complete searchable index (~35 MB for 3,879 files)</li>
+                        <li><strong>drawing_index_keywords.json</strong> - Keyword statistics and counts</li>
+                        <li><strong>*.dxf files</strong> - Converted drawings in -dxf directories</li>
+                    </ul>
+                    
+                    <h3>External Dependencies:</h3>
+                    <ul>
+                        <li><strong>Python 3.6+</strong> - No pip packages required (uses standard library)</li>
+                        <li><strong>ODA File Converter</strong> - Free DWG/DXF converter</li>
+                        <li><strong>Autodesk DWG TrueView</strong> - Free drawing viewer</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <h3>🎯 Quick Start Command Summary</h3>
+            <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <div class="code-block">
+                    <code>
+# Step 1: Convert all DWG files to DXF<br>
+python convert_dwg_to_dxf.py<br>
+<br>
+# Step 2: Build searchable index<br>
+python build_drawing_index.py<br>
+<br>
+# Step 3: Start the drawing opener server<br>
+python open_drawing_server.py<br>
+<br>
+# Step 4: Open browser and navigate to:<br>
+http://127.0.0.1:8765
+                    </code>
+                </div>
+            </div>
+            
+            <div style="margin: 30px 0; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                <h3 style="color: white; margin-bottom: 15px;">📥 Download All Files</h3>
+                <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                    <a href="convert_dwg_to_dxf.py" download class="btn">convert_dwg_to_dxf.py</a>
+                    <a href="build_drawing_index.py" download class="btn">build_drawing_index.py</a>
+                    <a href="open_drawing_server.py" download class="btn">open_drawing_server.py</a>
+                    <a href="search_drawings_local.html" download class="btn">search_drawings_local.html</a>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <a href="https://www.nerxpower.com/toolkits.html" target="_blank" class="btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); font-size: 1.1em; padding: 15px 40px;">
+                        🔧 See Other Toolkits
+                    </a>
+                </div>
+                
+                <h3 style="color: white; margin-bottom: 10px; margin-top: 30px;">📝 Written by Douglas Millner</h3>
+                <p style="margin: 5px 0; font-size: 1.1em;">
+                    <strong>NERX Power Consultants LLC</strong><br>
+                    Social, Website, and Blog<br>
+                    <a href="https://linktr.ee/nerxpower" target="_blank" style="color: #fff176; font-weight: bold;">🔗 https://linktr.ee/nerxpower</a>
+                </p>
+                <p style="margin-top: 15px; padding: 10px; background: rgba(255,243,205,0.2); border-radius: 5px;">
+                    <strong>⚠️ DISCLAIMER:</strong> The software is free for distribution. The user assumes all risk.
+                </p>
+            </div>
+            
+            <p style="margin-top: 30px; opacity: 0.7;">
+                Complete CAD Drawing Management System<br>
+                All tools are free and work offline
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

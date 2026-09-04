@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phasor Harmonic Visualization</title>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding-top: 60px; /* Space for header */
+            padding-bottom: 50px; /* Space for ticker */
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 {
+            margin: 20px 0;
+            font-size: 24px;
+            color: #00d4ff;
+        }
+        canvas {
+            background: #0f0f1e;
+            border: 2px solid #4a4a6a;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 20px;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 8px;
+            width: 600px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .control-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #2a2a4a;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #00d4ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #00d4ff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        .value-display {
+            display: inline-block;
+            float: right;
+            background: #0f0f1e;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #00d4ff;
+            border: none;
+            border-radius: 5px;
+            color: #0f0f1e;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #00b8e6;
+        }
+        .info-box {
+            margin-top: 10px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            width: 600px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rotating Phasor with Harmonic Visualization</h1>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <canvas id="waveformCanvas" width="600" height="450" style="margin-top: 20px;"></canvas>
+    <canvas id="analysisCanvas" width="600" height="250" style="margin-top: 20px;"></canvas>
+    <canvas id="dcAnalysisCanvas" width="600" height="250" style="margin-top: 20px;"></canvas>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Harmonic Number: <span class="value-display" id="harmonicDisplay">2</span></label>
+            <input type="range" id="harmonic" min="1" max="10" value="2" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Initial Phase Angle (degrees): <span class="value-display" id="phaseDisplay">0°</span></label>
+            <input type="range" id="phase" min="0" max="360" value="0" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Harmonic Magnitude: <span class="value-display" id="harmonicMagDisplay">0.50 p.u.</span></label>
+            <input type="range" id="harmonicMag" min="0" max="1" value="0.5" step="0.01">
+        </div>
+        
+        <div class="control-group">
+            <label>Animation Speed: <span class="value-display" id="speedDisplay">1.0x</span></label>
+            <input type="range" id="speed" min="0.1" max="3" value="1" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>DC Offset: <span class="value-display" id="dcDisplay">0.00 p.u.</span></label>
+            <input type="range" id="dcOffset" min="-100" max="100" value="0" step="1">
+        </div>
+        
+        <button id="clearBtn">Clear Path</button>
+    </div>
+    
+    <div class="info-box">
+        <div style="color: #00d4ff; font-weight: bold; margin-bottom: 10px;">Sum Waveform Analysis (% Time Positive vs Negative):</div>
+        <div style="color: #eee; margin-bottom: 5px;">
+            <span style="color: #aaa;">Full Base Cycle:</span>
+            <span style="color: #00ff88; margin-left: 10px;">Pos: </span><span id="fullPositive">--</span>%
+            <span style="color: #ff6b00; margin-left: 20px;">Neg: </span><span id="fullNegative">--</span>%
+        </div>
+        <div style="color: #eee; margin-bottom: 5px;">
+            <span style="color: #aaa;">Half Base Cycle:</span>
+            <span style="color: #00ff88; margin-left: 10px;">Pos: </span><span id="halfPositive">--</span>%
+            <span style="color: #ff6b00; margin-left: 20px;">Neg: </span><span id="halfNegative">--</span>%
+        </div>
+        <div style="color: #eee;">
+            <span style="color: #aaa;">Quarter Base Cycle:</span>
+            <span style="color: #00ff88; margin-left: 10px;">Pos: </span><span id="quarterPositive">--</span>%
+            <span style="color: #ff6b00; margin-left: 20px;">Neg: </span><span id="quarterNegative">--</span>%
+        </div>
+    </div>
+    
+    <div class="info-box">
+        <div style="color: #00d4ff; font-weight: bold; margin-bottom: 10px;">FFT Analysis - Estimated DC Component (p.u.):</div>
+        <div style="color: #eee; margin-bottom: 5px;">
+            <span style="color: #aaa;">Full Base Cycle:</span>
+            <span style="color: #00d4ff; margin-left: 10px;">DC = </span><span id="fullDC">--</span> p.u.
+        </div>
+        <div style="color: #eee; margin-bottom: 5px;">
+            <span style="color: #aaa;">Half Base Cycle:</span>
+            <span style="color: #ff6b00; margin-left: 10px;">DC = </span><span id="halfDC">--</span> p.u.
+        </div>
+        <div style="color: #eee;">
+            <span style="color: #aaa;">Quarter Base Cycle:</span>
+            <span style="color: #ff00ff; margin-left: 10px;">DC = </span><span id="quarterDC">--</span> p.u.
+        </div>
+    </div>
+
+    <script>
+        // Get all canvas elements and contexts
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        const waveformCanvas = document.getElementById('waveformCanvas');
+        const waveCtx = waveformCanvas.getContext('2d');
+        
+        const analysisCanvas = document.getElementById('analysisCanvas');
+        const analysisCtx = analysisCanvas.getContext('2d');
+        
+        const dcAnalysisCanvas = document.getElementById('dcAnalysisCanvas');
+        const dcAnalysisCtx = dcAnalysisCanvas.getContext('2d');
+        
+        // Get all control elements
+        const harmonicSlider = document.getElementById('harmonic');
+        const phaseSlider = document.getElementById('phase');
+        const harmonicMagSlider = document.getElementById('harmonicMag');
+        const speedSlider = document.getElementById('speed');
+        const dcOffsetSlider = document.getElementById('dcOffset');
+        const clearBtn = document.getElementById('clearBtn');
+        
+        // Phasor properties
+        const baseMagnitude = 100;
+        
+        let harmonic = parseInt(harmonicSlider.value);
+        let initialPhase = parseFloat(phaseSlider.value) * Math.PI / 180;
+        let harmonicPU = parseFloat(harmonicMagSlider.value);
+        let harmonicMagnitude = harmonicPU * baseMagnitude;
+        let animationSpeed = parseFloat(speedSlider.value);
+        let dcOffset = parseFloat(dcOffsetSlider.value);
+        
+        // Animation state
+        let time = 0;
+        let pathPoints = [];
+        let waveformHistory = [];
+        let analysisHistory = [];
+        let currentBaseCycleValues = [];
+        let currentHalfCycleValues = [];
+        let completedBaseCycleAvg = 0;
+        let completedHalfCycleAvg = 0;
+        let baseCycleStartTime = 0;
+        let halfCycleStartTime = 0;
+        
+        const maxPathPoints = 2000;
+        const maxWaveformPoints = 400;
+        const maxAnalysisPoints = 400;
+        const baseCyclePeriod = 2 * Math.PI;
+        const halfCyclePeriod = Math.PI;
+        
+        // Event listeners
+        harmonicSlider.addEventListener('input', (e) => {
+            harmonic = parseInt(e.target.value);
+            document.getElementById('harmonicDisplay').textContent = harmonic;
+            pathPoints = [];
+            waveformHistory = [];
+            analysisHistory = [];
+            currentBaseCycleValues = [];
+            completedBaseCycleAvg = 0;
+            currentHalfCycleValues = [];
+            completedHalfCycleAvg = 0;
+            baseCycleStartTime = time;
+            halfCycleStartTime = time;
+        });
+        
+        phaseSlider.addEventListener('input', (e) => {
+            initialPhase = parseFloat(e.target.value) * Math.PI / 180;
+            document.getElementById('phaseDisplay').textContent = e.target.value + '°';
+            pathPoints = [];
+            currentBaseCycleValues = [];
+            completedBaseCycleAvg = 0;
+            currentHalfCycleValues = [];
+            completedHalfCycleAvg = 0;
+            baseCycleStartTime = time;
+            halfCycleStartTime = time;
+        });
+        
+        harmonicMagSlider.addEventListener('input', (e) => {
+            harmonicPU = parseFloat(e.target.value);
+            harmonicMagnitude = harmonicPU * baseMagnitude;
+            document.getElementById('harmonicMagDisplay').textContent = harmonicPU.toFixed(2) + ' p.u.';
+            pathPoints = [];
+            waveformHistory = [];
+            analysisHistory = [];
+            currentBaseCycleValues = [];
+            completedBaseCycleAvg = 0;
+            currentHalfCycleValues = [];
+            completedHalfCycleAvg = 0;
+            baseCycleStartTime = time;
+            halfCycleStartTime = time;
+        });
+        
+        speedSlider.addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            document.getElementById('speedDisplay').textContent = animationSpeed.toFixed(1) + 'x';
+        });
+        
+        dcOffsetSlider.addEventListener('input', (e) => {
+            dcOffset = parseFloat(e.target.value);
+            const dcPU = dcOffset / baseMagnitude;
+            document.getElementById('dcDisplay').textContent = dcPU.toFixed(2) + ' p.u.';
+            pathPoints = [];
+            waveformHistory = [];
+            analysisHistory = [];
+            currentBaseCycleValues = [];
+            completedBaseCycleAvg = 0;
+            currentHalfCycleValues = [];
+            completedHalfCycleAvg = 0;
+            baseCycleStartTime = time;
+            halfCycleStartTime = time;
+        });
+        
+        clearBtn.addEventListener('click', () => {
+            pathPoints = [];
+            waveformHistory = [];
+            analysisHistory = [];
+            currentBaseCycleValues = [];
+            completedBaseCycleAvg = 0;
+            currentHalfCycleValues = [];
+            completedHalfCycleAvg = 0;
+            baseCycleStartTime = time;
+            halfCycleStartTime = time;
+        });
+        
+        // Drawing functions (simplified for space - include full implementations)
+        function drawPhasor(startX, startY, magnitude, angle, color, label) {
+            const endX = startX + magnitude * Math.cos(angle);
+            const endY = startY - magnitude * Math.sin(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            const arrowSize = 10;
+            const arrowAngle = Math.PI / 6;
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - arrowSize * Math.cos(angle - arrowAngle), endY + arrowSize * Math.sin(angle - arrowAngle));
+            ctx.lineTo(endX - arrowSize * Math.cos(angle + arrowAngle), endY + arrowSize * Math.sin(angle + arrowAngle));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            ctx.fillStyle = color;
+            ctx.font = '14px Arial';
+            ctx.fillText(label, endX + 10, endY - 10);
+            
+            return { x: endX, y: endY };
+        }
+        
+        function drawPath() {
+            if (pathPoints.length < 2) return;
+            
+            ctx.lineWidth = 2;
+            for (let i = 1; i < pathPoints.length; i++) {
+                const alpha = i / pathPoints.length;
+                ctx.beginPath();
+                ctx.moveTo(pathPoints[i - 1].x, pathPoints[i - 1].y);
+                ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+                ctx.strokeStyle = `rgba(255, 255, 0, ${alpha * 0.8})`;
+                ctx.stroke();
+            }
+        }
+        
+        function drawWaveforms() {
+            waveCtx.fillStyle = '#0f0f1e';
+            waveCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+            
+            const plotHeight = waveformCanvas.height / 3;
+            
+            let baseMin = -1, baseMax = 1;
+            let harmonicMin = -1, harmonicMax = 1;
+            let sumMin = -2, sumMax = 2;
+            
+            if (waveformHistory.length > 0) {
+                baseMin = baseMax = waveformHistory[0].base;
+                harmonicMin = harmonicMax = waveformHistory[0].harmonic;
+                sumMin = sumMax = waveformHistory[0].sum;
+                
+                for (let i = 1; i < waveformHistory.length; i++) {
+                    baseMin = Math.min(baseMin, waveformHistory[i].base);
+                    baseMax = Math.max(baseMax, waveformHistory[i].base);
+                    harmonicMin = Math.min(harmonicMin, waveformHistory[i].harmonic);
+                    harmonicMax = Math.max(harmonicMax, waveformHistory[i].harmonic);
+                    sumMin = Math.min(sumMin, waveformHistory[i].sum);
+                    sumMax = Math.max(sumMax, waveformHistory[i].sum);
+                }
+                
+                const baseRange = Math.max(Math.abs(baseMin), Math.abs(baseMax)) * 1.1;
+                baseMin = -baseRange;
+                baseMax = baseRange;
+                
+                const harmonicRange = Math.max(Math.abs(harmonicMin), Math.abs(harmonicMax)) * 1.1;
+                harmonicMin = -harmonicRange;
+                harmonicMax = harmonicRange;
+                
+                const sumRange = Math.max(Math.abs(sumMin), Math.abs(sumMax)) * 1.1;
+                sumMin = -sumRange;
+                sumMax = sumRange;
+            }
+            
+            function drawPlot(yOffset, data, color, label, minVal, maxVal) {
+                const range = maxVal - minVal;
+                const scale = (plotHeight * 0.8) / range;
+                
+                waveCtx.fillStyle = '#0a0a14';
+                waveCtx.fillRect(0, yOffset, waveformCanvas.width, plotHeight);
+                
+                waveCtx.strokeStyle = '#2a2a4a';
+                waveCtx.lineWidth = 1;
+                
+                const zeroY = yOffset + plotHeight / 2 - (0 - minVal) * scale;
+                waveCtx.beginPath();
+                waveCtx.moveTo(0, zeroY);
+                waveCtx.lineTo(waveformCanvas.width, zeroY);
+                waveCtx.stroke();
+                
+                waveCtx.setLineDash([2, 2]);
+                const maxY = yOffset + plotHeight / 2 - (maxVal - minVal) * scale;
+                const minY = yOffset + plotHeight / 2 - (minVal - minVal) * scale;
+                waveCtx.beginPath();
+                waveCtx.moveTo(0, maxY);
+                waveCtx.lineTo(waveformCanvas.width, maxY);
+                waveCtx.moveTo(0, minY);
+                waveCtx.lineTo(waveformCanvas.width, minY);
+                waveCtx.stroke();
+                waveCtx.setLineDash([]);
+                
+                waveCtx.fillStyle = '#666';
+                waveCtx.font = '9px Arial';
+                waveCtx.fillText(maxVal.toFixed(2), 5, maxY + 10);
+                waveCtx.fillText(minVal.toFixed(2), 5, minY + 10);
+                waveCtx.fillText('0', 5, zeroY + 3);
+                
+                waveCtx.fillStyle = color;
+                waveCtx.font = 'bold 12px Arial';
+                waveCtx.fillText(label, 30, yOffset + 15);
+                
+                if (waveformHistory.length < 2) return;
+                
+                const pointSpacing = waveformCanvas.width / maxWaveformPoints;
+                waveCtx.strokeStyle = color;
+                waveCtx.lineWidth = 2;
+                waveCtx.beginPath();
+                for (let i = 0; i < waveformHistory.length; i++) {
+                    const x = i * pointSpacing;
+                    const value = data(waveformHistory[i]);
+                    const y = yOffset + plotHeight / 2 - (value - minVal) * scale;
+                    if (i === 0) waveCtx.moveTo(x, y);
+                    else waveCtx.lineTo(x, y);
+                }
+                waveCtx.stroke();
+            }
+            
+            drawPlot(0, (d) => d.base, '#00ff88', 'Base (1.0 p.u.)', baseMin, baseMax);
+            drawPlot(plotHeight, (d) => d.harmonic, '#ff00ff', `Harmonic ${harmonic} (${harmonicPU.toFixed(2)} p.u.)`, harmonicMin, harmonicMax);
+            drawPlot(2 * plotHeight, (d) => d.sum, '#ffff00', 'Sum', sumMin, sumMax);
+            
+            waveCtx.strokeStyle = '#4a4a6a';
+            waveCtx.lineWidth = 2;
+            waveCtx.beginPath();
+            waveCtx.moveTo(0, plotHeight);
+            waveCtx.lineTo(waveformCanvas.width, plotHeight);
+            waveCtx.moveTo(0, 2 * plotHeight);
+            waveCtx.lineTo(waveformCanvas.width, 2 * plotHeight);
+            waveCtx.stroke();
+        }
+        
+        function calculatePositiveNegativeTime() {
+            if (waveformHistory.length < 10) return;
+            
+            const currentTime = time;
+            const fullCycleStart = currentTime - baseCyclePeriod;
+            const halfCycleStart = currentTime - halfCyclePeriod;
+            const quarterCycleStart = currentTime - (Math.PI / 2);
+            
+            function calculateForWindow(startTime) {
+                let positiveCount = 0, negativeCount = 0, sumValues = 0, sampleCount = 0;
+                
+                for (let i = 0; i < waveformHistory.length; i++) {
+                    if (waveformHistory[i].time >= startTime) {
+                        if (waveformHistory[i].sum > 0) positiveCount++;
+                        else if (waveformHistory[i].sum < 0) negativeCount++;
+                        sumValues += waveformHistory[i].sum;
+                        sampleCount++;
+                    }
+                }
+                
+                const total = positiveCount + negativeCount;
+                if (total === 0) return { pos: 0, neg: 0, posStr: '--', negStr: '--', dc: 0, dcStr: '--' };
+                
+                const posPercent = (positiveCount / total * 100);
+                const negPercent = (negativeCount / total * 100);
+                const dcComponent = sampleCount > 0 ? sumValues / sampleCount : 0;
+                
+                return {
+                    pos: posPercent,
+                    neg: negPercent,
+                    posStr: posPercent.toFixed(1),
+                    negStr: negPercent.toFixed(1),
+                    dc: dcComponent,
+                    dcStr: dcComponent.toFixed(4)
+                };
+            }
+            
+            const fullCycle = calculateForWindow(fullCycleStart);
+            document.getElementById('fullPositive').textContent = fullCycle.posStr;
+            document.getElementById('fullNegative').textContent = fullCycle.negStr;
+            document.getElementById('fullDC').textContent = fullCycle.dcStr;
+            
+            const halfCycle = calculateForWindow(halfCycleStart);
+            document.getElementById('halfPositive').textContent = halfCycle.posStr;
+            document.getElementById('halfNegative').textContent = halfCycle.negStr;
+            document.getElementById('halfDC').textContent = halfCycle.dcStr;
+            
+            const quarterCycle = calculateForWindow(quarterCycleStart);
+            document.getElementById('quarterPositive').textContent = quarterCycle.posStr;
+            document.getElementById('quarterNegative').textContent = quarterCycle.negStr;
+            document.getElementById('quarterDC').textContent = quarterCycle.dcStr;
+            
+            analysisHistory.push({
+                time: currentTime,
+                fullPos: fullCycle.pos,
+                halfPos: halfCycle.pos,
+                quarterPos: quarterCycle.pos,
+                fullDC: fullCycle.dc,
+                halfDC: halfCycle.dc,
+                quarterDC: quarterCycle.dc
+            });
+            if (analysisHistory.length > maxAnalysisPoints) {
+                analysisHistory.shift();
+            }
+        }
+        
+        function drawAnalysisPlot() {
+            analysisCtx.fillStyle = '#0f0f1e';
+            analysisCtx.fillRect(0, 0, analysisCanvas.width, analysisCanvas.height);
+            
+            analysisCtx.fillStyle = '#00d4ff';
+            analysisCtx.font = 'bold 14px Arial';
+            analysisCtx.fillText('Time Analysis: % Positive (50% = balanced)', 10, 20);
+            
+            const bottom = analysisCanvas.height - 30;
+            const top = 40;
+            const height = bottom - top;
+            const mid = top + height / 2;
+            
+            analysisCtx.strokeStyle = '#2a2a4a';
+            analysisCtx.lineWidth = 1;
+            analysisCtx.setLineDash([2, 2]);
+            analysisCtx.beginPath();
+            analysisCtx.moveTo(0, top);
+            analysisCtx.lineTo(analysisCanvas.width, top);
+            analysisCtx.moveTo(0, mid);
+            analysisCtx.lineTo(analysisCanvas.width, mid);
+            analysisCtx.moveTo(0, bottom);
+            analysisCtx.lineTo(analysisCanvas.width, bottom);
+            analysisCtx.stroke();
+            analysisCtx.setLineDash([]);
+            
+            analysisCtx.fillStyle = '#666';
+            analysisCtx.font = '10px Arial';
+            analysisCtx.fillText('100%', 5, top + 10);
+            analysisCtx.fillText('50%', 5, mid + 3);
+            analysisCtx.fillText('0%', 5, bottom + 3);
+            
+            if (analysisHistory.length < 2) return;
+            
+            const pointSpacing = analysisCanvas.width / maxAnalysisPoints;
+            
+            function drawLine(data, color) {
+                analysisCtx.strokeStyle = color;
+                analysisCtx.lineWidth = 2;
+                analysisCtx.beginPath();
+                for (let i = 0; i < analysisHistory.length; i++) {
+                    const x = i * pointSpacing;
+                    const percent = data(analysisHistory[i]);
+                    const y = bottom - (percent / 100) * height;
+                    if (i === 0) analysisCtx.moveTo(x, y);
+                    else analysisCtx.lineTo(x, y);
+                }
+                analysisCtx.stroke();
+            }
+            
+            drawLine((d) => d.fullPos, '#00d4ff');
+            drawLine((d) => d.halfPos, '#ff6b00');
+            drawLine((d) => d.quarterPos, '#ff00ff');
+            
+            const legendX = analysisCanvas.width - 250;
+            const legendY = 50;
+            analysisCtx.font = 'bold 11px Arial';
+            
+            analysisCtx.fillStyle = '#00d4ff';
+            analysisCtx.fillText('■ Full Cycle', legendX, legendY);
+            analysisCtx.fillStyle = '#ff6b00';
+            analysisCtx.fillText('■ Half Cycle', legendX + 90, legendY);
+            analysisCtx.fillStyle = '#ff00ff';
+            analysisCtx.fillText('■ Quarter Cycle', legendX + 180, legendY);
+        }
+        
+        function drawDCAnalysisPlot() {
+            dcAnalysisCtx.fillStyle = '#0f0f1e';
+            dcAnalysisCtx.fillRect(0, 0, dcAnalysisCanvas.width, dcAnalysisCanvas.height);
+            
+            dcAnalysisCtx.fillStyle = '#00d4ff';
+            dcAnalysisCtx.font = 'bold 14px Arial';
+            dcAnalysisCtx.fillText('FFT DC Component Analysis (p.u.)', 10, 20);
+            
+            const bottom = dcAnalysisCanvas.height - 30;
+            const top = 40;
+            const height = bottom - top;
+            const centerY = top + height / 2;
+            
+            let maxAbsDC = 0.1;
+            if (analysisHistory.length > 10) {
+                for (let i = 0; i < analysisHistory.length; i++) {
+                    const maxVal = Math.max(
+                        Math.abs(analysisHistory[i].fullDC || 0),
+                        Math.abs(analysisHistory[i].halfDC || 0),
+                        Math.abs(analysisHistory[i].quarterDC || 0)
+                    );
+                    if (maxVal > maxAbsDC) maxAbsDC = maxVal;
+                }
+                maxAbsDC = maxAbsDC * 1.15;
+            }
+            
+            dcAnalysisCtx.strokeStyle = '#2a2a4a';
+            dcAnalysisCtx.lineWidth = 1;
+            dcAnalysisCtx.setLineDash([2, 2]);
+            dcAnalysisCtx.beginPath();
+            dcAnalysisCtx.moveTo(0, top);
+            dcAnalysisCtx.lineTo(dcAnalysisCanvas.width, top);
+            dcAnalysisCtx.moveTo(0, centerY);
+            dcAnalysisCtx.lineTo(dcAnalysisCanvas.width, centerY);
+            dcAnalysisCtx.moveTo(0, bottom);
+            dcAnalysisCtx.lineTo(dcAnalysisCanvas.width, bottom);
+            dcAnalysisCtx.stroke();
+            dcAnalysisCtx.setLineDash([]);
+            
+            dcAnalysisCtx.fillStyle = '#666';
+            dcAnalysisCtx.font = '10px Arial';
+            dcAnalysisCtx.fillText(`+${maxAbsDC.toFixed(3)}`, 5, top + 10);
+            dcAnalysisCtx.fillText('0.000', 5, centerY + 3);
+            dcAnalysisCtx.fillText(`-${maxAbsDC.toFixed(3)}`, 5, bottom + 3);
+            
+            if (analysisHistory.length < 2) return;
+            
+            const pointSpacing = dcAnalysisCanvas.width / maxAnalysisPoints;
+            
+            function drawLine(data, color) {
+                dcAnalysisCtx.strokeStyle = color;
+                dcAnalysisCtx.lineWidth = 2;
+                dcAnalysisCtx.beginPath();
+                for (let i = 0; i < analysisHistory.length; i++) {
+                    const x = i * pointSpacing;
+                    const dcValue = data(analysisHistory[i]) || 0;
+                    const clampedValue = Math.max(-maxAbsDC, Math.min(maxAbsDC, dcValue));
+                    const y = centerY - (clampedValue / maxAbsDC) * (height / 2);
+                    if (i === 0) dcAnalysisCtx.moveTo(x, y);
+                    else dcAnalysisCtx.lineTo(x, y);
+                }
+                dcAnalysisCtx.stroke();
+            }
+            
+            drawLine((d) => d.fullDC, '#00d4ff');
+            drawLine((d) => d.halfDC, '#ff6b00');
+            drawLine((d) => d.quarterDC, '#ff00ff');
+            
+            const legendX = dcAnalysisCanvas.width - 250;
+            const legendY = 50;
+            dcAnalysisCtx.font = 'bold 11px Arial';
+            
+            dcAnalysisCtx.fillStyle = '#00d4ff';
+            dcAnalysisCtx.fillText('■ Full Cycle', legendX, legendY);
+            dcAnalysisCtx.fillStyle = '#ff6b00';
+            dcAnalysisCtx.fillText('■ Half Cycle', legendX + 90, legendY);
+            dcAnalysisCtx.fillStyle = '#ff00ff';
+            dcAnalysisCtx.fillText('■ Quarter Cycle', legendX + 180, legendY);
+        }
+        
+        function animate() {
+            ctx.fillStyle = '#0f0f1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#2a2a4a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            const baseAngle = time;
+            const harmonicAngle = time * harmonic + initialPhase;
+            
+            const dcOffsetPU = dcOffset / baseMagnitude;
+            const baseValue = 1.0 * Math.cos(baseAngle);
+            const harmonicValue = harmonicPU * Math.cos(harmonicAngle);
+            const realValuePU = baseValue + harmonicValue + dcOffsetPU;
+            
+            waveformHistory.push({ base: baseValue, harmonic: harmonicValue, sum: realValuePU, time: time });
+            if (waveformHistory.length > maxWaveformPoints) waveformHistory.shift();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, baseMagnitude, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#404060';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            const baseEnd = drawPhasor(centerX, centerY, baseMagnitude, baseAngle, '#00ff88', 'Base');
+            const harmonicEnd = drawPhasor(baseEnd.x, baseEnd.y, harmonicMagnitude, harmonicAngle, '#ff00ff', `H${harmonic}`);
+            
+            const finalX = harmonicEnd.x + dcOffset;
+            const finalY = harmonicEnd.y;
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(finalX, finalY);
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            if (dcOffset !== 0) {
+                ctx.beginPath();
+                ctx.moveTo(harmonicEnd.x, harmonicEnd.y);
+                ctx.lineTo(finalX, finalY);
+                ctx.strokeStyle = '#00d4ff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#00d4ff';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('DC', (harmonicEnd.x + finalX) / 2, harmonicEnd.y - 10);
+            }
+            
+            pathPoints.push({ x: finalX, y: finalY });
+            if (pathPoints.length > maxPathPoints) pathPoints.shift();
+            
+            currentBaseCycleValues.push(realValuePU);
+            currentHalfCycleValues.push(realValuePU);
+            
+            if (time - baseCycleStartTime >= baseCyclePeriod) {
+                let sum = 0;
+                for (let i = 0; i < currentBaseCycleValues.length; i++) sum += currentBaseCycleValues[i];
+                completedBaseCycleAvg = sum / currentBaseCycleValues.length;
+                currentBaseCycleValues = [];
+                baseCycleStartTime = time;
+            }
+            
+            if (time - halfCycleStartTime >= halfCyclePeriod) {
+                let sum = 0;
+                for (let i = 0; i < currentHalfCycleValues.length; i++) sum += currentHalfCycleValues[i];
+                completedHalfCycleAvg = sum / currentHalfCycleValues.length;
+                currentHalfCycleValues = [];
+                halfCycleStartTime = time;
+            }
+            
+            drawPath();
+            
+            if (completedBaseCycleAvg !== 0 || currentBaseCycleValues.length > 0) {
+                const avgX = centerX + completedBaseCycleAvg * baseMagnitude;
+                ctx.strokeStyle = '#00d4ff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+                ctx.moveTo(avgX, 0);
+                ctx.lineTo(avgX, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#00d4ff';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`Avg over Full cycle: ${completedBaseCycleAvg.toFixed(3)} p.u.`, avgX + 5, 20);
+            }
+            
+            if (completedHalfCycleAvg !== 0 || currentHalfCycleValues.length > 0) {
+                const avgX = centerX + completedHalfCycleAvg * baseMagnitude;
+                ctx.strokeStyle = '#ff6b00';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(avgX, 0);
+                ctx.lineTo(avgX, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#ff6b00';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`Avg over Half cycle: ${completedHalfCycleAvg.toFixed(3)} p.u.`, avgX + 5, 40);
+            }
+            
+            ctx.beginPath();
+            ctx.arc(finalX, finalY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffff00';
+            ctx.fill();
+            
+            drawWaveforms();
+            calculatePositiveNegativeTime();
+            drawAnalysisPlot();
+            drawDCAnalysisPlot();
+            
+            time += 0.02 * animationSpeed;
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonic Resonance Analysis Toolkit</title>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            padding-top: 80px !important; /* Space for fixed header */
+            padding-bottom: 60px !important; /* Space for fixed ticker */
+        }
+        .slider-input { width: 100%; height: 6px; background: #334155; border-radius: 5px; appearance: none; }
+        .slider-input::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+        .glass-panel { background: var(--panel-bg); border: 1px solid #334155; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .canvas-container { position: relative; width: 100%; height: 250px; background: #000; border-radius: 8px; border: 1px solid #334155; overflow: hidden; }
+        canvas { width: 100% !important; height: 100% !important; }
+        .section-title { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .theory-text p { margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.6; color: #cbd5e1; }
+        .theory-text h3 { color: var(--accent); font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #334155; padding-bottom: 0.25rem; }
+        .formula { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; font-family: 'Courier New', Courier, monospace; color: #60a5fa; margin: 1rem 0; overflow-x: auto; }
+        
+        /* Fix header layout to prevent overlapping */
+        .header-container {
+            min-height: 50px !important;
+        }
+        .header-container h1 {
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+        }
+        .toolkit-title {
+            font-size: 14px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            position: absolute !important;
+            left: 50% !important;
+            right: auto !important;
+            width: auto !important;
+            max-width: 400px !important;
+            margin-left: -200px !important;
+        }
+        .header-left {
+            max-width: 35% !important;
+            z-index: 1 !important;
+        }
+        .header-right {
+            z-index: 1 !important;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <!-- Preset Buttons Section -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-slate-800 p-4 rounded-xl border border-slate-700 gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Harmonic Resonance Analysis Toolkit
+            </h2>
+            <p class="text-slate-400 text-xs">Direct Impedance Grid Modeling v1.10</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="loadPreset('typical6')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-[10px] font-bold">6-Pulse</button>
+            <button onclick="loadPreset('ideal6')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-[10px] font-bold">Ideal</button>
+            <button onclick="loadPreset('afe')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-[10px] font-bold">AFE</button>
+            <button onclick="exportReport()" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded text-[10px] font-bold ml-2">Export Data</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6">
+        <!-- Left Column: Parameters (Now Full Height) -->
+        <aside class="col-span-12 lg:col-span-3 space-y-4 pr-2">
+            <section class="glass-panel">
+                <div class="section-title">Utility Source (Grid)</div>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1 font-bold"><span>Grid Topology</span></div>
+                        <select id="gridMode" class="w-full bg-slate-700 border border-slate-600 rounded p-1 text-[11px] font-bold text-blue-300">
+                            <option value="standard">Standard Inductive (L)</option>
+                            <option value="series">Series Resonance (L-C)</option>
+                            <option value="parallel">Parallel Resonance (L-C)</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Inductance X_L (Ω)</span><span id="val-gridxl" class="font-mono">1.50</span></div>
+                        <input type="range" id="gridxl" min="0.1" max="20" step="0.1" value="1.5" class="slider-input">
+                    </div>
+
+                    <div id="ctrl-gridxc" class="opacity-30 pointer-events-none transition-opacity">
+                        <div class="flex justify-between text-[10px] mb-1"><span>Capacitance X_C (Ω)</span><span id="val-gridxc" class="font-mono">50.0</span></div>
+                        <input type="range" id="gridxc" min="1" max="500" step="1" value="50" class="slider-input">
+                    </div>
+
+                    <div id="ctrl-gridrc" class="opacity-30 pointer-events-none transition-opacity">
+                        <div class="flex justify-between text-[10px] mb-1"><span>Capacitor ESR R_c (Ω)</span><span id="val-gridrc" class="font-mono">0.001</span></div>
+                        <input type="range" id="gridrc" min="0" max="1" step="0.001" value="0.001" class="slider-input">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Grid Resistance R (Ω)</span><span id="val-gridr" class="font-mono">0.10</span></div>
+                        <input type="range" id="gridr" min="0.01" max="5" step="0.01" value="0.10" class="slider-input">
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-panel border-l-4 border-l-green-500">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="section-title !mb-0 !text-green-400">Local Filter Bank</div>
+                    <input type="checkbox" id="cap-enable" checked class="w-3 h-3">
+                </div>
+                <div id="cap-params" class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Capacitance X_C (Ω)</span><span id="val-localxc">35.0</span></div>
+                        <input type="range" id="localxc" min="5" max="200" step="1" value="35" class="slider-input">
+                    </div>
+                    <div class="pt-2 border-t border-slate-700">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold">Detuning Reactor</span>
+                            <input type="checkbox" id="reactor-enable" class="w-3 h-3">
+                        </div>
+                        <div id="reactor-params" class="opacity-40 pointer-events-none">
+                            <div class="flex justify-between text-[10px] mb-1"><span>Reactor X_L (Ω)</span><span id="val-localxl">1.58</span></div>
+                            <input type="range" id="localxl" min="0.1" max="10" step="0.05" value="1.58" class="slider-input">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-panel">
+                <div class="section-title">VFD Fund. current</div>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Fund. Current (A)</span><span id="val-ifund">100</span></div>
+                        <input type="range" id="ifund" min="10" max="1000" step="10" value="100" class="slider-input">
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Right Column: Dashboard -->
+        <main class="col-span-12 lg:col-span-9 space-y-4">
+            <!-- Metrics Row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-panel !py-3 border-b-2 border-b-blue-500">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">Voltage THD</p>
+                    <p id="metric-thdv" class="text-xl font-mono font-bold">0.0%</p>
+                    <p id="status-thdv" class="text-[9px] text-green-400 font-bold">✓ NOMINAL</p>
+                </div>
+                <div class="glass-panel !py-3 border-b-2 border-b-orange-500">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">System Resonance</p>
+                    <p id="metric-hres" class="text-xl font-mono font-bold">h = 4.8</p>
+                    <p id="status-hres" class="text-[9px] text-amber-400 font-bold">PEAK FREQUENCY</p>
+                </div>
+                <div class="glass-panel !py-3 border-b-2 border-b-green-500">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">Bank Current</p>
+                    <p id="metric-capi" class="text-xl font-mono font-bold">0.0 A</p>
+                    <p class="text-[9px] text-slate-400 font-bold">Total RMS</p>
+                </div>
+                <div class="glass-panel !py-3 border-b-2 border-b-slate-500">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">PCC Impedance</p>
+                    <p id="metric-zpeak" class="text-xl font-bold font-mono">0.0 Ω</p>
+                    <p class="text-[9px] text-slate-400 font-bold">At Critical Harmonic</p>
+                </div>
+            </div>
+
+            <!-- Visualization Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-panel">
+                    <div class="section-title">Impedance-Frequency Characteristic</div>
+                    <div class="h-[220px]">
+                        <canvas id="impedanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-panel flex flex-col">
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="section-title">Harmonic Flow Visualization</div>
+                        <div class="flex gap-1 items-center bg-slate-700 px-2 py-0.5 rounded">
+                            <span class="text-[9px] text-slate-400">Harmonic:</span>
+                            <select id="flow-h-selector" class="bg-transparent text-[10px] font-bold">
+                                <option value="1">1st</option>
+                                <option value="5" selected>5th</option>
+                                <option value="7">7th</option>
+                                <option value="11">11th</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="canvas-container flex-1">
+                        <canvas id="sldCanvas"></canvas>
+                    </div>
+                    <div id="flow-status" class="text-[10px] mt-2 font-bold text-center py-1 rounded bg-slate-900/50">
+                        Operational.
+                    </div>
+                </div>
+
+                <div class="glass-panel">
+                    <div class="section-title">Voltage Distortion Spectrum (%)</div>
+                    <div class="h-[220px]">
+                        <canvas id="spectrumChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-panel">
+                    <div class="section-title">PCC Bus Voltage Waveform</div>
+                    <div class="canvas-container h-[220px]">
+                        <canvas id="oscCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel">
+                <div class="section-title">VFD Injection Profile (Amps injection by harmonic)</div>
+                <div id="harmonic-sliders" class="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-3 py-2 border-b border-slate-700 mb-4">
+                    <!-- JS Generated -->
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="section-title">VFD Injected Current Spectrum (A)</div>
+                        <div class="h-[200px]">
+                            <canvas id="currentSpectrumChart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-title">VFD Injected Current Oscillography</div>
+                        <div class="canvas-container h-[200px]">
+                            <canvas id="currentOscCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theory Section -->
+            <div class="glass-panel mt-6 theory-text">
+                <div class="section-title text-blue-400 !text-base">Theory & Analysis Guide</div>
+                
+                <h3>1. Impedance Calculations</h3>
+                <p>The system is analyzed using complex frequency-dependent impedance. For any harmonic order <i>h</i>, the individual components are modeled as:</p>
+                <div class="formula">
+                    Grid Inductance: Z_L(h) = R_g + j(h · X_L)<br>
+                    Grid Capacitance: Z_C(h) = R_c - j(X_C / h)<br>
+                    Filter Path: Z_filter(h) = R_f + j(h · X_Lf - X_Cf / h)
+                </div>
+                <p>The <strong>Grid Path</strong> impedance depends on the selected <em>Grid Topology</em> mode:</p>
+                <div class="formula">
+                    Standard Inductive (L): Z_grid(h) = Z_L(h)<br>
+                    Series Resonance (L–C): Z_grid(h) = Z_L(h) + Z_C(h)<br>
+                    Parallel Resonance (L ∥ C): Z_grid(h) = (Z_L(h) · Z_C(h)) / (Z_L(h) + Z_C(h))
+                </div>
+                <p>The total impedance seen by the VFD source is the parallel combination of the Grid Path and the local Filter Branch:</p>
+                <div class="formula">
+                    Z_total(h) = (Z_grid(h) · Z_filter(h)) / (Z_grid(h) + Z_filter(h))
+                </div>
+
+                <h3>2. VFD as a Harmonic Current Injector</h3>
+                <p>In power system modeling, a Variable Frequency Drive (VFD) is represented as a <strong>Norton Equivalent</strong> current source. Unlike a battery or utility grid (which are voltage sources), a VFD's rectifier bridge behaves as a non-linear load that "injects" harmonic currents into the system regardless of the system impedance (to a first approximation).</p>
+                <p>Mathematically, the drive is a source of current pulses. The current injection for each harmonic ($I_h$) is calculated from the user-defined percentage of the fundamental ($I_1$):</p>
+                <div class="formula">
+                    I_h = (Magnitude% / 100) · I_fundamental
+                </div>
+                <p>This injected current travels through the system impedance ($Z_{total}$). The resulting voltage distortion at the bus is a direct consequence of Ohm's Law for each harmonic: $V_h = I_h · Z_{total}(h)$. High impedance at a specific harmonic (Parallel Resonance) results in severe voltage "notching" or "peaking".</p>
+
+                <h3>3. Parallel vs. Series Resonance</h3>
+                <p><strong>Parallel Resonance:</strong> Occurs when the grid's inductive reactance matches the local capacitor's capacitive reactance. At this frequency, the denominator of the total impedance equation approaches zero, causing the impedance magnitude to skyrocket. This results in massive voltage deviations ($V_h = I_h · Z_{total}$).</p>
+                <p><strong>Series Resonance:</strong> Occurs within a single branch (e.g., the detuned filter). When the L and C reactances cancel each other out, the impedance drops to its minimum. This creates a "harmonic sink" where current flows freely into that branch instead of the grid.</p>
+
+                <h3>4. Detuning & IEEE 519</h3>
+                <p>By adding a <strong>detuning reactor</strong>, we shift the parallel resonance frequency downward (typically below the 5th order). This prevents amplification and creates a series resonant trap for 5th, 7th, etc. The toolkit references <strong>IEEE 519-2022</strong>, recommending a maximum Voltage THD of <strong>5.0%</strong>.</p>
+                <div class="formula">
+                    V_THD = [√(Σ V_h²) / V_fundamental] · 100% (for h=2 to 12)
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const Complex = {
+            add: (a, b) => ({ r: a.r + b.r, i: a.i + b.i }),
+            sub: (a, b) => ({ r: a.r - b.r, i: a.i - b.i }),
+            mul: (a, b) => ({ r: a.r * b.r - a.i * b.i, i: a.r * b.i + a.i * b.r }),
+            div: (a, b) => {
+                const den = b.r * b.r + b.i * b.i;
+                if (den === 0) return { r: 1e10, i: 0 };
+                return { r: (a.r * b.r + a.i * b.i) / den, i: (a.i * b.r - a.r * b.i) / den };
+            },
+            parallel: (a, b) => Complex.div(Complex.mul(a, b), Complex.add(a, b)),
+            mag: (a) => Math.sqrt(a.r * a.r + a.i * a.i)
+        };
+
+        let state = {
+            gridMode: 'standard', gridxl: 1.5, gridxc: 50.0, gridrc: 0.001, gridr: 0.1,
+            vsys: 4.16,
+            capEnable: true, localxc: 35.0,
+            reactorEnable: false, localxl: 1.58,
+            ifund: 100,
+            harmonics: {
+                1: { m: 100, p: 0 }, 2: { m: 1.0, p: -30 }, 3: { m: 2.5, p: -60 }, 4: { m: 0.8, p: -90 },
+                5: { m: 23.5, p: -150 }, 6: { m: 0.6, p: -180 }, 7: { m: 11.0, p: 150 }, 8: { m: 0.5, p: 120 },
+                9: { m: 1.5, p: 90 }, 10: { m: 0.4, p: 60 }, 11: { m: 5.3, p: -30 }, 12: { m: 0.3, p: -60 }
+            }
+        };
+
+        let charts = {};
+        const colors = { grid: '#3498db', filt: '#2ecc71', total: '#e74c3c', ref: '#94a3b8', orange: '#fb923c' };
+
+        window.onload = () => {
+            initHarmonicSliders();
+            setupEventListeners();
+            initCharts();
+            update();
+            requestAnimationFrame(renderLoop);
+        };
+
+        function initHarmonicSliders() {
+            const container = document.getElementById('harmonic-sliders');
+            for (let h = 2; h <= 12; h++) {
+                const col = document.createElement('div');
+                col.innerHTML = `
+                    <div class="flex justify-between text-[9px] mb-1 font-bold text-slate-400"><span>h${h}</span><span id="val-harm-m-${h}">${state.harmonics[h].m}%</span></div>
+                    <input type="range" id="harm-m-${h}" min="0" max="40" step="0.5" value="${state.harmonics[h].m}" class="slider-input">
+                `;
+                container.appendChild(col);
+            }
+        }
+
+        function setupEventListeners() {
+            const inputs = ['gridxl', 'gridxc', 'gridrc', 'gridr', 'localxc', 'localxl', 'ifund'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.oninput = (e) => {
+                        state[id] = parseFloat(e.target.value);
+                        document.getElementById(`val-${id}`).innerText = e.target.value;
+                        update();
+                    };
+                }
+            });
+
+            document.getElementById('gridMode').onchange = (e) => {
+                state.gridMode = e.target.value;
+                const xcCtrl = document.getElementById('ctrl-gridxc');
+                const rcCtrl = document.getElementById('ctrl-gridrc');
+                xcCtrl.style.opacity = state.gridMode === 'standard' ? '0.3' : '1';
+                xcCtrl.style.pointerEvents = state.gridMode === 'standard' ? 'none' : 'all';
+                rcCtrl.style.opacity = state.gridMode === 'standard' ? '0.3' : '1';
+                rcCtrl.style.pointerEvents = state.gridMode === 'standard' ? 'none' : 'all';
+                update();
+            };
+
+            ['cap-enable', 'reactor-enable'].forEach(id => {
+                const key = id.split('-')[0] + 'Enable';
+                document.getElementById(id).onchange = (e) => {
+                    state[key] = e.target.checked;
+                    document.getElementById(`${id.split('-')[0]}-params`).style.opacity = e.target.checked ? '1' : '0.4';
+                    document.getElementById(`${id.split('-')[0]}-params`).style.pointerEvents = e.target.checked ? 'all' : 'none';
+                    update();
+                };
+            });
+
+            for (let h = 2; h <= 12; h++) {
+                document.getElementById(`harm-m-${h}`).oninput = (e) => {
+                    state.harmonics[h].m = parseFloat(e.target.value);
+                    document.getElementById(`val-harm-m-${h}`).innerText = e.target.value + '%';
+                    update();
+                };
+            }
+        }
+
+        function loadPreset(name) {
+            const presets = {
+                typical6: { 1:100, 2:1.0, 3:2.5, 4:0.8, 5:23.5, 6:0.6, 7:11.0, 8:0.5, 9:1.5, 10:0.4, 11:5.3, 12:0.3 },
+                ideal6: { 1:100, 2:0, 3:0, 4:0, 5:20, 6:0, 7:14.3, 8:0, 9:0, 10:0, 11:9.1, 12:0 },
+                afe: { 1:100, 2:0.1, 3:0.2, 4:0.1, 5:1.2, 6:0.1, 7:0.8, 8:0.1, 9:0.1, 10:0.1, 11:0.5, 12:0.1 }
+            };
+            const p = presets[name];
+            for (let h = 2; h <= 12; h++) {
+                state.harmonics[h].m = p[h];
+                document.getElementById(`harm-m-${h}`).value = p[h];
+                document.getElementById(`val-harm-m-${h}`).innerText = p[h] + '%';
+            }
+            update();
+        }
+
+        function calculate() {
+            const results = { h: [], zTotal: [], zGrid: [], zFilt: [], vh: [], ih: [], icap_h: [], thdv: 0, icap_rms: 0, maxZ: 0, hPeak: 1 };
+            const vBaseLine = state.vsys * 1000 / Math.sqrt(3);
+            let vhSqSum = 0, icapSqSum = 0;
+
+            for (let h = 1; h <= 12; h++) {
+                let zGrid;
+                const zL_grid = { r: state.gridr, i: h * state.gridxl };
+                const zC_grid = { r: state.gridrc, i: -state.gridxc / h };
+                 
+                if (state.gridMode === 'standard') zGrid = zL_grid;
+                else if (state.gridMode === 'series') zGrid = Complex.add(zL_grid, zC_grid);
+                else zGrid = Complex.parallel(zL_grid, zC_grid);
+
+                let zFilt = { r: 1e8, i: 0 }; 
+                if (state.capEnable) {
+                    const reactXL = state.reactorEnable ? h * state.localxl : 0;
+                    const reactXC = -state.localxc / h;
+                    zFilt = { r: 0.05, i: reactXL + reactXC };
+                }
+
+                const zTotal = state.capEnable ? Complex.parallel(zGrid, zFilt) : zGrid;
+                const ih = (state.harmonics[h].m / 100) * state.ifund;
+                const vh = ih * Complex.mag(zTotal);
+                const icap = state.capEnable ? vh / Complex.mag(zFilt) : 0;
+
+                results.h.push(h);
+                results.zGrid.push(Complex.mag(zGrid));
+                results.zFilt.push(Complex.mag(zFilt));
+                results.zTotal.push(Complex.mag(zTotal));
+                results.vh.push(vh);
+                results.ih.push(ih);
+                results.icap_h.push(icap);
+
+                if (h > 1) vhSqSum += vh ** 2;
+                icapSqSum += icap ** 2;
+                if (h > 1 && Complex.mag(zTotal) > results.maxZ) {
+                    results.maxZ = Complex.mag(zTotal);
+                    results.hPeak = h;
+                }
+            }
+
+            results.thdv = (Math.sqrt(vhSqSum) / vBaseLine) * 100;
+            results.icap_rms = Math.sqrt(icapSqSum);
+            return results;
+        }
+
+        function update() {
+            const data = calculate();
+            document.getElementById('metric-thdv').innerText = data.thdv.toFixed(1) + '%';
+            document.getElementById('status-thdv').innerText = data.thdv > 5 ? '✗ FAIL' : '✓ PASS';
+            document.getElementById('status-thdv').className = `text-[9px] font-bold ${data.thdv > 5 ? 'text-red-500' : 'text-green-400'}`;
+            document.getElementById('metric-hres').innerText = `h ≈ ${data.hPeak}`;
+            document.getElementById('metric-capi').innerText = data.icap_rms.toFixed(1) + ' A';
+            document.getElementById('metric-zpeak').innerText = data.maxZ.toFixed(1) + ' Ω';
+            updateCharts(data);
+        }
+
+        function initCharts() {
+            // Base styling for all charts (keep legends off by default).
+            const cfgBase = {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 9 } } },
+                    x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 9 } } }
+                },
+                plugins: { legend: { display: false } }
+            };
+
+            // Top impedance plot gets explicit labeling + legend.
+            const cfgZ = {
+                ...cfgBase,
+                scales: {
+                    ...cfgBase.scales,
+                    y: {
+                        ...cfgBase.scales.y,
+                        title: { display: true, text: '|Z| (Ω)', color: '#94a3b8', font: { size: 10, weight: 'bold' } }
+                    },
+                    x: {
+                        ...cfgBase.scales.x,
+                        title: { display: true, text: 'Harmonic Order (h)', color: '#94a3b8', font: { size: 10, weight: 'bold' } }
+                    }
+                },
+                plugins: {
+                    ...cfgBase.plugins,
+                    legend: {
+                        display: true,
+                        labels: {
+                            color: '#cbd5e1',
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            font: { size: 10, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: (ctx) => {
+                                const v = ctx.parsed?.y;
+                                const vStr = (v === null || v === undefined) ? '—' : (v >= 100 ? v.toFixed(0) : v.toFixed(2));
+                                return `${ctx.dataset.label}: ${vStr} Ω`;
+                            }
+                        }
+                    }
+                }
+            };
+
+            charts.z = new Chart(document.getElementById('impedanceChart'), {
+                type: 'line',
+                data: {
+                    labels: [1,2,3,4,5,6,7,8,9,10,11,12],
+                    datasets: [
+                        {
+                            label: 'Total Z (PCC)',
+                            borderColor: colors.total,
+                            data: [],
+                            tension: 0.3,
+                            pointRadius: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)'
+                        },
+                        {
+                            label: 'Grid Path Z',
+                            borderColor: colors.grid,
+                            data: [],
+                            borderDash: [5,5],
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Filter Branch Z',
+                            borderColor: colors.filt,
+                            data: [],
+                            borderDash: [2,4],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: { ...cfgZ, scales: { ...cfgZ.scales, y: { ...cfgZ.scales.y, type: 'logarithmic' } } }
+            });
+
+            charts.s = new Chart(document.getElementById('spectrumChart'), { type: 'bar', data: { labels: [1,2,3,4,5,6,7,8,9,10,11,12], datasets: [
+                { backgroundColor: colors.grid, data: [], borderRadius: 2 }
+            ]}, options: cfgBase });
+
+            charts.is = new Chart(document.getElementById('currentSpectrumChart'), { type: 'bar', data: { labels: [1,2,3,4,5,6,7,8,9,10,11,12], datasets: [
+                { backgroundColor: colors.orange, data: [], borderRadius: 2 }
+            ]}, options: cfgBase });
+        }
+
+        function updateCharts(data) {
+            charts.z.data.datasets[0].data = data.zTotal;
+            charts.z.data.datasets[1].data = data.zGrid;
+            // Only show filter branch curve when enabled to avoid confusing “open circuit” values.
+            charts.z.data.datasets[2].data = state.capEnable ? data.zFilt : new Array(data.zTotal.length).fill(null);
+            charts.z.data.datasets[2].hidden = !state.capEnable;
+            charts.z.update();
+            const vFundRef = (state.vsys * 1000 / Math.sqrt(3));
+            charts.s.data.datasets[0].data = data.vh.map(v => (v / vFundRef) * 100);
+            charts.s.update();
+            charts.is.data.datasets[0].data = data.ih;
+            charts.is.update();
+        }
+
+        function renderLoop() {
+            renderSLD();
+            renderOsc();
+            renderCurrentOsc();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function drawInductor(ctx, x, y, width, isHorizontal) {
+            ctx.beginPath();
+            const loops = 4;
+            const loopRadius = width / (loops * 1.5);
+            if (isHorizontal) {
+                for (let i = 0; i < loops; i++) {
+                    ctx.arc(x + i * loopRadius * 2, y, loopRadius, Math.PI, 0, false);
+                }
+            } else {
+                for (let i = 0; i < loops; i++) {
+                    ctx.arc(x, y + i * loopRadius * 2, loopRadius, Math.PI/2, -Math.PI/2, true);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function drawCapacitor(ctx, x, y, size, isHorizontal) {
+            ctx.beginPath();
+            const gap = 4;
+            if (isHorizontal) {
+                ctx.moveTo(x - gap, y - size/2); ctx.lineTo(x - gap, y + size/2);
+                ctx.moveTo(x + gap, y - size/2); ctx.lineTo(x + gap, y + size/2);
+            } else {
+                ctx.moveTo(x - size/2, y - gap); ctx.lineTo(x + size/2, y - gap);
+                ctx.moveTo(x - size/2, y + gap); ctx.lineTo(x + size/2, y + gap);
+            }
+            ctx.stroke();
+        }
+
+        function renderSLD() {
+            const canvas = document.getElementById('sldCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!canvas.width) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const midY = canvas.height / 2;
+            const h = parseInt(document.getElementById('flow-h-selector').value);
+            const data = calculate();
+            
+            const zGridVal = data.zGrid[h-1];
+            const zFiltVal = data.zFilt[h-1];
+            const pctGrid = (1/zGridVal) / (1/zGridVal + 1/zFiltVal);
+            const pctFilt = 1 - pctGrid;
+            
+            const totalZ = data.zTotal[h-1];
+            const isResonant = totalZ > 25;
+            const isSeriesRes = totalZ < 1;
+
+            const flowStatusEl = document.getElementById('flow-status');
+            if (isSeriesRes && h > 1) {
+                flowStatusEl.innerText = `✓ Low Grid Impedance Path @ h=${h}`;
+                flowStatusEl.className = `text-[10px] mt-2 font-bold text-center py-1 rounded bg-blue-900/40 text-blue-300`;
+            } else if (isResonant) {
+                flowStatusEl.innerText = `⚠️ Parallel Resonance @ h=${h}: Harmonic Blocked!`;
+                flowStatusEl.className = `text-[10px] mt-2 font-bold text-center py-1 rounded bg-red-900/40 text-red-400`;
+            } else {
+                flowStatusEl.innerText = `Flow @ h=${h}: ${ (pctFilt*100).toFixed(0) }% Filter, ${ (pctGrid*100).toFixed(0) }% Grid`;
+                flowStatusEl.className = `text-[10px] mt-2 font-bold text-center py-1 rounded bg-slate-900/50 text-slate-400`;
+            }
+
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 2;
+            ctx.strokeRect(20, midY - 60, 80, 60); 
+            ctx.fillStyle = '#94a3b8'; ctx.font = '8px Arial'; ctx.fillText("GRID SOURCE", 30, midY - 65);
+            
+            ctx.strokeStyle = '#3b82f6';
+            if (state.gridMode === 'standard') {
+                drawInductor(ctx, 45, midY - 30, 30, true);
+                ctx.fillText("X_L", 55, midY - 45);
+            } else if (state.gridMode === 'series') {
+                drawInductor(ctx, 35, midY - 30, 20, true);
+                drawCapacitor(ctx, 75, midY - 30, 20, true);
+                ctx.fillText("X_L", 40, midY - 45); ctx.fillText("X_C", 75, midY - 45);
+            } else { 
+                ctx.beginPath(); ctx.moveTo(35, midY-30); ctx.lineTo(45, midY-30); 
+                ctx.moveTo(45, midY-45); ctx.lineTo(45, midY-15); ctx.stroke();
+                drawInductor(ctx, 50, midY - 45, 15, true);
+                drawCapacitor(ctx, 60, midY - 15, 20, true);
+                ctx.beginPath(); ctx.moveTo(75, midY-45); ctx.lineTo(75, midY-15); 
+                ctx.moveTo(75, midY-30); ctx.lineTo(85, midY-30); ctx.stroke();
+                ctx.fillText("X_L", 55, midY - 50); ctx.fillText("X_C", 55, midY - 5);
+            }
+
+            ctx.strokeStyle = '#475569';
+            ctx.beginPath(); ctx.moveTo(100, midY - 30); ctx.lineTo(canvas.width - 50, midY - 30); ctx.stroke();
+            ctx.strokeRect(canvas.width/2 - 30, midY + 10, 60, 40); 
+            ctx.fillText("COMP. BANK", canvas.width/2 - 25, midY + 5);
+            drawCapacitor(ctx, canvas.width/2, midY + 30, 20, false);
+            if (state.reactorEnable) drawInductor(ctx, canvas.width/2, midY + 15, 10, false);
+            ctx.strokeRect(canvas.width - 60, midY + 10, 40, 40); 
+            ctx.fillText("VFD", canvas.width - 50, midY + 5);
+            ctx.beginPath(); ctx.arc(canvas.width-40, midY+30, 10, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(canvas.width/2, midY - 30); ctx.lineTo(canvas.width/2, midY + 10); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(canvas.width - 40, midY - 30); ctx.lineTo(canvas.width - 40, midY + 10); ctx.stroke();
+
+            const time = Date.now() / 1000;
+            const drawP = (x1, y1, x2, y2, intens, color) => {
+                ctx.fillStyle = color;
+                for (let i = 0; i < 4; i++) {
+                    const off = (time * (1 + intens) + i/4) % 1;
+                    ctx.beginPath(); ctx.arc(x1 + (x2-x1)*off, y1 + (y2-y1)*off, 1.5 + intens*3, 0, Math.PI*2); ctx.fill();
+                }
+            };
+            drawP(canvas.width-40, midY+10, canvas.width-40, midY-30, 0.8, '#fb923c');
+            drawP(canvas.width-40, midY-30, 60, midY-30, pctGrid, colors.grid);
+            if (state.capEnable) drawP(canvas.width/2, midY-30, canvas.width/2, midY+10, pctFilt, colors.filt);
+        }
+
+        function renderOsc() {
+            const canvas = document.getElementById('oscCanvas');
+            const ctx = canvas.getContext('2d');
+            if (!canvas.width) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const data = calculate(); const vFundRef = (state.vsys * 1000 / Math.sqrt(3));
+            const midY = canvas.height/2; const scale = canvas.height/3;
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.beginPath();
+            for (let x=0; x<canvas.width; x++) {
+                let v = 0; for (let h=1; h<=12; h++) {
+                    v += (data.vh[h-1]/vFundRef) * Math.sin(h * 2 * Math.PI * 60 * (x/canvas.width)*(2/60) + (state.harmonics[h].p * Math.PI/180));
+                }
+                const y = midY - v * scale; if (x===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function renderCurrentOsc() {
+            const canvas = document.getElementById('currentOscCanvas');
+            const ctx = canvas.getContext('2d');
+            if (!canvas.width) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const data = calculate();
+            const midY = canvas.height/2; 
+            const scale = canvas.height / (state.ifund * 4); // Scale based on fundamental
+            ctx.strokeStyle = colors.orange; ctx.lineWidth = 1.5; ctx.beginPath();
+            for (let x=0; x<canvas.width; x++) {
+                let i = 0; for (let h=1; h<=12; h++) {
+                    const phaseRad = (state.harmonics[h].p * Math.PI / 180);
+                    i += data.ih[h-1] * Math.sin(h * 2 * Math.PI * 60 * (x/canvas.width)*(2/60) + phaseRad);
+                }
+                const y = midY - i * scale; if (x===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function exportReport() {
+            const blob = new Blob([JSON.stringify({ config: state, date: new Date() }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Harmonic_Toolkit_Data.json'; a.click();
+        }
+    </script>
+</body>
+</html>

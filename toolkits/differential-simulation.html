@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Differential Simulation (Fix Green Spark Direction FINAL v5)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- CSS Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f8;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 800px;
+        }
+
+        .controls, .drawing-controls { /* Keep drawing-controls style for potential future use or consistency */
+            margin-bottom: 25px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            box-sizing: border-box;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .controls:hover, .drawing-controls:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Specific styles for simulation controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 2fr 0.5fr; /* Label, Slider, Value */
+            gap: 12px 15px; /* Row gap, Column gap */
+            align-items: center;
+        }
+        
+        .controls label {
+            text-align: right;
+            font-size: 1em;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .controls input[type="range"] {
+            width: 100%; /* Make slider fill column */
+            cursor: pointer;
+            height: 8px;
+            border-radius: 5px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .controls input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .controls .value-display {
+            text-align: left;
+            font-weight: 600;
+            min-width: 30px; /* Prevent layout shift */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-left: 10px;
+            color: #3498db;
+            font-size: 1.1em;
+        }
+        
+        .controls .status-display {
+            grid-column: 1 / -1; /* Span all columns */
+            text-align: center;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+
+        .controls button, .drawing-controls button { /* Keep button styles */
+            padding: 8px 12px;
+            margin: 3px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff; /* Blue for sim buttons (if any left) */
+            color: white;
+            font-size: 0.9em;
+            transition: background-color 0.2s ease;
+        }
+         .drawing-controls button { /* Style remains even if buttons removed */
+             background-color: #6c757d; /* Grey for drawing controls */
+         }
+         .drawing-controls button.active { /* Style remains even if buttons removed */
+             background-color: #dc3545;
+             box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+         }
+        .controls button:hover, .drawing-controls button:hover { opacity: 0.85; }
+        .controls button:active, .drawing-controls button:active { opacity: 0.7; }
+
+        .controls p { /* Status paragraph styling */
+            margin: 5px 0; /* Add some vertical spacing */
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+            line-height: 1.5;
+            font-size: 1.05em;
+        }
+        
+        .controls p.fault-detected {
+             background-color: #f8d7da;
+             color: #721c24;
+             font-weight: bold;
+        }
+        
+        .controls span {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        #status {
+            color: #27ae60;
+            font-weight: 700;
+        }
+        
+        #status.trip {
+            color: #e74c3c;
+        }
+
+        /* Removed #drawingStatus styling as element is removed */
+
+        /* Schematic Container */
+        .schematic-container {
+            position: relative;
+            width: 700px;
+            max-width: 95%;
+            height: 350px;
+            border-radius: 10px;
+            background-color: #fff;
+            margin-top: 5px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-image: url('A.png'); /* Ensure A.png is accessible */
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center center;
+            cursor: default;
+            margin-bottom: 25px; /* Space before plot */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .schematic-container:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        /* Removed .schematic-container.drawing-active style as drawing is removed */
+
+        /* Chart Container */
+        .chart-container {
+            width: 90%;
+            max-width: 800px;
+            height: 450px; /* Increased height */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .chart-container:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Sparks CSS */
+        .spark { position: absolute; width: 8px; height: 8px; border-radius: 50%; background-color: yellow; box-shadow: 0 0 5px 2px orange; z-index: 4; pointer-events: none; }
+        .secondary-spark { background-color: cyan; box-shadow: 0 0 5px 2px blue; width: 6px; height: 6px; z-index: 3; }
+        .relay-spark { background-color: limegreen; box-shadow: 0 0 5px 2px green; width: 7px; height: 7px; z-index: 3; }
+
+        /* Path Display (Hidden) */
+        #pathDisplay { display: none; }
+        /* Removed .drawn-point styles as drawing is removed */
+        /* Removed #pathOutput styles as element is removed */
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 10px;
+            }
+            
+            .attribution {
+                font-size: 0.8rem;
+            }
+            
+            .controls {
+                grid-template-columns: 1fr 1fr; /* Simplify to 2 columns */
+                padding: 8px;
+            }
+            
+            .controls label {
+                text-align: left;
+                grid-column: 1;
+            }
+            
+            .controls input[type="range"] {
+                grid-column: 2;
+            }
+            
+            .controls .value-display {
+                grid-column: 2;
+                text-align: right;
+                padding-right: 5px;
+            }
+            
+            .schematic-container {
+                height: 250px; /* Reduce height for mobile */
+            }
+            
+            .chart-container {
+                height: 350px; /* Reduce height for mobile */
+                padding: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.3rem;
+            }
+            
+            .controls, .chart-container {
+                width: 95%;
+                padding: 8px;
+            }
+            
+            .schematic-container {
+                height: 200px; /* Further reduce height for small phones */
+            }
+            
+            .chart-container {
+                height: 300px; /* Further reduce height for small phones */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Differential Protection: Simulation & Plot</h1>
+    <p class="subtitle">This simulation demonstrates how differential protection works by comparing currents on both sides of a protected zone. Adjust the sliders to see how the protection responds to different current conditions.</p>
+    <!-- Header will be inserted by header.js -->
+    <div class="controls">
+        <label for="sliderCT1">CT1 Current (I1):</label>
+        <input type="range" id="sliderCT1" name="sliderCT1" min="-5" max="5" value="4" step="1">
+        <span class="value-display" id="valueCT1">4</span>
+
+        <label for="sliderCT2">CT2 Current (I2):</label>
+        <input type="range" id="sliderCT2" name="sliderCT2" min="-5" max="5" value="4" step="1">
+        <span class="value-display" id="valueCT2">4</span>
+
+        <div class="status-display">
+             <p id="statusParagraph">Status: <span id="status">Normal Operation</span></p>
+             <p>Operating Current (|I1-I2|): <span id="diffCurrentPlot">0</span> | Restraining Current (|I1|+|I2|): <span id="restraintCurrentPlot">8</span></p>
+             <p>Differential Current for Status: <span id="diffCurrentSim">0</span></p>
+        </div>
+    </div>
+
+    <div class="schematic-container" id="schematicContainer">
+        <div id="sparksContainer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        <div id="pathDisplay">Path: 1 / 50</div>
+        </div>
+
+    <div class="chart-container">
+        <canvas id="diffPlotCanvas"></canvas>
+    </div>
+
+    <script>
+        // --- JavaScript Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Get references ---
+            const sparksContainer = document.getElementById('sparksContainer');
+            const statusEl = document.getElementById('status');
+            const statusParagraph = document.getElementById('statusParagraph');
+            const diffCurrentSimEl = document.getElementById('diffCurrentSim');
+            const diffCurrentPlotEl = document.getElementById('diffCurrentPlot');
+            const restraintCurrentPlotEl = document.getElementById('restraintCurrentPlot');
+            const container = document.getElementById('schematicContainer');
+            const pathDisplay = document.getElementById('pathDisplay'); // Still exists but hidden
+            const sliderCT1 = document.getElementById('sliderCT1');
+            const sliderCT2 = document.getElementById('sliderCT2');
+            const valueCT1 = document.getElementById('valueCT1');
+            const valueCT2 = document.getElementById('valueCT2');
+            const canvas = document.getElementById('diffPlotCanvas');
+            // Drawing elements refs removed as elements are gone
+
+            // --- State Variables ---
+            let simulationInterval = null;
+            let simulationMode = 'idle'; // 'drawing' mode is no longer applicable
+            let sparkIdCounter = 0;
+            // Scaling variables for responsive design
+            let scaleFactorX = 1;
+            let scaleFactorY = 1;
+            // Small offset adjustments for fine-tuning position
+            const offsetX = -2; // Small negative offset to shift left slightly
+            const offsetY = -1; // Small negative offset to shift up slightly
+            const originalWidth = 700; // Original design width
+            const originalHeight = 350; // Original design height
+            // Adjustment factors for better alignment
+            const adjustmentX = 0.95; // Adjustment to account for padding/borders
+            const adjustmentY = 0.95;
+            let currentMagnitudeCT1 = parseInt(sliderCT1.value, 10);
+            let currentMagnitudeCT2 = parseInt(sliderCT2.value, 10);
+            let diffPlotChart = null;
+
+            // --- Constants ---
+            const SPARK_SPEED_PRIMARY = 150;
+            const SPARK_SPEED_SECONDARY = 120;
+            const SPARK_SPEED_RELAY = 100;
+            const INTERVAL_MS = 350;
+            const FAULT_THRESHOLD = 1;
+            // Indices for hiding sparks (based on CW path definitions)
+            const RELAY_SEGMENTS_CT1_FWD = [5];
+            const RELAY_SEGMENTS_CT1_REV = [2];
+            const RELAY_SEGMENTS_CT2_FWD = [0, 1];
+            const RELAY_SEGMENTS_CT2_REV = [11, 12];
+
+
+            // --- Path Data ---
+            // Using fixed paths defined previously (keeping them for simulation)
+            const primaryNormalPath = [ { "x": 178, "y": 74 }, { "x": 221, "y": 74 }, { "x": 290, "y": 78 }, { "x": 354, "y": 78 }, { "x": 416, "y": 77 }, { "x": 469, "y": 74 }, { "x": 531, "y": 74 } ];
+            const secondaryNormalPath = [ { "x": 216, "y": 205 }, { "x": 236, "y": 209 }, { "x": 282, "y": 208 }, { "x": 368, "y": 206 }, { "x": 461, "y": 207 }, { "x": 505, "y": 205 }, { "x": 505, "y": 192 }, { "x": 507, "y": 136 }, { "x": 504, "y": 89 }, { "x": 496, "y": 65 }, { "x": 487, "y": 62 }, { "x": 467, "y": 62 }, { "x": 461, "y": 94 }, { "x": 461, "y": 116 }, { "x": 428, "y": 116 }, { "x": 357, "y": 117 }, { "x": 307, "y": 119 }, { "x": 260, "y": 119 }, { "x": 260, "y": 111 }, { "x": 259, "y": 74 }, { "x": 240, "y": 59 }, { "x": 226, "y": 59 }, { "x": 219, "y": 66 }, { "x": 217, "y": 105 }, { "x": 217, "y": 142 }, { "x": 216, "y": 185 }, { "x": 216, "y": 205 } ]; // CW Base
+            const primaryFaultInputPath = [ { "x": 175, "y": 76 }, { "x": 228, "y": 75 }, { "x": 296, "y": 79 }, { "x": 360, "y": 74 } ]; // L->R Base
+            const primaryFaultOutputPath = [ { "x": 373, "y": 76 }, { "x": 429, "y": 78 }, { "x": 479, "y": 76 }, { "x": 522, "y": 75 } ]; // L->R Base
+            
+            // Original CT1 path for desktop
+            const faultPathCT1 = [ { "x": 259, "y": 120 }, { "x": 255, "y": 59 }, { "x": 220, "y": 59 }, { "x": 216, "y": 79 }, { "x": 219, "y": 210 }, { "x": 364, "y": 211 }, { "x": 365, "y": 122 }, { "x": 333, "y": 123 }, { "x": 271, "y": 119 } ]; // CW Base
+            
+            // Refined CT1 path for mobile devices - follows left CT and wire lines precisely
+            const faultPathCT1Mobile = [
+                { "x": 230, "y": 120 }, // Start at left side of CT
+                { "x": 230, "y": 90 },  // Up along left CT
+                { "x": 230, "y": 70 },  // Continue up
+                { "x": 215, "y": 70 },  // Move left along top wire
+                { "x": 200, "y": 70 },  // Continue left
+                { "x": 200, "y": 90 },  // Down along left wire
+                { "x": 200, "y": 120 }, // Continue down
+                { "x": 200, "y": 150 }, // Continue down
+                { "x": 200, "y": 180 }, // Continue down
+                { "x": 200, "y": 200 }, // Bottom of circuit
+                { "x": 250, "y": 200 }, // Move right along bottom
+                { "x": 300, "y": 200 }, // Continue right
+                { "x": 350, "y": 200 }, // Continue right
+                { "x": 365, "y": 180 }, // Up to right CT
+                { "x": 365, "y": 150 }, // Continue up
+                { "x": 365, "y": 120 }, // Back to center
+                { "x": 330, "y": 120 }, // Move left along center wire
+                { "x": 280, "y": 120 }, // Continue left
+                { "x": 230, "y": 120 }  // Back to start
+            ]; // Precisely follows left CT and wire lines
+            const faultPathCT2 = [ { "x": 369, "y": 122 }, { "x": 369, "y": 158 }, { "x": 368, "y": 202 }, { "x": 423, "y": 209 }, { "x": 488, "y": 211 }, { "x": 504, "y": 211 }, { "x": 503, "y": 134 }, { "x": 499, "y": 76 }, { "x": 488, "y": 62 }, { "x": 461, "y": 63 }, { "x": 463, "y": 99 }, { "x": 456, "y": 116 }, { "x": 416, "y": 121 }, { "x": 378, "y": 122 } ]; // CW Base
+            // Path for relay operation (user provided). Base direction is Bottom -> Top.
+            let faultRelayPath = [ // Keep this path as it's used in fault simulation
+                 { "x": 365, "y": 208 }, { "x": 364, "y": 120 }
+            ];
+
+
+            // --- Helper Functions ---
+            function reversePath(path) {
+                 if (!path || path.length === 0) return [];
+                 return JSON.parse(JSON.stringify(path)).reverse();
+            }
+            
+            // Calculate scale factors based on current container size
+            function updateScaleFactors() {
+                const containerRect = container.getBoundingClientRect();
+                
+                // Only apply scaling on mobile devices (width < 768px)
+                if (window.innerWidth < 768) {
+                    // Apply adjustment factors to account for padding/borders
+                    scaleFactorX = (containerRect.width / originalWidth) * adjustmentX;
+                    scaleFactorY = (containerRect.height / originalHeight) * adjustmentY;
+                    
+                    // Log scale factors for debugging
+                    console.log(`Mobile detected: Scaling applied - X=${scaleFactorX.toFixed(3)}, Y=${scaleFactorY.toFixed(3)}`);
+                } else {
+                    // On desktop, use original coordinates (no scaling)
+                    scaleFactorX = 1;
+                    scaleFactorY = 1;
+                    console.log('Desktop detected: No scaling applied');
+                }
+            }
+            
+            // Scale a point's coordinates based on current container size
+            function scalePoint(point) {
+                // Only apply offsets on mobile
+                if (window.innerWidth < 768) {
+                    return {
+                        x: (point.x * scaleFactorX) + offsetX,
+                        y: (point.y * scaleFactorY) + offsetY
+                    };
+                } else {
+                    // On desktop, return original coordinates
+                    return {
+                        x: point.x,
+                        y: point.y
+                    };
+                }
+            }
+            
+            // Scale an entire path
+            function scalePath(path) {
+                if (!path || path.length === 0) return [];
+                return path.map(point => scalePoint(point));
+            }
+
+            // --- Drawing Tool Functions Removed ---
+
+            // --- Spark Creation and Animation ---
+            function createSpark(type = 'primary', startX, startY, pathType = '', className = '') {
+                 let finalX, finalY;
+                 
+                 // Only apply scaling on mobile devices
+                 if (window.innerWidth < 768) {
+                     // Scale the starting coordinates for mobile
+                     finalX = (startX * scaleFactorX) + offsetX;
+                     finalY = (startY * scaleFactorY) + offsetY;
+                 } else {
+                     // Use original coordinates on desktop
+                     finalX = startX;
+                     finalY = startY;
+                 }
+                 
+                 const spark = document.createElement('div'); spark.classList.add('spark'); if (type === 'secondary') { spark.classList.add('secondary-spark'); }
+                 if (className) { spark.classList.add(className); } spark.id = `spark-${sparkIdCounter++}`; spark.style.position = 'absolute';
+                 spark.style.left = `${finalX}px`; spark.style.top = `${finalY}px`; spark.dataset.pathType = pathType;
+                 if (sparksContainer) { sparksContainer.appendChild(spark); } else { console.error("Sparks container not found!"); } return spark;
+            }
+
+            // moveSpark handles visibility for CT1 and CT2 fault paths
+            function moveSpark(spark, originalPath, speed, isReversed, onComplete) { // Added isReversed parameter back
+                 let currentSegment = 0; let startTime = null;
+                 const pathType = spark.dataset.pathType || '';
+                 
+                 // Only scale the path on mobile devices
+                 const path = window.innerWidth < 768 ? scalePath(originalPath) : originalPath;
+
+                 function animate(timestamp) {
+                     if (!startTime) startTime = timestamp; const elapsedTime = timestamp - startTime;
+                     if (!spark || !spark.parentNode) return;
+                     if (!path || path.length < 2) { console.error("Invalid path:", path); spark.remove(); if (onComplete) onComplete(); return; }
+                     if (currentSegment >= path.length - 1) { spark.remove(); if (onComplete) onComplete(); return; }
+
+                     const start = path[currentSegment]; const end = path[currentSegment + 1];
+                     if (typeof start?.x !== 'number' || typeof start?.y !== 'number' || typeof end?.x !== 'number' || typeof end?.y !== 'number') { console.error('Invalid points:', start, end); spark.remove(); if (onComplete) onComplete(); return; }
+
+                     // --- Visibility Check ---
+                     let isInRelayZone = false;
+                     let segmentsToCheck = [];
+                     // Determine which set of relay segment indices to use based on path type and direction
+                     if (pathType === 'faultCT1') {
+                         segmentsToCheck = isReversed ? RELAY_SEGMENTS_CT1_REV : RELAY_SEGMENTS_CT1_FWD;
+                     } else if (pathType === 'faultCT2') {
+                         segmentsToCheck = isReversed ? RELAY_SEGMENTS_CT2_REV : RELAY_SEGMENTS_CT2_FWD;
+                     }
+                     // Check if the current segment is in the relay zone for this path/direction
+                     if (segmentsToCheck.includes(currentSegment)) {
+                         isInRelayZone = true;
+                     }
+                     // Apply visibility ONLY to faultCT1 and faultCT2 types when in the zone
+                     if (pathType === 'faultCT1' || pathType === 'faultCT2') {
+                         spark.style.visibility = isInRelayZone ? 'hidden' : 'visible';
+                     } else {
+                         spark.style.visibility = 'visible'; // Ensure other sparks (relay, primary, normal) are always visible
+                     }
+                     // --- End Visibility Check ---
+
+
+                     const dx = end.x - start.x; const dy = end.y - start.y; const segmentLength = Math.sqrt(dx * dx + dy * dy);
+                     if (segmentLength === 0) { currentSegment++; startTime = timestamp; requestAnimationFrame(animate); return; }
+
+                     const duration = (segmentLength / speed) * 1000; const progress = Math.min(elapsedTime / duration, 1);
+                     const currentX = start.x + dx * progress; const currentY = start.y + dy * progress;
+                     const computedStyle = window.getComputedStyle(spark); const sparkWidth = parseFloat(computedStyle.width) || 8; const sparkHeight = parseFloat(computedStyle.height) || 8;
+                     spark.style.left = `${currentX - sparkWidth / 2}px`;
+                     spark.style.top = `${currentY - sparkHeight / 2}px`;
+
+                     if (progress >= 1) { currentSegment++; startTime = timestamp; requestAnimationFrame(animate); }
+                     else { requestAnimationFrame(animate); }
+                 }
+                 requestAnimationFrame(animate);
+            }
+
+             // --- Stop Simulation ---
+             function stopSimulation() {
+                 clearInterval(simulationInterval);
+                 simulationInterval = null;
+                  if (sparksContainer) { sparksContainer.innerHTML = ''; }
+             }
+
+            // --- Simulation Logic ---
+            function runSimulation() {
+                 // Removed check for isDrawing
+
+                 stopSimulation();
+                 simulationMode = 'running';
+                 
+                 // Ensure scaling factors are up-to-date before starting simulation
+                 updateScaleFactors();
+
+                 const netDifferential = currentMagnitudeCT1 - currentMagnitudeCT2;
+                 const isFault = Math.abs(netDifferential) >= FAULT_THRESHOLD;
+                 diffCurrentSimEl.textContent = Math.abs(netDifferential).toString();
+                 if (isFault) {
+                     statusEl.textContent = 'Internal Fault Detected!';
+                     statusParagraph.classList.add('fault-detected');
+                 } else {
+                     statusEl.textContent = 'Normal Operation';
+                     statusParagraph.classList.remove('fault-detected');
+                 }
+                 // Update plot immediately
+                 updatePlot(currentMagnitudeCT1, currentMagnitudeCT2);
+
+
+                 simulationInterval = setInterval(() => {
+                     if (simulationMode !== 'running') { stopSimulation(); return; }
+
+                     const inputMag = currentMagnitudeCT1;
+                     const outputMag = currentMagnitudeCT2;
+                     const inputSparkCount = Math.round(Math.abs(inputMag));
+                     const outputSparkCount = Math.round(Math.abs(outputMag));
+                     const currentNetRelay = inputMag - outputMag; // Signed difference
+                     const isCurrentTickFault = Math.abs(currentNetRelay) >= FAULT_THRESHOLD;
+
+                     // --- Primary Current (Logic remains same) ---
+                     const isInputReversed = inputMag < 0;
+                     const isOutputReversed = outputMag < 0;
+                     const pathIn = isInputReversed ? reversePath(primaryFaultInputPath) : primaryFaultInputPath;
+                     const pathOut = isOutputReversed ? reversePath(primaryFaultOutputPath) : primaryFaultOutputPath;
+                     if (pathIn && pathIn.length > 0) {
+                         for (let i = 0; i < inputSparkCount; i++) { const spark = createSpark('primary', pathIn[0].x, pathIn[0].y, 'primaryIn'); setTimeout(() => moveSpark(spark, pathIn, SPARK_SPEED_PRIMARY, isInputReversed), i * (INTERVAL_MS / (inputSparkCount || 1)) * 0.8); }
+                     } else { console.warn("Primary Input path data missing/invalid."); }
+                     if (pathOut && pathOut.length > 0) {
+                         for (let i = 0; i < outputSparkCount; i++) { const spark = createSpark('primary', pathOut[0].x, pathOut[0].y, 'primaryOut'); setTimeout(() => moveSpark(spark, pathOut, SPARK_SPEED_PRIMARY, isOutputReversed), i * (INTERVAL_MS / (outputSparkCount || 1)) * 0.8 + 20); }
+                     } else { console.warn("Primary Output path data missing/invalid."); }
+
+
+                     // --- Secondary Current ---
+                     if (!isCurrentTickFault) { // Normal Operation
+                         const isNormalReversed = (inputMag < 0);
+                         const currentSecondaryNormalPath = isNormalReversed ? reversePath(secondaryNormalPath) : secondaryNormalPath;
+                         if (currentSecondaryNormalPath && currentSecondaryNormalPath.length > 0) {
+                             for(let i=0; i < inputSparkCount; i++) {
+                                 const sparkLoop = createSpark('secondary', currentSecondaryNormalPath[0].x, currentSecondaryNormalPath[0].y, 'secondaryNormal');
+                                 setTimeout(() => moveSpark(sparkLoop, currentSecondaryNormalPath, SPARK_SPEED_SECONDARY, isNormalReversed), i * (INTERVAL_MS / (inputSparkCount || 1)) * 0.9);
+                             }
+                         } else { console.warn("Secondary normal path data is missing or empty."); }
+
+                     } else { // Fault Condition - Show CT paths (hiding in coil) AND Relay path sparks
+                         const numRelaySparks = Math.round(Math.abs(currentNetRelay));
+
+                         // --- Sparks on CT Paths (proportional, hiding in coil area) ---
+                         const isCT1Reversed = (inputMag < 0);
+                         const isCT2Reversed = (outputMag < 0);
+                         
+                         // Select appropriate CT1 path based on device type
+                         const ct1PathToUse = window.innerWidth < 768 ? faultPathCT1Mobile : faultPathCT1;
+                         const pathCT1 = isCT1Reversed ? reversePath(ct1PathToUse) : ct1PathToUse;
+                         const pathCT2 = isCT2Reversed ? reversePath(faultPathCT2) : faultPathCT2;
+
+                         if (pathCT1 && pathCT1.length > 0) {
+                              for(let i=0; i < inputSparkCount; i++) {
+                                  const startPoint = pathCT1[0];
+                                  if (typeof startPoint?.x === 'number' && typeof startPoint?.y === 'number') {
+                                      const sparkDiff1 = createSpark('secondary', startPoint.x, startPoint.y, 'faultCT1');
+                                      setTimeout(() => moveSpark(sparkDiff1, pathCT1, SPARK_SPEED_SECONDARY, isCT1Reversed), i * (INTERVAL_MS / (inputSparkCount || 1)) * 0.8);
+                                  } else { console.error(`Invalid start point for faultPathCT1:`, startPoint); }
+                              }
+                         } else { console.warn(`faultPathCT1 data is missing or empty.`); }
+
+                          if (pathCT2 && pathCT2.length > 0) {
+                              for(let i=0; i < outputSparkCount; i++) {
+                                  const startPoint = pathCT2[0];
+                                  if (typeof startPoint?.x === 'number' && typeof startPoint?.y === 'number') {
+                                      const sparkDiff2 = createSpark('secondary', startPoint.x, startPoint.y, 'faultCT2');
+                                      setTimeout(() => moveSpark(sparkDiff2, pathCT2, SPARK_SPEED_SECONDARY, isCT2Reversed), i * (INTERVAL_MS / (outputSparkCount || 1)) * 0.8 + 40);
+                                  } else { console.error(`Invalid start point for faultPathCT2:`, startPoint); }
+                              }
+                         } else { console.warn(`faultPathCT2 data is missing or empty.`); }
+
+                         // --- Sparks on Relay Path (net difference, GREEN) ---
+                         const relayPathToUse = (faultRelayPath && faultRelayPath.length > 1) ? faultRelayPath : [];
+                         // Determine direction based on sign of net current
+                         const isRelayReversed = (currentNetRelay < 0); // True if flow should be T->B (needs reversal of B->T base path)
+                         const actualRelayPath = isRelayReversed ? reversePath(relayPathToUse) : relayPathToUse;
+
+
+                         if (numRelaySparks > 0 && actualRelayPath && actualRelayPath.length > 0) {
+                              for(let i=0; i < numRelaySparks; i++) {
+                                  const startPoint = actualRelayPath[0];
+                                  if (typeof startPoint?.x === 'number' && typeof startPoint?.y === 'number') {
+                                      const sparkRelay = createSpark('secondary', startPoint.x, startPoint.y, 'faultRelay', 'relay-spark');
+                                      setTimeout(() => moveSpark(sparkRelay, actualRelayPath, SPARK_SPEED_RELAY, isRelayReversed), i * (INTERVAL_MS / numRelaySparks) * 0.8 + 20);
+                                  } else { console.error(`Invalid start point for relay path:`, startPoint); }
+                              }
+                         }
+                     }
+                 }, INTERVAL_MS);
+            }
+
+
+             // --- Plotting Functions ---
+             const plotCtx = canvas.getContext('2d');
+             // Relay Characteristic Parameters
+             const minPickup = 0.5; const slope1 = 0.3; const slope2 = 0.8; const slope1Breakpoint = 5.0;
+             function getCharacteristicPoints(maxX) {
+                 const points = []; points.push({ x: 0, y: minPickup }); points.push({ x: minPickup / slope1, y: minPickup });
+                 const slope1EndY = minPickup + slope1 * (slope1Breakpoint - (minPickup / slope1)); points.push({ x: slope1Breakpoint, y: slope1EndY });
+                 const slope2EndX = maxX; const slope2EndY = slope1EndY + slope2 * (slope2EndX - slope1Breakpoint); points.push({ x: slope2EndX, y: slope2EndY }); return points;
+             }
+             const maxXValue = 10; // Max X for |I1|+|I2| based on sliders (-5 to 5)
+             const characteristicData = getCharacteristicPoints(maxXValue);
+             const initialPlotData = { datasets: [ { label: 'Operating Point', data: [{ x: 0, y: 0 }], backgroundColor: 'red', borderColor: 'darkred', pointRadius: 7, pointHoverRadius: 9, type: 'scatter', order: 1 }, { label: 'Trip Characteristic', data: characteristicData, borderColor: 'blue', borderWidth: 2, fill: { target: 'origin', above: 'rgba(255, 99, 132, 0.2)', }, tension: 0, pointRadius: 0, type: 'line', order: 2 } ] };
+             // Updated Y-axis title
+             const plotConfig = { data: initialPlotData, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Restraining Current (|I1| + |I2|)' }, min: 0, max: maxXValue }, y: { type: 'linear', title: { display: true, text: 'Operating Current |I1 - I2| (Algebraic)' }, min: 0, max: Math.max(6, characteristicData[characteristicData.length-1].y * 1.1) } }, plugins: { tooltip: { callbacks: { label: function(context) { if (context.datasetIndex === 0) { return ` Operate: ${context.parsed.y.toFixed(2)}, Restrain: ${context.parsed.x.toFixed(2)}`; } return null; } } }, legend: { display: false }, title: { display: true, text: 'Percentage Differential Relay Characteristic' } } } };
+             diffPlotChart = new Chart(plotCtx, plotConfig); // Create chart instance
+
+             // Updated plot function uses algebraic difference for Y
+             function updatePlot(mag1, mag2) { // Takes signed magnitudes
+                 if (!diffPlotChart) return;
+                 const restrainValue = Math.abs(mag1) + Math.abs(mag2);
+                 const operateValue = Math.abs(mag1 - mag2); // Use signed mags directly
+                 restraintCurrentPlotEl.textContent = restrainValue.toFixed(1);
+                 diffCurrentPlotEl.textContent = operateValue.toFixed(1); // Display algebraic diff magnitude
+                 diffPlotChart.data.datasets[0].data[0] = { x: restrainValue, y: operateValue };
+                 diffPlotChart.update('none');
+             }
+
+
+            // --- Slider Event Listeners ---
+            function handleSliderChange() {
+                 currentMagnitudeCT1 = parseInt(sliderCT1.value, 10);
+                 currentMagnitudeCT2 = parseInt(sliderCT2.value, 10);
+                 valueCT1.textContent = currentMagnitudeCT1;
+                 valueCT2.textContent = currentMagnitudeCT2;
+                 runSimulation(); // Update status, plot and restart simulation
+            }
+            sliderCT1.addEventListener('input', handleSliderChange);
+            sliderCT2.addEventListener('input', handleSliderChange);
+
+
+            // --- Initial setup ---
+            valueCT1.textContent = sliderCT1.value;
+            valueCT2.textContent = sliderCT2.value;
+            
+            // Initialize scaling factors
+            updateScaleFactors();
+            
+            // Add window resize listener to update scaling factors
+            window.addEventListener('resize', () => {
+                updateScaleFactors();
+                // If simulation is running, restart it to apply new scaling
+                if (simulationMode === 'running') {
+                    stopSimulation();
+                    setTimeout(runSimulation, 100); // Small delay to ensure DOM updates
+                }
+            });
+            
+            handleSliderChange(); // Run initial status check, plot update, and start simulation
+            // Removed drawing related initial setup
+
+        });
+    </script>
+    
+    <!-- Educational description of differential protection -->
+    <div class="controls" style="margin-top: 20px;">
+        <div style="grid-column: 1 / -1; text-align: left; padding: 10px;">
+            <h3 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-bottom: 15px;">Understanding Differential Protection</h3>
+            
+            <p style="margin-bottom: 15px; line-height: 1.6;">
+                Differential protection is a fundamental protection scheme used in power systems to detect faults within a protected zone. It works by comparing the currents entering and leaving the protected element (such as a transformer, generator, or bus).
+            </p>
+            
+            <p style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Key Principles:</strong>
+            </p>
+            
+            <ul style="margin-bottom: 15px; padding-left: 20px; line-height: 1.6;">
+                <li><strong>Operating Current:</strong> The absolute difference between the currents (|I1 - I2|)</li>
+                <li><strong>Restraining Current:</strong> The sum of the current magnitudes (|I1| + |I2|)</li>
+                <li><strong>Trip Condition:</strong> When the operating current exceeds a percentage of the restraining current</li>
+            </ul>
+            
+            <p style="margin-bottom: 15px; line-height: 1.6;">
+                <strong>Restraint and Trip Curves:</strong> The characteristic curve shown in the plot represents the threshold between normal operation and trip conditions. Points below the curve represent normal operation, while points above the curve indicate a fault condition that would trigger the relay.
+            </p>
+            
+            <p style="margin-bottom: 15px; line-height: 1.6;">
+                For a more detailed explanation of differential protection principles and applications, read this
+                <a href="https://www.linkedin.com/posts/doug-millner-p-e-26607a184_utilities-electricalengineering-renewables-activity-7317939448904568832-rk7l?utm_source=share&utm_medium=member_desktop&rcm=ACoAACtvu-4Bi1n_GAKqYIrEomJ2aZIntA2KY9o" target="_blank" style="color: #3498db; font-weight: 600; text-decoration: none;">in-depth article on differential protection</a>.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

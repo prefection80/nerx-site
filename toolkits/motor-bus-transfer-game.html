@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor Bus Transfer Game v2.29</title> <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* Basic styles */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; /* Dark background */
+            color: #fff; /* White text */
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw; /* Fill viewport width */
+            height: 100vh; /* Fill viewport height */
+            display: flex; /* Use flex to center canvas */
+            justify-content: center;
+            align-items: center;
+            padding: 10px; /* Add a little padding around the container */
+            box-sizing: border-box; /* Include padding in width/height */
+        }
+        canvas#gameCanvas {
+            border: 2px solid #444; /* Default border */
+            display: block;
+            /* Style width/height set by JS to maintain aspect ratio */
+            max-width: 100%; /* Ensure it doesn't overflow container */
+            max-height: 100%; /* Ensure it doesn't overflow container */
+            object-fit: contain; /* Scale canvas while maintaining aspect ratio (fallback) */
+            background-color: #000; /* Black canvas background */
+        }
+
+        /* Overlay styles (for menus, messages) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9); /* Semi-transparent black */
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20; /* Ensure overlays are on top */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow scrolling if content overflows */
+        }
+        .overlay h2, .overlay h1 {
+            margin-bottom: 10px;
+        }
+        .overlay p {
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        .overlay button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px; /* Rounded corners for buttons */
+            background-color: #444;
+            color: #fff;
+            border: 1px solid #666;
+        }
+        .overlay button:hover {
+            background-color: #666;
+        }
+        #initialsInput {
+            width: 60px;
+            padding: 5px;
+            text-align: center;
+            font-size: 1em;
+            margin: 0 10px;
+            border-radius: 3px;
+            color: #111; /* Make input text visible */
+        }
+
+        /* Styles specific to Intro Screen */
+        #introScreen {
+            background-color: #000; /* Black background for intro */
+            justify-content: flex-start; /* Align content towards the top */
+            padding-top: 5vh;
+            z-index: 30; /* Ensure intro is above game elements if briefly overlapping */
+        }
+        #introCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place canvas behind text */
+        }
+        #introTitle {
+            position: relative;
+            z-index: 1; /* Text above canvas */
+            color: #ffcc00; /* Yellow title */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            font-size: clamp(2em, 6vw, 3.5em); /* Responsive font size */
+            opacity: 0; /* Fade in */
+            transition: opacity 0.5s ease-in;
+            margin-bottom: 0;
+        }
+        #introSubtitle {
+            position: relative;
+            z-index: 1;
+            color: #ccc; /* Light gray subtitle */
+            font-size: clamp(0.9em, 2.5vw, 1.5em);
+            margin-top: 5px;
+            margin-bottom: 20px;
+            opacity: 0; /* Fade in */
+            transition: opacity 0.5s ease-in 0.2s; /* Delayed fade in */
+        }
+        #introStartPrompt {
+            position: relative;
+            z-index: 1;
+            color: #00ff00; /* Green prompt */
+            font-size: clamp(1.2em, 3vw, 2em);
+            opacity: 0; /* Fade in */
+            transition: opacity 0.5s ease-in 0.4s; /* Further delayed fade in */
+            margin-top: 20px;
+        }
+        #skipIntro {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            background-color: rgba(255,255,255,0.1);
+            border: 1px solid #888;
+            color: #ccc;
+            border-radius: 5px;
+        }
+        #skipIntro:hover {
+            background-color: rgba(255,255,255,0.3);
+        }
+
+        /* Styles for results overlays */
+        #dayCompleteBossSvgContainer {
+            width: 100px;
+            height: 150px;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+        #dayCompleteBossSvgContainer svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #dayCompleteCalcDetails, #gameOverCalcDetails {
+            background-color: rgba(255, 255, 255, 0.1); /* Light background for details */
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: monospace; /* Monospace font for technical details */
+            text-align: left;
+            max-width: 450px;
+            white-space: pre-wrap; /* Preserve whitespace and wrap */
+            font-size: 0.9em;
+        }
+        .calc-success { color: #00ff00; font-weight: bold; } /* Green for success */
+        .calc-failure { color: #ff0000; font-weight: bold; } /* Red for failure */
+        .calc-label { color: #aaa; display: inline-block; width: 100px; }
+        .calc-value { color: #fff; }
+        .calc-formula { color: #ccc; margin: 5px 0; }
+
+        /* UI Elements positioned absolutely on game screen */
+        #bigMessage { display: none; } /* This DOM element is likely unused if drawing on canvas */
+        #scoreDisplay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: clamp(1em, 2.5vw, 1.5em);
+            color: #fff;
+            z-index: 5;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        #vhzDisplay {
+            position: absolute;
+            top: 50px; /* Position below score */
+            left: 10px;
+            font-size: clamp(1em, 2.5vw, 1.5em);
+            color: #0f0; /* Default green */
+            z-index: 5;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        #motorSlipDisplay {
+            position: absolute;
+            top: 90px; /* Position below V/Hz */
+            left: 10px;
+            font-size: clamp(1em, 2.5vw, 1.5em);
+            color: #fff;
+            z-index: 5;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        #highScoresDiv {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 5;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            max-height: 200px; /* Limit height and allow scroll */
+            overflow-y: auto;
+            font-size: clamp(0.8em, 2vw, 1em);
+        }
+        #highScoresDiv h3 { margin-top: 0; }
+        #highScoresDiv ol { padding-left: 20px; margin-bottom: 0;}
+        #highScoresDiv li { margin-bottom: 5px; }
+        #soundToggleBtn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 15; /* Above most game elements */
+            padding: 8px 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid #aaa;
+            color: #fff;
+            border-radius: 5px;
+        }
+        #soundToggleBtn:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Responsive font size variables */
+        :root {
+            --base-font-size: 12px;
+            --large-font-size: 16px;
+        }
+        
+        /* Back to Main Menu Button */
+        #backToMenuBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 15; /* Above most game elements */
+            padding: 8px 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+            background-color: #0056b3;
+            border: none;
+            color: #fff;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        #backToMenuBtn:hover {
+            background-color: #003d82;
+        }
+    </style>
+</head>
+<body>
+    <div id="introScreen" class="overlay" style="display: flex;">
+        <canvas id="introCanvas"></canvas>
+        <h1 id="introTitle" style="display: none;">Motor Bus Transfer</h1>
+        <p id="introSubtitle" style="display: none;">by Doug Millner</p>
+        <p id="introStartPrompt" style="display: none;">Loading...</p>
+        <button id="skipIntro">Skip Intro</button>
+    </div>
+
+    <div id="gameContainer" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="scoreDisplay">Score: 0</div>
+        <div id="vhzDisplay">Vdiff/Hz: 0.00</div>
+        <div id="motorSlipDisplay">Motor Slip: 0.00 Hz</div>
+        <div id="highScoresDiv"><h3>High Scores</h3><ol></ol></div>
+        <a href="index.html" id="backToMenuBtn">Back to Main Menu</a>
+        <button id="soundToggleBtn">Sound: ON</button>
+
+        <div id="welcomeScreen" class="overlay">
+            <h2>Welcome!</h2>
+            <p> The in phase motor bus transfer relay has broke and a new one won't come in for a few weeks.  The boss is relying on you to motor the system and manually transfer the system in phase if a source is lost.   You are good and are concentrating really hard, so hard that time has slowed down to 1/60th normal time.    You think you might be able to do this but you'll have to initiate the closing of the breaker so that it closes close enough in sync to not violate the 1.33 V/Hz criteria.  Can you do it and keep your boss happy?
+
+
+            Minimize the voltage difference across the breaker relative to frequency!</p>
+            <button id="startGameBtn">Start Day 1</button>
+        </div>
+        <div id="dayCompleteScreen" class="overlay">
+            <h2>Day Complete!</h2>
+            <div id="dayCompleteBossSvgContainer"></div>
+            <p id="dayCompleteStats"></p>
+            <div id="dayCompleteCalcDetails"></div>
+            <button id="nextDayBtn">Start Next Day</button>
+        </div>
+        <div id="gameOverScreen" class="overlay">
+            <h2>Game Over!</h2>
+            <p id="gameOverReason"></p>
+            <p id="gameOverStats"></p>
+            <div id="gameOverCalcDetails"></div>
+            <button id="restartGameBtn">Restart</button>
+        </div>
+        <div id="scorePrompt" class="overlay">
+            <h2>High Score!</h2>
+            <p>Enter Initials (3 chars max):</p>
+            <div>
+                <input type="text" id="initialsInput" maxlength="3">
+                <button id="submitScoreBtn">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================================
+        // == MOTOR BUS TRANSFER GAME JAVASCRIPT v2.29
+        // == Added Tense Music During Wait Phase
+        // ==========================================================
+
+        // --- Constants ---
+        const CANVAS_INTERNAL_WIDTH = 1200; // Logical width for drawing
+        const CANVAS_INTERNAL_HEIGHT = 800; // Logical height for drawing
+        const SOURCE_FREQ = 60; // Hz
+        const FREQ_DECAY_FACTOR = 0.15; // Hz per second decay when dropped
+        const VDIFF_RATIO_FAILURE_THRESHOLD = 1.33; // Vdiff/Hz ratio causing failure
+        const VDIFF_RATIO_WARN_THRESHOLD = 0.7; // Vdiff/Hz ratio for warning status
+        const VDIFF_RATIO_GOOD_THRESHOLD = 0.3; // Vdiff/Hz ratio for optimal status
+        const MAX_BOSS_STAGE = 5; // Number of unique boss SVGs
+        const GAME_STORAGE_KEY = 'motorBusHighScores_v2.29'; // Local storage key (Updated Version)
+        const MAX_DELTA_TIME = 0.1; // Prevent large physics steps if tabbed out
+        const SOURCE_VOLTAGE_PU = 1.0; // Per Unit source voltage magnitude
+        const WORKER_HEIGHT_FACTOR = 0.073; // Worker height relative to canvas height
+        const WORKER_HEIGHT = CANVAS_INTERNAL_HEIGHT * WORKER_HEIGHT_FACTOR; // Based on internal height
+        const INITIAL_FREQ_SLIP = 1.0; // Base frequency difference for Day 1 (Hz)
+
+        // --- SVG Strings for Boss Reactions ---
+        const bossSvgStrings = [ /* ... SVG strings remain the same ... */
+         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" aria-label="Boss with neutral expression"><g id="boss-figure-day1"><rect x="30" y="65" width="40" height="55" fill="#4a4a8a" stroke="#333" stroke-width="1"/><circle cx="50" cy="40" r="30" fill="#f0d9b5" stroke="#333" stroke-width="1"/><line x1="30" y1="75" x2="20" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><line x1="70" y1="75" x2="80" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><g id="face-day1"><circle cx="40" cy="35" r="3" fill="#333"/><circle cx="60" cy="35" r="3" fill="#333"/><line x1="42" y1="52" x2="58" y2="52" stroke="#800" stroke-width="2" stroke-linecap="round"/></g></g></svg>`,
+         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" aria-label="Boss with slight smile"><g id="boss-figure-day2"><rect x="30" y="65" width="40" height="55" fill="#4a4a8a" stroke="#333" stroke-width="1"/><circle cx="50" cy="40" r="30" fill="#f0d9b5" stroke="#333" stroke-width="1"/><line x1="30" y1="75" x2="20" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><line x1="70" y1="75" x2="80" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><g id="face-day2"><circle cx="40" cy="35" r="3" fill="#333"/><circle cx="60" cy="35" r="3" fill="#333"/><path d="M 42 50 Q 50 55 58 50" stroke="#800" stroke-width="2" fill="none" stroke-linecap="round"/></g></g></svg>`,
+         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" aria-label="Boss with clear smile"><g id="boss-figure-day3"><rect x="30" y="65" width="40" height="55" fill="#4a4a8a" stroke="#333" stroke-width="1"/><circle cx="50" cy="40" r="30" fill="#f0d9b5" stroke="#333" stroke-width="1"/><line x1="30" y1="75" x2="20" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><line x1="70" y1="75" x2="80" y2="105" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><g id="face-day3"><circle cx="40" cy="35" r="3" fill="#333"/><circle cx="60" cy="35" r="3" fill="#333"/><path d="M 38 48 Q 50 60 62 48" stroke="#800" stroke-width="2" fill="none" stroke-linecap="round"/></g></g></svg>`,
+         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" aria-label="Boss with big grin, slightly raised arms"><g id="boss-figure-day4"><rect x="30" y="65" width="40" height="55" fill="#4a4a8a" stroke="#333" stroke-width="1"/><circle cx="50" cy="40" r="30" fill="#f0d9b5" stroke="#333" stroke-width="1"/><line x1="30" y1="75" x2="15" y2="85" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><line x1="70" y1="75" x2="85" y2="85" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><g id="face-day4"><path d="M 35 25 Q 40 22 45 25" stroke="#333" stroke-width="2" fill="none"/><path d="M 55 25 Q 60 22 65 25" stroke="#333" stroke-width="2" fill="none"/><circle cx="40" cy="35" r="3" fill="#333"/><circle cx="60" cy="35" r="3" fill="#333"/><path d="M 35 48 Q 50 65 65 48" stroke="#800" stroke-width="2" fill="none" stroke-linecap="round"/></g></g></svg>`,
+         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" aria-label="Boss looking ecstatic with raised arms"><g id="boss-figure-day5"><rect x="30" y="65" width="40" height="55" fill="#4a4a8a" stroke="#333" stroke-width="1"/><circle cx="50" cy="40" r="30" fill="#f0d9b5" stroke="#333" stroke-width="1"/><line x1="30" y1="70" x2="15" y2="40" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><line x1="70" y1="70" x2="85" y2="40" stroke="#4a4a8a" stroke-width="8" stroke-linecap="round"/><g id="face-day5"><path d="M 35 22 Q 40 18 45 22" stroke="#333" stroke-width="2" fill="none"/><path d="M 55 22 Q 60 18 65 22" stroke="#333" stroke-width="2" fill="none"/><path d="M 35 38 Q 40 32 45 38" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M 55 38 Q 60 32 65 38" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M 30 45 Q 50 70 70 45" stroke="#800" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="35" y1="55" x2="65" y2="55" stroke="#FFF" stroke-width="1.5"/></g><g id="sparkles" fill="#FFD700" stroke="none"><polygon points="15,15 18,10 21,15 26,18 21,21 18,26 15,21 10,18"/><polygon points="85,15 88,10 91,15 96,18 91,21 88,26 85,21 80,18" transform="rotate(15 85 15)"/><circle cx="75" cy="60" r="3"/></g></g></svg>`
+        ];
+
+        // --- Global Variables ---
+        // DOM Refs (remain the same)
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const vhzDisplay = document.getElementById('vhzDisplay');
+        const motorSlipDisplay = document.getElementById('motorSlipDisplay');
+        const highScoresDiv = document.getElementById('highScoresDiv');
+        const scorePrompt = document.getElementById('scorePrompt');
+        const initialsInput = document.getElementById('initialsInput');
+        const submitScoreBtn = document.getElementById('submitScoreBtn');
+        const introScreen = document.getElementById('introScreen');
+        const introCanvas = document.getElementById('introCanvas');
+        const skipIntroBtn = document.getElementById('skipIntro');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const dayCompleteScreen = document.getElementById('dayCompleteScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const nextDayBtn = document.getElementById('nextDayBtn');
+        const restartGameBtn = document.getElementById('restartGameBtn');
+        const dayCompleteStats = document.getElementById('dayCompleteStats');
+        const gameOverReason = document.getElementById('gameOverReason');
+        const gameOverStats = document.getElementById('gameOverStats');
+        const dayCompleteBossSvgContainer = document.getElementById('dayCompleteBossSvgContainer');
+        const dayCompleteCalcDetails = document.getElementById('dayCompleteCalcDetails');
+        const gameOverCalcDetails = document.getElementById('gameOverCalcDetails');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const gameContainer = document.getElementById('gameContainer');
+
+        // Game State (remains the same)
+        let score = 0;
+        let currentDay = 1;
+        let gameState = 'intro';
+        let dropTriggered = false;
+        let isTransferPromptActive = false;
+        let countdownValue = 6;
+        let countdownInterval = null;
+        let phasesFrozen = false;
+        let motorFreq = SOURCE_FREQ;
+        let angleSource = 0;
+        let angleMotor = 0;
+        let timeSinceDrop = 0;
+        let finalGameOverReason = '';
+        let currentIntroAnimation = null;
+        let scaleFactor = 1; // Stores the ratio between display size and internal size
+        let deltaTime = 0;
+        let lastTimestamp = 0;
+        let lastWindowWidth = 0;
+        let lastWindowHeight = 0;
+        let bigMessageText = '';
+        let showBigMessage = false;
+
+        // Audio State
+        let soundEnabled = true;
+        let audioInitialized = false;
+        let synths = {};
+        let musicLoops = [];
+        let introMusicLoop = null;
+        let currentMusicLoop = null;
+        let tenseMusicLoop = null; // Added for tense music
+
+        // --- Placeholder Functions ---
+        function isMobileDevice() { return window.matchMedia("(max-width: 768px)").matches; }
+        function hideAllOverlays() {
+            console.log("Hiding Overlays");
+            [introScreen, welcomeScreen, dayCompleteScreen, gameOverScreen, scorePrompt].forEach(el => {
+                if (el) el.style.display = 'none';
+            });
+            showBigMessage = false; // Also hide canvas message
+            stopBackgroundMusic(); // Stop music when hiding overlays
+            stopIntroMusic();      // Stop music when hiding overlays
+            stopTenseMusic();      // Stop tense music too
+        }
+        // --- Function declarations (implementations below) ---
+        function formatCalculationDetails(data) { /* ... implementation unchanged ... */ }
+        function transitionToGameOver(resultData) { /* ... implementation unchanged ... */ }
+        function transitionToDayComplete(resultData) { /* ... implementation unchanged ... */ }
+        function transitionToWelcome() { /* ... implementation unchanged ... */ }
+        function handleSpacebar() { /* ... implementation unchanged ... */ }
+        function initAudio() { /* ... implementation updated ... */ }
+        function playSound(type) { /* ... implementation unchanged ... */ }
+        function startBackgroundMusic() { /* ... implementation updated ... */ }
+        function stopBackgroundMusic() { /* ... implementation updated ... */ }
+        function startIntroMusic() { /* ... implementation updated ... */ }
+        function stopIntroMusic() { /* ... implementation updated ... */ }
+        function startTenseMusic() { /* ... NEW function ... */ }
+        function stopTenseMusic() { /* ... NEW function ... */ }
+        function toggleSound() { /* ... implementation updated ... */ }
+
+        // --- Intro Animation Classes ---
+        /** Represents a worker walking in the intro animation. */
+        class Worker {
+             constructor(startX, delay, factory, groundLevel, direction = 'entering-left') { // Added groundLevel
+                 this.height = WORKER_HEIGHT; // Use constant based on internal height
+                 this.width = this.height * 0.7;
+                 this.x = startX;
+                 this.y = groundLevel; // Y position is now the ground level (feet position)
+                 this.direction = direction;
+                 this.delay = delay;
+                 const logicalWidth = currentIntroAnimation?.getLogicalCanvasWidth() || CANVAS_INTERNAL_WIDTH;
+                 this.speed = logicalWidth * 0.03;
+                 this.walkCycleTime = Math.random() * Math.PI * 2; // Random start phase
+                 this.alpha = this.direction.includes('leaving') ? 0.0 : 1.0; // Start leaving invisible
+
+                 this.colors = { skin: '#E0AC69', shirt: ['#3B83BD', '#8C3B3B', '#3B8C5A', '#8E8E30'][Math.floor(Math.random() * 4)], pants: '#2B3A55', hat: Math.random() > 0.6 ? '#553311' : null };
+                 const leftDoorX = factory.x + factory.width * 0.4; const rightDoorX = factory.x + factory.width * 0.75; const doorWidth = factory.width * 0.1;
+                 if (this.direction.includes('left')) { this.doorX = leftDoorX + doorWidth * 0.5; } else { this.doorX = rightDoorX + doorWidth * 0.5; }
+
+                 this.insideFactory = this.direction.includes('leaving');
+                 this.facingRight = this.direction === 'entering-left' || this.direction === 'leaving-right';
+                 this.edgeX = this.facingRight ? logicalWidth + this.width * 2 : -this.width * 2;
+             }
+
+             update(time, deltaTime) {
+                 if (time < this.delay) return true;
+                 const moveAmount = this.speed * deltaTime;
+                 this.walkCycleTime += deltaTime * 10;
+
+                 if (this.direction.includes('entering')) {
+                     let reachedDoor = false;
+                     const tolerance = moveAmount * 0.6; // Stop slightly before door center
+                     if (this.facingRight) { // entering-left
+                         if (this.x < this.doorX - tolerance) { this.x += moveAmount; }
+                         else { this.x = this.doorX; reachedDoor = true;}
+                     } else { // entering-right
+                         if (this.x > this.doorX + tolerance) { this.x -= moveAmount; }
+                         else { this.x = this.doorX; reachedDoor = true;}
+                     }
+                     if (reachedDoor) { this.alpha -= 3.0 * deltaTime; }
+                     return this.alpha > 0;
+                 } else { // leaving
+                     if (this.insideFactory) { this.alpha += 3.0 * deltaTime; if (this.alpha >= 1.0) { this.alpha = 1.0; this.insideFactory = false; } return true; }
+                     else { if (this.facingRight) { this.x += moveAmount; return this.x < this.edgeX; } else { this.x -= moveAmount; return this.x > this.edgeX; } }
+                 }
+             }
+
+             draw(ctx) {
+                 if (!currentIntroAnimation) return;
+                 ctx.save();
+                 ctx.globalAlpha = this.alpha;
+                 const dirFactor = this.facingRight ? 1 : -1;
+
+                 // --- Improved Walking Animation ---
+                 const walkAmp = this.height * 0.06; // Amplitude of step
+                 const legPhase = this.walkCycleTime;
+                 const armPhase = this.walkCycleTime + Math.PI; // Arms opposite legs
+
+                 const legY1 = this.y - Math.abs(Math.sin(legPhase)) * walkAmp;      // Y pos of foot 1
+                 const legY2 = this.y - Math.abs(Math.sin(legPhase + Math.PI)) * walkAmp; // Y pos of foot 2
+                 const armSwing = Math.sin(armPhase) * (this.width * 0.3); // Sideways swing
+
+                 const legWidth = this.width * 0.3;
+                 const legHeight = this.height * 0.45;
+                 const legTopY = this.y - legHeight; // Top of the leg rectangle
+
+                 const armWidth = this.width * 0.25;
+                 const armHeight = this.height * 0.4;
+                 const armTopY = this.y - this.height * 0.85; // Start arms higher up torso
+
+                 // Draw Back Leg & Arm first
+                 ctx.fillStyle = this.colors.pants;
+                 ctx.fillRect(this.x - (legWidth * 0.5) - (legWidth * 0.3 * dirFactor), legY2 - legHeight, legWidth, legHeight); // Back Leg (Y adjusted)
+                 ctx.fillStyle = this.colors.shirt;
+                 ctx.fillRect(this.x - (armWidth * 0.5) - (armWidth * 0.7 * dirFactor) - armSwing, armTopY, armWidth, armHeight); // Back Arm (X adjusted)
+
+                 // Body/Shirt (Origin is now feet level, draw upwards)
+                 const bodyTopY = this.y - this.height;
+                 const torsoHeight = this.height * 0.4;
+                 const headRadius = this.width * 0.5;
+                 const headCenterY = bodyTopY - headRadius;
+
+                 ctx.fillStyle = this.colors.shirt;
+                 ctx.fillRect(this.x - this.width * 0.5, bodyTopY + this.height * 0.1, this.width, torsoHeight); // Shirt
+                 // Pants (torso part)
+                 ctx.fillStyle = this.colors.pants;
+                 ctx.fillRect(this.x - this.width * 0.5, bodyTopY + this.height*0.1 + torsoHeight, this.width, this.height * 0.1); // Belt area
+
+                 // Draw Front Leg & Arm
+                 ctx.fillStyle = this.colors.pants;
+                 ctx.fillRect(this.x - (legWidth * 0.5) + (legWidth * 0.3 * dirFactor), legY1 - legHeight, legWidth, legHeight); // Front Leg (Y adjusted)
+                 ctx.fillStyle = this.colors.shirt;
+                 ctx.fillRect(this.x - (armWidth * 0.5) + (armWidth * 0.7 * dirFactor) + armSwing, armTopY, armWidth, armHeight); // Front Arm (X adjusted)
+
+                 // Head
+                 ctx.fillStyle = this.colors.skin;
+                 ctx.beginPath(); ctx.arc(this.x, headCenterY, headRadius, 0, Math.PI * 2); ctx.fill();
+
+                 // Hat (optional)
+                 if (this.colors.hat) { ctx.fillStyle = this.colors.hat; ctx.beginPath(); ctx.arc(this.x, headCenterY - headRadius*0.15, headRadius*1.1, Math.PI*1.1, Math.PI*1.9); ctx.fill(); ctx.fillRect(this.x - headRadius*1.1, headCenterY - headRadius*0.15, headRadius*2.2, headRadius*0.1); }
+
+                 ctx.restore();
+             }
+         }
+        /** Manages the introductory animation sequence. */
+        class IntroAnimation {
+             constructor() {
+                 this.introCanvas = document.getElementById('introCanvas');
+                 if (!this.introCanvas) { throw new Error("Intro Canvas not found!"); }
+                 this.introCtx = this.introCanvas.getContext('2d', { alpha: false });
+                 if (!this.introCtx) { throw new Error("Failed to get 2D context for Intro Canvas!"); }
+                 this.introActive = true; this.introAnimFrame = null; this.introTime = 0;
+                 this.dayCycleTime = 0; this.lastUpdateTime = performance.now();
+                 this.frameCount = 0; this.fps = 0;
+                 this.cycleDuration = 20; // Duration of a full day-night cycle in seconds
+                 this.isNight = false; // Will be updated based on sun/moon visibility
+                 this.showStars = false; // Will be updated based on isNight
+                 this.stars = [];
+                 this.performanceMode = window.defaultPerformanceMode === true;
+                 console.log("Intro performance mode:", this.performanceMode);
+                 this.resizeIntroCanvas = this.resizeIntroCanvas.bind(this);
+                 this.animateIntro = this.animateIntro.bind(this);
+                 this._boundKeyPressHandler = this.handleKeyPress.bind(this);
+                 this._boundClickHandler = this.tryResumeAudioAndEndIntro.bind(this); // Modified handler
+                 this.resizeIntroCanvas();
+                 window.addEventListener('resize', this.resizeIntroCanvas);
+                 // Define sky colors
+                 this.skyColors = {
+                    night: '#000022',
+                    dawnTop: '#2c3e50', dawnBottom: '#1a2530',
+                    sunriseTop: '#FFB07C', sunriseBottom: '#FF7700',
+                    dayTop: '#87CEEB', dayBottom: '#50A6C2',
+                    sunsetTop: '#FFB07C', sunsetBottom: '#E66100',
+                    duskTop: '#2c3e50', duskBottom: '#1a2530'
+                 };
+                 this.initializeObjects(); // Initialize sun, moon, factory etc.
+                 this.generateStars(100);
+                 this.workers = [];
+                 const isMobile = isMobileDevice();
+                 const workerMultiplier = isMobile || this.performanceMode ? 0.4 : 1;
+                 this.maxWorkers = Math.max(4, Math.floor(10 * workerMultiplier));
+                 this.spawnChance = 0.03 * workerMultiplier;
+                 const initialWorkerCount = Math.floor(this.maxWorkers * 0.3);
+                 // Ensure groundLevel is available before creating workers
+                 if (this.groundLevel !== undefined) {
+                   for (let i = 0; i < initialWorkerCount; i++) { const side = Math.random() < 0.5 ? 'left' : 'right'; const startX = side === 'left' ? -20 - (Math.random() * 60) : this.getLogicalCanvasWidth() + 20 + (Math.random() * 60); this.workers.push(new Worker(startX, 0.1 + i * 0.5 + Math.random() * 0.3, this.factory, this.groundLevel, `entering-${side}`)); }
+                   console.log(`Created ${this.workers.length} initial workers.`);
+                 } else {
+                     console.error("Ground level not defined during worker initialization.");
+                 }
+                 const skipBtn = document.getElementById('skipIntro');
+                 if (skipBtn) { skipBtn.addEventListener('click', () => { playSound('click'); this.endIntro(); }); }
+                 this.introCanvas.addEventListener('click', this._boundClickHandler);
+                 this.introCanvas.addEventListener('touchstart', this._boundClickHandler, { passive: true }); // Use same handler for touch
+                 this.setupPerformanceMonitoring();
+             }
+             getLogicalCanvasWidth() { const dpr = window.devicePixelRatio || 1; return this.introCanvas.width / dpr / (this.performanceMode ? 0.75 : 1); }
+             getLogicalCanvasHeight() { const dpr = window.devicePixelRatio || 1; return this.introCanvas.height / dpr / (this.performanceMode ? 0.75 : 1); }
+             playButtonSound() { playSound('click'); }
+             setupPerformanceMonitoring() { let lastFrameTime = performance.now(); let frameTimes = []; const checkPerformance = () => { if (!this.introActive) return; const now = performance.now(); const elapsed = now - lastFrameTime; frameTimes.push(elapsed); if (frameTimes.length > 30) { frameTimes.shift(); } const avgFrameTime = frameTimes.reduce((sum, time) => sum + time, 0) / frameTimes.length; const currentFps = avgFrameTime > 0 ? 1000 / avgFrameTime : 60; this.fps = Math.round(currentFps); const needsPerfMode = currentFps < 30 && frameTimes.length >= 30; if (needsPerfMode && !this.performanceMode) { this.performanceMode = true; console.log('Switching to performance mode'); this.stars = this.stars.slice(0, Math.floor(this.stars.length / 2)); this.resizeIntroCanvas(); } else if (!needsPerfMode && this.performanceMode && currentFps > 55) { this.performanceMode = false; console.log('Switching to quality mode'); this.generateStars(100); this.resizeIntroCanvas(); } lastFrameTime = now; requestAnimationFrame(checkPerformance); }; requestAnimationFrame(checkPerformance); }
+             resizeIntroCanvas() { const dpr = window.devicePixelRatio || 1; const displayWidth = window.innerWidth; const displayHeight = window.innerHeight; const scaleFactor = this.performanceMode ? 0.75 : 1; this.introCanvas.width = Math.floor(displayWidth * dpr * scaleFactor); this.introCanvas.height = Math.floor(displayHeight * dpr * scaleFactor); this.introCanvas.style.width = `${displayWidth}px`; this.introCanvas.style.height = `${displayHeight}px`; this.introCtx.setTransform(dpr * scaleFactor, 0, 0, dpr * scaleFactor, 0, 0); this.initializeObjects(); this.generateStars(this.performanceMode ? 50 : 100); }
+             generateStars(count) { this.stars = []; const logicalWidth = this.getLogicalCanvasWidth(); const logicalHeight = this.getLogicalCanvasHeight(); for (let i = 0; i < count; i++) { this.stars.push({ x: Math.random() * logicalWidth, y: Math.random() * logicalHeight * 0.6, size: Math.random() * 1.5 + 0.5, opacity: Math.random() * 0.7 + 0.1, speed: Math.random() * 0.5 + 0.1 }); } }
+             initializeObjects() {
+                 const canvasWidth = this.getLogicalCanvasWidth(); const canvasHeight = this.getLogicalCanvasHeight();
+                 this.groundLevel = canvasHeight * 0.85; // Define ground level here
+                 this.horizonTransitionHeight = canvasHeight * 0.1; // Height above/below horizon for transitions
+                 this.factory = {
+                     width: canvasWidth * 0.7, height: canvasHeight * 0.35, x: canvasWidth * 0.15, y: this.groundLevel - canvasHeight * 0.35, // Position relative to ground
+                     chimneys: [ { x: 0.2, width: 0.05, height: 0.15, smokePuffs: [] }, { x: 0.5, width: 0.08, height: 0.20, smokePuffs: [] }, { x: 0.8, width: 0.06, height: 0.18, smokePuffs: [] } ],
+                     smokeSpawnChance: 0.02,
+                     draw: () => { // Factory drawing logic depends on this.isNight
+                         this.introCtx.fillStyle = '#1a1a1a'; this.introCtx.fillRect(this.factory.x, this.factory.y, this.factory.width, this.factory.height);
+                         this.factory.chimneys.forEach(c => { this.introCtx.fillRect(this.factory.x + this.factory.width * c.x, this.factory.y - this.factory.height * c.height, this.factory.width * c.width, this.factory.height * c.height); });
+                         const doorWidth = this.factory.width * 0.1; const doorHeight = this.factory.height * 0.4; const doorY = this.factory.y + this.factory.height - doorHeight;
+                         this.introCtx.fillStyle = '#333'; this.introCtx.fillRect(this.factory.x + this.factory.width * 0.4, doorY, doorWidth, doorHeight); this.introCtx.fillRect(this.factory.x + this.factory.width * 0.75, doorY, doorWidth, doorHeight);
+                         const windowSize = this.factory.width * 0.04; const windowSpacing = this.factory.width * 0.1; const windowY = this.factory.y + this.factory.height * 0.2;
+                         for (let i = 0; i < 6; i++) {
+                             // Use the centrally updated this.isNight flag
+                             const lightOn = this.isNight && Math.random() > 0.4;
+                             this.introCtx.fillStyle = lightOn ? `rgba(255, 255, 150, ${Math.random() * 0.3 + 0.4})` : '#444';
+                             this.introCtx.fillRect(this.factory.x + this.factory.width*0.15 + windowSpacing * i, windowY, windowSize, windowSize);
+                         }
+                     },
+                     updateSmoke: (dt) => { /* ... smoke update logic ... */
+                         this.factory.chimneys.forEach(chimney => { chimney.smokePuffs = chimney.smokePuffs.filter(puff => { puff.y -= puff.speedY * dt; puff.x += puff.speedX * dt; puff.radius += puff.growth * dt; puff.alpha -= puff.fade * dt; return puff.alpha > 0; }); if (Math.random() < this.factory.smokeSpawnChance) { const chimneyTopX = this.factory.x + this.factory.width * chimney.x + (this.factory.width * chimney.width / 2); const chimneyTopY = this.factory.y - this.factory.height * chimney.height; chimney.smokePuffs.push({ x: chimneyTopX + (Math.random() - 0.5) * 5, y: chimneyTopY, radius: Math.random() * 3 + 2, alpha: Math.random() * 0.3 + 0.3, speedY: Math.random() * 15 + 10, speedX: (Math.random() - 0.5) * 10, growth: Math.random() * 5 + 3, fade: Math.random() * 0.2 + 0.1 }); } });
+                     },
+                     drawSmoke: () => { /* ... smoke drawing logic ... */
+                         this.introCtx.fillStyle = 'rgba(180, 180, 180, 0.5)'; this.factory.chimneys.forEach(chimney => { chimney.smokePuffs.forEach(puff => { this.introCtx.globalAlpha = puff.alpha; this.introCtx.beginPath(); this.introCtx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2); this.introCtx.fill(); }); }); this.introCtx.globalAlpha = 1.0;
+                     }
+                 };
+                 this.sun = {
+                     radius: canvasWidth * 0.05,
+                     x: 0, y: 0, isVisible: false, angle: 0, // Added angle
+                     updatePosition: (cycleProgress) => {
+                         this.sun.angle = cycleProgress * 2 * Math.PI - Math.PI / 2; // Store angle
+                         this.sun.x = canvasWidth / 2 + Math.cos(this.sun.angle) * canvasWidth * 0.45;
+                         this.sun.y = this.groundLevel - Math.sin(this.sun.angle) * canvasHeight * 0.6;
+                         // Check if CENTER is above ground (more intuitive for transitions)
+                         this.sun.isVisible = this.sun.y < this.groundLevel;
+                     },
+                     draw: () => {
+                         // Draw even if slightly below horizon for glow effect during transition
+                         if (this.sun.y < this.groundLevel + this.sun.radius * 2) {
+                             this.introCtx.save();
+                             const grad = this.introCtx.createRadialGradient(this.sun.x, this.sun.y, this.sun.radius * 0.1, this.sun.x, this.sun.y, this.sun.radius * 1.5); // Slightly larger gradient
+                             grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                             grad.addColorStop(0.5, 'rgba(255, 255, 200, 0.7)');
+                             grad.addColorStop(0.8, 'rgba(255, 200, 0, 0.4)');
+                             grad.addColorStop(1, 'rgba(255, 150, 0, 0)');
+                             this.introCtx.fillStyle = grad;
+                             this.introCtx.beginPath();
+                             this.introCtx.arc(this.sun.x, this.sun.y, this.sun.radius * 1.5, 0, Math.PI * 2); // Draw larger gradient area
+                             this.introCtx.fill();
+                             // Draw solid core on top if visible
+                             if (this.sun.isVisible) {
+                                this.introCtx.fillStyle = '#FFFFE0'; // Light yellow core
+                                this.introCtx.beginPath();
+                                this.introCtx.arc(this.sun.x, this.sun.y, this.sun.radius, 0, Math.PI * 2);
+                                this.introCtx.fill();
+                             }
+                             this.introCtx.restore();
+                         }
+                     }
+                 };
+                 this.moon = {
+                     radius: canvasWidth * 0.035,
+                     x: 0, y: 0, isVisible: false, angle: 0, // Added angle
+                     updatePosition: (cycleProgress) => {
+                         this.moon.angle = cycleProgress * 2 * Math.PI + Math.PI / 2; // Store angle (opposite sun)
+                         this.moon.x = canvasWidth / 2 + Math.cos(this.moon.angle) * canvasWidth * 0.4;
+                         this.moon.y = this.groundLevel - Math.sin(this.moon.angle) * canvasHeight * 0.5;
+                         // Check if CENTER is above ground
+                         this.moon.isVisible = this.moon.y < this.groundLevel;
+                     },
+                     draw: () => {
+                         if (!this.moon.isVisible) return; // Only draw if visible
+                         this.introCtx.save();
+                         this.introCtx.shadowColor = 'rgba(220, 220, 255, 0.5)';
+                         this.introCtx.shadowBlur = this.moon.radius * 0.8;
+                         const grad = this.introCtx.createRadialGradient(this.moon.x, this.moon.y, 0, this.moon.x, this.moon.y, this.moon.radius);
+                         grad.addColorStop(0, 'rgba(245, 245, 245, 1)');
+                         grad.addColorStop(0.7, 'rgba(200, 200, 210, 1)');
+                         grad.addColorStop(1, 'rgba(150, 150, 160, 1)');
+                         this.introCtx.fillStyle = grad;
+                         this.introCtx.beginPath();
+                         this.introCtx.arc(this.moon.x, this.moon.y, this.moon.radius, 0, Math.PI * 2);
+                         this.introCtx.fill();
+                         this.introCtx.shadowColor = 'transparent';
+                         this.introCtx.shadowBlur = 0;
+                         // Craters
+                         this.introCtx.fillStyle = 'rgba(140, 140, 150, 0.6)';
+                         this.introCtx.beginPath();
+                         this.introCtx.arc(this.moon.x + this.moon.radius * 0.4, this.moon.y - this.moon.radius * 0.3, this.moon.radius * 0.35, 0, Math.PI * 2);
+                         this.introCtx.fill();
+                         this.introCtx.beginPath();
+                         this.introCtx.arc(this.moon.x - this.moon.radius * 0.3, this.moon.y + this.moon.radius * 0.2, this.moon.radius * 0.25, 0, Math.PI * 2);
+                         this.introCtx.fill();
+                         this.introCtx.restore();
+                     }
+                 };
+             }
+             lerpColor(a, b, t) {
+                // Clamp t to [0, 1]
+                t = Math.max(0, Math.min(1, t));
+                const aRGB = this.hexToRgb(a);
+                const bRGB = this.hexToRgb(b);
+                if (!aRGB || !bRGB) return 'rgb(0,0,0)'; // Fallback
+                const invT = 1 - t;
+                const r = Math.round(aRGB.r * invT + bRGB.r * t);
+                const g = Math.round(aRGB.g * invT + bRGB.g * t);
+                const bVal = Math.round(aRGB.b * invT + bRGB.b * t);
+                return `rgb(${r}, ${g}, ${bVal})`;
+             }
+             hexToRgb(hex) {
+                if (!hex) return null;
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+             }
+             drawGround() { const canvasWidth = this.getLogicalCanvasWidth(); const canvasHeight = this.getLogicalCanvasHeight(); const groundY = this.groundLevel; const grad = this.introCtx.createLinearGradient(0, groundY, 0, canvasHeight); grad.addColorStop(0, '#3b2a1a'); grad.addColorStop(1, '#2a1a0a'); this.introCtx.fillStyle = grad; this.introCtx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY); }
+             drawStars() { if (!this.showStars) return; this.introCtx.save(); this.stars.forEach(star => { const twinkle = Math.sin(this.introTime * star.speed + star.x * 0.01) * 0.4 + 0.6; this.introCtx.fillStyle = `rgba(255, 255, 255, ${star.opacity * twinkle})`; this.introCtx.beginPath(); this.introCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2); this.introCtx.fill(); }); this.introCtx.restore(); }
+             drawDebugInfo() { this.introCtx.save(); this.introCtx.font = '12px monospace'; this.introCtx.fillStyle = '#00FF00'; this.introCtx.textAlign = 'left'; this.introCtx.fillText(`FPS: ${this.fps}`, 10, 20); this.introCtx.fillText(`Workers: ${this.workers.length}`, 10, 40); this.introCtx.fillText(`Quality: ${this.performanceMode ? 'Perf' : 'High'}`, 10, 60); this.introCtx.fillText(`isNight: ${this.isNight}`, 10, 80); this.introCtx.fillText(`SunY: ${this.sun.y.toFixed(0)} Vis: ${this.sun.isVisible}`, 10, 100); this.introCtx.fillText(`MoonY: ${this.moon.y.toFixed(0)} Vis: ${this.moon.isVisible}`, 10, 120); this.introCtx.restore(); }
+
+             // Combined handler for click/touch to start audio and end intro
+             tryResumeAudioAndEndIntro() {
+                 handleFirstInteraction(); // Attempt to start audio context
+                 playSound('click');
+                 this.endIntro();
+             }
+
+             animateIntro(timestamp) {
+                 if (!this.introActive || !this.introCtx) return;
+                 const now = performance.now(); let dt;
+                 if (timestamp && this.lastTimestamp) { dt = Math.min((now - this.lastTimestamp) / 1000, 0.1); } else { dt = 0.016; }
+                 this.lastTimestamp = now;
+                 this.introTime += dt; this.dayCycleTime = (this.dayCycleTime + dt) % this.cycleDuration;
+                 const cycleProgress = this.dayCycleTime / this.cycleDuration;
+
+                 // Update Sun/Moon Position & Visibility
+                 this.sun.updatePosition(cycleProgress);
+                 this.moon.updatePosition(cycleProgress);
+
+                 // Update Day/Night State based on Visibility
+                 this.isNight = !this.sun.isVisible && this.moon.isVisible; // Night is strictly when sun is down AND moon is up
+                 this.showStars = !this.sun.isVisible; // Show stars whenever sun is down
+
+                 // Make DOM elements visible
+                 const titleEl = document.getElementById('introTitle'); const subtitleEl = document.getElementById('introSubtitle'); const promptEl = document.getElementById('introStartPrompt');
+                 if (titleEl && titleEl.style.display !== 'block') { titleEl.style.display = 'block'; titleEl.style.opacity = '1'; }
+                 if (subtitleEl && subtitleEl.style.display !== 'block') { subtitleEl.style.display = 'block'; subtitleEl.style.opacity = '1'; }
+                 if (promptEl && promptEl.style.display !== 'block') { promptEl.style.display = 'block'; promptEl.style.opacity = '1'; }
+                 if (promptEl) promptEl.innerText = "Press SPACE or TAP Screen to Start"; // Updated prompt
+
+                 // --- Worker Spawning Logic ---
+                 if (this.workers.length < this.maxWorkers && Math.random() < this.spawnChance && this.groundLevel !== undefined) {
+                     const side = Math.random() < 0.5 ? 'left' : 'right';
+                     const groundY = this.groundLevel;
+                     const isDayTime = this.sun.isVisible; // Workers enter during day
+                     if (isDayTime) {
+                         const startX = side === 'left' ? -20 - (Math.random() * 60) : this.getLogicalCanvasWidth() + 20 + (Math.random() * 60);
+                         this.workers.push(new Worker(startX, this.introTime, this.factory, groundY, `entering-${side}`));
+                     } else { // Workers leave at night
+                         const startX = side === 'left' ? this.factory.x + this.factory.width * 0.4 + (this.factory.width * 0.1 * 0.5) : this.factory.x + this.factory.width * 0.75 + (this.factory.width * 0.1 * 0.5);
+                         this.workers.push(new Worker(startX, this.introTime, this.factory, groundY, `leaving-${side}`));
+                     }
+                 }
+
+                 // --- Drawing logic ---
+                 const canvasHeight = this.getLogicalCanvasHeight(); const canvasWidth = this.getLogicalCanvasWidth();
+
+                 // 1. Draw Sky (Revised logic based on sun position)
+                 const skyGrad = this.introCtx.createLinearGradient(0, 0, 0, this.groundLevel);
+                 let colorTop, colorBottom;
+                 const sunY = this.sun.y;
+                 const horizonY = this.groundLevel;
+                 const transitionHeight = this.horizonTransitionHeight; // e.g., 10% of canvas height
+
+                 if (sunY < horizonY - transitionHeight) { // High Day
+                     colorTop = this.skyColors.dayTop;
+                     colorBottom = this.skyColors.dayBottom;
+                 } else if (sunY < horizonY) { // Sunrise / Sunset Transition (Sun above horizon)
+                     const t = (horizonY - sunY) / transitionHeight; // 0 at horizon, 1 at top of transition
+                     if (this.sun.angle < Math.PI) { // Rising sun (morning)
+                        colorTop = this.lerpColor(this.skyColors.sunriseTop, this.skyColors.dayTop, t);
+                        colorBottom = this.lerpColor(this.skyColors.sunriseBottom, this.skyColors.dayBottom, t);
+                     } else { // Setting sun (evening)
+                        colorTop = this.lerpColor(this.skyColors.sunsetTop, this.skyColors.dayTop, t);
+                        colorBottom = this.lerpColor(this.skyColors.sunsetBottom, this.skyColors.dayBottom, t);
+                     }
+                 } else if (sunY < horizonY + transitionHeight) { // Dusk / Dawn Transition (Sun just below horizon)
+                     const t = (sunY - horizonY) / transitionHeight; // 0 at horizon, 1 at bottom of transition
+                     if (this.sun.angle < Math.PI) { // Rising sun (dawn)
+                        colorTop = this.lerpColor(this.skyColors.dawnTop, this.skyColors.sunriseTop, 1-t);
+                        colorBottom = this.lerpColor(this.skyColors.dawnBottom, this.skyColors.sunriseBottom, 1-t);
+                     } else { // Setting sun (dusk)
+                         colorTop = this.lerpColor(this.skyColors.duskTop, this.skyColors.sunsetTop, 1-t);
+                         colorBottom = this.lerpColor(this.skyColors.duskBottom, this.skyColors.sunsetBottom, 1-t);
+                     }
+                 } else { // Night (Sun well below horizon)
+                     colorTop = this.skyColors.night;
+                     colorBottom = this.skyColors.night;
+                     // Slightly lighten near horizon if moon is up
+                     if (this.moon.isVisible) {
+                         colorBottom = this.lerpColor(this.skyColors.night, this.skyColors.dawnBottom, 0.2);
+                     }
+                 }
+
+                 skyGrad.addColorStop(0, colorTop);
+                 skyGrad.addColorStop(1, colorBottom);
+                 this.introCtx.fillStyle = skyGrad;
+                 this.introCtx.fillRect(0, 0, this.introCanvas.width, this.introCanvas.height);
+
+                 // 2. Draw Stars
+                 this.drawStars();
+
+                 // 3. Draw Sun & Moon
+                 this.sun.draw();
+                 this.moon.draw();
+
+                 // 4. Draw Ground
+                 this.drawGround();
+
+                 // 5. Draw Factory, Smoke, Workers
+                 this.factory.updateSmoke(dt);
+                 this.factory.draw(); // Uses updated this.isNight for lights
+                 this.factory.drawSmoke();
+
+                 this.workers = this.workers.filter(worker => worker.update(this.introTime, dt));
+                 if (!this.performanceMode || this.frameCount % 2 === 0) { this.workers.forEach(worker => worker.draw(this.introCtx)); }
+
+                 // if (window.debugMode) { this.drawDebugInfo(); } // Optional debug
+
+                 if (this.introActive) { this.introAnimFrame = requestAnimationFrame(this.animateIntro); }
+             }
+
+             handleKeyPress(e) { if (e.code === 'Space' || e.key === ' ' || e.code === 'Enter' || e.code === 'Escape') { e.preventDefault(); this.tryResumeAudioAndEndIntro(); } }
+             startIntro() {
+                 this.introActive = true; this.introTime = 0; this.dayCycleTime = 0; this.lastTimestamp = performance.now(); this.lastUpdateTime = performance.now(); this.frameCount = 0;
+                 const introScreenEl = document.getElementById('introScreen');
+                 const gameContainerEl = document.getElementById('gameContainer');
+                 if (introScreenEl) introScreenEl.style.display = 'flex';
+                 if (gameContainerEl) gameContainerEl.style.display = 'none';
+                 document.addEventListener('keydown', this._boundKeyPressHandler);
+                 this.introCanvas.addEventListener('touchstart', this._boundClickHandler, { passive: true });
+                 this.introCanvas.addEventListener('click', this._boundClickHandler);
+                 this.introAnimFrame = requestAnimationFrame(this.animateIntro);
+                 // Attempt to start intro music after ensuring audio context is ready
+                 handleFirstInteraction().then(() => { // Ensure audio context is attempted
+                    startIntroMusic();
+                 });
+                 console.log("Intro animation started");
+             }
+             endIntro() {
+                 if (!this.introActive) return; // Prevent double execution
+                 console.log("Ending intro animation...");
+                 this.introActive = false;
+                 if (this.introAnimFrame) { cancelAnimationFrame(this.introAnimFrame); this.introAnimFrame = null; }
+                 document.removeEventListener('keydown', this._boundKeyPressHandler); // Remove key listener
+                 if (this.introCanvas) { // Remove touch/click listeners
+                      this.introCanvas.removeEventListener('click', this._boundClickHandler);
+                      this.introCanvas.removeEventListener('touchstart', this._boundClickHandler);
+                 }
+                 window.removeEventListener('resize', this.resizeIntroCanvas);
+                 const introScreenEl = document.getElementById('introScreen'); const gameContainerEl = document.getElementById('gameContainer'); if (introScreenEl) introScreenEl.style.display = 'none'; if (gameContainerEl) gameContainerEl.style.display = 'flex'; // Show game container
+                 stopIntroMusic(); // Ensure intro music stops
+                 if (typeof transitionToWelcome === 'function') {
+                     transitionToWelcome(); // Move to the welcome screen
+                 } else {
+                     console.error('transitionToWelcome function not found');
+                 }
+             }
+         }
+        // --- End of Intro Animation Classes ---
+
+
+        // --- Core Game Logic ---
+        function resetDayState() {
+            console.log(`Resetting state for Day ${currentDay}`);
+            dropTriggered = false;
+            isTransferPromptActive = false;
+            phasesFrozen = false;
+
+            // Set fixed start angles
+            angleSource = Math.PI;     // 180 degrees (9 o'clock)
+            angleMotor = Math.PI / 2;   // 90 degrees (12 o'clock)
+
+            // Calculate compounding frequency slip
+            const slipMultiplier = Math.pow(2, currentDay - 1);
+            const currentInitialSlip = INITIAL_FREQ_SLIP * slipMultiplier;
+            console.log(`Day ${currentDay}: Initial Slip = ${currentInitialSlip.toFixed(2)} Hz`);
+            motorFreq = Math.max(0, SOURCE_FREQ - currentInitialSlip);
+
+            timeSinceDrop = 0;
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            showBigMessage = false;
+            if(canvas) canvas.style.border = "2px solid #444";
+            updateVdiffRatioDisplay(calculateVdiffRatio());
+            updateMotorSlipDisplay();
+        }
+        function startGameplay() {
+            console.log("Starting Gameplay for Day:", currentDay);
+            stopIntroMusic(); // Explicitly stop intro music first
+            stopTenseMusic(); // Ensure tense music is stopped too
+            resetDayState();
+            gameState = 'gameplay';
+            hideAllOverlays(); // This also stops music loops, which is fine here
+            if(gameContainer) gameContainer.style.display = 'flex';
+            resizeCanvas();
+            startBackgroundMusic(); // Start the regular gameplay music
+            // Start game loop if not already running
+            if (lastTimestamp === 0) {
+                console.log("Starting main game loop from startGameplay.");
+                lastTimestamp = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+            // Initiate the drop sequence after a short delay
+            setTimeout(() => {
+                if (gameState === 'gameplay') {
+                    initiateDropSequence();
+                }
+            }, 1500);
+        }
+        function initiateDropSequence() {
+            console.log("Initiating Drop Sequence");
+            if (gameState !== 'gameplay') return;
+            dropTriggered = true;
+            timeSinceDrop = 0;
+            playSound('drop');
+            startTenseMusic(); // Start tense music here
+            bigMessageText = isMobileDevice() ? 'TAP SCREEN TO INITIATE TRANSFER' : 'PRESS SPACE TO INITIATE TRANSFER';
+            showBigMessage = true;
+            isTransferPromptActive = true;
+        }
+        function startTransferCountdown() {
+            if (!isTransferPromptActive || gameState !== 'gameplay') return;
+            console.log("Starting Transfer Countdown");
+            stopTenseMusic(); // Stop tense music when countdown starts
+            isTransferPromptActive = false;
+            countdownValue = 6;
+            bigMessageText = `TRANSFER COUNTDOWN: ${countdownValue}`;
+            showBigMessage = true;
+            playSound('click');
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                if (gameState !== 'gameplay') {
+                    clearInterval(countdownInterval);
+                    return;
+                }
+                countdownValue--;
+                bigMessageText = `TRANSFER COUNTDOWN: ${countdownValue}`;
+                showBigMessage = true;
+                playSound('click');
+                if (countdownValue <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    bigMessageText = 'TRANSFER NOW!';
+                    showBigMessage = true;
+                    playSound('transfer');
+                    freezePhasorsAndCheck();
+                }
+            }, 1000);
+        }
+        function calculateVdiffRatio() {
+            const V_motor_mag = Math.max(0, motorFreq / SOURCE_FREQ);
+            const theta = angleSource - angleMotor; // Angle difference
+            const V_diff_mag_sq = Math.pow(SOURCE_VOLTAGE_PU, 2) + Math.pow(V_motor_mag, 2) - 2 * SOURCE_VOLTAGE_PU * V_motor_mag * Math.cos(theta);
+            const V_diff_mag = Math.sqrt(Math.max(0, V_diff_mag_sq)); // Ensure non-negative
+            const freqRatio = (motorFreq > 0) ? (motorFreq / SOURCE_FREQ) : 0;
+            const vDiffRatio = (freqRatio > 0) ? (V_diff_mag / freqRatio) : Infinity; // Avoid division by zero
+            return { vDiffRatio, motorFreq, sourceFreq: SOURCE_FREQ, vMotorMag: V_motor_mag, vDiffMag: V_diff_mag, angleDiffRad: theta };
+        }
+        function freezePhasorsAndCheck() {
+            if (gameState !== 'gameplay') return;
+            console.log("Checking Conditions for Breaker Close");
+            stopTenseMusic(); // Ensure tense music is stopped if somehow still running
+            showBigMessage = false;
+            const resultData = calculateVdiffRatio();
+            const vDiffRatio_final = resultData.vDiffRatio;
+            console.log(`Closing Check: Freq=${resultData.motorFreq.toFixed(2)}, Vm_mag=${resultData.vMotorMag.toFixed(2)}, Theta=${((resultData.angleDiffRad*180/Math.PI)%360).toFixed(1)}deg, Vdiff_mag=${resultData.vDiffMag.toFixed(2)}, VdiffRatio=${vDiffRatio_final.toFixed(2)}`);
+            phasesFrozen = true;
+            if(canvas) canvas.style.border = "4px solid #00ff00";
+            if (vDiffRatio_final > VDIFF_RATIO_FAILURE_THRESHOLD) {
+                console.log(`Transfer Failed: VdiffRatio = ${vDiffRatio_final.toFixed(2)}`);
+                playSound('failure');
+                finalGameOverReason = `FAILURE: Voltage stress too high! (Ratio: ${vDiffRatio_final.toFixed(2)} > ${VDIFF_RATIO_FAILURE_THRESHOLD.toFixed(2)})`;
+                transitionToGameOver(resultData);
+            } else {
+                console.log(`Transfer Successful: VdiffRatio = ${vDiffRatio_final.toFixed(2)}`);
+                playSound('success');
+                let baseScore = 100 * currentDay;
+                let bonusFactor = Math.max(0, (VDIFF_RATIO_FAILURE_THRESHOLD - vDiffRatio_final)) / VDIFF_RATIO_FAILURE_THRESHOLD;
+                let bonus = Math.round(bonusFactor * baseScore * 0.75);
+                const levelPoints = baseScore + bonus;
+                score += levelPoints;
+                updateScoreDisplay();
+                resultData.levelPoints = levelPoints;
+                transitionToDayComplete(resultData);
+            }
+            setTimeout(() => {
+                if(canvas) canvas.style.border = "2px solid #444";
+            }, 500);
+        }
+
+        // --- UI & Display Update Functions ---
+        function updateScoreDisplay() {
+            if (scoreDisplay) scoreDisplay.innerText = 'Score: ' + score;
+        }
+        function updateVdiffRatioDisplay(currentRatioData) {
+            if (!vhzDisplay) return;
+            const vDiffRatio_inst = currentRatioData.vDiffRatio;
+            let color = '#f00'; // Default Red (Failure)
+            if (vDiffRatio_inst < VDIFF_RATIO_GOOD_THRESHOLD) color = '#0f0'; // Green (Optimal)
+            else if (vDiffRatio_inst < VDIFF_RATIO_WARN_THRESHOLD) color = '#ff0'; // Yellow (Warning)
+            vhzDisplay.style.color = color;
+            vhzDisplay.innerText = `Vdiff/Hz: ${vDiffRatio_inst === Infinity ? 'STOPPED' : vDiffRatio_inst.toFixed(2)}`;
+        }
+        function updateMotorSlipDisplay() {
+            const slip = SOURCE_FREQ - motorFreq;
+            if (motorSlipDisplay) motorSlipDisplay.innerText = `Motor Slip: ${slip.toFixed(2)} Hz`;
+        }
+
+        // --- Main Render Loop & Drawing Functions ---
+        function gameLoop(timestamp) {
+            // Exit condition
+            if (gameState !== 'gameplay' && gameState !== 'daycomplete' && gameState !== 'gameover') {
+                console.log(`Game loop stopping. State: ${gameState}`);
+                lastTimestamp = 0;
+                return;
+            }
+
+            // Calculate deltaTime
+            if (lastTimestamp === 0) lastTimestamp = timestamp;
+            deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            deltaTime = Math.min(deltaTime, MAX_DELTA_TIME);
+
+            // Check for resize
+            if (window.innerWidth !== lastWindowWidth || window.innerHeight !== lastWindowHeight) {
+                resizeCanvas(); // Uses internal scaling factor now
+            }
+
+            if (!ctx) { console.error("Main game context not available! Stopping loop."); return; }
+
+            // Clear canvas (using internal dimensions)
+            ctx.clearRect(0, 0, CANVAS_INTERNAL_WIDTH, CANVAS_INTERNAL_HEIGHT);
+
+            // --- Update game state ---
+            let currentRatioData = { vDiffRatio: Infinity };
+            if (gameState === 'gameplay') {
+                if (!phasesFrozen) {
+                    updatePhasorAngles(deltaTime);
+                    if (dropTriggered) {
+                        motorFreq = Math.max(0, motorFreq - FREQ_DECAY_FACTOR * deltaTime);
+                        updateMotorSlipDisplay();
+                    }
+                }
+                currentRatioData = calculateVdiffRatio();
+                updateVdiffRatioDisplay(currentRatioData);
+            }
+
+            // --- Draw game elements (using internal 1200x800 coordinates) ---
+            drawPhasorDiagram(currentRatioData);
+            drawSynchroscope();
+            drawBigMessageOnCanvas();
+
+            // Request next frame
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updatePhasorAngles(dt) {
+            angleSource = (angleSource + 2 * Math.PI * (SOURCE_FREQ / SOURCE_FREQ) * dt) % (2 * Math.PI);
+            angleMotor = (angleMotor + 2 * Math.PI * (motorFreq / SOURCE_FREQ) * dt) % (2 * Math.PI);
+        }
+
+        // --- Side-by-Side Drawing Functions ---
+        function drawPhasorDiagram(currentRatioData) {
+            const center = { x: CANVAS_INTERNAL_WIDTH * 0.28, y: CANVAS_INTERNAL_HEIGHT * 0.5 };
+            const radius = Math.min(CANVAS_INTERNAL_WIDTH * 0.25, CANVAS_INTERNAL_HEIGHT * 0.4);
+            drawPhasorCircle(center, radius);
+            drawIndividualPhasors(center, radius);
+            drawPhasorLabels(center, radius);
+            drawSystemInfo(center, radius, currentRatioData);
+        }
+        function drawPhasorCircle(center, radius) {
+            ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, 2 * Math.PI); ctx.stroke();
+        }
+        function drawIndividualPhasors(center, radius) {
+            const phases = [0, 120, 240];
+            for (const phaseDeg of phases) {
+                const phaseRad = (phaseDeg * Math.PI) / 180;
+                drawSinglePhasorLine(center.x, center.y, radius, angleMotor + phaseRad, phaseDeg, true);
+                drawSinglePhasorLine(center.x, center.y, radius, angleSource + phaseRad, phaseDeg, false);
+            }
+        }
+        function drawSinglePhasorLine(cx, cy, r, angle, phaseIndex, isMotor) {
+            const colors = ['#ff4444', '#44ff44', '#6666ff']; const color = colors[phaseIndex / 120];
+            const x2 = cx + r * Math.cos(angle); const y2 = cy + r * Math.sin(angle);
+            ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color;
+            const lineWidth = isMotor ? Math.max(3, r * 0.015) : Math.max(2, r * 0.01);
+            const headRadius = isMotor ? Math.max(4, r * 0.02) : Math.max(3, r * 0.015);
+            ctx.lineWidth = lineWidth;
+            if (isMotor) { ctx.globalAlpha = 1.0; ctx.setLineDash([]); }
+            else { ctx.globalAlpha = 0.6; ctx.setLineDash([lineWidth * 2, lineWidth * 1.5]); }
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x2, y2, headRadius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        function drawPhasorLabels(center, radius) {
+            ctx.fillStyle = '#fff'; const fontSize = Math.max(12, Math.min(24, radius * 0.08));
+            ctx.font = `bold ${fontSize}px sans-serif`; ctx.textAlign = 'center'; const labelOffset = fontSize * 1.5;
+            ctx.fillText(`Motor Bus: ${motorFreq.toFixed(2)} Hz`, center.x, center.y + radius + labelOffset);
+            ctx.fillText(`Source: ${SOURCE_FREQ.toFixed(2)} Hz`, center.x, center.y - radius - labelOffset * 0.5);
+        }
+        function drawSystemInfo(center, radius, currentRatioData) {
+             const labelFontSize = Math.max(12, Math.min(24, radius * 0.08)); const labelOffset = labelFontSize * 1.5;
+             const infoStartY = center.y + radius + labelOffset + labelFontSize * 0.5;
+             const vDiffRatio = currentRatioData.vDiffRatio; const fontSize = Math.max(10, Math.min(18, radius * 0.06));
+             ctx.font = `${fontSize}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+             const ratioTextY = infoStartY + fontSize * 1.2;
+             ctx.fillText(`Vdiff/Hz: ${vDiffRatio === Infinity ? 'N/A' : vDiffRatio.toFixed(2)}`, center.x, ratioTextY);
+             const statusText = getSystemStatusText(vDiffRatio); const statusColor = getSystemStatusColor(vDiffRatio);
+             const statusY = ratioTextY + fontSize * 1.5; ctx.fillStyle = statusColor;
+             ctx.fillText(`Status: ${statusText}`, center.x, statusY);
+        }
+        function getSystemStatusText(vDiffRatio) {
+            if (!dropTriggered) return "Nominal"; if (vDiffRatio > VDIFF_RATIO_FAILURE_THRESHOLD) return "Critical";
+            if (vDiffRatio > VDIFF_RATIO_WARN_THRESHOLD) return "Warning"; if (vDiffRatio > VDIFF_RATIO_GOOD_THRESHOLD) return "Acceptable";
+            if (vDiffRatio === Infinity) return "Stopped"; return "Optimal";
+        }
+        function getSystemStatusColor(vDiffRatio) {
+            if (!dropTriggered) return "#44ff44"; if (vDiffRatio > VDIFF_RATIO_FAILURE_THRESHOLD) return "#ff4444";
+            if (vDiffRatio > VDIFF_RATIO_WARN_THRESHOLD) return "#ffcc44"; if (vDiffRatio > VDIFF_RATIO_GOOD_THRESHOLD) return "#ccff44";
+            if (vDiffRatio === Infinity) return "#888888"; return "#44ff44";
+        }
+        function drawSynchroscope() {
+            const centerX = CANVAS_INTERNAL_WIDTH * 0.72; const centerY = CANVAS_INTERNAL_HEIGHT * 0.5;
+            const phasorRadius = Math.min(CANVAS_INTERNAL_WIDTH * 0.25, CANVAS_INTERNAL_HEIGHT * 0.4);
+            const synchroRadius = phasorRadius * 0.9;
+            if (centerY + synchroRadius > CANVAS_INTERNAL_HEIGHT * 0.98 || centerY - synchroRadius < CANVAS_INTERNAL_HEIGHT * 0.02) { console.warn("Synchroscope might be drawn partially off-screen vertically."); }
+            let phaseDifferenceRad = (angleMotor - angleSource); let needleAngleRad = phaseDifferenceRad - (Math.PI / 2);
+            let displayThetaRad = Math.abs(phaseDifferenceRad % (2*Math.PI)); if (displayThetaRad > Math.PI) displayThetaRad = 2*Math.PI - displayThetaRad;
+            let displayThetaDeg = Math.round(displayThetaRad * 180 / Math.PI);
+            drawSynchroscopeBackground(centerX, centerY, synchroRadius); drawSynchroscopeMarkings(centerX, centerY, synchroRadius);
+            drawSynchroscopeNeedle(centerX, centerY, synchroRadius, needleAngleRad); drawSynchroscopeInfo(centerX, centerY, synchroRadius, displayThetaDeg);
+        }
+        function drawSynchroscopeBackground(centerX, centerY, radius) {
+            ctx.beginPath(); ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+            gradient.addColorStop(0, '#222'); gradient.addColorStop(0.8, '#111'); gradient.addColorStop(1, '#000');
+            ctx.fillStyle = gradient; ctx.fill(); ctx.beginPath(); ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.lineWidth = Math.max(2, radius * 0.03); ctx.strokeStyle = '#555'; ctx.stroke();
+        }
+        function drawSynchroscopeMarkings(centerX, centerY, radius) {
+            const baseFontSize = Math.max(8, radius * 0.10); ctx.fillStyle = '#999'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            for (let deg = 0; deg < 360; deg += 30) {
+                const angleRad = (deg - 90) * (Math.PI / 180); const innerR = radius * 0.85; const outerR = radius * 0.95;
+                const innerX = centerX + Math.cos(angleRad) * innerR; const innerY = centerY + Math.sin(angleRad) * innerR;
+                const outerX = centerX + Math.cos(angleRad) * outerR; const outerY = centerY + Math.sin(angleRad) * outerR;
+                ctx.beginPath(); ctx.moveTo(innerX, innerY); ctx.lineTo(outerX, outerY);
+                const lineWidth = (deg % 90 === 0) ? Math.max(2, radius * 0.02) : Math.max(1, radius * 0.01);
+                ctx.lineWidth = lineWidth; ctx.strokeStyle = '#aaa'; ctx.stroke();
+                if (deg % 90 === 0) {
+                    const textR = radius * 0.7; const textX = centerX + Math.cos(angleRad) * textR; const textY = centerY + Math.sin(angleRad) * textR;
+                    ctx.font = `${deg === 0 ? 'bold ' : ''}${baseFontSize}px Arial`; ctx.fillStyle = (deg === 0) ? '#fff' : '#999'; ctx.fillText(`${deg}°`, textX, textY);
+                }
+            }
+        }
+        function drawSynchroscopeNeedle(centerX, centerY, radius, needleAngleRad) {
+            const needleLength = radius * 0.8; ctx.shadowColor = '#ff6666'; ctx.shadowBlur = Math.max(5, radius * 0.05);
+            ctx.beginPath(); ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX + Math.cos(needleAngleRad) * needleLength, centerY + Math.sin(needleAngleRad) * needleLength);
+            ctx.lineWidth = Math.max(2, radius * 0.04); ctx.strokeStyle = '#ff3333'; ctx.stroke();
+            ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(centerX, centerY, radius * 0.08, 0, Math.PI * 2);
+            ctx.fillStyle = '#dd3333'; ctx.fill();
+        }
+        function drawSynchroscopeInfo(centerX, centerY, radius, displayThetaDeg) {
+            const angleFontSize = Math.max(10, radius * 0.15); const labelFontSize = Math.max(9, radius * 0.12); const statusFontSize = Math.max(8, radius * 0.10);
+            ctx.font = `bold ${angleFontSize}px Arial`; ctx.fillStyle = '#ffcc00'; ctx.textAlign = 'center'; ctx.fillText(`${displayThetaDeg}°`, centerX, centerY + radius * 0.3);
+            ctx.font = `bold ${labelFontSize}px Arial`; ctx.fillStyle = '#eee'; ctx.fillText('SYNCHROSCOPE', centerX, centerY - radius * 0.7);
+            let syncStatus = "Not Ready"; let statusColor = "#ff4444";
+            if (displayThetaDeg < 10) { syncStatus = "Ready to Sync"; statusColor = "#44ff44"; }
+            else if (displayThetaDeg < 30) { syncStatus = "Approaching Sync"; statusColor = "#ffcc44"; }
+            ctx.font = `${statusFontSize}px Arial`; ctx.fillStyle = statusColor; ctx.fillText(syncStatus, centerX, centerY + radius * 0.6);
+        }
+        function drawBigMessageOnCanvas() {
+            if (!showBigMessage || gameState !== 'gameplay') { return; }
+            const text = bigMessageText; if (!text) return;
+            const x = CANVAS_INTERNAL_WIDTH * 0.5; const y = CANVAS_INTERNAL_HEIGHT * 0.85;
+            const baseFontSize = Math.max(16, Math.min(36, CANVAS_INTERNAL_HEIGHT * 0.04)); const padding = baseFontSize * 0.4;
+            ctx.font = `bold ${baseFontSize}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            let textColor = '#ffff00'; if (text.includes("TRANSFER NOW!")) textColor = '#ff8800';
+            const textMetrics = ctx.measureText(text); const textWidth = textMetrics.width; const textHeight = baseFontSize * 1.2;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(x - textWidth / 2 - padding, y - textHeight / 2 - padding / 2, textWidth + padding * 2, textHeight + padding);
+            ctx.fillStyle = textColor; ctx.fillText(text, x, y);
+        }
+
+
+        // --- High Score Logic ---
+        function loadHighScores() {
+            let topScores = getHighScores(); let listHtml = '';
+            topScores.slice(0, 10).forEach(s => { listHtml += `<li>${s.initials} - ${s.score}</li>`; });
+            if (highScoresDiv) { const listElement = highScoresDiv.querySelector('ol'); if (listElement) listElement.innerHTML = listHtml || '<li>No scores yet!</li>'; }
+        }
+        function getHighScores() {
+            try { const data = localStorage.getItem(GAME_STORAGE_KEY); return data ? JSON.parse(data) : []; }
+            catch (e) { console.error("Error reading high scores:", e); return []; }
+        }
+        function setHighScores(arr) {
+            try { localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(arr)); }
+            catch (e) { console.error("Error saving high scores:", e); }
+        }
+        function saveHighScore(initials, newScore) {
+            let scores = getHighScores(); scores.push({ initials, score: newScore });
+            scores.sort((a, b) => b.score - a.score); scores = scores.slice(0, 100); setHighScores(scores);
+        }
+
+        // --- Intro Animation Initialization ---
+        function initIntroAnimation() {
+            console.log("Initializing Intro Animation Class..."); hideAllOverlays();
+            if (introScreen) introScreen.style.display = 'flex'; else { console.error("Intro screen element not found!"); return; }
+            if (!introCanvas) { console.error("Intro canvas element not found!"); return; }
+            try { currentIntroAnimation = new IntroAnimation(); currentIntroAnimation.startIntro(); gameState = 'intro'; }
+            catch (error) { console.error("Failed to initialize intro animation:", error); transitionToWelcome(); }
+        }
+
+        // --- Responsive Layout & UI Adjustment ---
+        function resizeCanvas() {
+            // --- Resize logic for the main game canvas ---
+            if (gameState !== 'intro' && gameContainer && gameContainer.style.display !== 'none' && canvas) {
+                const containerRect = gameContainer.getBoundingClientRect();
+                const availableWidth = containerRect.width > 0 ? containerRect.width : window.innerWidth;
+                const availableHeight = containerRect.height > 0 ? containerRect.height : window.innerHeight;
+
+                const aspectRatio = CANVAS_INTERNAL_WIDTH / CANVAS_INTERNAL_HEIGHT;
+                let newWidth, newHeight;
+
+                if (availableWidth / availableHeight > aspectRatio) {
+                    newHeight = availableHeight;
+                    newWidth = newHeight * aspectRatio;
+                } else {
+                    newWidth = availableWidth;
+                    newHeight = newWidth / aspectRatio;
+                }
+
+                canvas.style.width = `${newWidth}px`;
+                canvas.style.height = `${newHeight}px`;
+                canvas.width = CANVAS_INTERNAL_WIDTH;
+                canvas.height = CANVAS_INTERNAL_HEIGHT;
+                console.log(`Canvas resized: Display=${newWidth.toFixed(0)}x${newHeight.toFixed(0)}, Internal=${CANVAS_INTERNAL_WIDTH}x${CANVAS_INTERNAL_HEIGHT}`);
+            }
+
+            adjustUIElements(isMobileDevice());
+            lastWindowWidth = window.innerWidth;
+            lastWindowHeight = window.innerHeight;
+        }
+
+        function adjustUIElements(isMobile) {
+            if (isMobile) { document.documentElement.style.setProperty('--base-font-size', '14px'); document.documentElement.style.setProperty('--large-font-size', '18px'); }
+            else { document.documentElement.style.setProperty('--base-font-size', '12px'); document.documentElement.style.setProperty('--large-font-size', '16px'); }
+        }
+
+
+        // --- Event Listeners & Initialization ---
+        async function handleFirstInteraction() {
+            console.log("First user interaction detected.");
+            if (Tone && !audioInitialized) {
+                try {
+                    await Tone.start();
+                    audioInitialized = true;
+                    console.log("Tone.js AudioContext started successfully.");
+                    initAudio(); // Initialize synths AFTER context is started
+                    // Decide which music to start based on current state
+                    if(gameState === 'intro' && currentIntroAnimation?.introActive) {
+                        startIntroMusic();
+                    } else if (gameState === 'gameplay') {
+                        // Check if we should start tense or regular music
+                        if (dropTriggered && isTransferPromptActive) {
+                            startTenseMusic();
+                        } else {
+                            startBackgroundMusic();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to start Tone.js AudioContext:", e);
+                    soundEnabled = false;
+                    if(soundToggleBtn) soundToggleBtn.innerText = "Sound: ERR";
+                }
+            }
+            // Return a resolved promise for chaining in IntroAnimation.startIntro
+            return Promise.resolve();
+        }
+        function handleGeneralClickOrTap(e) {
+            if (e.target.closest('button, input, a')) return;
+            if (gameState === 'gameplay' && dropTriggered && isTransferPromptActive) { handleSpacebar(); }
+        }
+        function handleKeyDown(e) {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                if (gameState === 'intro' && currentIntroAnimation) { currentIntroAnimation.handleKeyPress(e); }
+                else { handleSpacebar(); }
+            }
+            if (gameState === 'highscore' && (e.code === 'Enter' || e.key === 'Enter')) { if (submitScoreBtn) submitScoreBtn.click(); }
+        }
+        function initializeGame() {
+            console.log("Initializing Game v2.29...");
+            if (!canvas || !ctx || !introCanvas) { console.error("CRITICAL ERROR: Canvas element(s) not found."); document.body.innerHTML = '<p style="color:red; padding: 20px;">Error: Required canvas elements not found.</p>'; return; }
+
+            // Setup initial event listeners for audio context
+            document.addEventListener('click', handleFirstInteraction, { once: true });
+            document.addEventListener('keydown', handleFirstInteraction, { once: true });
+            document.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
+
+            // Setup other listeners
+            document.addEventListener('click', handleGeneralClickOrTap);
+            document.addEventListener('touchstart', handleGeneralClickOrTap, { passive: true });
+            document.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('resize', resizeCanvas);
+
+            // Setup button listeners
+            if (soundToggleBtn) soundToggleBtn.addEventListener('click', toggleSound);
+            if (skipIntroBtn) skipIntroBtn.addEventListener('click', () => { playSound('click'); if (currentIntroAnimation) currentIntroAnimation.endIntro(); else transitionToWelcome(); });
+            if (startGameBtn) startGameBtn.addEventListener('click', () => { currentDay = 1; score = 0; updateScoreDisplay(); startGameplay(); playSound('click'); });
+            if (nextDayBtn) nextDayBtn.addEventListener('click', () => { startGameplay(); playSound('click'); });
+            if (restartGameBtn) restartGameBtn.addEventListener('click', () => { transitionToWelcome(); playSound('click'); });
+            if (submitScoreBtn) submitScoreBtn.addEventListener('click', () => { const initials = initialsInput.value.toUpperCase().trim().substring(0, 3) || 'AAA'; saveHighScore(initials, score); loadHighScores(); playSound('success'); transitionToWelcome(); });
+
+            hideAllOverlays(); // Stop music initially
+            loadHighScores();
+            resizeCanvas();
+
+            initIntroAnimation(); // Start the intro sequence (which will attempt to start intro music)
+            console.log("Game Initialized.");
+        }
+
+        // --- Helper Function Implementations ---
+        function formatCalculationDetails(data) {
+            const resultClass = data.levelPoints ? 'calc-success' : 'calc-failure'; const resultLabel = data.levelPoints ? 'SUCCESS' : 'FAILURE';
+            const angleDeg = (data.angleDiffRad * 180 / Math.PI); const ratioDisplay = Number.isFinite(data.vDiffRatio) ? data.vDiffRatio.toFixed(2) : 'Infinity';
+            const freqRatio = data.sourceFreq > 0 ? (data.motorFreq / data.sourceFreq) : 0;
+            return `Voltage Difference / Frequency Ratio:\n-----------------------------------------\n<span class="calc-label">Source Freq (f_src):</span> <span class="calc-value">${data.sourceFreq.toFixed(2)} Hz</span>\n<span class="calc-label">Motor Freq (f_m):</span>  <span class="calc-value">${data.motorFreq.toFixed(2)} Hz</span>\n<span class="calc-label">Frequency Ratio:</span>   <span class="calc-value">${freqRatio.toFixed(3)}</span>\n<span class="calc-label">Angle Diff (θ):</span>    <span class="calc-value">${angleDeg.toFixed(1)}°</span>\n<span class="calc-label">V_motor Mag (Vm):</span>  <span class="calc-value">${data.vMotorMag.toFixed(3)} p.u.</span> (Est. = f_m / f_src)\n<span class="calc-label">V_source Mag (Vs):</span> <span class="calc-value">${SOURCE_VOLTAGE_PU.toFixed(3)} p.u.</span>\n\n<span class="calc-formula">|V_diff| = sqrt(Vs² + Vm² - 2*Vs*Vm*cos(θ))</span>\n<span class="calc-label">|V_diff| Magnitude:</span> <span class="calc-value">${data.vDiffMag.toFixed(3)} p.u.</span>\n\n<span class="calc-formula">Ratio = |V_diff| / (f_m / f_src)</span>\nResult: <span class="${resultClass}">${resultLabel} = ${ratioDisplay}</span>`;
+        }
+        function transitionToGameOver(resultData) {
+            console.log("Transitioning to Game Over", resultData);
+            stopBackgroundMusic(); // Stop gameplay music
+            stopTenseMusic();      // Stop tense music
+            gameState = 'gameover';
+            hideAllOverlays(); // Also stops music via internal calls
+            if (gameOverScreen) {
+                if(gameOverReason) gameOverReason.innerText = finalGameOverReason || "Unknown Failure";
+                if(gameOverStats) gameOverStats.innerText = `Final Motor Freq: ${resultData.motorFreq.toFixed(2)} Hz | Final Score: ${score}`;
+                if(gameOverCalcDetails) gameOverCalcDetails.innerHTML = formatCalculationDetails({ ...resultData, success: false });
+                gameOverScreen.style.display = 'flex';
+            }
+            const highScores = getHighScores();
+            if (score > 0 && (highScores.length < 10 || score > highScores[Math.min(9, highScores.length - 1)].score)) {
+                setTimeout(() => { if (gameState === 'gameover') { hideAllOverlays(); if(scorePrompt) scorePrompt.style.display = 'flex'; if(initialsInput) initialsInput.focus(); gameState = 'highscore'; } }, 2000);
+            }
+        }
+        function transitionToDayComplete(resultData) {
+            console.log("Transitioning to Day Complete", resultData);
+            stopBackgroundMusic(); // Stop gameplay music
+            stopTenseMusic();      // Stop tense music
+            gameState = 'daycomplete';
+            hideAllOverlays(); // Also stops music via internal calls
+            if (dayCompleteScreen) {
+                const bossStageIndex = Math.min(currentDay, MAX_BOSS_STAGE) - 1;
+                if(dayCompleteBossSvgContainer && bossSvgStrings[bossStageIndex] != null) { dayCompleteBossSvgContainer.innerHTML = bossSvgStrings[bossStageIndex]; }
+                else { console.error("Could not find boss SVG container or SVG string for index:", bossStageIndex); if(dayCompleteBossSvgContainer) dayCompleteBossSvgContainer.innerHTML = ''; }
+                if(dayCompleteStats) dayCompleteStats.innerText = `Transfer Successful! Points Earned: ${resultData.levelPoints}`;
+                if(dayCompleteCalcDetails) dayCompleteCalcDetails.innerHTML = formatCalculationDetails({ ...resultData, success: true });
+                dayCompleteScreen.style.display = 'flex';
+            }
+            currentDay++;
+        }
+        function transitionToWelcome() {
+            console.log("Transitioning to Welcome");
+            stopBackgroundMusic(); // Stop any lingering music
+            stopIntroMusic();
+            stopTenseMusic();
+            gameState = 'welcome';
+            hideAllOverlays(); // Also stops music via internal calls
+            if (welcomeScreen) welcomeScreen.style.display = 'flex';
+            if (gameContainer) gameContainer.style.display = 'flex';
+            updateScoreDisplay();
+            loadHighScores();
+        }
+        function handleSpacebar() {
+            console.log("handleSpacebar called.");
+            if (gameState === 'gameplay' && dropTriggered && isTransferPromptActive) { startTransferCountdown(); }
+        }
+
+        // --- Audio Implementation Details ---
+        function initAudio() {
+            // Ensure this runs only once and after Tone.start()
+            if (!audioInitialized || Object.keys(synths).length > 0) return;
+            console.log("Initializing Tone.js Synths...");
+            try {
+                Tone.Destination.volume.value = -6; // Master volume
+
+                // Sound Effects Synths
+                synths.fx = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.2 } }).toDestination();
+                synths.noise = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.1 } }).toDestination();
+                synths.noise.volume.value = -15;
+
+                // Gameplay Music Synth & Loops
+                synths.music = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 0.5 }, filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.2, release: 0.5, baseFrequency: 200, octaves: 4 } }).toDestination();
+                synths.music.volume.value = -18;
+                const gameNotesDay1 = ["C3", "Eb3", "G3", "C4", "G3", "Eb3", "C3", "G3", "C3", "Eb3", "G3", "C4", "Bb3", "G3", "F3", "Eb3"];
+                const gameNotesDay2 = ["C3", "G3", "Eb3", "G3", "C4", "Bb3", "G3", "F3", "Eb3", "C3", "F3", "G3", "C3", "Eb3", "D3", "C3"];
+                const gameNotesDay3 = ["G3", "C4", "Eb4", "C4", "G3", "Bb3", "G3", "F3", "Eb3", "G3", "C4", "Bb3", "Ab3", "G3", "F3", "Eb3"];
+                const allGameNotes = [gameNotesDay1, gameNotesDay2, gameNotesDay3];
+                musicLoops = allGameNotes.map((notes) => {
+                    let noteIndex = 0;
+                    return new Tone.Loop(time => {
+                        if (synths.music) { // Check if synth exists
+                           synths.music.triggerAttackRelease(notes[noteIndex % notes.length], "8n", time);
+                        }
+                        noteIndex++;
+                    }, "4n");
+                });
+
+                // --- Tense Music Synth & Loop ---
+                synths.tenseMusic = new Tone.FMSynth({
+                    harmonicity: 1.5,
+                    modulationIndex: 5,
+                    detune: 0,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.2 },
+                    modulation: { type: "square" },
+                    modulationEnvelope: { attack: 0.1, decay: 0.2, sustain: 0.1, release: 0.3 }
+                }).toDestination();
+                synths.tenseMusic.volume.value = -15; // Adjust volume as needed
+                const tenseNotes = ["C#3", "D3", "C#3", "E3", "C#3", "F3", "C#3", "D3"];
+                let tenseNoteIndex = 0;
+                tenseMusicLoop = new Tone.Loop(time => {
+                    if (synths.tenseMusic) {
+                        synths.tenseMusic.triggerAttackRelease(tenseNotes[tenseNoteIndex % tenseNotes.length], "16n", time);
+                    }
+                    tenseNoteIndex++;
+                }, "8n"); // Faster loop for tension
+
+                // Intro Music Synths & Loop
+                synths.introMusic = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'pwm', modulationFrequency: 0.2 }, envelope: { attack: 0.3, decay: 0.2, sustain: 0.7, release: 1.2 } }).toDestination();
+                synths.introMusic.volume.value = -12;
+                synths.introBass = new Tone.MonoSynth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.08, decay: 0.3, sustain: 0.5, release: 0.8 }, filterEnvelope: { attack: 0.05, decay: 0.5, sustain: 0.3, release: 1, baseFrequency: 80, octaves: 2 } }).toDestination();
+                synths.introBass.volume.value = -14;
+                synths.introPad = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 1.5, decay: 0.5, sustain: 0.8, release: 3 } }).toDestination();
+                synths.introPad.volume.value = -20;
+
+                const introPhase1 = { melody: ["C3", "G3", "Eb3", "G3"], bass: ["C2", null, "G2", null], pad: ["C2", null, null, null], duration: "2n" };
+                const introPhase2 = { melody: ["C3", "G3", "Eb3", "G3", "Bb3", "G3", "C4", "G3"], bass: ["C2", null, "G2", null, "Eb2", null, "G2", null], pad: ["C2", null, "G2", null], duration: "2n" };
+                const introPhase3 = { melody: ["C3", "G3", "Eb3", "G3", "C4", "G3", "Eb3", "G3", "Bb3", "F3", "D3", "F3", "Ab3", "Eb3", "C3", "G3"], bass: ["C2", null, "G2", null, "F2", null, "G2", null, "Bb2", null, "F2", null, "Ab2", null, "G2", null], pad: ["C2", null, "F2", null, "Bb2", null, "Ab2", null], duration: "4n" };
+                const introPhases = [introPhase1, introPhase2, introPhase3];
+                let currentPhase = 0;
+                let phasePosition = 0;
+                let totalCycles = 0;
+
+                introMusicLoop = new Tone.Loop(time => {
+                    const phase = introPhases[currentPhase];
+                    if (phase.melody[phasePosition] !== null && synths.introMusic) {
+                        synths.introMusic.triggerAttackRelease(phase.melody[phasePosition], phase.duration, time);
+                    }
+                    if (phase.bass[phasePosition] !== null && synths.introBass) {
+                        synths.introBass.triggerAttackRelease(phase.bass[phasePosition], phase.duration, time);
+                    }
+                    if (phase.pad[phasePosition] !== null && synths.introPad) {
+                        synths.introPad.triggerAttackRelease(phase.pad[phasePosition], "1m", time);
+                    }
+                    phasePosition = (phasePosition + 1) % phase.melody.length;
+                    if (phasePosition === 0) {
+                        totalCycles++;
+                        if (totalCycles % 2 === 0 && currentPhase < introPhases.length - 1) {
+                            currentPhase++;
+                            console.log(`Advancing to intro music phase ${currentPhase + 1}`);
+                        }
+                    }
+                }, "4n");
+
+                console.log("Tone.js Synths and Loops created.");
+            } catch (e) {
+                console.error("Failed to initialize Tone.js Synths:", e);
+                soundEnabled = false;
+                if(soundToggleBtn) soundToggleBtn.innerText = "Sound: ERR";
+            }
+        }
+        function playSound(type) {
+            if (!soundEnabled || !audioInitialized || !Tone || !synths) return;
+            try {
+                const now = Tone.now();
+                switch (type) {
+                    case 'drop':
+                        synths.noise?.triggerAttackRelease("16n", now);
+                        synths.fx?.triggerAttackRelease("A2", "8n", now, 0.7);
+                        break;
+                    case 'transfer':
+                        synths.fx?.triggerAttackRelease("G4", "16n", now, 0.8);
+                        break;
+                    case 'success':
+                        synths.fx?.triggerAttackRelease("C5", "8n", now, 0.6);
+                        synths.fx?.triggerAttackRelease("E5", "8n", now + 0.15, 0.7);
+                        synths.fx?.triggerAttackRelease("G5", "8n", now + 0.3, 0.8);
+                        break;
+                    case 'failure':
+                        synths.fx?.triggerAttackRelease("G#2", "4n", now, 0.9);
+                        synths.fx?.triggerAttackRelease("D2", "4n", now + 0.1, 0.8);
+                        break;
+                    case 'click':
+                        synths.noise?.triggerAttackRelease("64n", now);
+                        break;
+                    default:
+                        console.warn("Unknown sound type:", type);
+                }
+            } catch(e) {
+                console.error("Error playing sound:", type, e);
+            }
+        }
+        function startBackgroundMusic() {
+            if (!soundEnabled || !audioInitialized || !Tone || !Tone.Transport || musicLoops.length === 0) return;
+            stopIntroMusic(); // Ensure other loops are stopped
+            stopTenseMusic();
+            if (currentMusicLoop && currentMusicLoop.state === 'started') {
+                return; // Already playing
+            }
+            const loopIndex = (currentDay - 1) % musicLoops.length;
+            currentMusicLoop = musicLoops[loopIndex];
+            if (currentMusicLoop && currentMusicLoop.state !== 'started') {
+                try {
+                    if (Tone.Transport.state !== 'started') Tone.Transport.start();
+                    currentMusicLoop.start(0);
+                    console.log(`Gameplay music started (Day ${currentDay} theme - Loop ${loopIndex + 1}).`);
+                } catch(e) {
+                    console.error("Error starting gameplay music:", e);
+                }
+            }
+        }
+        function stopBackgroundMusic() {
+            if (!audioInitialized || !Tone || !Tone.Transport) return;
+            if (currentMusicLoop && currentMusicLoop.state === 'started') {
+                try {
+                    currentMusicLoop.stop(0);
+                    console.log("Gameplay music stopped.");
+                } catch(e) {
+                    console.error("Error stopping gameplay music:", e);
+                }
+            }
+            currentMusicLoop = null; // Clear the current loop reference
+            // Stop transport only if no other loops are running
+            if (introMusicLoop?.state !== 'started' && tenseMusicLoop?.state !== 'started' && Tone.Transport.state === 'started') {
+                 try { Tone.Transport.stop(); } catch(e) {}
+            }
+        }
+        function startIntroMusic() {
+            if (!soundEnabled || !audioInitialized || !Tone || !Tone.Transport || !introMusicLoop || introMusicLoop.state === 'started') return;
+            stopBackgroundMusic(); // Ensure other loops are stopped
+            stopTenseMusic();
+            try {
+                if (Tone.Transport.state !== 'started') Tone.Transport.start();
+                introMusicLoop.start(0);
+                console.log("Intro music started.");
+            } catch(e) {
+                console.error("Error starting intro music:", e);
+            }
+        }
+        function stopIntroMusic() {
+            if (!audioInitialized || !Tone || !Tone.Transport || !introMusicLoop || introMusicLoop.state !== 'started') return;
+            try {
+                introMusicLoop.stop(0);
+                console.log("Intro music stopped.");
+                 // Stop transport only if no other loops are running
+                if (currentMusicLoop?.state !== 'started' && tenseMusicLoop?.state !== 'started' && Tone.Transport.state === 'started') {
+                    try { Tone.Transport.stop(); } catch(e) {}
+                }
+            } catch(e) {
+                console.error("Error stopping intro music:", e);
+            }
+        }
+        // --- NEW Tense Music Functions ---
+        function startTenseMusic() {
+            if (!soundEnabled || !audioInitialized || !Tone || !Tone.Transport || !tenseMusicLoop || tenseMusicLoop.state === 'started') return;
+            stopBackgroundMusic(); // Ensure other loops are stopped
+            stopIntroMusic();
+            try {
+                if (Tone.Transport.state !== 'started') Tone.Transport.start();
+                tenseMusicLoop.start(0);
+                console.log("Tense music started.");
+            } catch(e) {
+                console.error("Error starting tense music:", e);
+            }
+        }
+        function stopTenseMusic() {
+            if (!audioInitialized || !Tone || !Tone.Transport || !tenseMusicLoop || tenseMusicLoop.state !== 'started') return;
+            try {
+                tenseMusicLoop.stop(0);
+                console.log("Tense music stopped.");
+                // Stop transport only if no other loops are running
+                if (currentMusicLoop?.state !== 'started' && introMusicLoop?.state !== 'started' && Tone.Transport.state === 'started') {
+                    try { Tone.Transport.stop(); } catch(e) {}
+                }
+            } catch(e) {
+                console.error("Error stopping tense music:", e);
+            }
+        }
+        // --- Updated Toggle Sound ---
+        function toggleSound() {
+             soundEnabled = !soundEnabled;
+             if (soundToggleBtn) { soundToggleBtn.innerText = `Sound: ${soundEnabled ? 'ON' : 'OFF'}`; }
+             if (!soundEnabled) {
+                 // Stop all music loops
+                 stopBackgroundMusic();
+                 stopIntroMusic();
+                 stopTenseMusic();
+                 // Mute master output
+                 if (Tone && Tone.Destination) {
+                    Tone.Destination.mute = true;
+                 }
+             } else {
+                 // Unmute master output
+                 if (Tone && Tone.Destination) {
+                    Tone.Destination.mute = false;
+                 }
+                 // Try to start audio context if not already started
+                 handleFirstInteraction().then(() => {
+                    // Restart appropriate music based on current game state
+                    if (gameState === 'gameplay') {
+                        // Check if we are in the tense waiting phase
+                        if (dropTriggered && isTransferPromptActive) {
+                            startTenseMusic();
+                        } else if (!isTransferPromptActive) { // Only start regular if not waiting
+                           startBackgroundMusic();
+                        }
+                    } else if (gameState === 'intro' && currentIntroAnimation?.introActive) {
+                        startIntroMusic();
+                    }
+                 });
+             }
+             console.log("Sound Enabled:", soundEnabled);
+         }
+
+
+        // --- Start the game ---
+        document.addEventListener('DOMContentLoaded', () => {
+            try { window.defaultPerformanceMode = localStorage.getItem('mbt_performanceMode') === 'true'; }
+            catch(e) { window.defaultPerformanceMode = false; }
+            initializeGame(); // Initialize all game components
+        });
+
+    </script>
+    
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

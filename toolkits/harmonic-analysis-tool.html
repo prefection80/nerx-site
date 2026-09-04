@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Interactive Harmonic Analysis Tool (Added Header)</title> <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* --- Base Styles --- */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            /* Add padding-top to prevent content from hiding behind fixed header */
+            /* Adjust value based on final header height */
+            padding-top: 60px;
+            background-color: #f4f4f4;
+        }
+        /* --- NEW: Title Block Styles --- */
+        .title-block {
+            text-align: center;
+            font-size: 14px; /* Adjusted size slightly */
+            padding: 10px;
+            background-color: #eee;
+            border-bottom: 1px solid #ccc;
+            line-height: 1.5; /* Adjusted line height */
+            position: fixed; /* Fix to top */
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000; /* Ensure it's on top */
+        }
+        .title-block a {
+            color: #0056b3; /* Link color */
+            text-decoration: none;
+        }
+        .title-block a:hover {
+            text-decoration: underline;
+        }
+        .title-block span { /* Add spacing between items */
+            margin: 0 8px;
+        }
+        
+        /* Back to Main Menu Button */
+        .back-to-menu {
+            position: fixed;
+            top: 10px;
+            right: 15px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1001; /* Higher than title-block */
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .back-to-menu:hover {
+            background-color: #003d82;
+        }
+
+        /* --- Container & Columns --- */
+        .container { max-width: 1800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; }
+        .column { padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff; display: flex; flex-direction: column; }
+        h2, h3 { color: #333; margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; text-align: center; }
+        h3 { margin-top: 15px; font-size: 1.1em;}
+        button { padding: 6px 12px; margin-right: 5px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #e7e7e7; }
+        button:hover { background-color: #ddd; }
+        button:active { background-color: #ccc; }
+
+        /* --- Parameter Sliders --- */
+        .param-slider-group { margin-bottom: 15px; }
+        .param-slider-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .param-slider-group .slider-wrapper { display: flex; align-items: center; gap: 10px; }
+        .param-slider-group input[type="range"] { flex-grow: 1; cursor: pointer; height: 6px; background: #ccc; border-radius: 3px; -webkit-appearance: none; appearance: none; }
+        .param-slider-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: #555; border-radius: 50%; cursor: pointer; }
+        .param-slider-group .value-display { font-weight: bold; min-width: 50px; text-align: right; background-color: #eee; padding: 3px 6px; border-radius: 3px; font-size: 0.9em; }
+
+        /* --- Harmonic Sliders --- */
+        #vfd-controls { max-height: 350px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; margin-top: 15px; background: #f9f9f9; }
+        .control-row { display: flex; align-items: center; margin-bottom: 4px; padding: 4px; border-radius: 3px; }
+        .control-header { font-weight: bold; background: #e0e0e0; padding: 5px 4px; margin-bottom: 6px; display: flex; align-items: center; position: sticky; top: 0; z-index: 1; }
+        .control-label { width: 40px; font-weight: bold; margin-right: 10px; text-align: right; flex-shrink: 0; }
+        .slider-label { width: 100px; text-align: center; margin-right: 4px; font-size: 0.9em; color: #333; flex-shrink: 0; }
+        .slider-container { display: flex; align-items: center; flex-grow: 1; }
+        .value-span { display: inline-block; width: 45px; text-align: right; margin-left: 5px; margin-right: 15px; font-size: 0.9em; background-color: #eee; padding: 2px 4px; border-radius: 3px; }
+        input[type="range"].value-slider { -webkit-appearance: none; appearance: none; height: 6px; background: #ccc; border-radius: 3px; outline: none; margin: 0 5px; padding: 0; cursor: pointer; flex-grow: 1; min-width: 80px; }
+        input[type="range"].value-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: #666; border-radius: 50%; border: 1px solid #333; margin-top: -4px; cursor: pointer; }
+
+        /* --- Animation Controls --- */
+        #animation-controls { margin-top: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        #animation-controls label { display: flex; align-items: center; gap: 5px; }
+        #speedSlider { width: 150px; height: 6px; cursor: pointer; }
+
+        /* --- Canvas --- */
+        canvas { border: 1px solid #aaa; margin-top: 10px; margin-bottom: 10px; display: block; max-width: 100%; background: #fff; }
+        .canvas-container { text-align: center; margin-bottom: 20px; }
+        #systemDiagramCanvas { border: 1px solid #ccc; background-color: #fafafa; max-width: 100%; }
+
+        /* --- Outputs --- */
+        #outputs span { font-weight: bold; color: #0056b3; }
+        #outputs .fixed-param { font-size: 0.9em; color: #555; margin-left: 10px; }
+        #fixed-params-display p { margin: 5px 0; }
+        #fixed-params-display strong { display: block; margin-bottom: 3px; }
+
+        /* --- Explanation Text --- */
+        #explanation-text { grid-column: 1 / -1; margin-top: 30px; padding: 20px; background-color: #e9f5ff; border: 1px solid #b3d7ff; border-radius: 5px; font-size: 0.95em; line-height: 1.6; }
+        #explanation-text h2 { margin-top: 0; color: #0056b3; border-bottom: 1px solid #99c7ff; }
+    </style>
+</head>
+<body>
+
+<div class="title-block">
+    Plant harmonics leaving the facility through resonance by Doug Millner
+    <span>-</span> Company: <a href="http://www.nerxpower.com" target="_blank">www.nerxpower.com</a>
+    <span>-</span> Email: <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>
+    <span>-</span> Blog: <a href="YOUR_LINKEDIN_PROFILE_URL" target="_blank">Doug Millner P.E. | LinkedIn</a>
+    <a href="index.html" class="back-to-menu">Back to Main Menu</a>
+</div>
+
+<div class="container">
+
+    <div class="column" id="col-params">
+        <h2>System Parameters</h2>
+        <div class="param-slider-group">
+            <label for="x_thevenin">Thevenin Reactance X_th (Ω@f_base, HV): <span class="value-display" id="x_thevenin_val">0.50</span></label>
+            <div class="slider-wrapper"><input type="range" id="x_thevenin" min="0" max="100" value="50"></div>
+        </div>
+        <div class="param-slider-group">
+            <label for="c_high">High-Side Capacitance C_high (µF): <span class="value-display" id="c_high_val">10</span></label>
+             <div class="slider-wrapper"><input type="range" id="c_high" min="0" max="100" value="50"></div>
+        </div>
+        <div id="fixed-params-display" style="margin-top: 20px; font-size: 0.9em; color: #333;">
+            <p><strong>Fixed Parameters:</strong></p>
+            <p>Base Frequency: <span id="fixed_f_base">60</span> Hz</p>
+            <p>Transformer Ratio (n): <span id="fixed_turns_ratio">10</span></p>
+            <p>Nominal VFD Base Current (for %): <span id="fixed_i_fund">100</span> A</p>
+            <p>Load Resistance (R_load): <span id="fixed_r_load">2.0</span> Ω</p>
+            <p>Transformer Z: 12% @ 100 MVA, 138 kV</p>
+            <p style="padding-left: 10px;"> R_tx (LV): <span id="fixed_r_tx">0.0152</span> Ω</p>
+            <p style="padding-left: 10px;"> X_tx (LV @ f_base): <span id="fixed_x_tx">0.228</span> Ω</p>
+        </div>
+    </div>
+
+    <div class="column" id="col-vfd">
+        <h2>VFD Harmonic Current Injection</h2>
+         <div id="animation-controls">
+             <label>Speed:
+                 <input id="speedSlider" type="range" min="0" max="0.1" step="0.001" value="0.01" />
+             </label>
+             <button id="pauseBtn">Pause</button>
+         </div>
+        <div id="vfd-controls">
+            <div class="control-row control-header">
+                 <div class="control-label">Harmonic</div>
+                 <div class="slider-label">Magnitude (%)</div>
+                 <div class="slider-label">Angle (deg)</div>
+            </div>
+            </div>
+    </div>
+
+     <div class="column" id="col-diagram">
+        <h2>System Diagram</h2>
+        <canvas id="systemDiagramCanvas" width="450" height="280"></canvas>
+         <h3>Outputs</h3>
+         <div id="outputs">
+            <p>V_bus THD: <span id="thd_vbus">---</span> % <span class="fixed-param">(ref. V_bus Fund.)</span></p>
+            <p>V_high THD: <span id="thd_vhigh">---</span> % <span class="fixed-param">(ref. V_high Fund.)</span></p>
+         </div>
+    </div>
+
+    <div class="column" id="col-plots-vfd">
+        <div class="canvas-container">
+             <h3>VFD Injected Current (Phasor)</h3>
+             <canvas id="phasorCanvasVfd" width="300" height="250"></canvas>
+        </div>
+         <div class="canvas-container">
+             <h3>VFD Injected Current (Waveform)</h3>
+             <canvas id="oscCanvasVfd" width="300" height="150"></canvas>
+         </div>
+    </div>
+    <div class="column" id="col-plots-vbus">
+         <div class="canvas-container">
+             <h3>Load Bus Voltage (Phasor)</h3>
+             <canvas id="phasorCanvasVbus" width="300" height="250"></canvas>
+         </div>
+         <div class="canvas-container">
+             <h3>Load Bus Voltage (Waveform)</h3>
+             <canvas id="oscCanvasVbus" width="300" height="150"></canvas>
+         </div>
+    </div>
+    <div class="column" id="col-plots-vhigh">
+         <div class="canvas-container">
+             <h3>High-Side Voltage (Phasor)</h3>
+             <canvas id="phasorCanvasVhigh" width="300" height="250"></canvas>
+         </div>
+         <div class="canvas-container">
+             <h3>High-Side Voltage (Waveform)</h3>
+             <canvas id="oscCanvasVhigh" width="300" height="150"></canvas>
+         </div>
+    </div>
+    <div class="column" id="col-plots-ichigh">
+         <div class="canvas-container">
+             <h3>High-Side Cap Current (Phasor)</h3>
+             <canvas id="phasorCanvasIchigh" width="300" height="250"></canvas>
+         </div>
+         <div class="canvas-container">
+             <h3>High-Side Cap Current (Waveform)</h3>
+             <canvas id="oscCanvasIchigh" width="300" height="150"></canvas>
+         </div>
+    </div>
+
+    <div id="explanation-text">
+        <h2>Drawing in your neighbor's harmonics? How does sizing and tuning a capacitor bank go wrong? - The Toolkit.</h2>
+        <p>I thought this was interesting but I think that it isn't something that is thought about that often because usually it is not considered and it luckily isn't an issue. Often in plants, you have harmonic current sources, namely Variable Frequency Drives (VFD), which create a lot of harmonics in the plant. The power quality in a plant can be pretty bad but bad to a plant is only if it causes problems. A lot of loads inside of a plant like a motor are pretty tolerant to harmonic content. The VFDs inject harmonic current into the plant, which either has to go through a load, into a capacitor bank, or a ground source if it is a triplen harmonic, which acts like zero sequence. If the paths for these currents are relatively low impedance, the harmonic voltage generated will be low. The amount of harmonic voltage at each component will relate to the various path impedances to that frequency component. Capacitors used for power factor correction or as a harmonic filter, tend to draw in harmonics as their impedance decreases linearly with the frequency. 1/(wC) = Xc. If the harmonic component is triple the fundamental, it will have a third of the impedance. On the other side of the coin, your series reactance impedance will be wL = Xl and will scale up with the frequency. Your big impedance component will be the reactance of the step-up transformer, which usually does a good job at containing harmonic current inside of a plant that generated it. Good for other people connected to the grid but bad for the plant because high impedance paths for the harmonic currents lead to higher harmonic voltages or dirty power. (V = I*R). Only odd harmonics are usually available due to even harmonics being asymmetrical or quasi-dc and often a sign of an inverter only rectifying half a phase.</p>
+        <p>Now, this isn't always the case. Under certain conditions, a plant's harmonic content can make its way through the step-up transformer and into the grid or a neighboring facility. Impedance paths have resonances when the impedances for the series capacitance equals that of the series reactance, Xc = Xl. At this point, the only impedance is the resistance of the path as we don't use superconductors for power transformers (there are a few exceptions). This can lead to situations where by a customer putting in a shunt capacitor bank could tune this path to the harmonic content that is being generated by his neighbor. This would allow the harmonic current to flow through the step-up transformer, which is normally great at blocking harmonics, and flow through the grid to the capacitor bank, heating the capacitor bank with this harmonic current and potentially making the voltage dirty with harmonics. Your neighbor would love you for accepting his harmonic problems but it serves nothing for you.</p>
+    </div>
+
+</div>
+
+<script>
+    // --- Complex Number Helpers ---
+    class Complex { /* ... Same as before ... */
+        constructor(re = 0, im = 0) { this.re = re; this.im = im; }
+        add(other) { return new Complex(this.re + other.re, this.im + other.im); }
+        sub(other) { return new Complex(this.re - other.re, this.im - other.im); }
+        mul(other) { if (typeof other === 'number') { return new Complex(this.re * other, this.im * other); } return new Complex(this.re * other.re - this.im * other.im, this.re * other.im + this.im * other.re); }
+        div(other) { if (typeof other === 'number') { if (other === 0) return new Complex(Infinity, Infinity); return new Complex(this.re / other, this.im / other); } const denom = other.re * other.re + other.im * other.im; if (denom === 0) return new Complex(Infinity, Infinity); return new Complex((this.re * other.re + this.im * other.im) / denom, (this.im * other.re - this.re * other.im) / denom); }
+        inv() { const denom = this.re * this.re + this.im * this.im; if (denom === 0) return new Complex(Infinity, Infinity); return new Complex(this.re / denom, -this.im / denom); }
+        mag() { return Math.sqrt(this.re * this.re + this.im * this.im); }
+        ang() { return Math.atan2(this.im, this.re); }
+        static fromPolar(mag, angRad) { return new Complex(mag * Math.cos(angRad), mag * Math.sin(angRad)); }
+     }
+
+    // --- Global Variables & Constants ---
+    const TWO_PI = 2 * Math.PI;
+    const HARMONICS_TO_CONTROL = Array.from({length: (33 - 5) / 2 + 1}, (_, i) => 5 + i * 2);
+    const Z_ZERO = new Complex(1e-9, 0); const Z_INF = new Complex(1e9, 0);
+    const distinctColors = ["#e6194b","#3cb44b","#ffe119","#0082c8","#f58231","#911eb4","#46f0f0","#f032e6","#d2f53c","#fabebe","#008080","#e6beff","#aa6e28","#800000","#aaffc3","#808000","#ffd8b1","#000080","#808080","#fffac8", "#bdbdbd", "#ff7f0e", "#1f77b4", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
+
+    // Fixed Parameters
+    const F_BASE = 60.0; const N_TRANSFORMER = 10.0; const I_FUND_BASE = 100.0;
+    const R_LOAD_FIXED = 2.0;
+    const R_TX_FIXED = 0.0152; const X_TX_BASE_FIXED = 0.228;
+
+    // Logarithmic Slider Ranges
+    const C_HIGH_MIN = 0.01;    const C_HIGH_MAX = 500.0;
+    const X_THEVENIN_MIN = 0.01;  const X_THEVENIN_MAX = 10.0;
+
+    // Animation State
+    let currentTime = 0; let speedFactor = 0.01; let isPaused = false; let animationFrameId = null;
+
+    // Parameter Storage
+    const currentParams = {};
+
+    // Phasor Storage
+    let iVfdPhasors = {}; let vBusPhasors = {}; let vHighPhasors = {}; let iChighPhasors = {};
+
+    // DOM Elements
+    const paramSliders = {}; const paramDisplays = {};
+    const vfdControls = {}; const canvases = {}; const outputSpans = {};
+    let speedSlider = null; let pauseBtn = null;
+
+    // --- Logarithmic Mapping Function ---
+    function sliderToValueLog(sliderVal, sliderMin, sliderMax, paramMin, paramMax) { /* ... Same as before ... */
+        if (paramMin <= 0 || paramMax <= 0) return paramMin;
+        const alpha = (sliderVal - sliderMin) / (sliderMax - sliderMin);
+        const clampedAlpha = Math.max(0, Math.min(1, alpha));
+        return paramMin * Math.pow(paramMax / paramMin, clampedAlpha);
+     }
+
+     // --- Formatting Helper ---
+     function formatValue(value, precision = 1) { /* ... Same as before ... */
+         if (value < 0.1 && value > 0) return value.toPrecision(2);
+         if (value < 10) return value.toFixed(precision + 1);
+         if (value < 100) return value.toFixed(precision);
+         return value.toFixed(0);
+     }
+
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Get DOM Elements
+        canvases.phasorVfd = document.getElementById('phasorCanvasVfd');
+        canvases.phasorVbus = document.getElementById('phasorCanvasVbus');
+        canvases.phasorVhigh = document.getElementById('phasorCanvasVhigh');
+        canvases.phasorIchigh = document.getElementById('phasorCanvasIchigh');
+        canvases.oscVfd = document.getElementById('oscCanvasVfd');
+        canvases.oscVbus = document.getElementById('oscCanvasVbus');
+        canvases.oscVhigh = document.getElementById('oscCanvasVhigh');
+        canvases.oscIchigh = document.getElementById('oscCanvasIchigh');
+        canvases.diagram = document.getElementById('systemDiagramCanvas');
+        outputSpans.thdVbus = document.getElementById('thd_vbus');
+        outputSpans.thdVhigh = document.getElementById('thd_vhigh');
+        speedSlider = document.getElementById('speedSlider');
+        pauseBtn = document.getElementById('pauseBtn');
+
+        // Display Fixed Parameters
+        document.getElementById('fixed_f_base').textContent = F_BASE;
+        document.getElementById('fixed_turns_ratio').textContent = N_TRANSFORMER;
+        document.getElementById('fixed_i_fund').textContent = I_FUND_BASE;
+        document.getElementById('fixed_r_load').textContent = R_LOAD_FIXED.toFixed(1);
+        document.getElementById('fixed_r_tx').textContent = R_TX_FIXED.toFixed(4);
+        document.getElementById('fixed_x_tx').textContent = X_TX_BASE_FIXED.toFixed(4);
+
+
+        // Parameter Sliders Setup
+        const linearParamIds = [];
+        const logParamIds = ['x_thevenin', 'c_high'];
+
+        // Setup for all sliders
+        [...linearParamIds, ...logParamIds].forEach(id => {
+            paramSliders[id] = document.getElementById(id);
+            paramDisplays[id] = document.getElementById(`${id}_val`);
+            const isLog = logParamIds.includes(id);
+            let updateFunction;
+            if (isLog) {
+                let paramMin, paramMax;
+                if (id === 'x_thevenin') { paramMin = X_THEVENIN_MIN; paramMax = X_THEVENIN_MAX; }
+                else if (id === 'c_high') { paramMin = C_HIGH_MIN; paramMax = C_HIGH_MAX; }
+                updateFunction = (event) => {
+                    const slider = event.target; const sliderVal = parseFloat(slider.value);
+                    const sliderMin = parseFloat(slider.min); const sliderMax = parseFloat(slider.max);
+                    const logValue = sliderToValueLog(sliderVal, sliderMin, sliderMax, paramMin, paramMax);
+                    currentParams[id] = logValue;
+                    let displayValue;
+                    if (id === 'x_thevenin') displayValue = formatValue(logValue, 2);
+                    else if (id === 'c_high') displayValue = formatValue(logValue, (logValue < 1) ? 2 : 1);
+                    else displayValue = formatValue(logValue);
+                    paramDisplays[id].textContent = displayValue;
+                    runAnalysis();
+                };
+                const initialSliderValue = parseFloat(paramSliders[id].value);
+                const initialLogValue = sliderToValueLog(initialSliderValue, parseFloat(paramSliders[id].min), parseFloat(paramSliders[id].max), paramMin, paramMax);
+                currentParams[id] = initialLogValue;
+                let initialDisplayValue;
+                 if (id === 'x_thevenin') initialDisplayValue = formatValue(initialLogValue, 2);
+                 else if (id === 'c_high') initialDisplayValue = formatValue(initialLogValue, (initialLogValue < 1) ? 2 : 1);
+                 else initialDisplayValue = formatValue(initialLogValue);
+                paramDisplays[id].textContent = initialDisplayValue;
+            }
+            paramSliders[id].addEventListener('input', updateFunction);
+        });
+
+
+        // Animation Control Listeners
+        speedSlider.addEventListener('input', (e) => { speedFactor = parseFloat(e.target.value); });
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused; pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+            if (!isPaused && !animationFrameId) { startAnimation(); }
+            else if (isPaused && animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+        });
+
+        // Create VFD Harmonic Sliders
+        const controlsDiv = document.getElementById('vfd-controls');
+        HARMONICS_TO_CONTROL.forEach((h, index) => { /* ... Same as before ... */
+             const color = distinctColors[index % distinctColors.length];
+            const rowDiv = document.createElement("div"); rowDiv.className = "control-row"; rowDiv.dataset.harmonic = h; rowDiv.style.backgroundColor = `${color}20`;
+            const lbl = document.createElement("div"); lbl.className = "control-label"; lbl.textContent = `H${h}`; rowDiv.appendChild(lbl);
+            const magContainer = document.createElement("div"); magContainer.className = "slider-container"; const magSlider = document.createElement("input"); magSlider.type = "range"; magSlider.min = "0"; magSlider.max = "50"; magSlider.step = "0.1"; magSlider.value = "0"; magSlider.classList.add("value-slider"); magSlider.style.setProperty("accent-color", color); const magSpan = document.createElement("span"); magSpan.className = "value-span"; magSpan.textContent = "0.0"; magContainer.appendChild(magSlider); magContainer.appendChild(magSpan); rowDiv.appendChild(magContainer);
+            const angContainer = document.createElement("div"); angContainer.className = "slider-container"; const angSlider = document.createElement("input"); angSlider.type = "range"; angSlider.min = "-180"; angSlider.max = "180"; angSlider.step = "1"; angSlider.value = "0"; angSlider.classList.add("value-slider"); angSlider.style.setProperty("accent-color", color); const angSpan = document.createElement("span"); angSpan.className = "value-span"; angSpan.textContent = "0"; angContainer.appendChild(angSlider); angContainer.appendChild(angSpan); rowDiv.appendChild(angContainer);
+            controlsDiv.appendChild(rowDiv);
+            vfdControls[h] = { magSlider, magSpan, angSlider, angSpan };
+            magSlider.addEventListener("input", () => { magSpan.textContent = parseFloat(magSlider.value).toFixed(1); runAnalysis(); });
+            angSlider.addEventListener("input", () => { angSpan.textContent = angSlider.value; runAnalysis(); });
+        });
+
+        // Initial Setup
+        speedFactor = parseFloat(speedSlider.value);
+        drawSystemDiagram();
+        runAnalysis(); // Calculates phasors and triggers initial redrawAllPlots
+        startAnimation();    // Start the animation loop
+    });
+
+     // --- Animation Loop ---
+     function startAnimation() { if (!animationFrameId) { animate(); } }
+     function animate() {
+         if (!isPaused) {
+             currentTime += 1;
+             // Redraw ALL plots in the animation loop
+             redrawAllPlots(currentTime, speedFactor);
+         }
+         // Request next frame only if not paused
+         if (!isPaused) {
+            animationFrameId = requestAnimationFrame(animate);
+         } else {
+             animationFrameId = null;
+         }
+     }
+
+    // --- Redraw All Plots Helper ---
+    function redrawAllPlots(time, speed) {
+        const timeToDraw = isPaused ? 0 : time;
+        const speedToDraw = isPaused ? 0 : speed;
+        // Draw Phasors
+        drawPhasorDiagram(canvases.phasorVfd, iVfdPhasors, "I_vfd (Harmonics)", timeToDraw, speedToDraw);
+        drawPhasorDiagram(canvases.phasorVbus, vBusPhasors, "V_bus (Harmonics)", timeToDraw, speedToDraw);
+        drawPhasorDiagram(canvases.phasorVhigh, vHighPhasors, "V_high (Harmonics)", timeToDraw, speedToDraw);
+        drawPhasorDiagram(canvases.phasorIchigh, iChighPhasors, "I_Chigh (Harmonics)", timeToDraw, speedToDraw);
+        // Draw Oscillography plots (now also using time/speed for animation)
+        drawOscillography(canvases.oscVfd, iVfdPhasors, "I_vfd", timeToDraw, speedToDraw);
+        drawOscillography(canvases.oscVbus, vBusPhasors, "V_bus", timeToDraw, speedToDraw);
+        drawOscillography(canvases.oscVhigh, vHighPhasors, "V_high", timeToDraw, speedToDraw);
+        drawOscillography(canvases.oscIchigh, iChighPhasors, "I_Chigh", timeToDraw, speedToDraw);
+    }
+
+
+    // --- Main Analysis Function ---
+    function runAnalysis() { /* ... Calculation logic remains the same ... */
+        const f_base = F_BASE; const n = N_TRANSFORMER; const i_fund_nominal = I_FUND_BASE;
+        const R_tx = R_TX_FIXED; const X_tx_base = X_TX_BASE_FIXED;
+        const R_load = R_LOAD_FIXED;
+        const X_thevenin_base = currentParams.x_thevenin;
+        const C_high_uF = currentParams.c_high;
+        if (n === 0 || f_base <= 0 || i_fund_nominal <= 0) { console.error("Invalid fixed parameters."); return; }
+        const w_base = TWO_PI * f_base;
+        iVfdPhasors = {}; vBusPhasors = {}; vHighPhasors = {}; iChighPhasors = {};
+        const harmonicsToAnalyze = [1, ...HARMONICS_TO_CONTROL];
+        harmonicsToAnalyze.forEach(h => {
+            const w_h = w_base * h;
+            const Z_Rload = new Complex(R_load, 0);
+            const Z_Tx_lv = new Complex(R_tx, h * X_tx_base);
+            const Z_Xthevenin_hv = new Complex(0, h * X_thevenin_base);
+            const Z_Chigh_hv = (C_high_uF > 1e-9) ? new Complex(0, -1 / (w_h * C_high_uF * 1e-6)) : Z_INF;
+            const Z_Shunt_hv = Z_Xthevenin_hv.inv().add(Z_Chigh_hv.inv()).inv();
+            const Z_Shunt_lv = Z_Shunt_hv.div(n * n);
+            const Z_Upstream_lv = Z_Tx_lv.add(Z_Shunt_lv);
+            let I_h_vfd = new Complex(0, 0);
+            if (h > 1 && vfdControls[h]) { const magPercent = parseFloat(vfdControls[h].magSlider.value); const angleDeg = parseFloat(vfdControls[h].angSlider.value); const mag = (magPercent / 100) * i_fund_nominal; const angleRad = angleDeg * (Math.PI / 180); I_h_vfd = Complex.fromPolar(mag, angleRad); }
+            iVfdPhasors[h] = I_h_vfd;
+            const Y_Rload_inv = Z_Rload.inv(); const Y_Upstream_inv = Z_Upstream_lv.inv(); const Y_Total_bus = Y_Rload_inv.add(Y_Upstream_inv); const Z_Total_bus = Y_Total_bus.inv(); const V_h_bus = I_h_vfd.mul(Z_Total_bus); vBusPhasors[h] = V_h_bus;
+            const I_h_tx = V_h_bus.div(Z_Upstream_lv); const V_ideal_lv = I_h_tx.mul(Z_Shunt_lv); const V_h_high = V_ideal_lv.mul(n); vHighPhasors[h] = V_h_high;
+            const I_h_Chigh = V_h_high.div(Z_Chigh_hv); iChighPhasors[h] = I_h_Chigh;
+        });
+        const nominal_Vbus_fund_mag = 480 / Math.sqrt(3); vBusPhasors[1] = new Complex(nominal_Vbus_fund_mag, 0); const nominal_Vhigh_fund_mag = nominal_Vbus_fund_mag * n; vHighPhasors[1] = new Complex(nominal_Vhigh_fund_mag, 0); const Z_Chigh_hv_fund = (C_high_uF > 1e-9) ? new Complex(0, -1 / (w_base * C_high_uF * 1e-6)) : Z_INF; iChighPhasors[1] = vHighPhasors[1].div(Z_Chigh_hv_fund);
+        outputSpans.thdVbus.textContent = calculateTHD(vBusPhasors).toFixed(2); outputSpans.thdVhigh.textContent = calculateTHD(vHighPhasors).toFixed(2);
+
+        // Trigger redraw of all plots after analysis completes
+        redrawAllPlots(currentTime, speedFactor);
+     }
+
+    // --- THD Calculation ---
+    function calculateTHD(phasorDict) { /* ... Same as before ... */
+         const fundamentalMag = phasorDict[1] ? phasorDict[1].mag() : 0;
+         if (fundamentalMag < 1e-9) return 0;
+         let harmonicMagSqSum = 0;
+         Object.keys(phasorDict).forEach(hStr => { const h = parseInt(hStr); if (h > 1 && phasorDict[h]) { harmonicMagSqSum += Math.pow(phasorDict[h].mag(), 2); } });
+         return (Math.sqrt(harmonicMagSqSum) / fundamentalMag) * 100;
+     }
+
+    // --- Phasor Drawing Function (Draws h > 1 only) ---
+    function drawPhasorDiagram(canvas, basePhasorDict, label, time, speed) { /* ... Same as before ... */
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height; ctx.clearRect(0, 0, w, h);
+        let maxPossibleMag = 0; Object.keys(basePhasorDict).forEach(hStr => { const h = parseInt(hStr); if (h > 1 && basePhasorDict[h]) { maxPossibleMag += basePhasorDict[h].mag(); } });
+        if (maxPossibleMag < 1e-9) maxPossibleMag = 1.0;
+        const scale = (maxPossibleMag > 1e-6) ? (Math.min(w, h) * 0.4) / maxPossibleMag : (Math.min(w, h) * 0.4);
+        const cx = w / 2; const cy = h / 2;
+        ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+        ctx.fillStyle = "#888"; ctx.font = "10px Arial"; ctx.fillText("Re →", w - 30, cy - 5); ctx.fillText("Im ↑", cx + 5, 15);
+        let currentX = cx; let currentY = cy;
+        const sortedHarmonics = Object.keys(basePhasorDict).map(Number).sort((a, b) => a - b);
+        sortedHarmonics.forEach(h => {
+            if (h === 1) return;
+            const basePhasor = basePhasorDict[h]; if (!basePhasor || basePhasor.mag() < 1e-9) return;
+            const baseAngleRad = basePhasor.ang(); const magnitude = basePhasor.mag();
+            const timeAngleOffset = (h === 1 ? 0 : h) * time * speed * 0.01 * TWO_PI; const rotatedAngleRad = baseAngleRad + timeAngleOffset; // Apply rotation for drawing
+            const dx = magnitude * Math.cos(rotatedAngleRad) * scale; const dy = -magnitude * Math.sin(rotatedAngleRad) * scale;
+            const nextX = currentX + dx; const nextY = currentY + dy;
+            ctx.beginPath(); ctx.moveTo(currentX, currentY); ctx.lineTo(nextX, nextY);
+            let colorIdx = HARMONICS_TO_CONTROL.indexOf(h);
+            if (colorIdx !== -1) { ctx.strokeStyle = distinctColors[colorIdx % distinctColors.length]; ctx.lineWidth = 2; } else { ctx.strokeStyle = "#aaaaaa"; ctx.lineWidth = 1; }
+            ctx.stroke();
+            const segmentAngle = Math.atan2(nextY - currentY, nextX - currentX);
+            if (magnitude * scale > 5) { ctx.beginPath(); ctx.moveTo(nextX, nextY); ctx.lineTo(nextX - 6 * Math.cos(segmentAngle - Math.PI / 6), nextY - 6 * Math.sin(segmentAngle - Math.PI / 6)); ctx.moveTo(nextX, nextY); ctx.lineTo(nextX - 6 * Math.cos(segmentAngle + Math.PI / 6), nextY - 6 * Math.sin(segmentAngle + Math.PI / 6)); ctx.stroke(); }
+            currentX = nextX; currentY = nextY;
+        });
+        const drawnHarmonics = sortedHarmonics.filter(h => h > 1);
+        if (drawnHarmonics.length > 0) {
+             const lastH = drawnHarmonics[drawnHarmonics.length - 1]; let colorIdx = HARMONICS_TO_CONTROL.indexOf(lastH);
+             if (colorIdx !== -1) { ctx.fillStyle = distinctColors[colorIdx % distinctColors.length]; } else { ctx.fillStyle = "#aaaaaa"; }
+             ctx.beginPath(); ctx.arc(currentX, currentY, 3, 0, TWO_PI); ctx.fill();
+         }
+        ctx.fillStyle = "#000"; ctx.font = "bold 12px Arial"; ctx.textAlign = "center"; ctx.fillText(label, w / 2, 15);
+     }
+
+     // --- Oscillography Drawing Function (Animated) ---
+     function drawOscillography(canvas, basePhasorDict, label, time, speed, numCycles = 4) { // Added time, speed
+         if (!canvas) return;
+         const ctx = canvas.getContext('2d');
+         const w = canvas.width;
+         const h = canvas.height;
+         ctx.clearRect(0, 0, w, h);
+         ctx.strokeStyle = "#333";
+         ctx.lineWidth = 1.5;
+
+         const numPoints = w;
+         const timeEnd = numCycles / F_BASE;
+         const dt = timeEnd / (numPoints - 1);
+         const waveValues = new Float32Array(numPoints);
+
+         let minValue = Infinity;
+         let maxValue = -Infinity;
+
+         // Calculate the time offset based on the current animation frame and speed
+         // Use a scaling factor (e.g., 0.001) to control scroll speed relative to phasor rotation
+         const timeOffset = (time * speed * 0.0015); // Adjusted factor for visual sync
+
+         // Calculate waveform values and find min/max
+         for (let i = 0; i < numPoints; i++) {
+             const t_axis = i * dt; // Time relative to the start of the plot window (0 to timeEnd)
+             // Calculate effective time by adding the offset and taking modulo T_fundamental
+             // This creates a scrolling effect
+             const t_effective = (t_axis + timeOffset) % (1.0 / F_BASE);
+
+             let value = 0;
+             Object.keys(basePhasorDict).forEach(hStr => {
+                 const h = parseInt(hStr);
+                 if (h > 1 && basePhasorDict[h]) {
+                     const phasor = basePhasorDict[h];
+                     // Use t_effective in the cosine argument
+                     value += phasor.mag() * Math.cos(TWO_PI * h * F_BASE * t_effective + phasor.ang());
+                 }
+             });
+             waveValues[i] = value;
+             if (value < minValue) minValue = value;
+             if (value > maxValue) maxValue = value;
+         }
+
+         // Determine Y-axis scale
+         if (minValue === Infinity || minValue === maxValue) { minValue = -1; maxValue = 1;}
+         const range = maxValue - minValue;
+         const plotMinY = minValue - range * 0.1;
+         const plotMaxY = maxValue + range * 0.1;
+         const plotRangeY = plotMaxY - plotMinY;
+         const scaleY = (plotRangeY > 1e-9) ? h / plotRangeY : h;
+
+         // Draw Axes
+         ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1;
+         if (plotMinY < 0 && plotMaxY > 0) { const zeroY = h - (0 - plotMinY) * scaleY; ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke(); }
+         ctx.beginPath(); ctx.moveTo(0, h-1); ctx.lineTo(w, h-1); ctx.stroke();
+
+         // Draw Waveform
+         ctx.strokeStyle = "#0056b3"; ctx.lineWidth = 1.5;
+         ctx.beginPath();
+         for (let i = 0; i < numPoints; i++) {
+             const x = i;
+             const y = h - (waveValues[i] - plotMinY) * scaleY;
+             if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+         }
+         ctx.stroke();
+
+         // Add Labels
+         ctx.fillStyle = "#555"; ctx.font = "10px Arial"; ctx.textAlign = "left";
+         ctx.fillText(`${formatValue(maxValue)}`, 5, 12);
+         ctx.fillText(`${formatValue(minValue)}`, 5, h - 5);
+         ctx.textAlign = "right";
+         ctx.fillText(`${(timeEnd * 1000).toFixed(1)} ms`, w - 5, h - 5);
+     }
+
+
+    // --- System Diagram Drawing Function ---
+    function drawSystemDiagram() {
+        const canvas = canvases.diagram; if (!canvas) return;
+        const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
+        ctx.clearRect(0, 0, w, h); ctx.strokeStyle = "#333"; ctx.fillStyle = "#333"; ctx.lineWidth = 1.5; ctx.font = "10px Arial"; ctx.textAlign = "center";
+        
+        // Layout constants
+        const y_main_line = h * 0.5; // Main horizontal line
+        const y_gnd = h * 0.95; // Ground level
+        const x_margin = w * 0.05;
+        const comp_width = w * 0.06;
+        const cap_width = w * 0.03;
+        const cap_gap = 6;
+        
+        // Component positions
+        const cap_x = x_margin + w * 0.2; // Capacitor position
+        const reactance_x = cap_x + w * 0.15; // Reactance position
+        const bus_x = reactance_x + w * 0.15; // Bus position
+        const bus_width = w * 0.25;
+        const bus_end_x = bus_x + bus_width;
+        const rload_x = bus_x + bus_width * 0.25; // Load position
+        const vfd_x = bus_x + bus_width * 0.75; // VFD position
+        
+        // Drawing helper functions
+        const drawLine = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+        const drawInductor = (x, y, wd, loops = 3) => { const r = wd / (2 * loops); ctx.beginPath(); ctx.moveTo(x, y); for (let i = 0; i < loops; i++) { ctx.arc(x + r + i * 2 * r, y, r, Math.PI, 0); } ctx.lineTo(x + wd, y); ctx.stroke(); };
+        const drawCapacitor = (x, y, gap, len) => { ctx.beginPath(); ctx.moveTo(x, y - gap / 2 - 10); ctx.lineTo(x, y - gap / 2); ctx.moveTo(x - len / 2, y - gap / 2); ctx.lineTo(x + len / 2, y - gap / 2); ctx.moveTo(x - len / 2, y + gap / 2); ctx.lineTo(x + len / 2, y + gap / 2); ctx.moveTo(x, y + gap / 2); ctx.lineTo(x, y + gap / 2 + 10); ctx.stroke(); return y + gap / 2 + 10; };
+        const drawGround = (x, y, wd) => { drawLine(x, y, x, y + 8); drawLine(x - wd / 2, y + 8, x + wd / 2, y + 8); drawLine(x - wd / 3, y + 11, x + wd / 3, y + 11); drawLine(x - wd / 6, y + 14, x + wd / 6, y + 14); };
+        const drawCurrentSource = (x, y, rad) => { ctx.beginPath(); ctx.arc(x, y, rad, 0, TWO_PI); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y + rad * 0.6); ctx.lineTo(x, y - rad * 0.6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y - rad * 0.6); ctx.lineTo(x - rad * 0.3, y - rad * 0.2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y - rad * 0.6); ctx.lineTo(x + rad * 0.3, y - rad * 0.2); ctx.stroke(); };
+        const drawResistor = (x, y, wd, ht) => { const s = wd / 6; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y); ctx.lineTo(x + s * 1.5, y - ht / 2); ctx.lineTo(x + s * 2.5, y + ht / 2); ctx.lineTo(x + s * 3.5, y - ht / 2); ctx.lineTo(x + s * 4.5, y + ht / 2); ctx.lineTo(x + s * 5, y); ctx.lineTo(x + wd, y); ctx.stroke(); };
+        
+        // Draw main line from left to the capacitor
+        drawLine(x_margin, y_main_line, cap_x, y_main_line);
+        
+        // Draw shunt capacitor
+        drawLine(cap_x, y_main_line, cap_x, y_main_line + 15);
+        const cHighEndY = drawCapacitor(cap_x, y_main_line + 15 + cap_gap/2, cap_gap, cap_width);
+        drawLine(cap_x, cHighEndY, cap_x, y_gnd);
+        drawGround(cap_x, y_gnd, 15);
+        ctx.fillText("C_high", cap_x + cap_width + 5, y_main_line + 25);
+        
+        // Draw main line from capacitor to reactance
+        drawLine(cap_x, y_main_line, reactance_x, y_main_line);
+        
+        // Draw series reactance
+        drawInductor(reactance_x, y_main_line, comp_width);
+        ctx.fillText("X_series", reactance_x + comp_width/2, y_main_line - 8);
+        
+        // Draw line from reactance to bus
+        drawLine(reactance_x + comp_width, y_main_line, bus_x, y_main_line);
+        
+        // Draw bus
+        ctx.lineWidth = 2.0;
+        drawLine(bus_x, y_main_line, bus_end_x, y_main_line);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(bus_x, y_main_line, 4, 0, TWO_PI);
+        ctx.fill();
+        ctx.fillText("Bus", bus_x + bus_width*0.5, y_main_line - 10);
+        
+        // Draw resistive load
+        drawLine(rload_x, y_main_line, rload_x, y_main_line + 15);
+        drawResistor(rload_x, y_main_line + 15, comp_width, 8);
+        drawLine(rload_x, y_main_line + 15 + 8, rload_x, y_gnd);
+        drawGround(rload_x, y_gnd, 15);
+        ctx.fillText("R_load", rload_x + comp_width*0.5 + 5, y_main_line + 25);
+        
+        // Draw VFD current source
+        drawLine(vfd_x, y_main_line, vfd_x, y_main_line + 15);
+        drawCurrentSource(vfd_x, y_main_line + 15 + 10, 10);
+        drawLine(vfd_x, y_main_line + 15 + 20, vfd_x, y_gnd);
+        drawGround(vfd_x, y_gnd, 15);
+        ctx.fillText("VFD", vfd_x + 18, y_main_line + 28);
+        ctx.fillText("(I_h)", vfd_x + 18, y_main_line + 40);
+    }
+
+</script>
+
+<!-- Include ticker.js file -->
+<script src="ticker.js"></script>
+</body>
+</html>

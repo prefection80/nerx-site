@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Relay Tester: Distance & Overcurrent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+    
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            padding-top: 60px; /* Space for header */
+            padding-bottom: 50px; /* Space for ticker */
+        }
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            min-height: 300px;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        #controls-pane::-webkit-scrollbar {
+            width: 8px; height: 8px;
+        }
+        #controls-pane::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        #controls-pane::-webkit-scrollbar-thumb {
+            background: #4b5563; border-radius: 4px;
+        }
+        #controls-pane::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        .mode-button.active {
+            background-color: #0e7490;
+            color: white;
+        }
+        .equation-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1em;
+            background-color: #111827;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            color: #93c5fd;
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .equation-text {
+                font-size: 0.9em;
+                padding: 0.375rem;
+            }
+            
+            .controls-pane {
+                max-height: 40vh !important;
+                min-height: 300px !important;
+            }
+            
+            .canvas-container {
+                min-height: 200px !important;
+                max-height: 40vh !important;
+            }
+            
+            /* Make buttons more touch-friendly */
+            .mode-button {
+                min-height: 44px;
+                padding: 0.75rem 1rem;
+            }
+            
+            /* Improve input field touch targets */
+            input, select, button {
+                min-height: 44px;
+            }
+            
+            /* Adjust modal for mobile */
+            #limits-modal .bg-gray-800 {
+                margin: 1rem;
+                max-width: calc(100vw - 2rem);
+            }
+            
+            /* Ensure main content uses available space properly */
+            .main-content {
+                height: calc(100vh - 120px);
+                display: flex;
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            /* Stack controls vertically on very small screens */
+            .controls-pane .grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Reduce padding on small screens */
+            .controls-pane {
+                padding: 0.75rem;
+                max-height: 45vh !important;
+                min-height: 320px !important;
+            }
+            
+            .canvas-container {
+                min-height: 180px !important;
+                max-height: 35vh !important;
+            }
+            
+            .bg-gray-700 {
+                padding: 0.75rem;
+            }
+            
+            /* Make text smaller on very small screens */
+            .equation-text {
+                font-size: 0.8em;
+            }
+            
+            /* Adjust top mode selector for mobile */
+            .bg-gray-800.p-2 {
+                padding: 0.75rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .mode-button {
+                flex: 1;
+                min-width: 120px;
+            }
+            
+            /* Adjust body padding for mobile header */
+            body {
+                padding-top: 120px; /* Reduced space for mobile header */
+                padding-bottom: 50px; /* Space for ticker */
+            }
+            
+            /* Ensure main content uses available space properly */
+            .main-content {
+                height: calc(100vh - 170px);
+                display: flex;
+                flex-direction: column;
+            }
+        }
+
+        /* Mobile header improvements - override header.js styles for better mobile layout */
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column !important;
+                padding: 8px 15px !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 1000 !important;
+                height: auto !important;
+                min-height: 110px !important;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2) !important;
+            }
+            
+            .header-left {
+                width: 100% !important;
+                margin: 3px 0 !important;
+                text-align: center !important;
+                flex: none !important;
+            }
+            
+            .header-container h1 {
+                font-size: 11px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                margin: 0 !important;
+                word-wrap: break-word !important;
+            }
+            
+            .toolkit-title {
+                position: relative !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 8px 0 !important;
+                font-size: 16px !important;
+                text-align: center !important;
+                left: auto !important;
+                right: auto !important;
+                flex: none !important;
+            }
+            
+            .header-right {
+                position: relative !important;
+                right: auto !important;
+                top: auto !important;
+                transform: none !important;
+                margin: 5px 0 !important;
+                width: 100% !important;
+                justify-content: center !important;
+                flex: none !important;
+            }
+            
+            #backToMenu {
+                padding: 8px 16px !important;
+                font-size: 13px !important;
+                margin: 0 auto !important;
+                display: block !important;
+                text-align: center !important;
+                width: auto !important;
+                max-width: 200px !important;
+            }
+
+            /* Adjust body padding for taller mobile header */
+            body {
+                padding-top: 130px !important;
+            }
+        }
+
+        /* Additional styles to ensure proper spacing with header and ticker */
+        .header-container + * {
+            margin-top: 0 !important;
+        }
+        
+        /* Ensure ticker doesn't interfere with scrollable content */
+        .controls-pane {
+            margin-bottom: 0;
+            max-height: 50vh;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Top Level Mode Selector -->
+    <div class="bg-gray-800 p-2 flex justify-center gap-4 shadow-lg">
+        <button id="mode-distance" class="mode-button px-6 py-2 rounded-lg font-semibold transition">Distance (21)</button>
+        <button id="mode-overcurrent" class="mode-button px-6 py-2 rounded-lg font-semibold transition">Overcurrent (50/51)</button>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div id="distance-view" class="main-content">
+        <div id="canvas-container-distance" class="canvas-container flex-grow relative">
+            <canvas id="rx-diagram"></canvas>
+            <div class="absolute top-2 left-2 bg-gray-900 bg-opacity-70 p-2 rounded-lg text-xs text-gray-400">
+                <p>Scroll/Pinch to Zoom | Drag/Pan to Move</p>
+            </div>
+        </div>
+        <div id="controls-pane-distance" class="controls-pane bg-gray-800 p-4 border-t-2 border-cyan-500 overflow-y-auto">
+            <div class="w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div id="settings-distance"></div>
+                <div id="equations-distance"></div>
+                <div id="properties-distance"></div>
+                <div id="livetest-distance"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="overcurrent-view" class="main-content hidden">
+         <div id="canvas-container-overcurrent" class="canvas-container flex-grow relative">
+            <canvas id="tcc-diagram"></canvas>
+             <div class="absolute top-2 left-2 bg-gray-900 bg-opacity-70 p-2 rounded-lg text-xs text-gray-400">
+                <p>Scroll/Pinch to Zoom | Drag/Pan to Move</p>
+            </div>
+        </div>
+        <div id="controls-pane-overcurrent" class="controls-pane bg-gray-800 p-4 border-t-2 border-amber-500 overflow-y-auto">
+             <div class="w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div id="settings-overcurrent"></div>
+                <div id="equations-overcurrent"></div>
+                <div id="livetest-overcurrent"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Test Set Limits Modal -->
+    <div id="limits-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-sm border-t-2 border-cyan-500">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-white">Test Set Limits</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="max-voltage" class="block text-sm font-medium text-gray-300 mb-1">Max Voltage (V)</label>
+                    <input type="number" id="max-voltage" value="150" class="w-full bg-gray-900 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                </div>
+                 <div>
+                    <label for="max-current" class="block text-sm font-medium text-gray-300 mb-1">Max Current (A)</label>
+                    <input type="number" id="max-current" value="30" class="w-full bg-gray-900 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="mt-6">
+                 <button id="save-limits-btn" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    Save and Close
+                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disclaimer Modal -->
+    <div id="disclaimer-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl border-t-2 border-cyan-500 max-h-[90vh] overflow-y-auto">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-white mb-2">Property of NERX Power Consultants LLC</h2>
+                <div class="w-16 h-1 bg-cyan-500 mx-auto"></div>
+            </div>
+            
+            <div class="space-y-4 text-gray-300 text-sm leading-relaxed">
+                <p class="font-semibold text-white">
+                    This program and its underlying source code are the sole and exclusive property of NERX Power Consultants LLC. All rights are reserved.
+                </p>
+                
+                <p>
+                    This material is protected by copyright law. No part of this code may be copied, reproduced, distributed, or modified in any form or by any means without the prior written permission of NERX Power Consultants LLC.
+                </p>
+                
+                <div class="border-t border-gray-600 pt-4">
+                    <h3 class="text-lg font-semibold text-white mb-2">Disclaimer</h3>
+                    <p>
+                        This code was developed as an educational tool for training purposes only. While every effort has been made to ensure its accuracy, NERX Power Consultants LLC makes no warranty, express or implied, as to the accuracy, reliability, or completeness of the information provided. The user assumes all risks and responsibilities for any use of this program.
+                    </p>
+                </div>
+                
+                <div class="border-t border-gray-600 pt-4">
+                    <h3 class="text-lg font-semibold text-white mb-2">Contact & Support</h3>
+                    <p>
+                        For any questions, to report issues, or to inquire about training and engineering services, please contact:<br>
+                        <a href="mailto:douglas.millner@nerxpower.com" class="text-cyan-400 hover:text-cyan-300 underline">douglas.millner@nerxpower.com</a>
+                    </p>
+                </div>
+                
+                <div class="border-t border-gray-600 pt-4">
+                    <p class="text-center">
+                        If you find this tool helpful, please consider making a donation of any amount. Your support is greatly appreciated as it helps cover the costs of development (and food, housing, and beer). Nice things only exist in this world when they are supported.
+                    </p>
+                    <div class="text-center mt-3">
+                        <a href="https://www.paypal.com/donate/?business=douglas.millner@nerxpower.com" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                            Donation Link
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <button id="disclaimer-ok-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-200 text-lg">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- COMMON SETUP AND INITIALIZATION ---
+        window.onload = () => {
+            // Handle disclaimer modal
+            const disclaimerModal = document.getElementById('disclaimer-modal');
+            const disclaimerOkBtn = document.getElementById('disclaimer-ok-btn');
+            
+            disclaimerOkBtn.addEventListener('click', () => {
+                disclaimerModal.classList.add('hidden');
+            });
+            
+            const distanceApp = new DistanceRelayApp();
+            const overcurrentApp = new OvercurrentRelayApp();
+            
+            const modeDistanceBtn = document.getElementById('mode-distance');
+            const modeOvercurrentBtn = document.getElementById('mode-overcurrent');
+            const distanceView = document.getElementById('distance-view');
+            const overcurrentView = document.getElementById('overcurrent-view');
+
+            function switchMode(mode) {
+                if (mode === 'distance') {
+                    modeDistanceBtn.classList.add('active');
+                    modeOvercurrentBtn.classList.remove('active');
+                    distanceView.classList.remove('hidden');
+                    overcurrentView.classList.add('hidden');
+                    distanceApp.handleResize();
+                } else {
+                    modeOvercurrentBtn.classList.add('active');
+                    modeDistanceBtn.classList.remove('active');
+                    overcurrentView.classList.remove('hidden');
+                    distanceView.classList.add('hidden');
+                    overcurrentApp.handleResize();
+                }
+            }
+
+            modeDistanceBtn.addEventListener('click', () => switchMode('distance'));
+            modeOvercurrentBtn.addEventListener('click', () => switchMode('overcurrent'));
+
+            // Initialize default mode
+            switchMode('distance');
+        };
+
+
+        // --- OVERCURRENT RELAY APPLICATION (50/51) ---
+        class OvercurrentRelayApp {
+            constructor() {
+                this.populateControls();
+
+                // DOM Elements - get them after controls are populated
+                setTimeout(() => {
+                    this.pickupInput = document.getElementById('oc-pickup');
+                    this.timeDialInput = document.getElementById('oc-timedial');
+                    this.timeDialLabel = document.getElementById('oc-timedial-label');
+                    this.curveSelect = document.getElementById('oc-curve');
+                    this.autoscaleBtn = document.getElementById('oc-autoscale');
+                    this.equationDiv = document.getElementById('equations-overcurrent-content');
+                    this.liveTestDiv = document.getElementById('livetest-overcurrent-content');
+                    this.customIeeeDiv = document.getElementById('custom-ieee-constants');
+                    this.customIecDiv = document.getElementById('custom-iec-constants');
+                    this.customA = document.getElementById('oc-custom-a');
+                    this.customB = document.getElementById('oc-custom-b');
+                    this.customP = document.getElementById('oc-custom-p');
+                    this.customK = document.getElementById('oc-custom-k');
+                    this.customAlpha = document.getElementById('oc-custom-alpha');
+                    
+                    // Initialize after DOM elements are available
+                    this.setup();
+                }, 0);
+
+                this.canvas = document.getElementById('tcc-diagram');
+                this.canvasContainer = document.getElementById('canvas-container-overcurrent');
+                this.ctx = this.canvas.getContext('2d');
+
+
+                // State
+                this.viewTransform = { scaleX: 20, scaleY: 50, panX: 0, panY: 0 };
+                this.isPanning = false;
+                this.lastPanPosition = { x: 0, y: 0 };
+                this.customCurveType = 'IEEE';
+                this.cursorPosition = null; // Store cursor position for mobile dot indicator
+                this.autoUpdateTimer = null; // Timer for automatic red dot updates
+                this.currentOperatingPoint = { currentMultiple: 2.0, time: 1.0 }; // Default operating point
+
+                this.curves = {
+                    'IEEE Moderately Inverse': { type: 'IEEE', A: 0.0515, B: 0.1140, P: 0.02 },
+                    'IEEE Very Inverse':       { type: 'IEEE', A: 19.61,  B: 0.491,  P: 2.0 },
+                    'IEEE Extremely Inverse':  { type: 'IEEE', A: 28.2,   B: 0.1217, P: 2.0 },
+                    'IEC Standard Inverse (SI)':  { type: 'IEC', K: 0.14,  alpha: 0.02 },
+                    'IEC Very Inverse (VI)':      { type: 'IEC', K: 13.5,  alpha: 1.0 },
+                    'IEC Extremely Inverse (EI)': { type: 'IEC', K: 80.0,  alpha: 2.0 },
+                    'IEC Long-Time Inverse (LTI)':{ type: 'IEC', K: 120,   alpha: 1.0 }
+                };
+                
+                this.addEventListeners();
+                // Removed startAutoUpdate() call - red dot should only move with user interaction
+            }
+
+            populateControls() {
+                document.getElementById('settings-overcurrent').innerHTML = `
+                    <div class="bg-gray-700 p-4 rounded-xl">
+                        <h2 class="text-xl font-semibold mb-3">Settings (50/51)</h2>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <label for="oc-pickup" class="text-gray-300 font-medium">Pickup (I>)</label>
+                                <div class="flex items-center w-2/3"><input type="number" id="oc-pickup" value="1.0" step="0.1" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"><span class="ml-2 text-gray-400">A</span></div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label id="oc-timedial-label" for="oc-timedial" class="text-gray-300 font-medium">Time Dial (TD)</label>
+                                <div class="flex items-center w-2/3"><input type="number" id="oc-timedial" value="0.5" step="0.1" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"></div>
+                            </div>
+                             <div class="flex items-center justify-between">
+                                <label for="oc-curve" class="text-gray-300 font-medium">Curve</label>
+                                <select id="oc-curve" class="w-2/3 bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"></select>
+                            </div>
+                        </div>
+                         <div class="mt-4 pt-4 border-t border-gray-600">
+                            <h3 class="text-lg font-semibold mb-2 text-center">Custom Constants</h3>
+                            <div id="custom-ieee-constants" class="space-y-2">
+                                <div class="flex items-center justify-between text-sm"><label for="oc-custom-a">A:</label><input type="number" id="oc-custom-a" class="w-2/3 bg-gray-800 border-gray-500 border rounded px-2 py-0.5 custom-const"></div>
+                                <div class="flex items-center justify-between text-sm"><label for="oc-custom-b">B:</label><input type="number" id="oc-custom-b" class="w-2/3 bg-gray-800 border-gray-500 border rounded px-2 py-0.5 custom-const"></div>
+                                <div class="flex items-center justify-between text-sm"><label for="oc-custom-p">P:</label><input type="number" id="oc-custom-p" class="w-2/3 bg-gray-800 border-gray-500 border rounded px-2 py-0.5 custom-const"></div>
+                            </div>
+                            <div id="custom-iec-constants" class="space-y-2 hidden">
+                                <div class="flex items-center justify-between text-sm"><label for="oc-custom-k">K:</label><input type="number" id="oc-custom-k" class="w-2/3 bg-gray-800 border-gray-500 border rounded px-2 py-0.5 custom-const"></div>
+                                <div class="flex items-center justify-between text-sm"><label for="oc-custom-alpha">&alpha;:</label><input type="number" id="oc-custom-alpha" class="w-2/3 bg-gray-800 border-gray-500 border rounded px-2 py-0.5 custom-const"></div>
+                            </div>
+                         </div>
+                    </div>`;
+                document.getElementById('equations-overcurrent').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl"><h2 class="text-xl font-semibold mb-3">Governing Equation</h2><div id="equations-overcurrent-content" class="space-y-2 text-sm text-center text-gray-300 h-full flex flex-col justify-center"></div></div>`;
+                document.getElementById('livetest-overcurrent').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl flex flex-col"><h2 class="text-xl font-semibold mb-3">Live Test Point</h2><div id="livetest-overcurrent-content" class="space-y-1 text-sm font-mono bg-gray-900 p-3 rounded-lg flex-grow"><p>Move mouse over plot...</p></div><button id="oc-autoscale" class="mt-3 w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Autoscale View</button></div>`;
+            }
+
+            setup() {
+                const curveSelect = document.getElementById('oc-curve');
+                const ieeeGroup = document.createElement('optgroup');
+                ieeeGroup.label = 'IEEE C37.112-1996';
+                const iecGroup = document.createElement('optgroup');
+                iecGroup.label = 'IEC 60255-151';
+
+                for (const key in this.curves) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key.replace(/^(IEEE|IEC)\s/, '');
+                    if (this.curves[key].type === 'IEEE') {
+                        ieeeGroup.appendChild(option);
+                    } else {
+                        iecGroup.appendChild(option);
+                    }
+                }
+                curveSelect.appendChild(ieeeGroup);
+                curveSelect.appendChild(iecGroup);
+                curveSelect.value = 'IEEE Moderately Inverse';
+
+                this.isInitialized = true;
+                this.updateForSelectedCurve();
+                this.handleResize();
+            }
+
+            addEventListeners() {
+                // Wait for DOM elements to be created before adding listeners
+                setTimeout(() => {
+                    [this.pickupInput, this.timeDialInput].forEach(el => {
+                        if (el) el.addEventListener('change', () => this.autoscaleView());
+                    });
+                    
+                    if (this.curveSelect) this.curveSelect.addEventListener('change', () => this.updateForSelectedCurve());
+
+                    document.querySelectorAll('.custom-const').forEach(el => {
+                        el.addEventListener('input', () => this.switchToCustomCurve());
+                    });
+                    
+                    // Get the autoscale button after DOM is populated
+                    const autoscaleBtn = document.getElementById('oc-autoscale');
+                    if (autoscaleBtn) autoscaleBtn.addEventListener('click', () => this.autoscaleView());
+                }, 0);
+                
+                // Mouse events
+                this.canvas.addEventListener('mousedown', e => { this.isPanning = true; this.lastPanPosition = {x: e.clientX, y: e.clientY}; this.canvas.style.cursor = 'grabbing'; });
+                window.addEventListener('mouseup', () => { this.isPanning = false; this.canvas.style.cursor = 'grab'; });
+                window.addEventListener('mousemove', e => this.handleMouseMove(e));
+                this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.handleZoom(e); });
+                
+                // Touch events for mobile
+                this.canvas.addEventListener('touchstart', e => this.handleTouchStart(e));
+                this.canvas.addEventListener('touchmove', e => this.handleTouchMove(e));
+                this.canvas.addEventListener('touchend', e => this.handleTouchEnd(e));
+            }
+
+            switchToCustomCurve() {
+                let customOption = this.curveSelect.querySelector('option[value="Custom"]');
+                if (!customOption) {
+                    customOption = document.createElement('option');
+                    customOption.value = "Custom";
+                    customOption.textContent = "Custom";
+                    this.curveSelect.appendChild(customOption);
+                }
+                this.curveSelect.value = "Custom";
+                this.updateEquation();
+                this.autoscaleView();
+            }
+            
+            updateForSelectedCurve() {
+                const selectedValue = this.curveSelect.value;
+                if(selectedValue === 'Custom') {
+                    this.updateEquation();
+                    this.autoscaleView();
+                    return;
+                }
+
+                const curve = this.curves[selectedValue];
+                this.customCurveType = curve.type;
+                if (curve.type === 'IEEE') {
+                    this.customIeeeDiv.classList.remove('hidden');
+                    this.customIecDiv.classList.add('hidden');
+                    this.customA.value = curve.A;
+                    this.customB.value = curve.B;
+                    this.customP.value = curve.P;
+                } else { // IEC
+                    this.customIeeeDiv.classList.add('hidden');
+                    this.customIecDiv.classList.remove('hidden');
+                    this.customK.value = curve.K;
+                    this.customAlpha.value = curve.alpha;
+                }
+                
+                this.updateEquation();
+                this.autoscaleView();
+            }
+            
+            handleMouseMove(e) {
+                if (this.isPanning) {
+                    const dx = e.clientX - this.lastPanPosition.x;
+                    const dy = e.clientY - this.lastPanPosition.y;
+                    this.viewTransform.panX += dx;
+                    this.viewTransform.panY += dy;
+                    this.lastPanPosition = { x: e.clientX, y: e.clientY };
+                    this.draw();
+                }
+
+                const rect = this.canvas.getBoundingClientRect();
+                if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    const coords = this.screenToWorld(e.offsetX, e.offsetY);
+                    this.cursorPosition = { x: e.offsetX, y: e.offsetY }; // Store cursor position for dot indicator
+                    this.updateLiveTestPoint(coords);
+                    this.draw(); // Redraw to show cursor dot
+                }
+                // Don't clear cursor position when outside canvas - let it persist until next click/touch
+            }
+
+            handleZoom(e) {
+                const zoomFactor = 1.1;
+                const scaleAmount = e.deltaY < 0 ? zoomFactor : 1 / zoomFactor;
+                
+                this.viewTransform.scaleX *= scaleAmount;
+                this.viewTransform.scaleY *= scaleAmount;
+                this.draw();
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    this.isPanning = true;
+                    this.lastPanPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    
+                    // Set cursor position immediately on touch start for mobile dot indicator
+                    // Use more accurate coordinate calculation for mobile
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const offsetX = (e.touches[0].clientX - rect.left) * scaleX;
+                    const offsetY = (e.touches[0].clientY - rect.top) * scaleY;
+                    this.cursorPosition = { x: offsetX, y: offsetY };
+                    
+                    const coords = this.screenToWorld(offsetX, offsetY);
+                    this.updateLiveTestPoint(coords);
+                    // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                    requestAnimationFrame(() => this.draw());
+                } else if (e.touches.length === 2) {
+                    this.isPanning = false;
+                    this.lastTouchDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+            }
+
+            handleTouchMove(e) {
+                e.preventDefault();
+                if (e.touches.length === 1 && this.isPanning) {
+                    const dx = e.touches[0].clientX - this.lastPanPosition.x;
+                    const dy = e.touches[0].clientY - this.lastPanPosition.y;
+                    this.viewTransform.panX += dx;
+                    this.viewTransform.panY += dy;
+                    this.lastPanPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    this.draw();
+                } else if (e.touches.length === 2) {
+                    const currentDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    if (this.lastTouchDistance) {
+                        const scaleAmount = currentDistance / this.lastTouchDistance;
+                        this.viewTransform.scaleX *= scaleAmount;
+                        this.viewTransform.scaleY *= scaleAmount;
+                        this.draw();
+                    }
+                    this.lastTouchDistance = currentDistance;
+                }
+
+                // Update live test point for single touch
+                if (e.touches.length === 1) {
+                    // Use more accurate coordinate calculation for mobile
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const offsetX = (e.touches[0].clientX - rect.left) * scaleX;
+                    const offsetY = (e.touches[0].clientY - rect.top) * scaleY;
+                    this.cursorPosition = { x: offsetX, y: offsetY }; // Store cursor position for mobile dot indicator
+                    
+                    const coords = this.screenToWorld(offsetX, offsetY);
+                    this.updateLiveTestPoint(coords);
+                    // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                    requestAnimationFrame(() => this.draw());
+                }
+            }
+
+            handleTouchEnd(e) {
+                e.preventDefault();
+                this.isPanning = false;
+                this.lastTouchDistance = null;
+                
+                // For single touch end, set cursor position at the final touch location
+                if (e.changedTouches.length === 1) {
+                    // Use more accurate coordinate calculation for mobile
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const offsetX = (e.changedTouches[0].clientX - rect.left) * scaleX;
+                    const offsetY = (e.changedTouches[0].clientY - rect.top) * scaleY;
+                    this.cursorPosition = { x: offsetX, y: offsetY }; // Store final touch position
+                    
+                    const coords = this.screenToWorld(offsetX, offsetY);
+                    this.updateLiveTestPoint(coords);
+                    // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                    requestAnimationFrame(() => this.draw());
+                }
+                // Don't clear cursor position - let it linger until next touch
+            }
+            
+            handleResize() {
+                this.canvas.width = this.canvasContainer.clientWidth;
+                this.canvas.height = this.canvasContainer.clientHeight;
+                if(this.isInitialized){
+                    this.autoscaleView();
+                }
+            }
+
+            calculateTripTime(curve, M, timeSetting) {
+                if (M <= 1) return Infinity;
+                if (curve.type === 'IEEE') {
+                    return timeSetting * ( (curve.A / (Math.pow(M, curve.P) - 1)) + curve.B );
+                } else { // IEC
+                    return timeSetting * ( curve.K / (Math.pow(M, curve.alpha) - 1) );
+                }
+            }
+            
+            autoscaleView() {
+                if (!this.isInitialized) return;
+
+                const curve = this.getCurrentCurve();
+                const timeSetting = parseFloat(this.timeDialInput.value) || 0.5;
+
+                // Show from pickup (1x) to 20x pickup current multiple for more zoomed-in view
+                const minM = 1.0;  // Start at pickup
+                const maxM = 20;   // Go to 20x pickup (reduced from 100x for closer view)
+                
+                // Calculate actual time range based on the curve
+                // Sample the curve to find the actual time range
+                let actualMinT = Infinity;
+                let actualMaxT = 0;
+                
+                // Sample curve points to find the actual time range
+                for (let m = 1.01; m <= maxM; m *= 1.1) {
+                    const t = this.calculateTripTime(curve, m, timeSetting);
+                    if (t > 0 && isFinite(t)) {
+                        actualMinT = Math.min(actualMinT, t);
+                        actualMaxT = Math.max(actualMaxT, t);
+                    }
+                }
+                
+                // Add minimal padding to the time range for tighter view
+                const timePadding = 1.2; // 20% padding (reduced from 50% for closer view)
+                const paddedMinT = actualMinT / timePadding;
+                const paddedMaxT = actualMaxT * timePadding;
+                
+                // Ensure reasonable bounds
+                const finalMinT = Math.max(paddedMinT, 0.01); // Don't go below 0.01s
+                const finalMaxT = Math.min(paddedMaxT, 1000); // Don't go above 1000s
+
+                // Set up log scale ranges
+                const logMinM = Math.log10(minM);
+                const logMaxM = Math.log10(maxM);
+                const logMinT = Math.log10(finalMinT);
+                const logMaxT = Math.log10(finalMaxT);
+
+                const paddingX = 60;
+                const paddingY = 40;
+
+                const logRangeM = logMaxM - logMinM;
+                const logRangeT = logMaxT - logMinT;
+
+                this.viewTransform.scaleX = (this.canvas.width - paddingX) / logRangeM;
+                this.viewTransform.scaleY = (this.canvas.height - paddingY * 2) / logRangeT;
+                
+                this.viewTransform.panX = -logMinM * this.viewTransform.scaleX + paddingX;
+                this.viewTransform.panY = this.canvas.height - logMaxT * this.viewTransform.scaleY - paddingY;
+
+                this.draw();
+                
+                // Run coordinate test after autoscaling
+                if (this.isInitialized) {
+                    this.testCoordinateTransformation();
+                }
+            }
+            
+            // Test function to verify coordinate transformation
+            testCoordinateTransformation() {
+                
+                
+                // Pick a test point: current multiple = 2.0
+                const testM = 2.0;
+                const curve = this.getCurrentCurve();
+                const timeSetting = parseFloat(this.timeDialInput.value) || 0.5;
+                const testT = this.calculateTripTime(curve, testM, timeSetting);
+                
+                
+                
+                // Convert to screen coordinates using the same method as drawing
+                const logM = Math.log10(testM);
+                const logT = Math.log10(testT);
+                
+                // This is how drawing calculates screen coordinates (after canvas translate)
+                const drawingX = logM * this.viewTransform.scaleX;
+                const drawingY = this.canvas.height - (logT * this.viewTransform.scaleY);
+                
+                // Add the canvas translation to get actual screen coordinates
+                const screenX = drawingX + this.viewTransform.panX;
+                const screenY = drawingY + this.viewTransform.panY;
+                
+                
+                
+                // Now convert back using screenToWorld
+                const converted = this.screenToWorld(screenX, screenY);
+                
+                
+            }
+            
+            screenToWorld(x_px, y_px) {
+                // The coordinate system is log-log with canvas translation applied during drawing
+                // Drawing process:
+                // 1. ctx.translate(panX, panY) - transforms the canvas coordinate system
+                // 2. Draw at: x_draw = Math.log10(m) * scaleX, y_draw = canvas.height - Math.log10(t) * scaleY
+                //
+                // The canvas translate means that drawing coordinates are in the translated space,
+                // but mouse coordinates are in screen space. To convert mouse to drawing coordinates:
+                // x_draw = x_mouse - panX
+                // y_draw = y_mouse - panY
+                //
+                // Then reverse the drawing calculations:
+                // Math.log10(m) = x_draw / scaleX = (x_mouse - panX) / scaleX
+                // Math.log10(t) = (canvas.height - y_draw) / scaleY = (canvas.height - (y_mouse - panY)) / scaleY
+                
+                const x_draw = x_px - this.viewTransform.panX;
+                const y_draw = y_px - this.viewTransform.panY;
+                
+                const logCurrentMultiple = x_draw / this.viewTransform.scaleX;
+                const logTime = (this.canvas.height - y_draw) / this.viewTransform.scaleY;
+                
+                
+                
+                const currentMultiple = Math.pow(10, logCurrentMultiple);
+                const time = Math.pow(10, logTime);
+                
+                
+                
+                return { currentMultiple, time };
+            }
+
+            getCurrentCurve() {
+                 if (this.curveSelect.value === 'Custom') {
+                    if (this.customCurveType === 'IEEE') {
+                        return {
+                            type: 'IEEE',
+                            A: parseFloat(this.customA.value),
+                            B: parseFloat(this.customB.value),
+                            P: parseFloat(this.customP.value)
+                        };
+                    } else { // IEC
+                        return {
+                            type: 'IEC',
+                            K: parseFloat(this.customK.value),
+                            alpha: parseFloat(this.customAlpha.value)
+                        };
+                    }
+                }
+                return this.curves[this.curveSelect.value];
+            }
+            
+            updateEquation() {
+                const curve = this.getCurrentCurve();
+                let html = '';
+                if(curve.type === 'IEEE') {
+                    this.timeDialLabel.textContent = 'Time Dial (TD)';
+                    html = `
+                        <p>General Form (IEEE):</p>
+                        <div class="equation-text">t = TD * [A / (M^P - 1) + B]</div>
+                        <p class="mt-2">Curve Constants:</p>
+                        <div class="equation-text text-sm">
+                            A = ${curve.A}, B = ${curve.B}, P = ${curve.P}
+                        </div>`;
+                } else { // IEC
+                    this.timeDialLabel.textContent = 'Time Multiplier (TMS)';
+                     html = `
+                        <p>General Form (IEC):</p>
+                        <div class="equation-text">t = TMS * [K / (M^&alpha; - 1)]</div>
+                        <p class="mt-2">Curve Constants:</p>
+                        <div class="equation-text text-sm">
+                           K = ${curve.K}, &alpha; = ${curve.alpha}
+                        </div>`;
+                }
+                this.equationDiv.innerHTML = html;
+            }
+
+            updateLiveTestPoint(coords) {
+                const { currentMultiple, time } = coords;
+                const pickup = parseFloat(this.pickupInput.value) || 1.0;
+                const current = currentMultiple * pickup;
+
+                const curve = this.getCurrentCurve();
+                const timeSetting = parseFloat(this.timeDialInput.value) || 0.5;
+
+                // Calculate what the curve time should be at this current multiple
+                const curveTimeAtThisMultiple = this.calculateTripTime(curve, currentMultiple, timeSetting);
+                
+                // Trip/restraint logic based on cursor position relative to curve:
+                // - If current multiple <= 1 (below pickup), always RESTRAIN with "Never"
+                // - If current multiple > 1, compare cursor time to calculated curve time:
+                //   * Cursor time > curve time = OPERATE (above the curve, in trip area)
+                //   * Cursor time < curve time = RESTRAIN (below the curve)
+                let status;
+                
+                if (currentMultiple <= 1) {
+                    status = 'RESTRAIN';
+                } else if (curveTimeAtThisMultiple === Infinity || !isFinite(curveTimeAtThisMultiple) || isNaN(curveTimeAtThisMultiple)) {
+                    status = 'RESTRAIN';
+                } else {
+                    // Compare cursor time to curve time at this current multiple
+                    // Above the curve (cursor time > curve time) = OPERATE
+                    // Below the curve (cursor time < curve time) = RESTRAIN
+                    status = time > curveTimeAtThisMultiple ? 'OPERATE' : 'RESTRAIN';
+                }
+
+                // Display "Never" for trip time when current is below pickup
+                const displayTripTime = (currentMultiple <= 1) ? 'Never' :
+                                       (curveTimeAtThisMultiple === Infinity || !isFinite(curveTimeAtThisMultiple) || isNaN(curveTimeAtThisMultiple)) ? 'Invalid' :
+                                       curveTimeAtThisMultiple.toFixed(3) + ' s';
+
+                this.liveTestDiv.innerHTML = `
+                    <p><span class="text-gray-400">Current:</span> <span class="text-white">${current.toFixed(2)} A</span></p>
+                    <p><span class="text-gray-400">Multiple:</span> <span class="text-white">${currentMultiple.toFixed(2)} x Pickup</span></p>
+                    <p><span class="text-gray-400">Curve Time:</span> <span class="text-white">${displayTripTime}</span></p>
+                    <hr class="border-gray-700 my-1">
+                    <p><span class="text-gray-400">Cursor Position:</span></p>
+                    <p><span class="text-gray-400">  Current Multiple:</span> <span class="text-white">${currentMultiple.toFixed(2)}</span></p>
+                    <p><span class="text-gray-400">  Time:</span> <span class="text-white">${time.toFixed(3)} s</span></p>
+                `;
+            }
+
+            draw() {
+                if (!this.isInitialized) return;
+
+                const { ctx, canvas, viewTransform } = this;
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.save();
+                ctx.translate(viewTransform.panX, viewTransform.panY);
+
+                this.drawGrid();
+
+                const curve = this.getCurrentCurve();
+                const timeSetting = parseFloat(this.timeDialInput.value) || 0.5;
+                
+                const curvePoints = [];
+                for (let m = 1.01; m < 1000; m *= 1.02) {
+                    const t = this.calculateTripTime(curve, m, timeSetting);
+                    if(t <= 0 || !isFinite(t)) continue;
+
+                    const x_px = Math.log10(m) * viewTransform.scaleX;
+                    const y_px = canvas.height - (Math.log10(t) * viewTransform.scaleY);
+                    curvePoints.push({x: x_px, y: y_px});
+                }
+                
+                if (curvePoints.length > 1) {
+                    // Draw trip area (filled region above the curve)
+                    ctx.beginPath();
+                    ctx.moveTo(curvePoints[0].x, 0);
+                    ctx.lineTo(curvePoints[0].x, curvePoints[0].y);
+                    for (let i = 1; i < curvePoints.length; i++) {
+                        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+                    }
+                    ctx.lineTo(curvePoints[curvePoints.length - 1].x, 0);
+                    ctx.closePath();
+                    
+                    ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+                    ctx.fill();
+
+                    // Draw the curve line
+                    ctx.beginPath();
+                    ctx.moveTo(curvePoints[0].x, curvePoints[0].y);
+                    for (let i = 1; i < curvePoints.length; i++) {
+                        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+                    }
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+
+                // Draw cursor position dot indicator (especially useful for mobile)
+                if (this.cursorPosition) {
+                    
+                    ctx.save(); // Save current context state
+                    ctx.beginPath();
+                    ctx.arc(this.cursorPosition.x, this.cursorPosition.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#ef4444'; // Red dot
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff'; // White border
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.restore(); // Restore context state
+                }
+
+                ctx.font = '14px Inter';
+                ctx.fillStyle = '#d1d5db';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Current (Multiples of Pickup)', canvas.width / 2, canvas.height - 15);
+
+                ctx.save();
+                ctx.translate(25, canvas.height / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText('Time (s)', 0, 0);
+                ctx.restore();
+            }
+            
+            drawGrid() {
+                const { ctx, canvas, viewTransform } = this;
+                ctx.strokeStyle = '#374151';
+                ctx.lineWidth = 1;
+                ctx.font = '10px Inter';
+                ctx.fillStyle = '#9ca3af';
+
+                // Calculate visible log ranges
+                const xMinLog = -viewTransform.panX / viewTransform.scaleX;
+                const xMaxLog = xMinLog + canvas.width / viewTransform.scaleX;
+                const yMaxLog = (canvas.height - viewTransform.panY) / viewTransform.scaleY;
+                const yMinLog = yMaxLog - canvas.height / viewTransform.scaleY;
+
+                // Draw vertical grid lines (current multiples) - logarithmic
+                for (let i = Math.floor(xMinLog); i <= Math.ceil(xMaxLog); i++) {
+                    for (let j = 1; j < 10; j++) {
+                        const m = j * Math.pow(10, i);
+                        const logM = Math.log10(m);
+                        if (logM < xMinLog || logM > xMaxLog) continue;
+                        
+                        const x_px = logM * viewTransform.scaleX;
+                        ctx.beginPath();
+                        ctx.moveTo(x_px, 0);
+                        ctx.lineTo(x_px, canvas.height);
+                        
+                        // Major grid lines (powers of 10) are darker
+                        ctx.strokeStyle = j === 1 ? '#4b5563' : '#374151';
+                        ctx.lineWidth = j === 1 ? 1.5 : 0.5;
+                        ctx.stroke();
+                        
+                        // Label major grid lines only
+                        if (j === 1) {
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'top';
+                            ctx.fillStyle = '#9ca3af';
+                            ctx.fillText(m >= 1 ? m.toString() : m.toFixed(1), x_px, canvas.height - 20);
+                        }
+                    }
+                }
+
+                // Draw horizontal grid lines (time) - logarithmic
+                for (let i = Math.floor(yMinLog); i <= Math.ceil(yMaxLog); i++) {
+                    for (let j = 1; j < 10; j++) {
+                        const t = j * Math.pow(10, i);
+                        const logT = Math.log10(t);
+                        if (logT < yMinLog || logT > yMaxLog) continue;
+                        
+                        const y_px = canvas.height - ((logT - yMinLog) * viewTransform.scaleY);
+                        ctx.beginPath();
+                        ctx.moveTo(0, y_px);
+                        ctx.lineTo(canvas.width, y_px);
+                        
+                        // Major grid lines (powers of 10) are darker
+                        ctx.strokeStyle = j === 1 ? '#4b5563' : '#374151';
+                        ctx.lineWidth = j === 1 ? 1.5 : 0.5;
+                        ctx.stroke();
+                        
+                        // Label major grid lines only
+                        if (j === 1) {
+                            ctx.textAlign = 'right';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillStyle = '#9ca3af';
+                            // Format time labels appropriately
+                            let timeLabel;
+                            if (t >= 1) {
+                                timeLabel = t.toString();
+                            } else if (t >= 0.1) {
+                                timeLabel = t.toFixed(1);
+                            } else if (t >= 0.01) {
+                                timeLabel = t.toFixed(2);
+                            } else {
+                                timeLabel = t.toFixed(3);
+                            }
+                            ctx.fillText(timeLabel, canvas.width - 5, y_px);
+                        }
+                    }
+                }
+            }
+
+            startAutoUpdate() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            stopAutoUpdate() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            updateOperatingPointFromLiveTest() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            worldToScreen(currentMultiple, time) {
+                // Convert world coordinates (current multiple, time) to screen coordinates
+                // This is the inverse of screenToWorld
+                
+                if (currentMultiple <= 0 || time <= 0 || !isFinite(currentMultiple) || !isFinite(time)) {
+                    return null;
+                }
+
+                const logCurrentMultiple = Math.log10(currentMultiple);
+                const logTime = Math.log10(time);
+                
+                // Apply the same transformation as used in drawing
+                const x_draw = logCurrentMultiple * this.viewTransform.scaleX;
+                const y_draw = this.canvas.height - (logTime * this.viewTransform.scaleY);
+                
+                // Add the canvas translation to get screen coordinates
+                const screenX = x_draw + this.viewTransform.panX;
+                const screenY = y_draw + this.viewTransform.panY;
+                
+                return { x: screenX, y: screenY };
+            }
+        }
+        
+        
+        // --- DISTANCE RELAY APPLICATION (21) ---
+        class DistanceRelayApp {
+            constructor() {
+                this.populateControls();
+                
+                this.mtaInput = document.getElementById('mta');
+                this.reachInput = document.getElementById('reach');
+                this.kFactorInput = document.getElementById('k_factor');
+                this.kAngleInput = document.getElementById('k_angle');
+                this.kFactorGroup = document.getElementById('k-factor-group');
+                this.kAngleGroup = document.getElementById('k-angle-group');
+                this.calculatedDiv = document.getElementById('calculated-values');
+                this.testPointDiv = document.getElementById('test-point-info');
+                this.equationDiv = document.getElementById('equation-display');
+                this.phaseBtn = document.getElementById('btn-phase');
+                this.groundBtn = document.getElementById('btn-ground');
+                this.autoscaleBtn = document.getElementById('btn-autoscale');
+                this.setLimitsBtn = document.getElementById('btn-set-limits');
+                this.limitsModal = document.getElementById('limits-modal');
+                this.closeModalBtn = document.getElementById('close-modal-btn');
+                this.saveLimitsBtn = document.getElementById('save-limits-btn');
+                this.maxVoltageInput = document.getElementById('max-voltage');
+                this.maxCurrentInput = document.getElementById('max-current');
+                this.canvas = document.getElementById('rx-diagram');
+                this.canvasContainer = document.getElementById('canvas-container-distance');
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.currentMode = 'phase';
+                this.viewTransform = { scale: 1.0, panX: 0, panY: 0 };
+                this.isPanning = false;
+                this.lastPanPosition = { x: 0, y: 0 };
+                this.isInitialized = false;
+                this.hasAutoscaledOnLoad = false;
+                this.maxVoltage = 150.0;
+                this.maxCurrent = 30.0;
+                this.cursorPosition = null; // Store cursor position for mobile dot indicator
+                this.autoUpdateTimer = null; // Timer for automatic red dot updates
+                this.currentOperatingPoint = { r: 5.0, x_imp: 3.0 }; // Default operating point
+
+                this.addEventListeners();
+                this.setup();
+                // Removed startAutoUpdate() call - red dot should only move with user interaction
+            }
+
+            populateControls() {
+                document.getElementById('settings-distance').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl"> <h2 class="text-xl font-semibold mb-3">Settings (21)</h2> <div class="space-y-3"> <div class="flex items-center justify-between"> <label class="text-gray-300 font-medium">Mode</label> <div class="flex rounded-lg" role="group"> <button type="button" id="btn-phase" class="mode-button px-4 py-1.5 text-sm font-medium rounded-l-lg"> Phase </button> <button type="button" id="btn-ground" class="mode-button px-4 py-1.5 text-sm font-medium rounded-r-lg"> Ground </button> </div> </div> <div class="flex items-center justify-between"> <label for="mta" class="text-gray-300 font-medium">MTA (&theta;)</label> <div class="flex items-center w-2/3"> <input type="number" id="mta" value="85" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"> <span class="ml-2 text-gray-400">&deg;</span> </div> </div> <div class="flex items-center justify-between"> <label for="reach" class="text-gray-300 font-medium">Reach (Z)</label> <div class="flex items-center w-2/3"> <input type="number" id="reach" value="10" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"> <span class="ml-2 text-gray-400">&Omega;</span> </div> </div> <div id="k-factor-group" class="flex items-center justify-between"> <label for="k_factor" class="text-gray-300 font-medium">K-Factor</label> <div class="flex items-center w-2/3"> <input type="number" id="k_factor" value="0.8" step="0.1" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none disabled:bg-gray-900 disabled:text-gray-500"> </div> </div> <div id="k-angle-group" class="flex items-center justify-between"> <label for="k_angle" class="text-gray-300 font-medium">K-Angle</label> <div class="flex items-center w-2/3"> <input type="number" id="k_angle" value="0" step="1" class="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none disabled:bg-gray-900 disabled:text-gray-500"> <span class="ml-2 text-gray-400">&deg;</span> </div> </div> </div></div>`;
+                document.getElementById('equations-distance').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl"><h2 class="text-xl font-semibold mb-3">Governing Equations</h2><div id="equation-display" class="space-y-4 text-sm text-center text-gray-300 h-full flex flex-col justify-center"></div></div>`;
+                document.getElementById('properties-distance').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl"><h2 class="text-xl font-semibold mb-3">Mho Circle Properties</h2><div id="calculated-values" class="space-y-1 text-sm"></div></div>`;
+                document.getElementById('livetest-distance').innerHTML = `<div class="bg-gray-700 p-4 rounded-xl flex flex-col"><h2 class="text-xl font-semibold mb-3">Live Test Point</h2><div id="test-point-info" class="space-y-1 text-sm font-mono bg-gray-900 p-3 rounded-lg flex-grow"><p>Move mouse over plot...</p></div><div class="flex gap-2 mt-3"><button id="btn-autoscale" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Autoscale View</button><button id="btn-set-limits" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Set Limits</button></div></div>`;
+            }
+
+            setup() {
+                this.maxVoltageInput.value = this.maxVoltage;
+                this.maxCurrentInput.value = this.maxCurrent;
+                
+                this.isInitialized = true;
+                this.updateParameters();
+                this.updateDisplayForMode();
+                
+                // Initialize test point info with default operating point
+                this.updateTestPointInfo({ r: 5.0, x_imp: 3.0 });
+                
+                this.handleResize();
+            }
+
+            addEventListeners() {
+                this.setLimitsBtn.addEventListener('click', () => this.limitsModal.classList.remove('hidden'));
+                this.closeModalBtn.addEventListener('click', () => this.limitsModal.classList.add('hidden'));
+                this.saveLimitsBtn.addEventListener('click', () => {
+                    this.maxVoltage = parseFloat(this.maxVoltageInput.value) || 150;
+                    this.maxCurrent = parseFloat(this.maxCurrentInput.value) || 30;
+                    this.limitsModal.classList.add('hidden');
+                });
+
+                [this.mtaInput, this.reachInput, this.kFactorInput, this.kAngleInput].forEach(input => {
+                    input.addEventListener('input', () => { this.updateParameters(); this.autoscaleView(); });
+                });
+                
+                this.phaseBtn.addEventListener('click', () => { this.currentMode = 'phase'; this.updateDisplayForMode(); });
+                this.groundBtn.addEventListener('click', () => { this.currentMode = 'ground'; this.updateDisplayForMode(); });
+                this.autoscaleBtn.addEventListener('click', () => this.autoscaleView());
+
+                // Mouse events
+                this.canvas.addEventListener('mousedown', e => { this.isPanning = true; this.lastPanPosition = {x: e.clientX, y: e.clientY}; this.canvas.style.cursor = 'grabbing'; });
+                window.addEventListener('mouseup', () => { this.isPanning = false; this.canvas.style.cursor = 'grab'; });
+                window.addEventListener('mousemove', e => this.handleMouseMove(e));
+                this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.handleZoom(e); });
+                
+                // Touch events for mobile
+                this.canvas.addEventListener('touchstart', e => this.handleTouchStart(e));
+                this.canvas.addEventListener('touchmove', e => this.handleTouchMove(e));
+                this.canvas.addEventListener('touchend', e => this.handleTouchEnd(e));
+                
+                new ResizeObserver(() => this.handleResize()).observe(this.canvasContainer);
+            }
+
+            handleMouseMove(e) {
+                if (this.isPanning) {
+                    const dx = e.clientX - this.lastPanPosition.x;
+                    const dy = e.clientY - this.lastPanPosition.y;
+                    this.viewTransform.panX += dx;
+                    this.viewTransform.panY += dy;
+                    this.lastPanPosition = { x: e.clientX, y: e.clientY };
+                    this.draw();
+                }
+                const rect = this.canvas.getBoundingClientRect();
+                 if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    this.cursorPosition = { x: e.offsetX, y: e.offsetY }; // Store cursor position for dot indicator
+                    if(this.isInitialized) this.updateTestPointInfo(this.screenToWorld(e.offsetX, e.offsetY));
+                    this.draw(); // Redraw to show cursor dot
+                }
+                // Don't clear cursor position when outside canvas - let it persist until next click/touch
+            }
+            
+            handleZoom(e) {
+                const zoomFactor = 1.05;
+                const oldScale = this.viewTransform.scale;
+                let newScale = e.deltaY < 0 ? oldScale * zoomFactor : oldScale / zoomFactor;
+                newScale = Math.max(0.1, Math.min(newScale, 100));
+
+                this.viewTransform.panX = e.offsetX - (e.offsetX - this.viewTransform.panX) * (newScale / oldScale);
+                this.viewTransform.panY = e.offsetY - (e.offsetY - this.viewTransform.panY) * (newScale / oldScale);
+                this.viewTransform.scale = newScale;
+
+                this.draw();
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    this.isPanning = true;
+                    this.lastPanPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    
+                    // Set cursor position immediately on touch start for mobile dot indicator
+                    if (this.isInitialized) {
+                        // Use more accurate coordinate calculation for mobile
+                        const rect = this.canvas.getBoundingClientRect();
+                        const scaleX = this.canvas.width / rect.width;
+                        const scaleY = this.canvas.height / rect.height;
+                        const offsetX = (e.touches[0].clientX - rect.left) * scaleX;
+                        const offsetY = (e.touches[0].clientY - rect.top) * scaleY;
+                        this.cursorPosition = { x: offsetX, y: offsetY };
+                        
+                        this.updateTestPointInfo(this.screenToWorld(offsetX, offsetY));
+                        // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                        requestAnimationFrame(() => this.draw());
+                    }
+                } else if (e.touches.length === 2) {
+                    this.isPanning = false;
+                    this.lastTouchDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    this.lastTouchCenter = {
+                        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                    };
+                }
+            }
+
+            handleTouchMove(e) {
+                e.preventDefault();
+                if (e.touches.length === 1 && this.isPanning) {
+                    const dx = e.touches[0].clientX - this.lastPanPosition.x;
+                    const dy = e.touches[0].clientY - this.lastPanPosition.y;
+                    this.viewTransform.panX += dx;
+                    this.viewTransform.panY += dy;
+                    this.lastPanPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    this.draw();
+                } else if (e.touches.length === 2) {
+                    const currentDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const currentCenter = {
+                        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                    };
+
+                    if (this.lastTouchDistance && this.lastTouchCenter) {
+                        const scaleAmount = currentDistance / this.lastTouchDistance;
+                        const oldScale = this.viewTransform.scale;
+                        let newScale = oldScale * scaleAmount;
+                        newScale = Math.max(0.1, Math.min(newScale, 100));
+
+                        const rect = this.canvas.getBoundingClientRect();
+                        const centerX = currentCenter.x - rect.left;
+                        const centerY = currentCenter.y - rect.top;
+
+                        this.viewTransform.panX = centerX - (centerX - this.viewTransform.panX) * (newScale / oldScale);
+                        this.viewTransform.panY = centerY - (centerY - this.viewTransform.panY) * (newScale / oldScale);
+                        this.viewTransform.scale = newScale;
+                        this.draw();
+                    }
+                    this.lastTouchDistance = currentDistance;
+                    this.lastTouchCenter = currentCenter;
+                }
+
+                // Update test point info for single touch
+                if (e.touches.length === 1 && this.isInitialized) {
+                    // Use more accurate coordinate calculation for mobile
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const offsetX = (e.touches[0].clientX - rect.left) * scaleX;
+                    const offsetY = (e.touches[0].clientY - rect.top) * scaleY;
+                    this.cursorPosition = { x: offsetX, y: offsetY }; // Store cursor position for mobile dot indicator
+                    
+                    this.updateTestPointInfo(this.screenToWorld(offsetX, offsetY));
+                    // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                    requestAnimationFrame(() => this.draw());
+                }
+            }
+
+            handleTouchEnd(e) {
+                e.preventDefault();
+                this.isPanning = false;
+                this.lastTouchDistance = null;
+                this.lastTouchCenter = null;
+                
+                // For single touch end, set cursor position at the final touch location
+                if (e.changedTouches.length === 1 && this.isInitialized) {
+                    // Use more accurate coordinate calculation for mobile
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    const scaleY = this.canvas.height / rect.height;
+                    const offsetX = (e.changedTouches[0].clientX - rect.left) * scaleX;
+                    const offsetY = (e.changedTouches[0].clientY - rect.top) * scaleY;
+                    this.cursorPosition = { x: offsetX, y: offsetY }; // Store final touch position
+                    
+                    this.updateTestPointInfo(this.screenToWorld(offsetX, offsetY));
+                    // Force immediate redraw with requestAnimationFrame for mobile compatibility
+                    requestAnimationFrame(() => this.draw());
+                }
+                // Don't clear cursor position - let it linger until next touch
+            }
+
+            handleResize() {
+                this.canvas.width = this.canvasContainer.clientWidth;
+                this.canvas.height = this.canvasContainer.clientHeight;
+                if (!this.hasAutoscaledOnLoad) {
+                    this.autoscaleView();
+                    this.hasAutoscaledOnLoad = true;
+                }
+                this.draw();
+            }
+            
+            updateParameters() {
+                this.mta = parseFloat(this.mtaInput.value) || 0;
+                this.reach = parseFloat(this.reachInput.value) || 1;
+                this.kFactor = parseFloat(this.kFactorInput.value) || 0.8;
+                this.kAngle = parseFloat(this.kAngleInput.value) || 0;
+                
+                // Convert angles to radians
+                const mtaRad = this.mta * Math.PI / 180;
+                const kAngleRad = this.kAngle * Math.PI / 180;
+                
+                // Calculate complex k value
+                this.kReal = this.kFactor * Math.cos(kAngleRad);
+                this.kImag = this.kFactor * Math.sin(kAngleRad);
+                
+                this.radius = this.reach / 2;
+                this.centerR = this.radius * Math.cos(mtaRad);
+                this.centerX_imp = this.radius * Math.sin(mtaRad);
+                
+                // Update the display to reflect the new parameters
+                if (this.currentMode === 'ground') {
+                    this.updateDisplayForMode();
+                }
+                
+                // Update test point info with current operating point
+                // This ensures Van and Ia update when parameters change
+                if (this.cursorPosition) {
+                    const worldCoords = this.screenToWorld(this.cursorPosition.x, this.cursorPosition.y);
+                    this.updateTestPointInfo(worldCoords);
+                } else {
+                    // Use a default operating point if no cursor position is available
+                    this.updateTestPointInfo({ r: 5.0, x_imp: 3.0 });
+                }
+            }
+            
+            autoscaleView() {
+                if (!this.isInitialized) return;
+                const padding = 1.25;
+                const newScale = Math.min(this.canvas.width, this.canvas.height) / (this.reach * padding);
+                
+                this.viewTransform.scale = newScale;
+                this.viewTransform.panX = this.canvas.width / 2 - (this.centerR * this.viewTransform.scale);
+                this.viewTransform.panY = this.canvas.height / 2 + (this.centerX_imp * this.viewTransform.scale);
+
+                this.draw();
+            }
+
+            draw() {
+                if (!this.ctx || !this.isInitialized) return;
+                this.ctx.fillStyle = '#111827';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.ctx.save();
+                this.ctx.translate(this.viewTransform.panX, this.viewTransform.panY);
+                this.ctx.scale(this.viewTransform.scale, this.viewTransform.scale);
+
+                this.drawAxesAndGrid();
+                this.drawMhoCircle();
+
+                this.ctx.restore();
+
+                // Draw cursor position dot indicator (especially useful for mobile)
+                if (this.cursorPosition) {
+                    
+                    this.ctx.save(); // Save current context state
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.cursorPosition.x, this.cursorPosition.y, 8, 0, 2 * Math.PI);
+                    this.ctx.fillStyle = '#ef4444'; // Red dot
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#ffffff'; // White border
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                    this.ctx.restore(); // Restore context state
+                }
+
+                this.updateCalculatedValues();
+                
+                // Ensure test point info is updated when canvas is redrawn
+                if (this.cursorPosition) {
+                    const worldCoords = this.screenToWorld(this.cursorPosition.x, this.cursorPosition.y);
+                    this.updateTestPointInfo(worldCoords);
+                } else {
+                    // Use a default operating point if no cursor position is available
+                    this.updateTestPointInfo({ r: 5.0, x_imp: 3.0 });
+                }
+            }
+            
+            drawMhoCircle() {
+                this.ctx.beginPath();
+                this.ctx.arc(this.centerR, -this.centerX_imp, this.radius, 0, 2 * Math.PI);
+                this.ctx.strokeStyle = '#06b6d4';
+                this.ctx.lineWidth = 2 / this.viewTransform.scale;
+                this.ctx.stroke();
+                this.ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+                this.ctx.fill();
+            }
+
+            updateDisplayForMode() {
+                if (this.currentMode === 'phase') {
+                    this.phaseBtn.classList.add('active');
+                    this.groundBtn.classList.remove('active');
+                    this.kFactorInput.disabled = true;
+                    this.kAngleInput.disabled = true;
+                    this.kFactorGroup.classList.add('opacity-50');
+                    this.kAngleGroup.classList.add('opacity-50');
+                    this.equationDiv.innerHTML = `<p>Apparent Impedance (e.g., A-B Fault):</p><div class="equation-text">Zcalc = (VA - VB) / (IA - IB)</div><p>Operating Condition:</p><div class="equation-text">|Zcalc - Zcenter| &le; |Zradius|</div>`;
+                } else {
+                    this.groundBtn.classList.add('active');
+                    this.phaseBtn.classList.remove('active');
+                    this.kFactorInput.disabled = false;
+                    this.kAngleInput.disabled = false;
+                    this.kFactorGroup.classList.remove('opacity-50');
+                    this.kAngleGroup.classList.remove('opacity-50');
+                    this.equationDiv.innerHTML = `
+                        <p>Apparent Impedance (e.g., A-G Fault):</p>
+                        <div class="equation-text">Zcalc = Van / ((k+1) * Ia)</div>
+                        <p>Where k is a complex value:</p>
+                        <div class="equation-text">k = ${this.kFactor.toFixed(2)} &angle; ${this.kAngle.toFixed(0)}&deg;</div>
+                        <p class="mt-2 text-xs text-gray-400">Van and Ia are calculated based on the operating point</p>`;
+                }
+                
+                // Update test point info to reflect the new mode
+                if (this.cursorPosition) {
+                    const worldCoords = this.screenToWorld(this.cursorPosition.x, this.cursorPosition.y);
+                    this.updateTestPointInfo(worldCoords);
+                } else {
+                    // Use a default operating point if no cursor position is available
+                    this.updateTestPointInfo({ r: 5.0, x_imp: 3.0 });
+                }
+            }
+            
+            updateCalculatedValues() {
+                const mtaRad = this.mta * Math.PI / 180;
+                const reachPointR = this.reach * Math.cos(mtaRad);
+                const reachPointX = this.reach * Math.sin(mtaRad);
+                
+                let html = `<p><span class="text-gray-400">Radius:</span> <span class="text-white font-semibold">${this.radius.toFixed(2)} &Omega;</span></p>
+                <p><span class="text-gray-400">Center (R,X):</span> <span class="text-white font-semibold">(${this.centerR.toFixed(2)}, ${this.centerX_imp.toFixed(2)}) &Omega;</span></p>
+                <p><span class="text-gray-400">Reach R:</span> <span class="text-white font-semibold">${reachPointR.toFixed(2)} &Omega;</span></p>
+                <p><span class="text-gray-400">Reach X:</span> <span class="text-white font-semibold">${reachPointX.toFixed(2)} &Omega;</span></p>`;
+                
+                if (this.currentMode === 'ground') {
+                    // Add k-factor information for ground mode
+                    html += `<p class="mt-2 pt-2 border-t border-gray-600"><span class="text-gray-400">k-Factor:</span> <span class="text-white font-semibold">${this.kFactor.toFixed(2)} &angle; ${this.kAngle.toFixed(0)}&deg;</span></p>`;
+                    html += `<p><span class="text-gray-400">k Complex:</span> <span class="text-white font-semibold">${this.kReal.toFixed(2)} + j${this.kImag.toFixed(2)}</span></p>`;
+                    html += `<p><span class="text-gray-400">k+1:</span> <span class="text-white font-semibold">${(1 + this.kReal).toFixed(2)} + j${this.kImag.toFixed(2)}</span></p>`;
+                }
+                
+                this.calculatedDiv.innerHTML = html;
+            }
+            
+            screenToWorld(x_px, y_px) {
+                const r = (x_px - this.viewTransform.panX) / this.viewTransform.scale;
+                const x_imp = -(y_px - this.viewTransform.panY) / this.viewTransform.scale;
+                return { r, x_imp };
+            }
+            
+            updateTestPointInfo(worldCoords) {
+                if (!worldCoords) {
+                    // Use a default operating point if no coordinates are provided
+                    worldCoords = { r: 5.0, x_imp: 3.0 };
+                }
+                const { r, x_imp } = worldCoords;
+                const zMag = Math.sqrt(r * r + x_imp * x_imp);
+                const zAngle = Math.atan2(x_imp, r) * 180 / Math.PI;
+                const boundaryZ = this.maxVoltage / this.maxCurrent;
+                let testVoltageMag, testCurrentMag;
+
+                if (zMag > boundaryZ) { testVoltageMag = this.maxVoltage; testCurrentMag = this.maxVoltage / zMag; }
+                else { testCurrentMag = this.maxCurrent; testVoltageMag = this.maxCurrent * zMag; }
+
+                // For phase mode, Zcalc is just the impedance
+                let Zcalc, ZcalcMag, ZcalcAngle;
+                let Van, VanAngle, Ia, IaAngle;
+                
+                if (this.currentMode === 'phase') {
+                    // For phase mode, Zcalc is just the impedance
+                    Zcalc = { r, x: x_imp };
+                    ZcalcMag = zMag;
+                    ZcalcAngle = zAngle;
+                    
+                    // Calculate Van and Ia based on the operating impedance point
+                    Van = testVoltageMag;
+                    VanAngle = zAngle;
+                    Ia = testCurrentMag;
+                    IaAngle = 0; // Current reference angle is 0 degrees
+                } else {
+                    // For ground mode, we need to calculate Zcalc using the formula Zcalc = Van/((k+1)*Ia)
+                    // Complex arithmetic for k+1
+                    const kPlusOneReal = 1 + this.kReal;
+                    const kPlusOneImag = this.kImag;
+                    const kPlusOneMag = Math.sqrt(kPlusOneReal * kPlusOneReal + kPlusOneImag * kPlusOneImag);
+                    const kPlusOneAngle = Math.atan2(kPlusOneImag, kPlusOneReal) * 180 / Math.PI;
+                    
+                    // For ground mode, we want Zcalc to match the impedance point (r, x_imp)
+                    ZcalcMag = zMag;
+                    ZcalcAngle = zAngle;
+                    
+                    // Calculate Ia first (using a reasonable value based on test set limits)
+                    Ia = testCurrentMag;
+                    IaAngle = 0; // Current reference angle is 0 degrees
+                    
+                    // Then calculate Van using the formula: Van = Zcalc * (k+1) * Ia
+                    Van = ZcalcMag * kPlusOneMag * Ia;
+                    VanAngle = ZcalcAngle + kPlusOneAngle + IaAngle;
+                    
+                    // Ensure Van doesn't exceed max voltage
+                    if (Van > this.maxVoltage) {
+                        const scaleFactor = this.maxVoltage / Van;
+                        Van = this.maxVoltage;
+                        Ia = Ia * scaleFactor; // Scale down Ia proportionally
+                    }
+                }
+
+                const distFromCenter = Math.sqrt(Math.pow(r - this.centerR, 2) + Math.pow(x_imp - this.centerX_imp, 2));
+                const inCircle = distFromCenter <= this.radius;
+
+                let html = `<p><span class="text-gray-400">R,X:</span> <span class="text-white">${r.toFixed(2)}, ${x_imp.toFixed(2)} &Omega;</span></p>
+                <p><span class="text-gray-400">Z:</span> <span class="text-white">${zMag.toFixed(2)}&Omega; &ang;${zAngle.toFixed(2)}&deg;</span></p>
+                <p class="text-cyan-400 text-xs">-- Test Vectors --</p>
+                <p><span class="text-gray-400">Van:</span> <span class="text-white">${Van.toFixed(2)}V&ang;${VanAngle.toFixed(2)}&deg;</span></p>
+                <p><span class="text-gray-400">Ia:</span> <span class="text-white">${Ia.toFixed(2)}A&ang;${IaAngle.toFixed(2)}&deg;</span></p>`;
+                
+                if (this.currentMode === 'ground') {
+                    // Complex arithmetic for k+1
+                    const kPlusOneReal = 1 + this.kReal;
+                    const kPlusOneImag = this.kImag;
+                    const kPlusOneMag = Math.sqrt(kPlusOneReal * kPlusOneReal + kPlusOneImag * kPlusOneImag);
+                    const kPlusOneAngle = Math.atan2(kPlusOneImag, kPlusOneReal) * 180 / Math.PI;
+                    
+                    html += `<p class="text-cyan-400 text-xs mt-1">-- Calculated Values --</p>
+                    <p><span class="text-gray-400">k:</span> <span class="text-white">${this.kFactor.toFixed(2)}&angle;${this.kAngle.toFixed(0)}&deg;</span></p>
+                    <p><span class="text-gray-400">k+1:</span> <span class="text-white">${kPlusOneMag.toFixed(2)}&angle;${kPlusOneAngle.toFixed(2)}&deg;</span></p>
+                    <p><span class="text-gray-400">(k+1)*Ia:</span> <span class="text-white">${(kPlusOneMag * Ia).toFixed(2)}A&angle;${kPlusOneAngle.toFixed(2)}&deg;</span></p>
+                    <p><span class="text-gray-400">Zcalc:</span> <span class="text-white">${ZcalcMag.toFixed(2)}&Omega;&angle;${ZcalcAngle.toFixed(2)}&deg;</span></p>`;
+                }
+                
+                html += `<p><span class="text-gray-400">Status:</span> <span class="${inCircle ? 'text-green-400' : 'text-red-400'} font-bold">${inCircle ? 'OPERATE' : 'RESTRAIN'}</span></p>`;
+                
+                this.testPointDiv.innerHTML = html;
+            }
+            
+            drawAxesAndGrid() {
+                 const { ctx, canvas, viewTransform } = this;
+                 const worldTopLeft = this.screenToWorld(0, 0);
+                 const worldBottomRight = this.screenToWorld(canvas.width, canvas.height);
+                 const rMin = worldTopLeft.r;
+                 const rMax = worldBottomRight.r;
+                 const xImpMin = worldBottomRight.x_imp;
+                 const xImpMax = worldTopLeft.x_imp;
+                 
+                 const range = Math.max(rMax - rMin, xImpMax - xImpMin);
+                 let step = Math.pow(10, Math.floor(Math.log10(range/10)));
+                 if(range/step > 15) step *= 2;
+                 if(range/step < 8) step /=2;
+                 if(step <= 0) step = 1;
+
+                 ctx.strokeStyle = '#374151';
+                 ctx.lineWidth = 1 / viewTransform.scale;
+                 ctx.font = `${10 / viewTransform.scale}px Inter`;
+                 ctx.fillStyle = '#9ca3af';
+                 ctx.textAlign = 'center';
+                 ctx.textBaseline = 'middle';
+
+                 const rStart = Math.floor(rMin/step) * step;
+                 for(let r = rStart; r < rMax; r+= step){
+                     ctx.beginPath();
+                     ctx.moveTo(r, -xImpMax);
+                     ctx.lineTo(r, -xImpMin);
+                     ctx.stroke();
+                 }
+                 const xStart = Math.floor(xImpMin/step) * step;
+                 for(let x = xStart; x < xImpMax; x+=step){
+                     ctx.beginPath();
+                     ctx.moveTo(rMin, -x);
+                     ctx.lineTo(rMax, -x);
+                     ctx.stroke();
+                 }
+                 
+                 ctx.strokeStyle = '#6b7280';
+                 ctx.lineWidth = 2 / viewTransform.scale;
+                 ctx.beginPath();
+                 ctx.moveTo(rMin, 0);
+                 ctx.lineTo(rMax, 0);
+                 ctx.stroke();
+
+                 ctx.beginPath();
+                 ctx.moveTo(0, -xImpMax);
+                 ctx.lineTo(0, -xImpMin);
+                 ctx.stroke();
+
+                 for (let r = rStart; r < rMax; r += step) {
+                    if (Math.abs(r) > 1e-9) ctx.fillText(r.toFixed(1), r, 15 / viewTransform.scale);
+                 }
+                 ctx.textAlign = 'left';
+                 for (let x = xStart; x < xImpMax; x += step) {
+                    if (Math.abs(x) > 1e-9) ctx.fillText(x.toFixed(1), 5 / viewTransform.scale, -x);
+                 }
+            }
+
+            startAutoUpdate() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            stopAutoUpdate() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            updateOperatingPointFromLiveTest() {
+                // Auto-update functionality removed - red dot should only move with user interaction
+            }
+
+            worldToScreen(r, x_imp) {
+                // Convert world coordinates (R, X) to screen coordinates
+                // This is the inverse of screenToWorld
+                
+                if (!isFinite(r) || !isFinite(x_imp)) {
+                    return null;
+                }
+
+                const screenX = r * this.viewTransform.scale + this.viewTransform.panX;
+                const screenY = -x_imp * this.viewTransform.scale + this.viewTransform.panY;
+                
+                return { x: screenX, y: screenY };
+            }
+        }
+
+    </script>
+</body>
+</html>

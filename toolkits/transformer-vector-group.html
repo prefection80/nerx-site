@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title> Transformer Vector Group Educational Toolkit</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <style>
+    body {
+      margin: 0; padding: 0; font-family: Arial, sans-serif;
+      background: #f5f5f5; color: #333;
+    }
+    .container {
+      max-width: 1200px; margin: 30px auto; padding: 20px;
+      background: #fff; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      margin: 0; padding: 0; color: #333;
+    }
+    h1 { margin-bottom: 10px; }
+    .section {
+      margin-bottom: 30px; background: #fafafa; padding: 15px;
+      border-radius: 6px; border: 1px solid #eee;
+    }
+    label { font-weight: bold; }
+    select, button {
+      padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 0.9rem; cursor: pointer; margin-top: 5px;
+    }
+    button {
+      background: #2369d1; color: #fff; border: none;
+    }
+    button:hover {
+      background: #1f57ac;
+    }
+    .flexrow {
+      display: flex; flex-wrap: wrap; gap: 30px; align-items: center;
+    }
+    .info-panel {
+      display: flex; gap: 40px; margin-top: 10px;
+    }
+    .diagram-area {
+      display: flex; flex-wrap: wrap; gap: 40px; justify-content: center;
+      margin-top: 20px;
+    }
+    .diagram-box {
+      width: 300px; height: 300px; position: relative;
+      background: #fff; border: 1px solid #ccc; border-radius: 6px;
+    }
+    .diagram-title {
+      background: #f2f2f2; text-align: center; padding: 4px;
+      border-bottom: 1px solid #ccc; font-weight: bold;
+    }
+    .diagram-canvas {
+      display: block; width: 100%; height: calc(100% - 30px);
+    }
+    #phasorCanvas {
+      display: block; margin: 0 auto; background: #fff;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+
+    /* Animated bottom plots */b
+    .animated-plots {
+      display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
+      margin-top: 10px;
+    }
+    .phasor-box {
+      background: #fafafa; border: 1px solid #ccc; border-radius: 6px;
+      padding: 10px; width: 420px; text-align: center;
+    }
+    .note {
+      text-align: center; font-size: 0.9rem; color: #555; margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1></h1>
+
+  <!-- Top Controls -->
+  <div class="section flexrow">
+    <div>
+      <label>Connection Type (HV-LV)</label><br/>
+      <select id="connectionType" onchange="updateConnectionType()">
+        <option value="wye-wye">Wye-Wye</option>
+        <option value="delta-wye">Delta-Wye</option>
+        <option value="wye-delta">Wye-Delta</option>
+        <option value="delta-delta">Delta-Delta</option>
+      </select>
+    </div>
+    <div>
+      <label>Primary Polarity</label><br/>
+      <button onclick="togglePrimaryPolarity()">Toggle Polarity</button>
+    </div>
+    <div>
+      <label>Secondary Polarity</label><br/>
+      <button onclick="toggleSecondaryPolarity()">Toggle Polarity</button>
+    </div>
+    <div>
+      <label>Rotate Lowside</label><br/>
+      <button onclick="rotateLVcw()">Rotate LV 120° CW</button>
+    </div>
+  </div>
+
+  <!-- Info Panel -->
+  <div class="section info-panel">
+    <div>
+      <p><strong>Connection:</strong> <span id="connInfo">Wye-Wye</span></p>
+      <p><strong>Primary Polarity:</strong> <span id="primPolInfo">In Phase</span></p>
+      <p><strong>Secondary Polarity:</strong> <span id="secPolInfo">In Phase</span></p>
+    </div>
+    <div>
+      <p><strong>Phase Shift:</strong> <span id="phaseShift">0°</span></p>
+      <p><strong>Vector Group:</strong> <span id="vectorGroup">Yy0</span></p>
+    </div>
+  </div>
+
+  <!-- Polarity Diagrams (HV & LV) -->
+  <div class="section">
+    <h2>Polarity Diagrams</h2>
+    <div class="diagram-area">
+      <div class="diagram-box">
+        <div class="diagram-title">HV Side</div>
+        <canvas id="hvCanvas" class="diagram-canvas" width="300" height="270"></canvas>
+      </div>
+      <div class="diagram-box">
+        <div class="diagram-title">LV Side</div>
+        <canvas id="lvCanvas" class="diagram-canvas" width="300" height="270"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Static Phasor Diagram -->
+  <div class="section">
+    <h2>Phasor Diagram </h2>
+    <canvas id="phasorCanvas" width="600" height="400"></canvas>
+  </div>
+
+  <!-- Animated Plots Section -->
+  <div class="section">
+    <h2>Animated HV & LV Phasors (CCW Rotation)</h2>
+    <p style="margin-top:0;">
+      
+      
+    </p>
+
+    <div style="text-align:center; margin-bottom:10px;">
+      <button id="toggleHvSeqBtn">Toggle HV Sequence (Currently ABC)</button>
+    </div>
+    
+    <div class="animated-plots">
+      <!-- HV Animated Box -->
+      <div class="phasor-box">
+        <h3>HV Phasors</h3>
+        <canvas id="hvAnimatedCanvas" width="380" height="320"></canvas>
+      </div>
+      <!-- LV Animated Box -->
+      <div class="phasor-box">
+        <h3>LV Phasors</h3>
+        <canvas id="lvAnimatedCanvas" width="380" height="320"></canvas>
+      </div>
+    </div>
+    <div class="note">
+      For <strong>delta-wye</strong>, subtract 2 hours from the normal hour.<br/>
+      For <strong>wye-delta</strong>, add 2 hours.
+    </div>
+  </div>
+</div>
+
+<script>
+// =======================================================================
+// GLOBALS / LOGIC (top panel)
+// =======================================================================
+const HV_LOGICAL_ANGLES = [90, 210, 330]; // H1=90°, H2=210°, H3=330°
+const ROTATIONS = [
+  { h1: 'X1', h2: 'X2', h3: 'X3' },
+  { h1: 'X3', h2: 'X1', h3: 'X2' },
+  { h1: 'X2', h2: 'X3', h3: 'X1' }
+];
+let lvOrderIndex = 0;
+let primaryPolarity = true;
+let secondaryPolarity = true;
+let hvSequenceMode = "ABC"; // "ABC" or "CBA"
+
+// Animation
+let t = 0;        // degrees of continuous rotation
+let fps = 30;     // frames/sec
+let speed = 10;   // deg/sec
+
+window.onload = function() {
+  setTimeout(updateEverything, 100);
+
+  // Start the animation loop
+  setInterval(animatePhasors, 1000 / fps);
+
+  document.getElementById("toggleHvSeqBtn").onclick = function() {
+    if (hvSequenceMode === "ABC") {
+      hvSequenceMode = "CBA";
+      this.textContent = "Toggle HV Sequence (Currently CBA)";
+    } else {
+      hvSequenceMode = "ABC";
+      this.textContent = "Toggle HV Sequence (Currently ABC)";
+    }
+    updateEverything(); // re-run logic for top panel
+  };
+};
+
+// =======================================================================
+// UI callbacks
+// =======================================================================
+function updateConnectionType() {
+  const ctype = document.getElementById('connectionType').value;
+  document.getElementById('connInfo').textContent = ctype;
+  updateEverything();
+}
+
+function togglePrimaryPolarity() {
+  primaryPolarity = !primaryPolarity;
+  document.getElementById('primPolInfo').textContent = primaryPolarity ? 'In Phase' : 'Reversed';
+  updateEverything();
+}
+
+function toggleSecondaryPolarity() {
+  secondaryPolarity = !secondaryPolarity;
+  document.getElementById('secPolInfo').textContent = secondaryPolarity ? 'In Phase' : 'Reversed';
+  updateEverything();
+}
+
+function rotateLVcw() {
+  lvOrderIndex = (lvOrderIndex + 1) % 3;
+  updateEverything();
+}
+
+function updateEverything() {
+  computeVectorGroup(); 
+  drawHvDiagram();
+  drawLvDiagram();
+  drawPhasorDiagram();
+}
+
+// =======================================================================
+// 1) COMPUTE SHIFT & VECTOR GROUP
+// =======================================================================
+function getLvConnections() { return ROTATIONS[lvOrderIndex]; }
+function getLvLabels() {
+  const c = getLvConnections();
+  return [ c.h1, c.h2, c.h3 ];
+}
+
+function computeVectorGroup() {
+  const conn = getLvConnections();
+  let baseAngle = 0;
+  if (conn.h2 === 'X1') baseAngle = 120;
+  if (conn.h3 === 'X1') baseAngle = 240;
+
+  const ctype = document.getElementById('connectionType').value;
+  let shift = 0;
+  if (ctype === 'delta-wye') shift = -30;  // standard
+  else if (ctype === 'wye-delta') shift = 30;
+
+  // Polarity difference => +180
+  if (primaryPolarity !== secondaryPolarity) {
+    shift += 180;
+  }
+
+  // finalAngle in normal (ABC) scenario
+  let finalAngle = (baseAngle + shift + 360) % 360;
+
+  // If HV is "CBA", we interpret that as reversing the shift
+  if (hvSequenceMode === "CBA") {
+    finalAngle = (360 - finalAngle) % 360; // negate it
+  }
+
+  document.getElementById('phaseShift').textContent = finalAngle + '°';
+
+  // Now compute vector group hour => clockwise angle from H1 to X1
+  const cwAngle = (360 - finalAngle) % 360;
+  let hour = Math.round(cwAngle / 30) % 12;
+
+  // **Subtract 2 hrs for delta-wye, add 2 hrs for wye-delta**
+  if (ctype === 'delta-wye') {
+    hour = (hour - 2 + 12) % 12;
+  } else if (ctype === 'wye-delta') {
+    hour = (hour + 2) % 12;
+  }
+
+  const prefixMap = {
+    'wye-wye': 'Yy',
+    'delta-wye': 'Dy',
+    'wye-delta': 'Yd',
+    'delta-delta': 'Dd'
+  };
+  let group = prefixMap[ctype] + hour;
+  document.getElementById('vectorGroup').textContent = group;
+
+  return finalAngle;
+}
+
+// =======================================================================
+// HV & LV Polarity Diagrams (static windings)
+// =======================================================================
+function drawHvDiagram() {
+  const ctype = document.getElementById('connectionType').value;
+  const hvSide = ctype.split('-')[0];
+  const can = document.getElementById('hvCanvas');
+  const ctx = can.getContext('2d');
+  ctx.clearRect(0,0, can.width, can.height);
+
+  if (hvSide === 'wye') {
+    drawWyeDiagram(ctx, can.width, can.height, HV_LOGICAL_ANGLES, ["H1","H2","H3"], primaryPolarity, 0);
+  } else {
+    drawDeltaDiagram(ctx, can.width, can.height, HV_LOGICAL_ANGLES, ["H1","H2","H3"], primaryPolarity, 0);
+  }
+}
+
+function drawLvDiagram() {
+  const ctype = document.getElementById('connectionType').value;
+  const lvSide = ctype.split('-')[1];
+  const can = document.getElementById('lvCanvas');
+  const ctx = can.getContext('2d');
+  ctx.clearRect(0,0, can.width, can.height);
+
+  const labels = getLvLabels();
+  const effectiveRotation = getLvBaseRotation();
+
+  if (lvSide === 'wye') {
+    drawWyeDiagram(ctx, can.width, can.height, HV_LOGICAL_ANGLES, labels, secondaryPolarity, effectiveRotation);
+  } else {
+    drawDeltaDiagram(ctx, can.width, can.height, HV_LOGICAL_ANGLES, labels, secondaryPolarity, effectiveRotation);
+  }
+}
+
+function getLvBaseRotation() {
+  const conn = getLvConnections();
+  let baseAngle = 0;
+  if (conn.h2 === 'X1') baseAngle = 120;
+  if (conn.h3 === 'X1') baseAngle = 240;
+  
+  const ctype = document.getElementById('connectionType').value;
+  if (ctype === 'delta-wye') {
+    baseAngle = (baseAngle - 30 + 360) % 360;
+  } else if (ctype === 'wye-delta') {
+    baseAngle = (baseAngle + 30) % 360;
+  }
+  
+  if (primaryPolarity !== secondaryPolarity) {
+    baseAngle = (baseAngle + 180) % 360;
+  }
+
+  // If HV = "CBA", also negate for static diagram
+  if (hvSequenceMode === "CBA") {
+    baseAngle = (360 - baseAngle) % 360;
+  }
+
+  return baseAngle;
+}
+
+// =======================================================================
+// Single Static Phasor Diagram
+// =======================================================================
+function drawPhasorDiagram() {
+  const can = document.getElementById('phasorCanvas');
+  const ctx = can.getContext('2d');
+  ctx.clearRect(0,0, can.width, can.height);
+
+  const cx = can.width/2, cy = can.height/2+20;
+  const r = 130;
+
+  // circle + crosshair
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2*Math.PI);
+  ctx.strokeStyle = '#ccc';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx - r - 20, cy);
+  ctx.lineTo(cx + r + 20, cy);
+  ctx.moveTo(cx, cy - r - 20);
+  ctx.lineTo(cx, cy + r + 20);
+  ctx.strokeStyle = '#ccc';
+  ctx.setLineDash([5,5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // angle labels
+  ctx.font = '12px Arial';
+  ctx.fillStyle = '#999';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let hour = 0; hour < 12; hour++) {
+    const angle = hour*30*Math.PI/180;
+    const xx = cx + (r+15)*Math.cos(angle);
+    const yy = cy + (r+15)*Math.sin(angle);
+    ctx.fillText(hour===0?'0°':(hour*30+'°'), xx, yy);
+  }
+
+  // HV lines => normally H1=90°, H2=210°, H3=330°
+  // If HV="CBA", we invert them
+  function maybeNegate(a){ return hvSequenceMode==="CBA"? (360-a)%360 : a; }
+  const H1ang=maybeNegate(HV_LOGICAL_ANGLES[0]);
+  const H2ang=maybeNegate(HV_LOGICAL_ANGLES[1]);
+  const H3ang=maybeNegate(HV_LOGICAL_ANGLES[2]);
+
+  drawPhasorLine(ctx, cx, cy, r, H1ang, "H1", 'red', 20);
+  drawPhasorLine(ctx, cx, cy, r, H2ang, "H2", 'green', 20);
+  drawPhasorLine(ctx, cx, cy, r, H3ang, "H3", 'blue', 20);
+
+  // LV lines
+  const finalAngleDeg = parseFloat(document.getElementById('phaseShift').textContent)||0;
+  const conn = getLvConnections();
+  let x1Pos, x2Pos, x3Pos;
+  if (conn.h1==='X1') x1Pos=H1ang;
+  else if(conn.h2==='X1') x1Pos=H2ang;
+  else x1Pos=H3ang;
+
+  if (conn.h1==='X2') x2Pos=H1ang;
+  else if(conn.h2==='X2') x2Pos=H2ang;
+  else x2Pos=H3ang;
+
+  if (conn.h1==='X3') x3Pos=H1ang;
+  else if(conn.h2==='X3') x3Pos=H2ang;
+  else x3Pos=H3ang;
+
+  drawPhasorLine(ctx, cx, cy, r, (x1Pos+finalAngleDeg)%360, "X1", 'orange', 40);
+  drawPhasorLine(ctx, cx, cy, r, (x2Pos+finalAngleDeg)%360, "X2", 'purple', 40);
+  drawPhasorLine(ctx, cx, cy, r, (x3Pos+finalAngleDeg)%360, "X3", 'cyan', 40);
+
+  // label vector group
+  ctx.font = 'bold 16px Arial';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText("Vector Group: " + document.getElementById('vectorGroup').textContent, 10, 10);
+
+  ctx.font = '12px Arial';
+  ctx.fillStyle = '#666';
+  ctx.fillText("Rotation: Counterclockwise", 10, 30);
+}
+
+function drawPhasorLine(ctx, cx, cy, r, angleDeg, label, color, labelOffset) {
+  const rad = angleDeg*Math.PI/180;
+  const x2 = cx + r*Math.cos(rad);
+  const y2 = cy + r*Math.sin(rad);
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // arrow
+  const headlen=10;
+  const angle=Math.atan2(y2-cy, x2-cx);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headlen*Math.cos(angle - Math.PI/6), y2-headlen*Math.sin(angle - Math.PI/6));
+  ctx.lineTo(x2-headlen*Math.cos(angle + Math.PI/6), y2-headlen*Math.sin(angle + Math.PI/6));
+  ctx.closePath();
+  ctx.fillStyle=color;
+  ctx.fill();
+
+  // label
+  const lx = x2 + labelOffset*Math.cos(rad);
+  const ly = y2 + labelOffset*Math.sin(rad);
+  ctx.fillStyle=color;
+  ctx.font='14px Arial';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(label, lx, ly);
+}
+
+// =======================================================================
+// Wye & Delta Diagrams
+// =======================================================================
+function drawWyeDiagram(ctx, width, height, baseAngles, labels, inPhase, rotateDeg) {
+  const cx=width/2, cy=height/2+10;
+  const radius=80;
+
+  baseAngles.forEach((ang, i)=>{
+    const finalAng=(ang+rotateDeg)%360;
+    const rad=finalAng*Math.PI/180;
+    const x2 = cx + radius*Math.cos(rad);
+    const y2 = cy + radius*Math.sin(rad);
+
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(x2,y2);
+    ctx.strokeStyle='#333';
+    ctx.lineWidth=2;
+    ctx.stroke();
+
+    const lbl = labels[i];
+    const labDist=15;
+    const lx = x2 + labDist*Math.cos(rad);
+    const ly = y2 + labDist*Math.sin(rad);
+    ctx.fillStyle='#333';
+    ctx.font='14px Arial';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(lbl, lx, ly);
+
+    if(inPhase){
+      ctx.beginPath();
+      ctx.arc(x2,y2,5,0,2*Math.PI);
+      ctx.fillStyle='#27ae60';
+      ctx.fill();
+    } else {
+      const dx=x2-cx, dy=y2-cy;
+      ctx.beginPath();
+      ctx.arc(cx+0.2*dx, cy+0.2*dy,5,0,2*Math.PI);
+      ctx.fillStyle='#c0392b';
+      ctx.fill();
+    }
+  });
+
+  ctx.beginPath();
+  ctx.arc(cx,cy,5,0,2*Math.PI);
+  ctx.fillStyle='#999';
+  ctx.fill();
+}
+
+function drawDeltaDiagram(ctx, width, height, baseAngles, labels, inPhase, rotateDeg) {
+  const cx=width/2, cy=height/2+10;
+  const radius=80;
+
+  const corners = baseAngles.map((ang,i)=>{
+    const finalAng=(ang+rotateDeg)%360;
+    const rad=finalAng*Math.PI/180;
+    return {
+      x: cx + radius*Math.cos(rad),
+      y: cy + radius*Math.sin(rad),
+      label: labels[i]
+    };
+  });
+
+  const lines = [
+    {start:0, end:1},
+    {start:1, end:2},
+    {start:2, end:0}
+  ];
+  lines.forEach(line=>{
+    const s=corners[line.start], e=corners[line.end];
+    ctx.beginPath();
+    ctx.moveTo(s.x,s.y);
+    ctx.lineTo(e.x,e.y);
+    ctx.strokeStyle='#333';
+    ctx.lineWidth=2;
+    ctx.stroke();
+
+    const frac=0.2;
+    if(inPhase){
+      ctx.beginPath();
+      ctx.arc(s.x+frac*(e.x-s.x), s.y+frac*(e.y-s.y), 5,0,2*Math.PI);
+      ctx.fillStyle='#27ae60';
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(e.x-frac*(e.x-s.x), e.y-frac*(e.y-s.y), 5,0,2*Math.PI);
+      ctx.fillStyle='#c0392b';
+      ctx.fill();
+    }
+  });
+
+  corners.forEach(pt=>{
+    const dx=pt.x-cx, dy=pt.y-cy;
+    const len=Math.sqrt(dx*dx + dy*dy)||1;
+    const outFrac=15/len;
+    const lx=pt.x+outFrac*dx, ly=pt.y+outFrac*dy;
+    ctx.fillStyle='#333';
+    ctx.font='14px Arial';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(pt.label, lx, ly);
+  });
+}
+
+// =======================================================================
+// Animation for HV & LV (CCW) 
+// =======================================================================
+function animatePhasors(){
+  t -= speed/fps; // Changed from += to -= to reverse rotation direction for CCW
+  drawHvAnimated();
+  drawLvAnimated();
+}
+
+// HV animated => always CCW
+function drawHvAnimated(){
+  const can = document.getElementById('hvAnimatedCanvas');
+  const ctx = can.getContext('2d');
+  ctx.clearRect(0,0,can.width,can.height);
+
+  const cx=can.width/2, cy=can.height/2+20;
+  const r=100;
+
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,2*Math.PI);
+  ctx.strokeStyle='#ccc';
+  ctx.stroke();
+
+  // If "ABC": A= t, B= t+120, C= t+240
+  // If "CBA": C= t, B= t+120, A= t+240
+  if(hvSequenceMode==="ABC"){
+    drawPhasorLine(ctx, cx, cy, r, t, "A", "red", 25);
+    drawPhasorLine(ctx, cx, cy, r, t+120, "B", "green", 25);
+    drawPhasorLine(ctx, cx, cy, r, t+240, "C", "blue", 25);
+  } else {
+    drawPhasorLine(ctx, cx, cy, r, t, "C", "red", 25);
+    drawPhasorLine(ctx, cx, cy, r, t+120, "B", "green", 25);
+    drawPhasorLine(ctx, cx, cy, r, t+240, "A", "blue", 25);
+  }
+}
+
+// LV animated => offset by finalAngle (negated if CBA)
+function drawLvAnimated(){
+  const can = document.getElementById('lvAnimatedCanvas');
+  const ctx = can.getContext('2d');
+  ctx.clearRect(0,0,can.width,can.height);
+
+  const cx=can.width/2, cy=can.height/2+20;
+  const r=100;
+
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,2*Math.PI);
+  ctx.strokeStyle='#ccc';
+  ctx.stroke();
+
+  // finalAngle from top
+  let finalAngleDeg = parseFloat(document.getElementById('phaseShift').textContent)||0;
+
+  // If "ABC": X1=A(t), X2=B(t+120), X3=C(t+240)
+  // If "CBA": X1=C(t), X2=B(t+120), X3=A(t+240)
+  let x1Base, x2Base, x3Base;
+  if(hvSequenceMode==="ABC"){
+    x1Base = t;       
+    x2Base = t+120;   
+    x3Base = t+240;   
+  } else {
+    x1Base = t;       
+    x2Base = t+120;   
+    x3Base = t+240;   
+  }
+
+  const X1angle = (x1Base + finalAngleDeg) % 360;
+  const X2angle = (x2Base + finalAngleDeg) % 360;
+  const X3angle = (x3Base + finalAngleDeg) % 360;
+
+  if(hvSequenceMode==="ABC"){
+    drawPhasorLine(ctx, cx, cy, r, X1angle, "A", "orange", 25);
+    drawPhasorLine(ctx, cx, cy, r, X2angle, "B", "purple", 25);
+    drawPhasorLine(ctx, cx, cy, r, X3angle, "C", "cyan", 25);
+  } else {
+    drawPhasorLine(ctx, cx, cy, r, X1angle, "C", "orange", 25);
+    drawPhasorLine(ctx, cx, cy, r, X2angle, "B", "purple", 25);
+    drawPhasorLine(ctx, cx, cy, r, X3angle, "A", "cyan", 25);
+  }
+}
+
+function drawPhasorLine(ctx, cx, cy, radius, angleDeg, label, color, labelOffset){
+  const rad = angleDeg*Math.PI/180;
+  const x2 = cx + radius*Math.cos(rad);
+  const y2 = cy + radius*Math.sin(rad);
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  // arrow
+  const headlen=10;
+  const theta = Math.atan2(y2-cy,x2-cx);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(
+    x2 - headlen*Math.cos(theta - Math.PI/6),
+    y2 - headlen*Math.sin(theta - Math.PI/6)
+  );
+  ctx.lineTo(
+    x2 - headlen*Math.cos(theta + Math.PI/6),
+    y2 - headlen*Math.sin(theta + Math.PI/6)
+  );
+  ctx.closePath();
+  ctx.fillStyle=color;
+  ctx.fill();
+
+  const lx = x2 + labelOffset*Math.cos(rad);
+  const ly = y2 + labelOffset*Math.sin(rad);
+  ctx.fillStyle=color;
+  ctx.font='14px Arial';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(label, lx, ly);
+}
+</script>
+
+<!-- Include header.js and ticker.js files -->
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+</body>
+</html>

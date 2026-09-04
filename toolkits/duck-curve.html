@@ -1,0 +1,2510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duck Curve Simulator</title>
+    <style>
+        /* CSS (largely unchanged, minor adjustments possible) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa; /* Lighter background */
+            color: #212529; /* Darker text */
+        }
+
+        .container {
+            max-width: 1700px; /* Slightly wider */
+            margin: auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        }
+
+        header h1 {
+            text-align: center;
+            color: #343a40;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        main {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping */
+            gap: 25px; /* Slightly more gap */
+        }
+
+        .controls-panel {
+            flex: 1;
+            min-width: 300px; /* Reduced for better mobile experience */
+            max-width: 650px; /* Increased to accommodate formulas */
+        }
+
+        .visualization-panel {
+            flex: 2;
+            min-width: 300px; /* Reduced for better mobile experience */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* For sticky positioning */
+        }
+        
+        /* Sticky visualization when scrolling */
+        .sticky-viz {
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            main {
+                flex-direction: column;
+            }
+            
+            .controls-panel, .visualization-panel {
+                min-width: 100%;
+                max-width: 100%;
+            }
+            
+            #dispatchCanvas, #solarCanvas, #windCanvas {
+                max-width: 100%;
+                height: auto;
+            }
+            
+            input[type="range"] {
+                width: 100%;
+            }
+            
+            input[type="number"] {
+                width: 60px;
+            }
+        }
+
+        #dispatchCanvas, #solarCanvas, #windCanvas {
+            border: 1px solid #dee2e6; /* Lighter border */
+            background-color: #fff;
+            max-width: 100%;
+            height: auto; /* Keep this for responsive height based on width, but ensure width attribute is set on canvas tag */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 20px; /* Added some margin for better spacing */
+        }
+
+        section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: #f1f3f5; /* Lighter section background */
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        section h2 {
+            margin-top: 0;
+            font-size: 1.3em;
+            font-weight: 500;
+            color: #495057;
+            border-bottom: 1px solid #ced4da;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        .control-item, .gen-mix-item, .ramp-rate-item, .price-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: nowrap; /* Prevent wrapping within item */
+        }
+
+        label {
+            margin-right: 12px;
+            flex-basis: 130px; /* Consistent label width */
+            flex-shrink: 0;
+            color: #495057;
+            font-size: 0.95em;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 75px;
+            padding: 5px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        /* Style number input arrows consistently */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+           opacity: 1;
+        }
+
+
+        span[id*="-value"], #total-mix-percentage {
+            min-width: 50px; /* Adjusted width */
+            text-align: right;
+            font-weight: 500;
+            font-size: 0.95em;
+            color: #007bff; /* Accent color */
+            margin-left: 8px;
+        }
+        #total-mix-percentage {
+            color: green; /* Default to green */
+        }
+
+        .curve-edit-controls button {
+             padding: 6px 12px;
+             margin-right: 8px;
+             font-size: 0.9em;
+             cursor: pointer;
+             border: 1px solid #adb5bd;
+             background-color: #fff;
+             border-radius: 4px;
+             transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .curve-edit-controls button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+            font-weight: 500;
+        }
+         .curve-edit-controls button:hover:not(.active) {
+             background-color: #e9ecef;
+             border-color: #adb5bd;
+         }
+
+        footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+            width: 100%;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .view-toggle button {
+            padding: 6px 12px;
+            margin-left: 8px;
+            font-size: 0.9em;
+            cursor: pointer;
+            border: 1px solid #adb5bd;
+            background-color: #fff;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        
+        .view-toggle button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+            font-weight: 500;
+        }
+        
+        .view-toggle button:hover:not(.active) {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+    </style>
+    <!-- Add MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: center; justify-content: center;">
+                <a href="Duckcurve.html" style="margin-right: 15px; display: flex; align-items: center;">
+                    
+                </a>
+                <h1></h1>
+            </div>
+        </header>
+
+        <main>
+            <div class="controls-panel">
+                <section id="curve-editing">
+                    <h2>1. Edit Curves</h2>
+                    <p>Select curve to edit, then drag points on the chart:</p>
+                    <div class="curve-edit-controls">
+                        <button id="edit-load-curve-btn" class="active">Load (Black)</button>
+                        <button id="edit-solar-curve-btn">Solar (Orange)</button>
+                        <button id="edit-wind-curve-btn">Wind (Blue)</button>
+                    </div>
+                    <p>Currently editing: <strong id="active-curve-display">Load</strong></p>
+                </section>
+
+                <section id="generation-unit-controls">
+                    <h2>2. Generation Units & Characteristics</h2>
+                    
+                    <h3>Coal</h3>
+                    <div class="control-item">
+                        <label for="coal-num-units">Number of Units:</label>
+                        <input type="range" id="coal-num-units-slider" min="0" max="10" step="1" value="2" style="flex-grow: 2;">
+                        <input type="number" id="coal-num-units" name="coal-num-units" min="0" max="10" step="1" value="2">
+                    </div>
+                    <div class="control-item">
+                        <label for="coal-cap-per-unit">Capacity/Unit (% Peak Load):</label>
+                        <input type="range" id="coal-cap-per-unit-slider" min="0" max="100" step="1" value="10" style="flex-grow: 2;">
+                        <input type="number" id="coal-cap-per-unit" name="coal-cap-per-unit" min="0" max="100" step="1" value="10">
+                    </div>
+                    <div class="control-item">
+                        <label for="coal-ramp-per-unit">Ramp Rate/Unit (% Unit Cap/min):</label>
+                        <input type="range" id="coal-ramp-per-unit-slider" min="0" max="1" step="0.01" value="0.15" style="flex-grow: 2;">
+                        <input type="number" id="coal-ramp-per-unit" name="coal-ramp-per-unit" min="0" max="1" step="0.01" value="0.15"> <!-- e.g. 0.15% of its own capacity per minute -->
+                    </div>
+                    <p>Coal Total Capacity: <span id="coal-total-cap-display">20%</span></p>
+
+                    <h3>Nuclear</h3>
+                    <div class="control-item">
+                        <label for="nuclear-num-units">Number of Units:</label>
+                        <input type="range" id="nuclear-num-units-slider" min="0" max="5" step="1" value="1" style="flex-grow: 2;">
+                        <input type="number" id="nuclear-num-units" name="nuclear-num-units" min="0" max="5" step="1" value="1">
+                    </div>
+                    <div class="control-item">
+                        <label for="nuclear-cap-per-unit">Capacity/Unit (% Peak Load):</label>
+                        <input type="range" id="nuclear-cap-per-unit-slider" min="0" max="100" step="1" value="10" style="flex-grow: 2;">
+                        <input type="number" id="nuclear-cap-per-unit" name="nuclear-cap-per-unit" min="0" max="100" step="1" value="10">
+                    </div>
+                    <div class="control-item">
+                        <label for="nuclear-ramp-per-unit">Ramp Rate/Unit (% Unit Cap/min):</label>
+                        <input type="range" id="nuclear-ramp-per-unit-slider" min="0" max="1" step="0.01" value="0.05" style="flex-grow: 2;">
+                        <input type="number" id="nuclear-ramp-per-unit" name="nuclear-ramp-per-unit" min="0" max="1" step="0.01" value="0.05">
+                    </div>
+                    <p>Nuclear Total Capacity: <span id="nuclear-total-cap-display">10%</span></p>
+
+                    <h3>CCGT Natural Gas</h3>
+                    <div class="control-item">
+                        <label for="ccgt-num-units">Number of Units:</label>
+                        <input type="range" id="ccgt-num-units-slider" min="0" max="10" step="1" value="1" style="flex-grow: 2;">
+                        <input type="number" id="ccgt-num-units" name="ccgt-num-units" min="0" max="10" step="1" value="1">
+                    </div>
+                    <div class="control-item">
+                        <label for="ccgt-cap-per-unit">Capacity/Unit (% Peak Load):</label>
+                        <input type="range" id="ccgt-cap-per-unit-slider" min="0" max="100" step="1" value="10" style="flex-grow: 2;">
+                        <input type="number" id="ccgt-cap-per-unit" name="ccgt-cap-per-unit" min="0" max="100" step="1" value="10">
+                    </div>
+                    <div class="control-item">
+                        <label for="ccgt-ramp-per-unit">Ramp Rate/Unit (% Unit Cap/min):</label>
+                        <input type="range" id="ccgt-ramp-per-unit-slider" min="0" max="50" step="1" value="20.0" style="flex-grow: 2;">
+                        <input type="number" id="ccgt-ramp-per-unit" name="ccgt-ramp-per-unit" min="0" max="50" step="1" value="20.0">
+                    </div>
+                    <p>CCGT Total Capacity: <span id="ccgt-total-cap-display">10%</span></p>
+
+                    <h3>Gas Turbine</h3>
+                    <div class="control-item">
+                        <label for="gasTurbine-num-units">Number of Units:</label>
+                        <input type="range" id="gasTurbine-num-units-slider" min="0" max="10" step="1" value="1" style="flex-grow: 2;">
+                        <input type="number" id="gasTurbine-num-units" name="gasTurbine-num-units" min="0" max="10" step="1" value="1">
+                    </div>
+                    <div class="control-item">
+                        <label for="gasTurbine-cap-per-unit">Capacity/Unit (% Peak Load):</label>
+                        <input type="range" id="gasTurbine-cap-per-unit-slider" min="0" max="100" step="1" value="10" style="flex-grow: 2;">
+                        <input type="number" id="gasTurbine-cap-per-unit" name="gasTurbine-cap-per-unit" min="0" max="100" step="1" value="10">
+                    </div>
+                    <div class="control-item">
+                        <label for="gasTurbine-ramp-per-unit">Ramp Rate/Unit (% Unit Cap/min):</label>
+                        <input type="range" id="gasTurbine-ramp-per-unit-slider" min="0" max="100" step="1" value="80.0" style="flex-grow: 2;">
+                        <input type="number" id="gasTurbine-ramp-per-unit" name="gasTurbine-ramp-per-unit" min="0" max="100" step="1" value="80.0">
+                    </div>
+                    <p>Gas Turbine Total Capacity: <span id="gasTurbine-total-cap-display">10%</span></p>
+
+                    <section id="scenario-presets">
+                        <h2>Scenario Presets</h2>
+                    </section>
+                    <!-- Scenario Presets Section Removed -->
+
+                    <section id="ramp-rate-analysis">
+                        <h2>Ramp Rate Analysis</h2>
+                        <p>Move the slider to see how generation ramp rates change throughout the day. Only generation with available capacity can ramp up.</p>
+                        <div class="control-item">
+                            <label for="time-of-day-slider">Time of Day:</label>
+                            <input type="range" id="time-of-day-slider" min="0" max="23.99" step="0.01" value="12" style="flex-grow: 2;">
+                            <span id="time-of-day-display">12:00</span>
+                        </div>
+                        <div id="ramp-rate-results">
+                            <h3>Generation Ramp Rates at Selected Time</h3>
+                            <div id="ramp-rate-chart" style="height: 150px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"></div>
+                            <div id="ramp-rate-details" style="margin-top: 15px;">
+                                <h4>Detailed Ramp Rate Calculations</h4>
+                                <table style="width:100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.95em; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 4px; overflow: hidden;">
+                                    <tr style="border-bottom: 1px solid #ddd; font-weight: bold; background-color: #f8f9fa;">
+                                        <td>Generator</td>
+                                        <td>Current Output</td>
+                                        <td>Available Capacity</td>
+                                        <td>Available Ramp</td>
+                                        <td>Max Ramp</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Coal</td>
+                                        <td><span id="coal-output-display">0 MW</span></td>
+                                        <td><span id="coal-capacity-display">0 MW</span></td>
+                                        <td><span id="coal-ramp-display">0 MW/min</span></td>
+                                        <td><span id="coal-max-ramp-display">0 MW/min</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Nuclear</td>
+                                        <td><span id="nuclear-output-display">0 MW</span></td>
+                                        <td><span id="nuclear-capacity-display">0 MW</span></td>
+                                        <td><span id="nuclear-ramp-display">0 MW/min</span></td>
+                                        <td><span id="nuclear-max-ramp-display">0 MW/min</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>CCGT</td>
+                                        <td><span id="ccgt-output-display">0 MW</span></td>
+                                        <td><span id="ccgt-capacity-display">0 MW</span></td>
+                                        <td><span id="ccgt-ramp-display">0 MW/min</span></td>
+                                        <td><span id="ccgt-max-ramp-display">0 MW/min</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Gas Turbine</td>
+                                        <td><span id="gasTurbine-output-display">0 MW</span></td>
+                                        <td><span id="gasTurbine-capacity-display">0 MW</span></td>
+                                        <td><span id="gasTurbine-ramp-display">0 MW/min</span></td>
+                                        <td><span id="gasTurbine-max-ramp-display">0 MW/min</span></td>
+                                    </tr>
+                                    <tr style="border-top: 1px solid #ddd; font-weight: bold; background-color: #f8f9fa;">
+                                        <td>Total</td>
+                                        <td><span id="total-output-display">0 MW</span></td>
+                                        <td><span id="total-capacity-display">0 MW</span></td>
+                                        <td><span id="total-ramp-display">0 MW/min</span></td>
+                                        <td><span id="total-max-ramp-display">0 MW/min</span></td>
+                                    </tr>
+                                </table>
+                                <p>Net Load Ramp Rate: <span id="net-load-ramp-display">0 MW/min</span></p>
+                                <p id="ramp-constraint-message" style="color: #dc3545; font-weight: 500; background-color: #f8d7da; padding: 8px 12px; border-radius: 4px; border: 1px solid #f5c6cb; display: none;">⚠️ Ramp rate constraint active: Generation cannot meet load change rate</p>
+                            </div>
+                            
+                            <div id="ramp-rate-formulas" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #e9ecef; max-width: 100%; overflow-x: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                                <h4>Ramp Rate Calculations</h4>
+                                <div style="padding-bottom: 15px; margin-bottom: 10px;">
+                                    <p>For each generator type:</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Total Ramp Rate} = \text{Units} \times \text{Capacity} \times \text{Ramp Rate} \]</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Ramp (MW/min)} = n \times \left(\frac{\text{Cap}}{100} \times \text{Load}\right) \times \left(\frac{\text{Rate}}{100}\right) \]</p>
+                                    
+                                    <p>Where:</p>
+                                    <ul style="list-style-type: none; padding-left: 10px; font-size: 0.9em;">
+                                        <li>\( n \) = Number of units</li>
+                                        <li>\( \text{Cap} \) = Unit capacity (% of peak)</li>
+                                        <li>\( \text{Rate} \) = Ramp rate (%/min)</li>
+                                    </ul>
+                                    
+                                    <p>Available ramp rate is limited by:</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Ramp Up} = \min\left(\text{Total Ramp}, \frac{\text{Avail. Cap.}}{10}\right) \]</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Ramp Down} = \min\left(\text{Total Ramp}, \frac{\text{Output}}{10}\right) \]</p>
+                                    
+                                    <p>Duck curve ramp rate challenge:</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Net Load Ramp} = \frac{d(\text{Load} - \text{Solar} - \text{Wind})}{dt} \]</p>
+                                    <p style="font-size: 0.9em;">\[ \text{System Capability} = \sum_{i} \text{Ramp}_i \]</p>
+                                    <p style="font-size: 0.9em;">\[ \text{Constraint Violation if: } |\text{Net Load Ramp}| > \text{System Capability} \]</p>
+                                </div>
+                                
+                                <!-- Generator-specific formulas section removed as requested -->
+                                
+                                <div style="margin-top: 15px; padding: 15px; background-color: #e9ecef; border-radius: 5px; max-width: 100%; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
+                                    <h4>Duck Curve Ramp Rate Analysis</h4>
+                                    <p>The duck curve presents two key challenges:</p>
+                                    <ol>
+                                        <li><strong>Morning Downward Ramp:</strong> As solar generation increases in the morning, thermal generators must ramp down:
+                                            \[ \text{Morning Down} = \frac{d(\text{Solar})}{dt} \]
+                                        </li>
+                                        <li><strong>Evening Upward Ramp:</strong> As solar generation decreases in the evening, thermal generators must ramp up:
+                                            \[ \text{Evening Up} = \frac{d(-\text{Solar})}{dt} \]
+                                        </li>
+                                    </ol>
+                                    <p>The system's ability to handle these ramps depends on:</p>
+                                    <ul>
+                                        <li>Number of flexible generation units available</li>
+                                        <li>Individual unit ramp rates (% capacity/minute)</li>
+                                        <li>Available headroom (for upward ramps) or footroom (for downward ramps)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <p><small>The table shows detailed calculations for each generator type. Available ramp rates are limited by current output and available capacity.</small></p>
+                        </div>
+                    </section>
+
+                    <h3>Renewables (Total Installed Capacity as % of Peak Load)</h3>
+                    <div class="gen-mix-item">
+                        <label for="solar-mix">Solar PV:</label>
+                        <input type="range" id="solar-mix" name="solar-mix" min="0" max="100" value="30">
+                        <span id="solar-mix-value">30%</span>
+                    </div>
+                    <div class="gen-mix-item">
+                        <label for="wind-mix">Wind:</label>
+                        <input type="range" id="wind-mix" name="wind-mix" min="0" max="100" value="15">
+                        <span id="wind-mix-value">15%</span>
+                    </div>
+                    <!-- <p>Total Mix: <span id="total-mix-percentage">100%</span></p> This needs recalculation based on new model -->
+                </section>
+
+                <section id="ramp-rate-controls" style="display:none;"> <!-- Old ramp rates, will be replaced by per-unit -->
+                    <h2>3. Ramp Rates (p.u./minute) - (OLD, to be removed)</h2>
+                    <div class="ramp-rate-item">
+                        <label for="coal-ramp">Coal (Total):</label>
+                        <input type="number" id="coal-ramp-total" name="coal-ramp-total" step="0.0001" value="0.002" disabled>
+                    </div>
+                    <div class="ramp-rate-item">
+                        <label for="nuclear-ramp">Nuclear (Total):</label>
+                        <input type="number" id="nuclear-ramp-total" name="nuclear-ramp-total" step="0.0001" value="0.0005" disabled>
+                    </div>
+                     <div class="ramp-rate-item">
+                        <label for="ccgt-ramp">CCGT:</label>
+                        <input type="number" id="ccgt-ramp" name="ccgt-ramp" step="0.001" value="0.02">
+                    </div>
+                    <div class="ramp-rate-item">
+                        <label for="gasturbine-ramp">Gas Turbine:</label>
+                        <input type="number" id="gasturbine-ramp" name="gasturbine-ramp" step="0.001" value="0.08">
+                    </div>
+                    <!-- Battery ramp rate control removed -->
+                </section>
+
+                 <section id="dispatch-price-controls">
+                    <h2>4. Dispatch Prices ($/MWh eq.)</h2>
+                    <p>Adjust prices to influence economic dispatch order.</p>
+                    <div class="price-item">
+                        <label for="nuclear-price">Nuclear:</label>
+                        <input type="number" id="nuclear-price" name="nuclear-price" min="0" step="1" value="15">
+                    </div>
+                     <div class="price-item">
+                        <label for="coal-price">Coal:</label>
+                        <input type="number" id="coal-price" name="coal-price" min="0" step="1" value="35">
+                    </div>
+                     <div class="price-item">
+                        <label for="ccgt-price">CCGT:</label>
+                        <input type="number" id="ccgt-price" name="ccgt-price" min="0" step="1" value="50">
+                    </div>
+                    <div class="price-item">
+                        <label for="gasTurbine-price">Gas Turbine:</label>
+                        <input type="number" id="gasTurbine-price" name="gasTurbine-price" min="0" step="1" value="120">
+                    </div>
+                     <div class="price-item">
+                        <label for="solar-price">Solar:</label>
+                        <input type="number" id="solar-price" name="solar-price" value="0" disabled> </div>
+                    <div class="price-item">
+                        <label for="wind-price">Wind:</label>
+                        <input type="number" id="wind-price" name="wind-price" value="0" disabled> </div>
+                </section>
+
+            </div>
+
+            <div class="visualization-panel">
+                <div class="sticky-viz">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <h2>Dispatch Visualization</h2>
+                        <div class="view-toggle">
+                            <button id="one-day-btn" class="active">1 Day</button>
+                            <button id="five-day-btn">5 Days</button>
+                        </div>
+                    </div>
+                    <canvas id="dispatchCanvas" width="800" height="500"></canvas>
+                    
+                    <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 20px; flex-wrap: wrap;">
+                        <div style="width: 48%; min-width: 280px; margin-bottom: 15px;">
+                            <h3>Solar Generation (Hourly Pattern)</h3>
+                            <canvas id="solarCanvas" width="380" height="250"></canvas>
+                        </div>
+                        <div style="width: 48%; min-width: 280px; margin-bottom: 15px;">
+                            <h3>Wind Generation (Hourly Pattern)</h3>
+                            <canvas id="windCanvas" width="380" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer style="margin-bottom: 40px;">
+            <p>Economic Dispatch Simulator | Adjust curves, mix, ramps, and prices. Current time: <span id="current-time"></span></p>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="../toolkits.html" style="display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">Return to Main Menu</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // --- START: Configuration Data ---
+        const DEFAULT_UNIT_PARAMS = { // Adjusted for initial ramp-rate issue demonstration
+            coal: { numUnits: 5, capacityPerUnitPercent: 15, rampRatePerUnitPercentMinute: 0.15, price: 35 }, // 75% capacity, slow ramp
+            nuclear: { numUnits: 2, capacityPerUnitPercent: 15, rampRatePerUnitPercentMinute: 0.05, price: 15 }, // 30% capacity, very slow ramp
+            ccgt: { numUnits: 3, capacityPerUnitPercent: 12, rampRatePerUnitPercentMinute: 0.4, price: 50 }, // 36% capacity, slow ramp
+            gasTurbine: { numUnits: 3, capacityPerUnitPercent: 12, rampRatePerUnitPercentMinute: 0.5, price: 120 }, // 36% capacity, slow ramp
+            // Total dispatchable capacity: 75 + 30 + 36 + 36 = 177%
+        };
+
+        const DEFAULT_RENEWABLE_MIX = { // % of peak system load for total installed capacity
+            solar: 55, // High solar penetration for pronounced duck curve
+            wind: 15,  // Moderate wind
+        };
+        
+        // Prices for renewables (dispatchable unit prices are in DEFAULT_UNIT_PARAMS)
+        const DEFAULT_STATIC_PRICES = {
+            solar: 0,
+            wind: 0
+        };
+
+        // Default 24-hour curves (p.u. for load, % capacity for solar/wind)
+        const DEFAULT_LOAD_CURVE_PU = [
+            0.60, 0.55, 0.52, 0.50, 0.50, 0.55, 0.65, 0.75, 0.85, 0.90, 0.92, 0.93,
+            0.90, 0.88, 0.85, 0.88, 0.95, 1.00, 0.98, 0.90, 0.85, 0.80, 0.70, 0.65
+        ];
+        const DEFAULT_SOLAR_CURVE_PERCENT = [
+            0,  0,  0,  0,  0,  0,   5, 20, 40, 60, 80, 95,
+            100, 98, 85, 65, 40, 10,  0,  0,  0,  0,  0,  0
+        ];
+        const DEFAULT_WIND_CURVE_PERCENT = [ // Example Texas-like profile: Higher night/morning
+            75, 80, 85, 88, 90, 85, 70, 60, 50, 45, 40, 38,
+            35, 33, 30, 35, 40, 45, 50, 55, 60, 65, 70, 72
+        ];
+
+        // Type definitions
+        const GENERATION_TYPES = ['coal', 'nuclear', 'solar', 'wind', 'gasTurbine', 'ccgt'];
+        const THERMAL_TYPES = ['coal', 'nuclear', 'gasTurbine', 'ccgt'];
+        const RENEWABLE_TYPES = ['solar', 'wind'];
+        const DISPATCHABLE_TYPES_WITH_PRICES = ['nuclear', 'coal', 'ccgt', 'gasTurbine']; // Used for economic stack
+
+        const GENERATION_COLORS = {
+            coal: '#A0522D',        // Sienna Brown
+            nuclear: '#DA70D6',    // Orchid Purple
+            solar: '#FFC107',       // Amber Gold
+            wind: '#1E90FF',        // DodgerBlue
+            gasTurbine: '#FF6347',  // Tomato Red
+            ccgt: '#FFA500',        // Orange
+            unmetLoad: '#DC3545',   // Bright Red
+            curtailment: '#ADB5BD',  // Gray
+            rampRate: '#4CAF50'     // Green for ramp rate indicators
+        };
+        // --- END: Configuration Data ---
+
+
+        // --- START: Utility Functions ---
+        function scale(value, fromMin, fromMax, toMin, toMax) {
+            if (fromMax - fromMin === 0) return toMin;
+            return ((value - fromMin) / (fromMax - fromMin)) * (toMax - toMin) + toMin;
+        }
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+        }
+
+        function deepCopy(obj) {
+            if (typeof obj !== 'object' || obj === null) return obj;
+            if (Array.isArray(obj)) return obj.map(deepCopy);
+            const newObj = {};
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) newObj[key] = deepCopy(obj[key]);
+            }
+            return newObj;
+        }
+        // --- END: Utility Functions ---
+
+
+        // --- START: Main Application Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const dispatchCanvas = document.getElementById('dispatchCanvas');
+            const dispatchCtx = dispatchCanvas.getContext('2d');
+            const solarCanvas = document.getElementById('solarCanvas');
+            const solarCtx = solarCanvas.getContext('2d');
+            const windCanvas = document.getElementById('windCanvas');
+            const windCtx = windCanvas.getContext('2d');
+
+            // Unit-based inputs
+            const unitInputs = {};
+            const dispatchableUnitTypes = ['coal', 'nuclear', 'ccgt', 'gasTurbine'];
+            dispatchableUnitTypes.forEach(type => {
+                const numUnitsEl = document.getElementById(`${type}-num-units`);
+                const capPerUnitEl = document.getElementById(`${type}-cap-per-unit`);
+                const rampPerUnitEl = document.getElementById(`${type}-ramp-per-unit`);
+                const totalCapDisplayEl = document.getElementById(`${type}-total-cap-display`);
+
+                if (!numUnitsEl) console.error(`DOM element not found: ${type}-num-units`);
+                if (!capPerUnitEl) console.error(`DOM element not found: ${type}-cap-per-unit`);
+                if (!rampPerUnitEl) console.error(`DOM element not found: ${type}-ramp-per-unit`);
+                if (!totalCapDisplayEl) console.error(`DOM element not found: ${type}-total-cap-display`);
+                
+                unitInputs[type] = {
+                    numUnits: numUnitsEl,
+                    capPerUnit: capPerUnitEl,
+                    rampPerUnit: rampPerUnitEl,
+                    totalCapDisplay: totalCapDisplayEl
+                };
+            });
+            
+            // Renewable mix inputs
+            const solarMixInput = document.getElementById('solar-mix');
+            const solarMixValueSpan = document.getElementById('solar-mix-value');
+            const windMixInput = document.getElementById('wind-mix');
+            const windMixValueSpan = document.getElementById('wind-mix-value');
+
+            // Time of day slider for ramp rate analysis
+            const timeOfDaySlider = document.getElementById('time-of-day-slider');
+            const timeOfDayDisplay = document.getElementById('time-of-day-display');
+            
+            // Ramp rate display elements
+            const rampRateDisplays = {
+                coal: document.getElementById('coal-ramp-display'),
+                nuclear: document.getElementById('nuclear-ramp-display'),
+                ccgt: document.getElementById('ccgt-ramp-display'),
+                gasTurbine: document.getElementById('gasTurbine-ramp-display')
+            };
+            
+            const maxRampRateDisplays = {
+                coal: document.getElementById('coal-max-ramp-display'),
+                nuclear: document.getElementById('nuclear-max-ramp-display'),
+                ccgt: document.getElementById('ccgt-max-ramp-display'),
+                gasTurbine: document.getElementById('gasTurbine-max-ramp-display')
+            };
+            // Dispatchable unit price inputs are now part of their unit sections if editable, or taken from DEFAULT_UNIT_PARAMS
+
+            const editLoadCurveBtn = document.getElementById('edit-load-curve-btn');
+            const editSolarCurveBtn = document.getElementById('edit-solar-curve-btn');
+            const editWindCurveBtn = document.getElementById('edit-wind-curve-btn');
+            const activeCurveDisplay = document.getElementById('active-curve-display');
+            const currentTimeDisplay = document.getElementById('current-time');
+            const curveEditButtons = [editLoadCurveBtn, editSolarCurveBtn, editWindCurveBtn];
+            
+            // View mode toggle buttons
+            const oneDayBtn = document.getElementById('one-day-btn');
+            const fiveDayBtn = document.getElementById('five-day-btn');
+            const viewToggleButtons = [oneDayBtn, fiveDayBtn];
+
+
+            // --- State Variables ---
+            let appState = {
+                loadCurve: deepCopy(DEFAULT_LOAD_CURVE_PU),
+                solarCurve: deepCopy(DEFAULT_SOLAR_CURVE_PERCENT),
+                windCurve: deepCopy(DEFAULT_WIND_CURVE_PERCENT),
+                
+                dispatchableUnits: deepCopy(DEFAULT_UNIT_PARAMS), // Contains numUnits, capPerUnit, rampPerUnit, price
+                renewableMix: deepCopy(DEFAULT_RENEWABLE_MIX),
+                
+                // Static prices (solar, wind fixed at 0)
+                staticPrices: deepCopy(DEFAULT_STATIC_PRICES),
+
+                peakSystemLoad: 1.0,
+                selectedTimeOfDay: 12, // Default to noon
+                activeCurveForEditing: 'load',
+                timeResolutionMinutes: 1,
+                viewMode: '1day' // New property to track view mode: '1day' or '5day'
+            };
+            
+            // Global variable to store the dispatch stack for use in visualization
+            let dispatchStack = [];
+
+            // --- Draggable Point Logic ---
+            let draggingPoint = null; // { curve: 'load'/'solar'/'wind', originalIndex: number }
+            const POINT_RADIUS = 6;
+
+            // --- Initialization ---
+            function init() {
+                // Initialize dispatchable unit controls
+                dispatchableUnitTypes.forEach(type => {
+                    if (unitInputs[type] && appState.dispatchableUnits[type]) {
+                        // Defensive checks before setting .value
+                        if (unitInputs[type].numUnits) {
+                            unitInputs[type].numUnits.value = appState.dispatchableUnits[type].numUnits;
+                            unitInputs[type].numUnits.addEventListener('input', () => handleUnitInputChange(type));
+                        } else {
+                            console.error(`Missing DOM element for ${type}-num-units during value setting.`);
+                        }
+                        if (unitInputs[type].capPerUnit) {
+                            unitInputs[type].capPerUnit.value = appState.dispatchableUnits[type].capacityPerUnitPercent;
+                            unitInputs[type].capPerUnit.addEventListener('input', () => handleUnitInputChange(type));
+                        } else {
+                            console.error(`Missing DOM element for ${type}-cap-per-unit during value setting.`);
+                        }
+                        if (unitInputs[type].rampPerUnit) {
+                            unitInputs[type].rampPerUnit.value = appState.dispatchableUnits[type].rampRatePerUnitPercentMinute;
+                            unitInputs[type].rampPerUnit.addEventListener('input', () => handleUnitInputChange(type));
+                        } else {
+                            console.error(`Missing DOM element for ${type}-ramp-per-unit during value setting.`);
+                        }
+                        
+                        updateDispatchableUnitTotalCapDisplay(type); // Update total capacity display
+
+                        // --- BEGIN SLIDER INTEGRATION ---
+                        const numUnitsInput = unitInputs[type].numUnits;
+                        const capPerUnitInput = unitInputs[type].capPerUnit;
+                        const rampPerUnitInput = unitInputs[type].rampPerUnit;
+
+                        const numUnitsSlider = document.getElementById(`${type}-num-units-slider`);
+                        const capPerUnitSlider = document.getElementById(`${type}-cap-per-unit-slider`);
+                        const rampPerUnitSlider = document.getElementById(`${type}-ramp-per-unit-slider`);
+
+                        // Set initial values for sliders (number inputs are already set from appState)
+                        if (numUnitsSlider && numUnitsInput) numUnitsSlider.value = numUnitsInput.value;
+                        if (capPerUnitSlider && capPerUnitInput) capPerUnitSlider.value = capPerUnitInput.value;
+                        if (rampPerUnitSlider && rampPerUnitInput) rampPerUnitSlider.value = rampPerUnitInput.value;
+
+                        // Event Listeners: Slider changes -> Update Number Input & Dispatch Event
+                        if (numUnitsSlider && numUnitsInput) {
+                            numUnitsSlider.addEventListener('input', () => {
+                                numUnitsInput.value = numUnitsSlider.value;
+                                numUnitsInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            });
+                        }
+                        if (capPerUnitSlider && capPerUnitInput) {
+                            capPerUnitSlider.addEventListener('input', () => {
+                                capPerUnitInput.value = capPerUnitSlider.value;
+                                capPerUnitInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            });
+                        }
+                        if (rampPerUnitSlider && rampPerUnitInput) {
+                            rampPerUnitSlider.addEventListener('input', () => {
+                                rampPerUnitInput.value = rampPerUnitSlider.value;
+                                rampPerUnitInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            });
+                        }
+
+                        // Event Listeners: Number Input changes -> Update Slider
+                        // (The original event listeners on number inputs that call handleUnitInputChange will still fire)
+                        if (numUnitsInput && numUnitsSlider) {
+                            numUnitsInput.addEventListener('input', () => {
+                                if (numUnitsSlider.value !== numUnitsInput.value) {
+                                    numUnitsSlider.value = numUnitsInput.value;
+                                }
+                            });
+                        }
+                        if (capPerUnitInput && capPerUnitSlider) {
+                            capPerUnitInput.addEventListener('input', () => {
+                                if (capPerUnitSlider.value !== capPerUnitInput.value) {
+                                    capPerUnitSlider.value = capPerUnitInput.value;
+                                }
+                            });
+                        }
+                        if (rampPerUnitInput && rampPerUnitSlider) {
+                            rampPerUnitInput.addEventListener('input', () => {
+                                if (rampPerUnitSlider.value !== rampPerUnitInput.value) {
+                                    rampPerUnitSlider.value = rampPerUnitInput.value;
+                                }
+                            });
+                        }
+                        // --- END SLIDER INTEGRATION ---
+                        
+                        // Initialize price input for this dispatchable unit if it exists and is editable
+                        const priceInputId = `${type}-price`;
+                        const priceInput = document.getElementById(priceInputId);
+                        if (priceInput && !priceInput.disabled) {
+                            priceInput.value = appState.dispatchableUnits[type].price;
+                            priceInput.addEventListener('input', () => handlePriceChange(type, priceInput.value));
+                        } else if (!priceInput) {
+                             console.error(`Critical Error: Price input element with ID '${priceInputId}' for type '${type}' not found during init.`);
+                        }
+                        // No specific warning for disabled needed here as the if condition handles it.
+                    }
+                });
+
+                // Init for Solar and Wind
+                solarMixInput.value = appState.renewableMix.solar;
+                solarMixValueSpan.textContent = `${appState.renewableMix.solar}%`;
+                windMixInput.value = appState.renewableMix.wind;
+                windMixValueSpan.textContent = `${appState.renewableMix.wind}%`;
+                
+                // Initialize time of day slider
+                timeOfDaySlider.value = appState.selectedTimeOfDay;
+                updateTimeOfDayDisplay(appState.selectedTimeOfDay);
+                
+                // Add event listener for time of day slider
+                timeOfDaySlider.addEventListener('input', () => {
+                    appState.selectedTimeOfDay = parseFloat(timeOfDaySlider.value);
+                    updateTimeOfDayDisplay(appState.selectedTimeOfDay);
+                    calculateAndDisplayRampRates();
+                    runSimulationAndDraw(); // Redraw to update the time indicator line
+                });
+                
+                // Scenario buttons and their event listeners removed.
+                updateActiveCurveDisplay();
+
+                // Add Event Listeners for renewables
+                solarMixInput.addEventListener('input', handleRenewableMixChange);
+                windMixInput.addEventListener('input', handleRenewableMixChange);
+                
+                editLoadCurveBtn.addEventListener('click', () => setActiveCurve('load'));
+                editSolarCurveBtn.addEventListener('click', () => setActiveCurve('solar'));
+                editWindCurveBtn.addEventListener('click', () => setActiveCurve('wind'));
+                
+                // Add event listeners for view toggle buttons
+                oneDayBtn.addEventListener('click', () => setViewMode('1day'));
+                fiveDayBtn.addEventListener('click', () => setViewMode('5day'));
+
+                dispatchCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+                dispatchCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+                dispatchCanvas.addEventListener('mouseup', handleCanvasMouseUp);
+                dispatchCanvas.addEventListener('mouseleave', handleCanvasMouseUp);
+                
+                solarCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+                solarCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+                solarCanvas.addEventListener('mouseup', handleCanvasMouseUp);
+                solarCanvas.addEventListener('mouseleave', handleCanvasMouseUp);
+                
+                windCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+                windCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+                windCanvas.addEventListener('mouseup', handleCanvasMouseUp);
+                windCanvas.addEventListener('mouseleave', handleCanvasMouseUp);
+
+                updateCurrentTime(); setInterval(updateCurrentTime, 60000);
+                runSimulationAndDraw(); // Initial run
+                calculateAndDisplayRampRates(); // Initialize ramp rate analysis
+            }
+
+            function setActiveCurve(curveType) {
+                 appState.activeCurveForEditing = curveType;
+                 updateActiveCurveDisplay();
+                 runSimulationAndDraw(); // Redraw to update point styles
+            }
+
+            function setViewMode(mode) {
+                appState.viewMode = mode;
+                updateViewModeDisplay();
+                runSimulationAndDraw(); // Redraw with new view mode
+            }
+
+            function updateViewModeDisplay() {
+                viewToggleButtons.forEach(btn => {
+                    if ((btn.id === 'one-day-btn' && appState.viewMode === '1day') ||
+                        (btn.id === 'five-day-btn' && appState.viewMode === '5day')) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            function updateActiveCurveDisplay() {
+                activeCurveDisplay.textContent = appState.activeCurveForEditing.charAt(0).toUpperCase() + appState.activeCurveForEditing.slice(1);
+                curveEditButtons.forEach(btn => {
+                    if (btn.id.includes(appState.activeCurveForEditing)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+            
+            function updateTimeOfDayDisplay(timeValue) {
+                const hours = Math.floor(timeValue);
+                const minutes = Math.floor((timeValue - hours) * 60);
+                timeOfDayDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                calculateAndDisplayRampRates();
+            }
+            // All scenario loading functions have been removed.
+            // The initial state will be set by DEFAULT_UNIT_PARAMS and DEFAULT_RENEWABLE_MIX.
+
+            function calculateAndDisplayRampRates() {
+                // Get the selected time of day
+                const selectedTime = appState.selectedTimeOfDay;
+                
+                // Convert to interval index
+                const intervalsPerHour = 60 / appState.timeResolutionMinutes;
+                const selectedIntervalIndex = Math.floor(selectedTime * intervalsPerHour);
+                
+                // Get the load and renewable generation at this time
+                const loadCurve = interpolateCurve(appState.loadCurve, 24 * intervalsPerHour);
+                const solarCurve = interpolateCurve(appState.solarCurve, 24 * intervalsPerHour)
+                    .map(val => (val / 100) * (appState.renewableMix.solar / 100) * appState.peakSystemLoad);
+                const windCurve = interpolateCurve(appState.windCurve, 24 * intervalsPerHour)
+                    .map(val => (val / 100) * (appState.renewableMix.wind / 100) * appState.peakSystemLoad);
+                
+                // Calculate net load at this time
+                const netLoad = loadCurve[selectedIntervalIndex] - solarCurve[selectedIntervalIndex] - windCurve[selectedIntervalIndex];
+                
+                // Calculate net load ramp rate (change per minute)
+                const prevIntervalIndex = Math.max(0, selectedIntervalIndex - 1);
+                const prevNetLoad = loadCurve[prevIntervalIndex] - solarCurve[prevIntervalIndex] - windCurve[prevIntervalIndex];
+                const netLoadRampRate = (netLoad - prevNetLoad) / appState.timeResolutionMinutes;
+                
+                // Display net load ramp rate
+                const netLoadRampDisplay = document.getElementById('net-load-ramp-display');
+                if (netLoadRampDisplay) {
+                    // Convert p.u./min to MW/min assuming 1 p.u. = 100 MW for display consistency
+                    netLoadRampDisplay.textContent = `${(netLoadRampRate * 100).toFixed(2)} MW/min`;
+                }
+                
+                // Run a mini-simulation to get actual dispatch levels at this time
+                // This gives us more accurate current output levels for each generator
+                const dispatchData = runSimulation();
+                const currentDispatchLevels = {};
+                THERMAL_TYPES.forEach(type => {
+                    currentDispatchLevels[type] = dispatchData[selectedIntervalIndex][type] || 0;
+                });
+                
+                // Initialize totals
+                let totalCurrentOutputMW = 0;
+                let totalAvailableCapacityMW = 0;
+                let totalMaxRampRateMWPerMin = 0;
+                let totalActualRampRateMWPerMin = 0;
+                
+                // Calculate available capacity and ramp rates for each generation type
+                THERMAL_TYPES.forEach(type => {
+                    if (appState.dispatchableUnits[type]) {
+                        const unitData = appState.dispatchableUnits[type];
+                        const numUnits = unitData.numUnits;
+                        const capacityPerUnitPercent = unitData.capacityPerUnitPercent;
+                        const rampRatePerUnitPercentMinute = unitData.rampRatePerUnitPercentMinute;
+                        
+                        // Calculate total capacity in MW (assuming 100 MW base for percentages)
+                        const totalCapacityMW = numUnits * capacityPerUnitPercent;
+                        
+                        // Calculate max ramp rate in MW/min
+                        const maxRampRateMWPerMin = numUnits * (capacityPerUnitPercent * rampRatePerUnitPercentMinute / 100);
+                        
+                        // Get current output from simulation results
+                        const currentOutputMW = currentDispatchLevels[type] * 100; // Convert p.u. to MW
+                        const availableCapacityMW = totalCapacityMW - currentOutputMW;
+                        
+                        // Calculate actual ramp rate based on available capacity
+                        // If net load is increasing, we need to ramp up, otherwise ramp down
+                        const actualRampRateMWPerMin = netLoadRampRate > 0
+                            ? Math.min(maxRampRateMWPerMin, availableCapacityMW / 10) // Limit by available capacity (assume 10 min to full)
+                            : Math.min(maxRampRateMWPerMin, currentOutputMW / 10);    // Limit by current output (assume 10 min to zero)
+                        
+                        // Update the display
+                        if (rampRateDisplays[type]) {
+                            rampRateDisplays[type].textContent = `${actualRampRateMWPerMin.toFixed(2)} MW/min`;
+                            // Add current output and available capacity info
+                            rampRateDisplays[type].title = `Calculation: Min(${maxRampRateMWPerMin.toFixed(2)}, ${(availableCapacityMW/10).toFixed(2)}) = ${actualRampRateMWPerMin.toFixed(2)} MW/min`;
+                        }
+                        if (maxRampRateDisplays[type]) {
+                            maxRampRateDisplays[type].textContent = `${maxRampRateMWPerMin.toFixed(2)} MW/min`;
+                            // Add tooltip with calculation details
+                            maxRampRateDisplays[type].title = `Calculation: ${numUnits} units × ${capacityPerUnitPercent}% capacity × ${rampRatePerUnitPercentMinute}% ramp rate = ${maxRampRateMWPerMin.toFixed(2)} MW/min`;
+                        }
+                        
+                        // Update output and capacity displays
+                        const outputDisplay = document.getElementById(`${type}-output-display`);
+                        if (outputDisplay) {
+                            outputDisplay.textContent = `${currentOutputMW.toFixed(1)} MW`;
+                        }
+                        
+                        const capacityDisplay = document.getElementById(`${type}-capacity-display`);
+                        if (capacityDisplay) {
+                            capacityDisplay.textContent = `${availableCapacityMW.toFixed(1)} MW`;
+                        }
+                        
+                        // Add to totals
+                        totalCurrentOutputMW += currentOutputMW;
+                        totalAvailableCapacityMW += availableCapacityMW;
+                        totalMaxRampRateMWPerMin += maxRampRateMWPerMin;
+                        totalActualRampRateMWPerMin += actualRampRateMWPerMin;
+                    }
+                });
+                
+                // Update total displays
+                const totalOutputDisplay = document.getElementById('total-output-display');
+                if (totalOutputDisplay) {
+                    totalOutputDisplay.textContent = `${totalCurrentOutputMW.toFixed(1)} MW`;
+                }
+                
+                const totalCapacityDisplay = document.getElementById('total-capacity-display');
+                if (totalCapacityDisplay) {
+                    totalCapacityDisplay.textContent = `${totalAvailableCapacityMW.toFixed(1)} MW`;
+                }
+                
+                const totalRampDisplay = document.getElementById('total-ramp-display');
+                if (totalRampDisplay) {
+                    totalRampDisplay.textContent = `${totalActualRampRateMWPerMin.toFixed(2)} MW/min`;
+                }
+                
+                const totalMaxRampDisplay = document.getElementById('total-max-ramp-display');
+                if (totalMaxRampDisplay) {
+                    totalMaxRampDisplay.textContent = `${totalMaxRampRateMWPerMin.toFixed(2)} MW/min`;
+                }
+                
+                // Check if ramp rate constraint is active
+                const rampConstraintMessage = document.getElementById('ramp-constraint-message');
+                if (rampConstraintMessage) {
+                    // If net load is ramping up and total available ramp rate is less than net load ramp rate
+                    if (netLoadRampRate > 0 && totalActualRampRateMWPerMin < netLoadRampRate) {
+                        rampConstraintMessage.style.display = 'block';
+                        rampConstraintMessage.textContent = `⚠️ Ramp rate constraint active: Generation can only ramp up at ${totalActualRampRateMWPerMin.toFixed(2)} MW/min but load is changing at ${netLoadRampRate.toFixed(2)} MW/min`;
+                    }
+                    // If net load is ramping down and total available down-ramp is less than net load ramp rate
+                    else if (netLoadRampRate < 0 && totalActualRampRateMWPerMin < Math.abs(netLoadRampRate)) {
+                        rampConstraintMessage.style.display = 'block';
+                        rampConstraintMessage.textContent = `⚠️ Ramp rate constraint active: Generation can only ramp down at ${totalActualRampRateMWPerMin.toFixed(2)} MW/min but load is changing at ${Math.abs(netLoadRampRate).toFixed(2)} MW/min`;
+                    }
+                    else {
+                        rampConstraintMessage.style.display = 'none';
+                    }
+                }
+                
+                // Draw the ramp rate chart
+                drawRampRateChart();
+                
+                // Update the LaTeX formulas with specific values
+                updateGeneratorSpecificFormulas();
+            }
+            
+            function updateGeneratorSpecificFormulas() {
+                // Empty function - we've removed the generator-specific calculations section
+                // as requested by the user
+                const generatorSpecificFormulas = document.getElementById('generator-specific-formulas');
+                if (generatorSpecificFormulas) {
+                    generatorSpecificFormulas.innerHTML = '';
+                }
+            }
+            
+            function drawRampRateChart() {
+                const chartElement = document.getElementById('ramp-rate-chart');
+                if (!chartElement) return;
+                
+                // Create a canvas element inside the chart div
+                chartElement.innerHTML = ''; // Clear previous content
+                const canvas = document.createElement('canvas');
+                canvas.width = chartElement.clientWidth;
+                canvas.height = chartElement.clientHeight;
+                chartElement.appendChild(canvas);
+                
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+                
+                // Clear the chart
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Set up chart dimensions
+                const padding = { top: 20, right: 10, bottom: 30, left: 40 };
+                const chartWidth = canvas.width - padding.left - padding.right;
+                const chartHeight = canvas.height - padding.top - padding.bottom;
+                
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(padding.left, padding.top);
+                ctx.lineTo(padding.left, chartHeight + padding.top);
+                ctx.lineTo(chartWidth + padding.left, chartHeight + padding.top);
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+                
+                // Get generation types and their ramp rates
+                const types = THERMAL_TYPES;
+                
+                // Get max ramp rates
+                const maxRampRates = types.map(type => {
+                    if (!appState.dispatchableUnits[type]) return 0;
+                    const unitData = appState.dispatchableUnits[type];
+                    return unitData.numUnits * (unitData.capacityPerUnitPercent * unitData.rampRatePerUnitPercentMinute / 100);
+                });
+                
+                // Get actual available ramp rates at selected time
+                const availableRampRates = types.map(type => {
+                    if (!rampRateDisplays[type]) return 0;
+                    const rampText = rampRateDisplays[type].textContent;
+                    return parseFloat(rampText) || 0;
+                });
+                
+                // Find max value for scaling
+                const maxValue = Math.max(...maxRampRates, ...availableRampRates, 0.1); // Ensure non-zero
+                
+                // Draw grouped bars
+                const groupWidth = chartWidth / types.length;
+                const barWidth = groupWidth * 0.4; // 40% of group width for each bar
+                const barGap = groupWidth * 0.2; // 20% gap
+                
+                types.forEach((type, i) => {
+                    const x = padding.left + i * groupWidth + barGap;
+                    
+                    // Draw max ramp rate bar
+                    const maxRampRate = maxRampRates[i];
+                    const maxBarHeight = (maxRampRate / maxValue) * chartHeight;
+                    const maxY = chartHeight + padding.top - maxBarHeight;
+                    
+                    ctx.fillStyle = GENERATION_COLORS[type];
+                    ctx.fillRect(x, maxY, barWidth, maxBarHeight);
+                    
+                    // Draw available ramp rate bar
+                    const availableRampRate = availableRampRates[i];
+                    const availableBarHeight = (availableRampRate / maxValue) * chartHeight;
+                    const availableY = chartHeight + padding.top - availableBarHeight;
+                    
+                    ctx.fillStyle = GENERATION_COLORS[type] + '80'; // Add transparency
+                    ctx.fillRect(x + barWidth, availableY, barWidth, availableBarHeight);
+                    
+                    // Draw label
+                    ctx.fillStyle = '#333';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(type, x + barWidth, chartHeight + padding.top + 15);
+                });
+                
+                // Draw Y-axis labels
+                ctx.fillStyle = '#333';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const value = (i / 5) * maxValue;
+                    const y = chartHeight + padding.top - (i / 5) * chartHeight;
+                    ctx.fillText(value.toFixed(1), padding.left - 5, y + 3);
+                }
+                
+                // Draw title
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Ramp Rates (MW/min)', padding.left + chartWidth/2, padding.top - 5);
+                
+                // Draw legend
+                const legendX = padding.left + chartWidth - 100;
+                const legendY = padding.top + 10;
+                
+                // Max ramp rate
+                ctx.fillStyle = '#333';
+                ctx.fillRect(legendX, legendY, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'left';
+                ctx.fillText('Max Ramp Rate', legendX + 15, legendY + 8);
+                
+                // Available ramp rate
+                ctx.fillStyle = '#33333380';
+                ctx.fillRect(legendX, legendY + 15, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('Available Ramp', legendX + 15, legendY + 23);
+            }
+
+            function updateCurrentTime() {
+                currentTimeDisplay.textContent = new Date().toLocaleString('en-US');
+            }
+
+            // --- Event Handlers ---
+            function handleUnitInputChange(type) {
+                if (unitInputs[type] && appState.dispatchableUnits[type]) {
+                    appState.dispatchableUnits[type].numUnits = parseInt(unitInputs[type].numUnits.value) || 0;
+                    appState.dispatchableUnits[type].capacityPerUnitPercent = parseFloat(unitInputs[type].capPerUnit.value) || 0;
+                    appState.dispatchableUnits[type].rampRatePerUnitPercentMinute = parseFloat(unitInputs[type].rampPerUnit.value) || 0;
+                    updateDispatchableUnitTotalCapDisplay(type);
+                    runSimulationAndDraw();
+                }
+            }
+
+            function updateDispatchableUnitTotalCapDisplay(type) {
+                if (unitInputs[type] && appState.dispatchableUnits[type]) {
+                    const unitData = appState.dispatchableUnits[type];
+                    const totalCap = unitData.numUnits * unitData.capacityPerUnitPercent;
+                    unitInputs[type].totalCapDisplay.textContent = `${totalCap.toFixed(1)}%`;
+                }
+            }
+            
+            function handleRenewableMixChange(event) {
+                const type = event.target.id.split('-')[0]; // solar or wind
+                appState.renewableMix[type] = parseInt(event.target.value);
+                if (type === 'solar') solarMixValueSpan.textContent = `${appState.renewableMix[type]}%`;
+                if (type === 'wind') windMixValueSpan.textContent = `${appState.renewableMix[type]}%`;
+                // updateTotalMixPercentage(); // Needs rework
+                runSimulationAndDraw();
+            }
+
+            // function updateTotalMixPercentage() { // Needs complete rework based on new unit model
+            //     let total = 0;
+            //     // Add dispatchable capacities
+            //     // Add renewable capacities
+            //     totalMixSpan.textContent = `${total.toFixed(1)}%`;
+            //     // totalMixSpan.style.color = total === 100 ? 'green' : 'red'; // Or some other logic
+            // }
+            
+            function handlePriceChange(unitType, value) { // For dispatchable units with editable prices
+                const price = parseFloat(value) || 0;
+                if (appState.dispatchableUnits[unitType]) {
+                    appState.dispatchableUnits[unitType].price = price;
+                    runSimulationAndDraw();
+                }
+            }
+
+            // --- Simulation Engine (Economic Dispatch) ---
+            function runSimulation() {
+                // Determine number of days based on view mode
+                const numDays = appState.viewMode === '5day' ? 5 : 1;
+                const numIntervals = numDays * 24 * (60 / appState.timeResolutionMinutes);
+                let dispatch = Array(numIntervals).fill(null).map(() => ({
+                    coal: 0, nuclear: 0, solar: 0, wind: 0, gasTurbine: 0, ccgt: 0,
+                    unmetLoad: 0, curtailment: 0, netLoad: 0, dispatchPrice: 0
+                }));
+
+                // Original simulation logic restored:
+                const capacitiesPU = {};
+                // Calculate capacities for dispatchable units
+                for (const type in appState.dispatchableUnits) {
+                    const unitData = appState.dispatchableUnits[type];
+                    capacitiesPU[type] = (unitData.numUnits * unitData.capacityPerUnitPercent / 100) * appState.peakSystemLoad;
+                }
+                // Calculate capacities for renewables
+                for (const type in appState.renewableMix) { // solar, wind
+                    capacitiesPU[type] = (appState.renewableMix[type] / 100) * appState.peakSystemLoad;
+                }
+                
+
+                // Interpolate curves for a single day
+                const singleDayIntervals = 24 * (60 / appState.timeResolutionMinutes);
+                const singleDayLoadCurve = interpolateCurve(appState.loadCurve, singleDayIntervals);
+                const singleDaySolarCurve = interpolateCurve(appState.solarCurve, singleDayIntervals);
+                const singleDayWindCurve = interpolateCurve(appState.windCurve, singleDayIntervals);
+                
+                // Repeat the curves for multiple days if needed
+                window.effectiveLoadCurve = repeatCurve(singleDayLoadCurve, numDays);
+                window.effectiveSolarCurvePercent = repeatCurve(singleDaySolarCurve, numDays);
+                window.effectiveWindCurvePercent = repeatCurve(singleDayWindCurve, numDays);
+
+                const solarGenPU = effectiveSolarCurvePercent.map(val => (val / 100) * capacitiesPU.solar);
+                const windGenPU = effectiveWindCurvePercent.map(val => (val / 100) * capacitiesPU.wind);
+
+                let currentDispatchLevels = { coal: 0, nuclear: 0, gasTurbine: 0, ccgt: 0 }; // Keep track of thermal output
+
+                // --- BEGIN: Pre-calculate Net Load Ramps for Priority Discharge ---
+                const initialNetLoad = Array(numIntervals).fill(0);
+                const initialNetLoadRampRate = Array(numIntervals).fill(0);
+
+                for (let i = 0; i < numIntervals; i++) {
+                    initialNetLoad[i] = (effectiveLoadCurve[i] || 0) - (solarGenPU[i] || 0) - (windGenPU[i] || 0);
+                }
+                for (let i = 0; i < numIntervals; i++) {
+                    initialNetLoadRampRate[i] = (i > 0) ? (initialNetLoad[i] - initialNetLoad[i-1]) : 0;
+                }
+
+                const intervalsPerDay = 24 * (60 / appState.timeResolutionMinutes);
+                const singleDayInitialNetLoadRampRate = [];
+                for (let i = 0; i < intervalsPerDay; i++) {
+                    // Use the first day's pattern for analysis, assuming subsequent days are similar for targeting
+                    // Ensure we don't go out of bounds if numIntervals < intervalsPerDay (e.g. very short simulation)
+                    if (i < initialNetLoadRampRate.length) {
+                        singleDayInitialNetLoadRampRate[i] = initialNetLoadRampRate[i];
+                    } else {
+                        singleDayInitialNetLoadRampRate[i] = 0; // Or handle as an error/edge case
+                    }
+                }
+
+                let maxDailyPositiveNetLoadRamp = 0;
+                let targetDailyRampIntervalIndex = -1; // Index within a single day (0 to intervalsPerDay-1)
+
+                for (let i = 0; i < intervalsPerDay; i++) {
+                    if (singleDayInitialNetLoadRampRate[i] > maxDailyPositiveNetLoadRamp) {
+                        maxDailyPositiveNetLoadRamp = singleDayInitialNetLoadRampRate[i];
+                        targetDailyRampIntervalIndex = i;
+                    }
+                }
+                if (targetDailyRampIntervalIndex !== -1) {
+                    console.log(`Identified max daily positive net load ramp: ${maxDailyPositiveNetLoadRamp.toFixed(4)} at daily interval index ${targetDailyRampIntervalIndex}.`);
+                } else {
+                    console.log("No significant positive daily net load ramp identified for priority discharge.");
+                }
+                // --- END: Pre-calculate Net Load Ramps ---
+
+
+                for (let t = 0; t < numIntervals; t++) {
+                    const hourOfDay = Math.floor((t % intervalsPerDay) / (60 / appState.timeResolutionMinutes));
+                    const dayCycleIntervalIndex = t % intervalsPerDay;
+
+
+                    // 1. Calculate Available Renewables & Net Load
+                    dispatch[t].solar = Math.min(solarGenPU[t] || 0, capacitiesPU.solar || 0);
+                    dispatch[t].wind = Math.min(windGenPU[t] || 0, capacitiesPU.wind || 0);
+                    // Calculate net load (load minus renewables)
+                    let netLoad = effectiveLoadCurve[t] - dispatch[t].solar - dispatch[t].wind;
+                    dispatch[t].netLoad = netLoad; // Store net load
+                    
+                    let remainingLoad = netLoad; // This is what dispatchable resources need to meet
+
+                    // 2. Build Dispatch Stack for this Interval
+                    dispatchStack = []; // Update the global dispatchStack variable
+                    // Add Thermal Generators
+                    THERMAL_TYPES.forEach(type => {
+                        if (capacitiesPU[type] > 0 && appState.dispatchableUnits[type]) {
+                            const unitData = appState.dispatchableUnits[type];
+                            const unitCapacityAsSystemPU = (unitData.capacityPerUnitPercent / 100) * appState.peakSystemLoad;
+                            const rampPerUnitAsPercentOfOwnCapPerMin = unitData.rampRatePerUnitPercentMinute / 100;
+                            const rampPerUnitAsSystemPUPerMin = rampPerUnitAsPercentOfOwnCapPerMin * unitCapacityAsSystemPU;
+                            const totalRampForTypeAsSystemPUPerMin = rampPerUnitAsSystemPUPerMin * unitData.numUnits;
+                            const rampRatePerInterval = totalRampForTypeAsSystemPUPerMin * appState.timeResolutionMinutes;
+                            
+                            dispatchStack.push({
+                                type: type,
+                                price: unitData.price, // Price now directly from unitData
+                                currentOutput: currentDispatchLevels[type],
+                                maxCapacity: capacitiesPU[type], // This is total capacity for the type
+                                rampUpLimit: rampRatePerInterval,
+                                rampDownLimit: rampRatePerInterval,
+                                availableHeadroom: capacitiesPU[type] - currentDispatchLevels[type],
+                                availableFootroom: currentDispatchLevels[type],
+                                rampLimited: false // Will be set during second pass if needed
+                            });
+                        }
+                    });
+                    // Load conditions and ramp rate calculations for analysis
+                    const loadPercentile = calculateLoadPercentile(effectiveLoadCurve[t], effectiveLoadCurve);
+                    
+                    // Calculate net load ramp rate
+                    const netLoadRampRate = t > 0 ?
+                        (effectiveLoadCurve[t] - dispatch[t].solar - dispatch[t].wind) -
+                        (effectiveLoadCurve[t-1] - dispatch[t-1].solar - dispatch[t-1].wind) : 0;
+
+                    // Calculate the maximum allowable ramp rate for thermal generators
+                    const thermalCapacity = THERMAL_TYPES.reduce((sum, type) => sum + (capacitiesPU[type] || 0), 0);
+                    let minThermalRampRatePercent = 100;
+                    THERMAL_TYPES.forEach(type => {
+                        if (capacitiesPU[type] > 0 && appState.dispatchableUnits[type]) {
+                            const unitData = appState.dispatchableUnits[type];
+                            const rampRatePerUnit = unitData.rampRatePerUnitPercentMinute || 0;
+                            const rampRatePercentForInterval = rampRatePerUnit * appState.timeResolutionMinutes;
+                            if (rampRatePercentForInterval < minThermalRampRatePercent) {
+                                minThermalRampRatePercent = rampRatePercentForInterval;
+                            }
+                        }
+                    });
+                    if (minThermalRampRatePercent === 100 && thermalCapacity === 0) {
+                        minThermalRampRatePercent = 2;
+                    } else if (minThermalRampRatePercent === 100 && thermalCapacity > 0) {
+                        minThermalRampRatePercent = 2;
+                    }
+                    const maxAllowableRampRate = (minThermalRampRatePercent / 100) * thermalCapacity * 0.7;
+
+                    // Calculate current interval net load ramp rate for analysis
+                    const currentIntervalNetLoadRamp = initialNetLoadRampRate[t];
+                    
+                    // Current interval in day (for time-based analysis)
+                    const currentIntervalInDay = t % intervalsPerDay;
+
+                    // Identify peak ramp periods for analysis
+                    const isAtPeakRampTime = currentIntervalInDay === targetDailyRampIntervalIndex;
+
+                    // 3. Sort Dispatch Stack by Price (cheapest first)
+                    dispatchStack.sort((a, b) => a.price - b.price);
+
+                    // 4. Economic Dispatch Loop
+                    let marginalPrice = 0; // Price of the last unit dispatched to meet load
+                    let stepDispatch = { coal: 0, nuclear: 0, gasTurbine: 0, ccgt: 0 };
+
+                    for (const resource of dispatchStack) {
+                        marginalPrice = resource.price; // Update marginal price
+                        let actualDispatchLevel = 0;    // THE ABSOLUTE OUTPUT/CONSUMPTION LEVEL FOR THIS RESOURCE THIS INTERVAL
+
+                        // Thermal Units
+                        let maxOutputThermal = Math.min(resource.maxCapacity, resource.currentOutput + resource.rampUpLimit);
+                        let minOutputThermal = Math.max(0, resource.currentOutput - resource.rampDownLimit);
+                        
+                        let economicTargetOutput;
+                        if (remainingLoad > 0) {
+                            // How much it *would* output if it met all remaining load from its current level, respecting its own ramp up.
+                            let potentialOutputToMeetLoad = Math.min(resource.currentOutput + remainingLoad, maxOutputThermal);
+                            economicTargetOutput = potentialOutputToMeetLoad;
+                        } else {
+                            // If no load or negative remaining load, target minimum output (ramp-down).
+                            economicTargetOutput = minOutputThermal;
+                        }
+                        actualDispatchLevel = Math.max(minOutputThermal, Math.min(maxOutputThermal, economicTargetOutput));
+                        // Ensure it doesn't go below zero, though minOutputThermal should handle this.
+                        actualDispatchLevel = Math.max(0, actualDispatchLevel);
+
+                        // Update stepDispatch with the absolute level for this resource
+                        stepDispatch[resource.type] = actualDispatchLevel;
+
+                        // Update remainingLoad
+                        remainingLoad -= actualDispatchLevel;
+                        
+                        // Economic dispatch should stop if load is met by cheaper units
+                        if (remainingLoad <= 0) {
+                            break;
+                        }
+                    } // End of dispatch stack loop for interval 't'
+
+                    // 5. Second pass to match generation with load
+                    // Eliminate unmet load when capacity exists and ramp rates allow
+                    // Only apply ramp rate limits when they're actually a constraint
+                    if (Math.abs(remainingLoad) > 0.001) {
+                        // console.log(`Interval ${t}: Imbalance before 2nd pass: ${remainingLoad.toFixed(3)}`);
+                        
+                        if (remainingLoad > 0) {
+                            // UNMET LOAD CASE: Need to increase generation
+                            
+                            // Create a list of candidates that can potentially increase output
+                            let secondPassCandidates = dispatchStack
+                                .map(resource => {
+                                    const alreadyDispatchedThisInterval = stepDispatch[resource.type] || 0;
+                                    
+                                    // First check if we have available capacity
+                                    const availableCapacity = Math.max(0, resource.maxCapacity - alreadyDispatchedThisInterval);
+                                    
+                                    if (availableCapacity <= 0) {
+                                        return { ...resource, potentialAdditionalDispatch: 0, alreadyDispatchedThisInterval, rampLimited: false };
+                                    }
+                                    
+                                    // Check if ramp rate is a constraint
+                                    const maxOutputWithRampLimit = Math.min(resource.maxCapacity, resource.currentOutput + resource.rampUpLimit);
+                                    const rampLimited = maxOutputWithRampLimit < resource.maxCapacity;
+                                    
+                                    // If we have unmet load and capacity exists, use all available capacity
+                                    // unless ramp rate is actually a constraint
+                                    const potentialAdditionalDispatch = rampLimited ?
+                                        Math.max(0, maxOutputWithRampLimit - alreadyDispatchedThisInterval) :
+                                        availableCapacity;
+                                    
+                                    return {
+                                        ...resource,
+                                        potentialAdditionalDispatch,
+                                        alreadyDispatchedThisInterval,
+                                        rampLimited
+                                    };
+                                })
+                                .filter(r => r.potentialAdditionalDispatch > 0);
+
+                            // First sort by price (cheapest first)
+                            secondPassCandidates.sort((a, b) => a.price - b.price);
+                            
+                            // Try to meet unmet load in economic order
+                            for (const resource of secondPassCandidates) {
+                                if (remainingLoad <= 0) break;
+                                
+                                const dispatchToMeetUnmet = Math.min(remainingLoad, resource.potentialAdditionalDispatch);
+                                stepDispatch[resource.type] = (stepDispatch[resource.type] || 0) + dispatchToMeetUnmet;
+                                remainingLoad -= dispatchToMeetUnmet;
+                                
+                                // Update rampLimited property in dispatchStack
+                                const dispatchStackIndex = dispatchStack.findIndex(r => r.type === resource.type);
+                                if (dispatchStackIndex >= 0) {
+                                    dispatchStack[dispatchStackIndex].rampLimited = resource.rampLimited;
+                                }
+                            }
+                            
+                            // If still unmet, try again by capacity
+                            if (remainingLoad > 0.001) {
+                                secondPassCandidates
+                                    .filter(r => r.potentialAdditionalDispatch > 0)
+                                    .sort((a, b) => b.potentialAdditionalDispatch - a.potentialAdditionalDispatch);
+                                    
+                                for (const resource of secondPassCandidates) {
+                                    if (remainingLoad <= 0) break;
+                                    
+                                    if (resource.potentialAdditionalDispatch > 0) {
+                                        const dispatchToMeetUnmet = Math.min(remainingLoad, resource.potentialAdditionalDispatch);
+                                        stepDispatch[resource.type] = (stepDispatch[resource.type] || 0) + dispatchToMeetUnmet;
+                                        remainingLoad -= dispatchToMeetUnmet;
+                                    }
+                                }
+                            }
+                        } else {
+                            // CURTAILMENT CASE: Need to decrease generation
+                            // remainingLoad is negative, so we need to reduce output
+                            
+                            // Create a list of candidates that can potentially decrease output
+                            // Sort by price (most expensive first) to reduce expensive generation first
+                            let reductionCandidates = dispatchStack
+                                .map(resource => {
+                                    const currentDispatch = stepDispatch[resource.type] || 0;
+                                    
+                                    if (currentDispatch <= 0) {
+                                        return { ...resource, potentialReduction: 0, currentDispatch, rampLimited: false };
+                                    }
+                                    
+                                    // Check if ramp rate is a constraint
+                                    const minOutputWithRampLimit = Math.max(0, resource.currentOutput - resource.rampDownLimit);
+                                    const rampLimited = minOutputWithRampLimit > 0 && currentDispatch > minOutputWithRampLimit;
+                                    
+                                    // If we have curtailment and can reduce output, use all current dispatch
+                                    // unless ramp rate is actually a constraint
+                                    const potentialReduction = rampLimited ?
+                                        Math.max(0, currentDispatch - minOutputWithRampLimit) :
+                                        currentDispatch;
+                                    
+                                    return {
+                                        ...resource,
+                                        potentialReduction,
+                                        currentDispatch,
+                                        rampLimited
+                                    };
+                                })
+                                .filter(r => r.potentialReduction > 0)
+                                .sort((a, b) => b.price - a.price); // Most expensive first
+                            
+                            // Reduce generation to match load exactly
+                            const curtailmentToEliminate = Math.abs(remainingLoad);
+                            let remainingCurtailment = curtailmentToEliminate;
+                            
+                            for (const resource of reductionCandidates) {
+                                if (remainingCurtailment <= 0) break;
+                                
+                                const reductionAmount = Math.min(remainingCurtailment, resource.potentialReduction);
+                                stepDispatch[resource.type] = resource.currentDispatch - reductionAmount;
+                                remainingCurtailment -= reductionAmount;
+                                
+                                // Update rampLimited property in dispatchStack
+                                const dispatchStackIndex = dispatchStack.findIndex(r => r.type === resource.type);
+                                if (dispatchStackIndex >= 0) {
+                                    dispatchStack[dispatchStackIndex].rampLimited = resource.rampLimited;
+                                }
+                            }
+                            
+                            // Update remainingLoad based on curtailment elimination
+                            remainingLoad = remainingCurtailment > 0.001 ? -(remainingCurtailment) : 0;
+                        }
+                        
+                        // console.log(`Interval ${t}: Imbalance AFTER 2nd pass: ${remainingLoad.toFixed(3)}`);
+                    }
+
+                    // 6. Final Adjustments & State Update
+                    
+                    // Store dispatch results for interval 't'
+                    dispatch[t] = {
+                        ...dispatch[t], // Keep solar, wind, initial netLoad
+                        coal: stepDispatch.coal, nuclear: stepDispatch.nuclear, ccgt: stepDispatch.ccgt, gasTurbine: stepDispatch.gasTurbine,
+                        dispatchPrice: marginalPrice > 0 ? marginalPrice : 0
+                    };
+                    
+                    // Update net load
+                    // Net load = load - renewables
+                    dispatch[t].netLoad = effectiveLoadCurve[t] - dispatch[t].solar - dispatch[t].wind;
+                    
+                    // Calculate and store net load ramp rate for visualization
+                    if (t > 0) {
+                        const netLoadRamp = dispatch[t].netLoad - dispatch[t-1].netLoad;
+                        dispatch[t].netLoadRamp = netLoadRamp;
+                    } else {
+                        dispatch[t].netLoadRamp = 0;
+                    }
+
+                    // Calculate Unmet Load or Curtailment
+                    if (remainingLoad > 0.001) {
+                        dispatch[t].unmetLoad = remainingLoad;
+                        // Check if any resources were ramp limited
+                        const rampLimitedResources = dispatchStack.filter(r => r.rampLimited && r.availableHeadroom > 0);
+                        if (rampLimitedResources.length > 0) {
+                            console.log(`Interval ${t} has unmet load of ${remainingLoad.toFixed(3)} due to ramp rate limits on ${rampLimitedResources.map(r => r.type).join(', ')}`);
+                        } else {
+                            console.log(`Interval ${t} has unmet load of ${remainingLoad.toFixed(3)} due to insufficient capacity`);
+                        }
+                    } else if (remainingLoad < -0.001) {
+                        dispatch[t].curtailment = Math.abs(remainingLoad);
+                        // Check if any resources were ramp limited
+                        const rampLimitedResources = dispatchStack.filter(r => r.rampLimited && r.currentOutput > 0);
+                        if (rampLimitedResources.length > 0) {
+                            console.log(`Interval ${t} has curtailment of ${Math.abs(remainingLoad).toFixed(3)} due to ramp rate limits on ${rampLimitedResources.map(r => r.type).join(', ')}`);
+                        } else {
+                            console.log(`Interval ${t} has curtailment of ${Math.abs(remainingLoad).toFixed(3)} due to minimum generation constraints`);
+                        }
+                    } else {
+                        // Perfect balance achieved
+                        dispatch[t].unmetLoad = 0;
+                        dispatch[t].curtailment = 0;
+                    }
+
+                    // Update current dispatch levels for the next interval's ramp calculations
+                    THERMAL_TYPES.forEach(type => { currentDispatchLevels[type] = stepDispatch[type]; });
+
+                    // Summary Log for interval t
+                    // const totalThermalDispatch = stepDispatch.coal + stepDispatch.nuclear + stepDispatch.ccgt + stepDispatch.gasTurbine;
+                    // const totalSupply = totalThermalDispatch + dispatch[t].solar + dispatch[t].wind;
+                    // const totalEffectiveDemand = effectiveLoadCurve[t];
+                    // console.log(`SUMMARY T=${t}: Load=${effectiveLoadCurve[t].toFixed(3)}, Solar=${dispatch[t].solar.toFixed(3)}, Wind=${dispatch[t].wind.toFixed(3)}, Therm=${totalThermalDispatch.toFixed(3)}, TotalSup=${totalSupply.toFixed(3)}, Unmet=${dispatch[t].unmetLoad.toFixed(3)}, Curtail=${dispatch[t].curtailment.toFixed(3)}, FinalRemLoad=${remainingLoad.toFixed(3)}`);
+                    // if (Math.abs(totalSupply - totalEffectiveDemand - (dispatch[t].curtailment - dispatch[t].unmetLoad)) > 0.001) {
+                    //     console.error(`Balance ERROR at T=${t}`);
+                    // }
+
+
+                } // End of time interval loop 't'
+
+                return dispatch;
+                // End of temporarily bypassed original simulation logic // This comment is now incorrect
+            }
+
+            // Helper to interpolate curves for different time resolutions
+            function interpolateCurve(curve, numIntervals) {
+                if (curve.length === numIntervals) return deepCopy(curve); // No interpolation needed
+                const originalHours = curve.length;
+                const pointsPerOriginalHour = numIntervals / originalHours;
+                let interpolated = [];
+                for (let i = 0; i < numIntervals; i++) {
+                    const hourIndex = Math.floor(i / pointsPerOriginalHour);
+                    const nextHourIndex = Math.min(originalHours - 1, hourIndex + 1);
+                    const fraction = (i % pointsPerOriginalHour) / pointsPerOriginalHour;
+                    if (hourIndex === nextHourIndex) { // Handles last point
+                        interpolated[i] = curve[hourIndex];
+                    } else {
+                         interpolated[i] = curve[hourIndex] * (1 - fraction) + curve[nextHourIndex] * fraction;
+                    }
+                }
+                return interpolated;
+            }
+            
+            // Helper to calculate the percentile of a value within an array
+            function calculateLoadPercentile(value, array) {
+                // Count how many values in the array are less than the given value
+                const countLessThan = array.filter(item => item < value).length;
+                // Return the percentile (0-1 scale)
+                return countLessThan / array.length;
+            }
+            
+            // Helper to repeat a curve for multiple days
+            function repeatCurve(curve, numDays) {
+                if (numDays === 1) return curve;
+                
+                let repeatedCurve = [];
+                for (let day = 0; day < numDays; day++) {
+                    repeatedCurve = repeatedCurve.concat(deepCopy(curve));
+                }
+                return repeatedCurve;
+            }
+
+
+            // --- Canvas Drawing ---
+            function drawVisualization(dispatchData) {
+                try {
+                    dispatchCtx.clearRect(0, 0, dispatchCanvas.width, dispatchCanvas.height);
+                    
+                    const padding = { top: 60, right: 160, bottom: 80, left: 70 }; // Adjusted padding
+                const chartWidth = dispatchCanvas.width - padding.left - padding.right;
+                const chartHeight = dispatchCanvas.height - padding.top - padding.bottom;
+                const numIntervals = dispatchData.length;
+                const barWidth = chartWidth / numIntervals;
+
+                // Determine Y-axis range
+                let maxY = appState.peakSystemLoad * 1.1;
+                let minY = -appState.peakSystemLoad * 0.2; // Allow for negative net load / charging
+                const allLoadValues = window.effectiveLoadCurve || appState.loadCurve;
+                 maxY = Math.max(maxY, ...allLoadValues);
+
+                dispatchData.forEach((d, i) => {
+                    const totalGen = d.coal + d.nuclear + d.solar + d.wind + d.gasTurbine + d.ccgt;
+                    maxY = Math.max(maxY, totalGen, d.netLoad);
+                    minY = Math.min(minY, d.netLoad);
+                });
+                if (maxY <= minY) maxY = minY + 0.1; // Ensure valid range
+
+                // --- Draw Axes --- (Similar to previous version)
+                dispatchCtx.beginPath(); // Axes lines
+                dispatchCtx.moveTo(padding.left, padding.top); dispatchCtx.lineTo(padding.left, chartHeight + padding.top);
+                dispatchCtx.lineTo(chartWidth + padding.left, chartHeight + padding.top); dispatchCtx.strokeStyle = '#333'; dispatchCtx.stroke();
+
+                const yTicks = 5; // Y-axis Labels & Grid
+                dispatchCtx.textAlign = 'right'; dispatchCtx.fillStyle = '#333'; dispatchCtx.font = '10px Arial';
+                for (let i = 0; i <= yTicks; i++) {
+                    const val = minY + ( (maxY - minY) / yTicks) * i;
+                    const yPos = chartHeight + padding.top - scale(val, minY, maxY, 0, chartHeight);
+                    dispatchCtx.fillText(val.toFixed(2), padding.left - 8, yPos + 3);
+                    dispatchCtx.beginPath(); dispatchCtx.moveTo(padding.left - 4, yPos); dispatchCtx.lineTo(chartWidth + padding.left, yPos);
+                    dispatchCtx.strokeStyle = '#eee'; dispatchCtx.stroke();
+                }
+                dispatchCtx.save(); // Y-axis Title
+                dispatchCtx.translate(padding.left / 2 - 5, padding.top + chartHeight / 2); dispatchCtx.rotate(-Math.PI / 2);
+                dispatchCtx.textAlign = 'center'; dispatchCtx.font = '12px Arial'; dispatchCtx.fillText("Load / Generation (p.u.)", 0, 0);
+                dispatchCtx.restore();
+
+                // X-axis Labels & Grid - adjust based on view mode
+                dispatchCtx.textAlign = 'center'; dispatchCtx.fillStyle = '#333'; dispatchCtx.font = '10px Arial';
+                
+                if (appState.viewMode === '1day') {
+                    // For 1-day view, show hours
+                    const hoursToLabel = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+                    hoursToLabel.forEach(hour => {
+                        const intervalIndex = hour * (60 / appState.timeResolutionMinutes);
+                        if (intervalIndex < numIntervals) {
+                            const xPos = padding.left + intervalIndex * barWidth + barWidth / 2;
+                            dispatchCtx.fillText(String(hour).padStart(2, '0') + ':00', xPos, chartHeight + padding.top + 20);
+                            dispatchCtx.beginPath(); dispatchCtx.moveTo(xPos, chartHeight + padding.top); dispatchCtx.lineTo(xPos, chartHeight + padding.top + 4);
+                            dispatchCtx.strokeStyle = '#ccc'; dispatchCtx.stroke();
+                        }
+                    });
+                    dispatchCtx.font = '12px Arial'; // X-axis Title
+                    dispatchCtx.fillText("Time (Hour of Day)", padding.left + chartWidth / 2, chartHeight + padding.top + 45);
+                } else {
+                    // For 5-day view, show days and key hours
+                    const intervalsPerDay = 24 * (60 / appState.timeResolutionMinutes);
+                    for (let day = 0; day < 5; day++) {
+                        // Day label at midnight
+                        const dayStartInterval = day * intervalsPerDay;
+                        const dayStartX = padding.left + dayStartInterval * barWidth;
+                        
+                        // Draw day separator line
+                        dispatchCtx.beginPath();
+                        dispatchCtx.moveTo(dayStartX, padding.top);
+                        dispatchCtx.lineTo(dayStartX, chartHeight + padding.top);
+                        dispatchCtx.strokeStyle = day > 0 ? '#aaa' : '#ccc'; // Darker line for day boundaries
+                        dispatchCtx.stroke();
+                        
+                        // Day label
+                        dispatchCtx.fillText(`Day ${day+1}`, dayStartX + intervalsPerDay * barWidth / 2, chartHeight + padding.top + 20);
+                        
+                        // Key hours within each day (6, 12, 18)
+                        [6, 12, 18].forEach(hour => {
+                            const hourInterval = dayStartInterval + hour * (60 / appState.timeResolutionMinutes);
+                            const hourX = padding.left + hourInterval * barWidth;
+                            
+                            // Small tick and hour label
+                            dispatchCtx.beginPath();
+                            dispatchCtx.moveTo(hourX, chartHeight + padding.top);
+                            dispatchCtx.lineTo(hourX, chartHeight + padding.top + 3);
+                            dispatchCtx.strokeStyle = '#ccc';
+                            dispatchCtx.stroke();
+                            
+                            dispatchCtx.fillText(`${hour}:00`, hourX, chartHeight + padding.top + 12);
+                        });
+                    }
+                    
+                    dispatchCtx.font = '12px Arial'; // X-axis Title
+                    dispatchCtx.fillText("Time (Days)", padding.left + chartWidth / 2, chartHeight + padding.top + 45);
+                }
+
+                // --- Draw Stacked Area Chart ---
+                let currentYBaseline = Array(numIntervals).fill(chartHeight + padding.top - scale(0, minY, maxY, 0, chartHeight)); // Y=0 line
+                const stackOrder = ['wind', 'solar', 'nuclear', 'coal', 'ccgt', 'gasTurbine', 'unmetLoad']; // Stack order without battery
+
+                stackOrder.forEach(type => { // Draw positive generation layers
+                    if (!GENERATION_COLORS[type]) return;
+                    
+                    let segmentTops = []; // Store the top y-coordinate for this layer
+                    for (let t = 0; t < numIntervals; t++) {
+                        const genValue = dispatchData[t][type] || 0;
+                        // Scale genValue relative to the total Y axis span (maxY - minY), not just 0 to (maxY-minY)
+                        const pointHeight = scale(genValue, 0, maxY - minY, 0, chartHeight);
+                        segmentTops[t] = currentYBaseline[t] - pointHeight;
+                    }
+
+                    dispatchCtx.beginPath();
+                    dispatchCtx.fillStyle = GENERATION_COLORS[type];
+                    
+                    // Move to the starting point of the top line (leftmost point)
+                    dispatchCtx.moveTo(padding.left, segmentTops[0]);
+                    
+                    // Draw the top line of the current layer
+                    for (let t = 0; t < numIntervals; t++) {
+                        const x = padding.left + t * barWidth; // Use start of the bar
+                        dispatchCtx.lineTo(x, segmentTops[t]);
+                    }
+                    // Explicitly draw to the end of the last bar for the top line
+                    dispatchCtx.lineTo(padding.left + numIntervals * barWidth, segmentTops[numIntervals - 1]);
+
+                    // Draw the bottom line of the current layer (which is the top of the previous layer, or the baseline)
+                    // Start from the end of the last bar for the bottom line
+                    dispatchCtx.lineTo(padding.left + numIntervals * barWidth, currentYBaseline[numIntervals - 1]);
+                    for (let t = numIntervals - 1; t >= 0; t--) {
+                        const x = padding.left + t * barWidth; // Use start of the bar
+                        dispatchCtx.lineTo(x, currentYBaseline[t]);
+                    }
+                    // Path will be closed by closePath, connecting back to the first moveTo point (padding.left, segmentTops[0])
+                    // However, the first point of the baseline is (padding.left, currentYBaseline[0]), so we need to ensure the path closes correctly.
+                    // The initial moveTo is (padding.left, segmentTops[0]). The last lineTo for baseline is (padding.left, currentYBaseline[0]).
+                    // closePath will draw a line from (padding.left, currentYBaseline[0]) to (padding.left, segmentTops[0]). This is correct.
+                    
+                    dispatchCtx.closePath();
+                    dispatchCtx.fill();
+                    
+                    currentYBaseline = segmentTops; // Update baseline for the next layer
+                });
+
+                // No battery visualization needed
+
+                // --- Draw Lines & Points (Load, Solar, Wind) ---
+                const pointsPerOriginalHour = 60 / appState.timeResolutionMinutes;
+
+                // Function to draw a curve and its draggable points
+                function drawCurveAndPoints(curveData, originalData, color, lineWidth, dash = [], curveType) {
+                    // Draw line using interpolated data
+                    dispatchCtx.beginPath(); dispatchCtx.strokeStyle = color; dispatchCtx.lineWidth = lineWidth;
+                    if (dash.length > 0) dispatchCtx.setLineDash(dash);
+                    curveData.forEach((val, t) => {
+                        const x = padding.left + t * barWidth + barWidth / 2;
+                        const y = chartHeight + padding.top - scale(val, minY, maxY, 0, chartHeight);
+                        if (t === 0) dispatchCtx.moveTo(x, y); else dispatchCtx.lineTo(x, y);
+                    });
+                    dispatchCtx.stroke(); if (dash.length > 0) dispatchCtx.setLineDash([]);
+
+                    // Only draw draggable points in 1-day view
+                    if (appState.viewMode === '1day') {
+                        // Draw draggable points using original hourly data
+                        for (let i = 0; i < 24; i++) {
+                            const t = i * pointsPerOriginalHour; if(t >= numIntervals) continue;
+                            const val = originalData[i]; // Value from original hourly data
+                            let yVal = val; // Value to plot for y-coordinate
+    
+                             // Solar/Wind need potential calculation for plotting points correctly
+                            if (curveType === 'solar') {
+                               yVal = (val / 100) * (appState.renewableMix.solar / 100) * appState.peakSystemLoad;
+                            } else if (curveType === 'wind') {
+                               yVal = (val / 100) * (appState.renewableMix.wind / 100) * appState.peakSystemLoad;
+                            }
+    
+                            const x = padding.left + t * barWidth + barWidth / 2;
+                            const y = chartHeight + padding.top - scale(yVal, minY, maxY, 0, chartHeight);
+                            dispatchCtx.fillStyle = appState.activeCurveForEditing === curveType ? color : '#aaa'; // Highlight active curve's points
+                            dispatchCtx.beginPath(); dispatchCtx.arc(x, y, POINT_RADIUS, 0, Math.PI * 2); dispatchCtx.fill();
+                            dispatchCtx.strokeStyle = '#fff'; dispatchCtx.lineWidth = 0.5; dispatchCtx.stroke(); // Small white border
+                        }
+                    }
+                }
+
+                 // Get interpolated curves for drawing lines
+                const loadCurveForDraw = window.effectiveLoadCurve || appState.loadCurve;
+                const solarGenForDraw = (window.effectiveSolarCurvePercent || appState.solarCurve).map(val => (val / 100) * (appState.renewableMix.solar / 100) * appState.peakSystemLoad);
+                const windGenForDraw = (window.effectiveWindCurvePercent || appState.windCurve).map(val => (val / 100) * (appState.renewableMix.wind / 100) * appState.peakSystemLoad);
+
+                // First draw solar and wind curves
+                drawCurveAndPoints(solarGenForDraw, appState.solarCurve, GENERATION_COLORS.solar, 1.5, [4, 4], 'solar');
+                drawCurveAndPoints(windGenForDraw, appState.windCurve, GENERATION_COLORS.wind, 1.5, [6, 3], 'wind'); // Different dash for wind
+                
+                // Draw load curve
+                drawCurveAndPoints(loadCurveForDraw, appState.loadCurve, 'black', 2.5, [], 'load');
+
+                // Draw Net Load Curve Line (load - renewables)
+                dispatchCtx.beginPath(); dispatchCtx.strokeStyle = 'darkorchid'; dispatchCtx.lineWidth = 2;
+                dispatchData.forEach((d, t) => {
+                    const x = padding.left + t * barWidth + barWidth / 2;
+                    const y = chartHeight + padding.top - scale(d.netLoad, minY, maxY, 0, chartHeight);
+                    if (t === 0) dispatchCtx.moveTo(x, y); else dispatchCtx.lineTo(x, y);
+                });
+                dispatchCtx.stroke();
+                
+                // Draw a vertical dotted line at the time-of-day slider position
+                const selectedTimeInterval = Math.floor(appState.selectedTimeOfDay * (60 / appState.timeResolutionMinutes));
+                if (selectedTimeInterval < numIntervals) {
+                    const timeX = padding.left + selectedTimeInterval * barWidth + barWidth / 2;
+                    
+                    // Draw vertical dotted line
+                    dispatchCtx.beginPath();
+                    dispatchCtx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+                    dispatchCtx.lineWidth = 2;
+                    dispatchCtx.setLineDash([5, 3]);
+                    dispatchCtx.moveTo(timeX, padding.top);
+                    dispatchCtx.lineTo(timeX, chartHeight + padding.top);
+                    dispatchCtx.stroke();
+                    dispatchCtx.setLineDash([]);
+                    
+                    // Add time label at the top
+                    dispatchCtx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+                    dispatchCtx.font = 'bold 12px Arial';
+                    dispatchCtx.textAlign = 'center';
+                    const hours = Math.floor(appState.selectedTimeOfDay);
+                    const minutes = Math.floor((appState.selectedTimeOfDay - hours) * 60);
+                    dispatchCtx.fillText(
+                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+                        timeX,
+                        padding.top - 5
+                    );
+                }
+                
+                // Highlight high ramp rate periods on the net load curve
+                // Also highlight periods where ramp rate constraints are active
+                dispatchData.forEach((d, t) => {
+                    if (t > 0) {
+                        const x = padding.left + t * barWidth + barWidth / 2;
+                        const y = chartHeight + padding.top - scale(d.netLoad, minY, maxY, 0, chartHeight);
+                        
+                        // Calculate net load ramp rate
+                        const netLoadRamp = d.netLoadRamp || 0;
+                        
+                        // Calculate total available ramp rate at this time
+                        let totalMaxRampRate = 0;
+                        let totalAvailableRampRate = 0;
+                        
+                        // Calculate total thermal capacity and current output
+                        let totalThermalCapacity = 0;
+                        let totalThermalOutput = 0;
+                        
+                        THERMAL_TYPES.forEach(type => {
+                            if (appState.dispatchableUnits[type]) {
+                                const unitData = appState.dispatchableUnits[type];
+                                const numUnits = unitData.numUnits;
+                                const capacityPerUnitPercent = unitData.capacityPerUnitPercent;
+                                const rampRatePerUnitPercentMinute = unitData.rampRatePerUnitPercentMinute;
+                                
+                                // Calculate total capacity in p.u.
+                                const totalCapacityPU = (numUnits * capacityPerUnitPercent / 100) * appState.peakSystemLoad;
+                                totalThermalCapacity += totalCapacityPU;
+                                
+                                // Get current output from simulation results
+                                const currentOutputPU = d[type] || 0;
+                                totalThermalOutput += currentOutputPU;
+                                
+                                // Calculate max ramp rate in p.u./min
+                                const maxRampRatePUPerMin = numUnits * (capacityPerUnitPercent / 100) * (rampRatePerUnitPercentMinute / 100) * appState.peakSystemLoad;
+                                totalMaxRampRate += maxRampRatePUPerMin;
+                                
+                                // Calculate available headroom and footroom
+                                const availableHeadroom = totalCapacityPU - currentOutputPU;
+                                const availableFootroom = currentOutputPU;
+                                
+                                // Calculate actual ramp rate based on available capacity
+                                const actualRampRatePUPerMin = netLoadRamp > 0
+                                    ? Math.min(maxRampRatePUPerMin, availableHeadroom / 10) // Limit by available capacity (assume 10 min to full)
+                                    : Math.min(maxRampRatePUPerMin, availableFootroom / 10); // Limit by current output (assume 10 min to zero)
+                                
+                                totalAvailableRampRate += actualRampRatePUPerMin;
+                            }
+                        });
+                        
+                        // Determine if ramp rate constraint is active
+                        const isRampRateConstrained = (netLoadRamp > 0 && totalAvailableRampRate < netLoadRamp) ||
+                                                     (netLoadRamp < 0 && totalAvailableRampRate < Math.abs(netLoadRamp));
+                        
+                        // Draw ramp rate indicator
+                        if (Math.abs(netLoadRamp) > 0.01) {
+                            // Base color on ramp direction
+                            let rampColor = netLoadRamp > 0 ? 'rgba(255,0,0,0.5)' : 'rgba(0,255,0,0.5)';
+                            
+                            // If ramp rate constraint is active, use a more intense color
+                            if (isRampRateConstrained) {
+                                rampColor = netLoadRamp > 0 ? 'rgba(255,0,0,0.9)' : 'rgba(0,255,0,0.9)';
+                            }
+                            
+                            const rampSize = Math.min(8, Math.abs(netLoadRamp) * 200);
+                            
+                            dispatchCtx.fillStyle = rampColor;
+                            dispatchCtx.beginPath();
+                            dispatchCtx.arc(x, y, rampSize, 0, Math.PI * 2);
+                            dispatchCtx.fill();
+                            
+                            // If ramp rate constraint is active, add a warning indicator
+                            if (isRampRateConstrained) {
+                                dispatchCtx.strokeStyle = 'black';
+                                dispatchCtx.lineWidth = 1.5;
+                                dispatchCtx.beginPath();
+                                dispatchCtx.arc(x, y, rampSize + 2, 0, Math.PI * 2);
+                                dispatchCtx.stroke();
+                                
+                                // Add a tooltip with detailed information
+                                const tooltipText = netLoadRamp > 0
+                                    ? `Ramp constraint: Need ${netLoadRamp.toFixed(2)} MW/min, available ${totalAvailableRampRate.toFixed(2)} MW/min`
+                                    : `Ramp constraint: Need ${Math.abs(netLoadRamp).toFixed(2)} MW/min down, available ${totalAvailableRampRate.toFixed(2)} MW/min`;
+                                
+                                // Store tooltip info for mouseover display
+                                d.rampConstraintTooltip = tooltipText;
+                            }
+                        }
+                        
+                        // If there's unmet load due to ramp rate constraints, highlight it
+                        if (d.unmetLoad > 0.001) {
+                            // Check if any resources were ramp limited at this time
+                            const rampLimitedResources = dispatchStack.filter(r => r.rampLimited && r.availableHeadroom > 0);
+                            if (rampLimitedResources && rampLimitedResources.length > 0) {
+                                // Draw a red warning triangle at the top of the chart
+                                const triangleSize = 8;
+                                const triangleX = padding.left + t * barWidth + barWidth / 2;
+                                const triangleY = padding.top + 20; // Position at top of chart
+                                
+                                dispatchCtx.fillStyle = 'red';
+                                dispatchCtx.beginPath();
+                                dispatchCtx.moveTo(triangleX, triangleY - triangleSize);
+                                dispatchCtx.lineTo(triangleX + triangleSize, triangleY + triangleSize);
+                                dispatchCtx.lineTo(triangleX - triangleSize, triangleY + triangleSize);
+                                dispatchCtx.closePath();
+                                dispatchCtx.fill();
+                                
+                                dispatchCtx.fillStyle = 'white';
+                                dispatchCtx.font = 'bold 10px Arial';
+                                dispatchCtx.textAlign = 'center';
+                                dispatchCtx.fillText('!', triangleX, triangleY + 4);
+                            }
+                        }
+                    }
+                });
+
+
+                // --- Draw Legend ---
+                let legendX = chartWidth + padding.left + 20;
+                let legendY = padding.top;
+                dispatchCtx.textAlign = 'left'; dispatchCtx.font = '11px Arial';
+                const legendItems = [ // Updated legend without battery items
+                    ...stackOrder.filter(type => GENERATION_COLORS[type]),
+                    { name: 'Total Load', color: 'black', line: true, lineWidth: 2.5 },
+                    { name: 'Net Load (load - renewables)', color: 'darkorchid', line: true, lineWidth: 2 },
+                    { name: 'Ramp Up Rate', color: 'rgba(255,0,0,0.5)', circle: true, size: 6 },
+                    { name: 'Ramp Down Rate', color: 'rgba(0,255,0,0.5)', circle: true, size: 6 },
+                    { name: 'Ramp Rate Constraint', color: 'rgba(255,0,0,0.9)', circle: true, size: 6, outline: true },
+                    { name: 'Selected Time', color: 'rgba(255,0,0,0.7)', line: true, lineWidth: 2, dash: [5, 3] },
+                    { name: 'Solar Potential', color: GENERATION_COLORS.solar, line: true, lineWidth: 1.5, dash: [4,4] },
+                    { name: 'Wind Potential', color: GENERATION_COLORS.wind, line: true, lineWidth: 1.5, dash: [6,3] }
+                ];
+
+                legendItems.forEach(item => {
+                    const typeName = typeof item === 'string' ? item : item.name;
+                    const color = typeof item === 'string' ? GENERATION_COLORS[typeName] : item.color;
+                    if(!color) return;
+
+                    dispatchCtx.fillStyle = color; dispatchCtx.strokeStyle = color;
+                    const itemY = legendY + 5; // Center vertically
+                    if (item.line) {
+                        dispatchCtx.lineWidth = item.lineWidth || 1;
+                        if(item.dash) dispatchCtx.setLineDash(item.dash);
+                        dispatchCtx.beginPath(); dispatchCtx.moveTo(legendX, itemY); dispatchCtx.lineTo(legendX + 20, itemY); dispatchCtx.stroke();
+                        if(item.dash) dispatchCtx.setLineDash([]);
+                    } else if (item.circle) {
+                        dispatchCtx.beginPath();
+                        dispatchCtx.arc(legendX + 5, itemY, item.size || 5, 0, Math.PI * 2);
+                        dispatchCtx.fill();
+                        
+                        // Add outline for ramp rate constraint indicator
+                        if (item.outline) {
+                            dispatchCtx.strokeStyle = 'black';
+                            dispatchCtx.lineWidth = 1.5;
+                            dispatchCtx.beginPath();
+                            dispatchCtx.arc(legendX + 5, itemY, (item.size || 5) + 2, 0, Math.PI * 2);
+                            dispatchCtx.stroke();
+                        }
+                    } else {
+                        dispatchCtx.fillRect(legendX, legendY, 10, 10);
+                    }
+                    dispatchCtx.fillStyle = '#333'; // Text color
+                    dispatchCtx.fillText(typeName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()), legendX + 25, itemY + 4);
+                    legendY += 22; // Increase spacing
+                });
+                
+                    // Draw separate solar and wind plots
+                    drawSolarPlot(); // Restored
+                    drawWindPlot(); // Restored
+                } catch (error) {
+                    console.error("Error in drawVisualization:", error);
+                    alert("An error occurred while drawing the visualization: " + error.message);
+                }
+            }
+
+            // Function to draw the solar generation plot with 1-minute increments
+            function drawSolarPlot() {
+                try {
+                    solarCtx.clearRect(0, 0, solarCanvas.width, solarCanvas.height);
+                    
+                    const padding = { top: 30, right: 30, bottom: 50, left: 50 };
+                const chartWidth = solarCanvas.width - padding.left - padding.right;
+                const chartHeight = solarCanvas.height - padding.top - padding.bottom;
+                
+                // Get solar data in 1-minute increments
+                const solarMinuteData = interpolateCurve(appState.solarCurve, 24 * 60);
+                
+                // Draw axes
+                solarCtx.beginPath();
+                solarCtx.moveTo(padding.left, padding.top);
+                solarCtx.lineTo(padding.left, chartHeight + padding.top);
+                solarCtx.lineTo(chartWidth + padding.left, chartHeight + padding.top);
+                solarCtx.strokeStyle = '#333';
+                solarCtx.stroke();
+                
+                // Y-axis labels (0-100%)
+                solarCtx.textAlign = 'right';
+                solarCtx.fillStyle = '#333';
+                solarCtx.font = '10px Arial';
+                for (let i = 0; i <= 5; i++) {
+                    const val = i * 20; // 0, 20, 40, 60, 80, 100
+                    const yPos = chartHeight + padding.top - (val / 100) * chartHeight;
+                    solarCtx.fillText(val + '%', padding.left - 5, yPos + 3);
+                    solarCtx.beginPath();
+                    solarCtx.moveTo(padding.left - 3, yPos);
+                    solarCtx.lineTo(padding.left, yPos);
+                    solarCtx.strokeStyle = '#333';
+                    solarCtx.stroke();
+                    
+                    // Grid lines
+                    solarCtx.beginPath();
+                    solarCtx.moveTo(padding.left, yPos);
+                    solarCtx.lineTo(chartWidth + padding.left, yPos);
+                    solarCtx.strokeStyle = '#eee';
+                    solarCtx.stroke();
+                }
+                
+                // X-axis labels (hours)
+                solarCtx.textAlign = 'center';
+                solarCtx.fillStyle = '#333';
+                solarCtx.font = '10px Arial';
+                for (let hour = 0; hour <= 24; hour += 3) {
+                    if (hour <= 24) {
+                        const xPos = padding.left + (hour / 24) * chartWidth;
+                        solarCtx.fillText(hour + ':00', xPos, chartHeight + padding.top + 15);
+                        solarCtx.beginPath();
+                        solarCtx.moveTo(xPos, chartHeight + padding.top);
+                        solarCtx.lineTo(xPos, chartHeight + padding.top + 3);
+                        solarCtx.strokeStyle = '#333';
+                        solarCtx.stroke();
+                    }
+                }
+                
+                // Draw solar curve
+                solarCtx.beginPath();
+                solarCtx.strokeStyle = GENERATION_COLORS.solar;
+                solarCtx.lineWidth = 2;
+                
+                for (let i = 0; i < solarMinuteData.length; i++) {
+                    const x = padding.left + (i / (24 * 60)) * chartWidth;
+                    const y = chartHeight + padding.top - (solarMinuteData[i] / 100) * chartHeight;
+                    
+                    if (i === 0) {
+                        solarCtx.moveTo(x, y);
+                    } else {
+                        solarCtx.lineTo(x, y);
+                    }
+                }
+                solarCtx.stroke();
+                
+                // Draw draggable points for hourly values
+                for (let i = 0; i < 24; i++) {
+                    const x = padding.left + (i / 24) * chartWidth;
+                    const y = chartHeight + padding.top - (appState.solarCurve[i] / 100) * chartHeight;
+                    
+                    solarCtx.fillStyle = appState.activeCurveForEditing === 'solar' ? GENERATION_COLORS.solar : '#aaa';
+                    solarCtx.beginPath();
+                    solarCtx.arc(x, y, POINT_RADIUS, 0, Math.PI * 2);
+                    solarCtx.fill();
+                    solarCtx.strokeStyle = '#fff';
+                    solarCtx.lineWidth = 0.5;
+                    solarCtx.stroke();
+                }
+                
+                // Title and labels
+                solarCtx.textAlign = 'center';
+                solarCtx.fillStyle = '#333';
+                solarCtx.font = '12px Arial';
+                solarCtx.fillText('Time (Hour of Day)', padding.left + chartWidth / 2, chartHeight + padding.top + 35);
+                
+                solarCtx.save();
+                solarCtx.translate(padding.left / 2 - 10, padding.top + chartHeight / 2);
+                solarCtx.rotate(-Math.PI / 2);
+                solarCtx.textAlign = 'center';
+                solarCtx.fillText('Solar Output (%)', 0, 0);
+                    solarCtx.restore();
+                } catch (error) {
+                    console.error("Error in drawSolarPlot:", error);
+                }
+            }
+            
+            // Function to draw the wind generation plot with 1-minute increments
+            function drawWindPlot() {
+                try {
+                    windCtx.clearRect(0, 0, windCanvas.width, windCanvas.height);
+                    
+                    const padding = { top: 30, right: 30, bottom: 50, left: 50 };
+                const chartWidth = windCanvas.width - padding.left - padding.right;
+                const chartHeight = windCanvas.height - padding.top - padding.bottom;
+                
+                // Get wind data in 1-minute increments
+                const windMinuteData = interpolateCurve(appState.windCurve, 24 * 60);
+                
+                // Draw axes
+                windCtx.beginPath();
+                windCtx.moveTo(padding.left, padding.top);
+                windCtx.lineTo(padding.left, chartHeight + padding.top);
+                windCtx.lineTo(chartWidth + padding.left, chartHeight + padding.top);
+                windCtx.strokeStyle = '#333';
+                windCtx.stroke();
+                
+                // Y-axis labels (0-100%)
+                windCtx.textAlign = 'right';
+                windCtx.fillStyle = '#333';
+                windCtx.font = '10px Arial';
+                for (let i = 0; i <= 5; i++) {
+                    const val = i * 20; // 0, 20, 40, 60, 80, 100
+                    const yPos = chartHeight + padding.top - (val / 100) * chartHeight;
+                    windCtx.fillText(val + '%', padding.left - 5, yPos + 3);
+                    windCtx.beginPath();
+                    windCtx.moveTo(padding.left - 3, yPos);
+                    windCtx.lineTo(padding.left, yPos);
+                    windCtx.strokeStyle = '#333';
+                    windCtx.stroke();
+                    
+                    // Grid lines
+                    windCtx.beginPath();
+                    windCtx.moveTo(padding.left, yPos);
+                    windCtx.lineTo(chartWidth + padding.left, yPos);
+                    windCtx.strokeStyle = '#eee';
+                    windCtx.stroke();
+                }
+                
+                // X-axis labels (hours)
+                windCtx.textAlign = 'center';
+                windCtx.fillStyle = '#333';
+                windCtx.font = '10px Arial';
+                for (let hour = 0; hour <= 24; hour += 3) {
+                    if (hour <= 24) {
+                        const xPos = padding.left + (hour / 24) * chartWidth;
+                        windCtx.fillText(hour + ':00', xPos, chartHeight + padding.top + 15);
+                        windCtx.beginPath();
+                        windCtx.moveTo(xPos, chartHeight + padding.top);
+                        windCtx.lineTo(xPos, chartHeight + padding.top + 3);
+                        windCtx.strokeStyle = '#333';
+                        windCtx.stroke();
+                    }
+                }
+                
+                // Draw wind curve
+                windCtx.beginPath();
+                windCtx.strokeStyle = GENERATION_COLORS.wind;
+                windCtx.lineWidth = 2;
+                
+                for (let i = 0; i < windMinuteData.length; i++) {
+                    const x = padding.left + (i / (24 * 60)) * chartWidth;
+                    const y = chartHeight + padding.top - (windMinuteData[i] / 100) * chartHeight;
+                    
+                    if (i === 0) {
+                        windCtx.moveTo(x, y);
+                    } else {
+                        windCtx.lineTo(x, y);
+                    }
+                }
+                windCtx.stroke();
+                
+                // Draw draggable points for hourly values
+                for (let i = 0; i < 24; i++) {
+                    const x = padding.left + (i / 24) * chartWidth;
+                    const y = chartHeight + padding.top - (appState.windCurve[i] / 100) * chartHeight;
+                    
+                    windCtx.fillStyle = appState.activeCurveForEditing === 'wind' ? GENERATION_COLORS.wind : '#aaa';
+                    windCtx.beginPath();
+                    windCtx.arc(x, y, POINT_RADIUS, 0, Math.PI * 2);
+                    windCtx.fill();
+                    windCtx.strokeStyle = '#fff';
+                    windCtx.lineWidth = 0.5;
+                    windCtx.stroke();
+                }
+                
+                // Title and labels
+                windCtx.textAlign = 'center';
+                windCtx.fillStyle = '#333';
+                windCtx.font = '12px Arial';
+                windCtx.fillText('Time (Hour of Day)', padding.left + chartWidth / 2, chartHeight + padding.top + 35);
+                
+                windCtx.save();
+                windCtx.translate(padding.left / 2 - 10, padding.top + chartHeight / 2);
+                windCtx.rotate(-Math.PI / 2);
+                windCtx.textAlign = 'center';
+                windCtx.fillText('Wind Output (%)', 0, 0);
+                    windCtx.restore();
+                } catch (error) {
+                    console.error("Error in drawWindPlot:", error);
+                }
+            }
+
+            function runSimulationAndDraw() {
+                try {
+                    // Ensure interpolated curves are available globally if needed by drawing
+                    window.effectiveLoadCurve = interpolateCurve(appState.loadCurve, 24 * (60 / appState.timeResolutionMinutes));
+                    window.effectiveSolarCurvePercent = interpolateCurve(appState.solarCurve, 24 * (60 / appState.timeResolutionMinutes));
+                    window.effectiveWindCurvePercent = interpolateCurve(appState.windCurve, 24 * (60 / appState.timeResolutionMinutes));
+
+                    const dispatchData = runSimulation();
+                    drawVisualization(dispatchData);
+                    calculateAndDisplayRampRates(); // Update ramp rate analysis whenever simulation runs
+                } catch (error) {
+                    console.error("Error in runSimulationAndDraw:", error);
+                    alert("An error occurred while running the simulation: " + error.message);
+                }
+            }
+
+            // --- Canvas Mouse Interaction for Draggable Points ---
+            function handleCanvasMouseDown(e) {
+                // Only allow editing in 1-day view
+                if (appState.viewMode === '5day' && e.target === dispatchCanvas) {
+                    alert("Please switch to 1-day view to edit curves.");
+                    return;
+                }
+                
+                const canvas = e.target;
+                const mousePos = getMousePos(canvas, e);
+                
+                // Determine which canvas was clicked
+                let canvasType = '';
+                let chartArea = {};
+                let currentMaxY = 0;
+                let currentMinY = 0;
+                let padding = {};
+                
+                if (canvas === dispatchCanvas) {
+                    canvasType = 'dispatch';
+                    padding = { top: 60, right: 160, bottom: 80, left: 70 };
+                    chartArea = {
+                        x: padding.left,
+                        y: padding.top,
+                        width: dispatchCanvas.width - padding.left - padding.right,
+                        height: dispatchCanvas.height - padding.top - padding.bottom
+                    };
+                    
+                    // Recalculate Y scale for hit testing
+                    currentMaxY = appState.peakSystemLoad * 1.1;
+                    currentMinY = -appState.peakSystemLoad * 0.2;
+                    (window.effectiveLoadCurve || appState.loadCurve).forEach(v => currentMaxY = Math.max(currentMaxY, v));
+                    const dispatchDataForScale = runSimulation();
+                    dispatchDataForScale.forEach(d => {
+                        const totalGen = d.coal + d.nuclear + d.solar + d.wind + d.gasTurbine + d.ccgt;
+                        currentMaxY = Math.max(currentMaxY, totalGen, d.netLoad);
+                        currentMinY = Math.min(currentMinY, d.netLoad);
+                    });
+                    if (currentMaxY <= currentMinY) currentMaxY = currentMinY + 0.1;
+                } else if (canvas === solarCanvas) {
+                    canvasType = 'solar';
+                    padding = { top: 30, right: 30, bottom: 50, left: 50 };
+                    chartArea = {
+                        x: padding.left,
+                        y: padding.top,
+                        width: solarCanvas.width - padding.left - padding.right,
+                        height: solarCanvas.height - padding.top - padding.bottom
+                    };
+                    currentMaxY = 100; // Percentage 0-100%
+                    currentMinY = 0;
+                } else if (canvas === windCanvas) {
+                    canvasType = 'wind';
+                    padding = { top: 30, right: 30, bottom: 50, left: 50 };
+                    chartArea = {
+                        x: padding.left,
+                        y: padding.top,
+                        width: windCanvas.width - padding.left - padding.right,
+                        height: windCanvas.height - padding.top - padding.bottom
+                    };
+                    currentMaxY = 100; // Percentage 0-100%
+                    currentMinY = 0;
+                } else {
+                    return; // Not a canvas we handle
+                }
+                
+                const pointsPerOriginalHour = 60 / appState.timeResolutionMinutes;
+                
+                // Check for point hits
+                for (let i = 0; i < 24; i++) {
+                    let pointX, pointY, pointVal, curveType;
+                    
+                    if (canvasType === 'dispatch') {
+                        const barWidth = chartArea.width / (24 * pointsPerOriginalHour);
+                        const tIntervalIndex = i * pointsPerOriginalHour;
+                        if (tIntervalIndex >= (24 * pointsPerOriginalHour)) continue;
+                        
+                        if (appState.activeCurveForEditing === 'load') {
+                            pointVal = appState.loadCurve[i];
+                            curveType = 'load';
+                        } else if (appState.activeCurveForEditing === 'solar') {
+                            pointVal = (appState.solarCurve[i] / 100) * (appState.renewableMix.solar / 100) * appState.peakSystemLoad;
+                            curveType = 'solar';
+                        } else { // wind
+                            pointVal = (appState.windCurve[i] / 100) * (appState.renewableMix.wind / 100) * appState.peakSystemLoad;
+                            curveType = 'wind';
+                        }
+                        
+                        pointX = chartArea.x + tIntervalIndex * barWidth + barWidth / 2;
+                        pointY = chartArea.y + chartArea.height - scale(pointVal, currentMinY, currentMaxY, 0, chartArea.height);
+                    } else if (canvasType === 'solar') {
+                        curveType = 'solar';
+                        pointVal = appState.solarCurve[i];
+                        pointX = chartArea.x + (i / 24) * chartArea.width;
+                        pointY = chartArea.y + chartArea.height - (pointVal / 100) * chartArea.height;
+                    } else if (canvasType === 'wind') {
+                        curveType = 'wind';
+                        pointVal = appState.windCurve[i];
+                        pointX = chartArea.x + (i / 24) * chartArea.width;
+                        pointY = chartArea.y + chartArea.height - (pointVal / 100) * chartArea.height;
+                    }
+                    
+                    if (Math.hypot(mousePos.x - pointX, mousePos.y - pointY) < POINT_RADIUS * 1.5) {
+                        draggingPoint = {
+                            curve: curveType,
+                            originalIndex: i,
+                            canvasType: canvasType
+                        };
+                        return;
+                    }
+                }
+            }
+
+            function handleCanvasMouseMove(e) {
+                if (!draggingPoint) return;
+                
+                // Only allow editing in 1-day view
+                if (appState.viewMode === '5day' && draggingPoint.canvasType === 'dispatch') {
+                    draggingPoint = null;
+                    return;
+                }
+                
+                const canvas = e.target;
+                const mousePos = getMousePos(canvas, e);
+                
+                let chartArea = {};
+                let currentMaxY = 0;
+                let currentMinY = 0;
+                let padding = {};
+                
+                if (draggingPoint.canvasType === 'dispatch') {
+                    padding = { top: 60, right: 160, bottom: 80, left: 70 };
+                    chartArea = {
+                        x: padding.left,
+                        y: padding.top,
+                        width: dispatchCanvas.width - padding.left - padding.right,
+                        height: dispatchCanvas.height - padding.top - padding.bottom
+                    };
+                    
+                    // Recalculate Y scale during drag for accuracy
+                    currentMaxY = appState.peakSystemLoad * 1.1;
+                    currentMinY = -appState.peakSystemLoad * 0.2;
+                    (window.effectiveLoadCurve || appState.loadCurve).forEach(v => currentMaxY = Math.max(currentMaxY, v));
+                    const dispatchDataForScale = runSimulation();
+                    dispatchDataForScale.forEach(d => {
+                        const totalGen = d.coal + d.nuclear + d.solar + d.wind + d.gasTurbine + d.ccgt;
+                        currentMaxY = Math.max(currentMaxY, totalGen, d.netLoad);
+                        currentMinY = Math.min(currentMinY, d.netLoad);
+                    });
+                    if (currentMaxY <= currentMinY) currentMaxY = currentMinY + 0.1;
+                    
+                    const yInChart = chartArea.y + chartArea.height - mousePos.y;
+                    let valueAtMouseY_PU = scale(yInChart, 0, chartArea.height, currentMinY, currentMaxY);
+                    
+                    if (draggingPoint.curve === 'load') {
+                        // Clamp load curve points between 0 and peakSystemLoad (1.0 p.u.)
+                        appState.loadCurve[draggingPoint.originalIndex] = Math.max(0, Math.min(valueAtMouseY_PU, appState.peakSystemLoad));
+                    } else { // Solar or Wind (editing the percentage curve)
+                        const capacityType = draggingPoint.curve; // 'solar' or 'wind'
+                        // Use appState.renewableMix for solar/wind capacity
+                        const capacityPU = (appState.renewableMix[capacityType] / 100) * appState.peakSystemLoad;
+                        let newValuePercent = 0;
+                        if (capacityPU > 0.001) { // Avoid division by zero if capacity is tiny
+                            newValuePercent = (valueAtMouseY_PU / capacityPU) * 100;
+                        }
+                        appState[capacityType + 'Curve'][draggingPoint.originalIndex] = Math.max(0, Math.min(newValuePercent, 100)); // Clamp percentage 0-100
+                    }
+                } else if (draggingPoint.canvasType === 'solar' || draggingPoint.canvasType === 'wind') {
+                    padding = { top: 30, right: 30, bottom: 50, left: 50 };
+                    const targetCanvas = draggingPoint.canvasType === 'solar' ? solarCanvas : windCanvas;
+                    chartArea = {
+                        x: padding.left,
+                        y: padding.top,
+                        width: targetCanvas.width - padding.left - padding.right,
+                        height: targetCanvas.height - padding.top - padding.bottom
+                    };
+                    
+                    // For solar/wind charts, Y is 0-100%
+                    const yInChart = chartArea.y + chartArea.height - mousePos.y;
+                    const percentValue = Math.max(0, Math.min(100, scale(yInChart, 0, chartArea.height, 0, 100)));
+                    
+                    // Update the appropriate curve
+                    const curveType = draggingPoint.curve; // 'solar' or 'wind'
+                    appState[curveType + 'Curve'][draggingPoint.originalIndex] = percentValue;
+                }
+                
+                runSimulationAndDraw(); // Redraw continuously while dragging
+            }
+
+            function handleCanvasMouseUp() {
+                if (draggingPoint) {
+                    // Set active curve to match what was being dragged
+                    if (draggingPoint.curve !== appState.activeCurveForEditing) {
+                        appState.activeCurveForEditing = draggingPoint.curve;
+                        updateActiveCurveDisplay();
+                    }
+                    
+                    draggingPoint = null;
+                    runSimulationAndDraw(); // Final update
+                }
+            }
+
+            // Start the application
+            init();
+        });
+        // --- END: Main Application Logic ---
+    </script>
+</body>
+</html>

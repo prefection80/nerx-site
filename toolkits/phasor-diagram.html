@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<!-- Refactored: ES module architecture. Source logic in phasor_diagram_files/js/ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phasor Diagram — Equation-Driven (Multi-Set)</title>
+
+<!-- Session reload (must run before anything else) -->
+<script>
+  if (!sessionStorage.getItem('phasor_reloaded')) {
+    sessionStorage.setItem('phasor_reloaded', '1');
+    window.location.replace(window.location.href);
+  }
+</script>
+
+<!-- External: site header and ticker (inject nav/footer HTML at runtime) -->
+<script src="./phasor_diagram_files/header.js.download"></script>
+<script src="./phasor_diagram_files/ticker.js.download"></script>
+
+<!-- Google Fonts (parallel <link> is faster than CSS @import) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+
+<!-- Application CSS -->
+<link rel="stylesheet" href="./phasor_diagram_files/css/header.css">
+<link rel="stylesheet" href="./phasor_diagram_files/css/ticker.css">
+<link rel="stylesheet" href="./phasor_diagram_files/css/main.css">
+</head>
+<body>
+
+<!-- Site header injected by header.js.download -->
+<div>
+  <div class="header-container">
+    <div class="header-left">
+      <h1>
+        Doug Millner –
+        <a href="mailto:doug@nerxpower.com">doug@nerxpower.com</a> –
+        NERX Power Consultants LLC –
+        <a href="http://www.nerxpower.com/" target="_blank">www.nerxpower.com</a> –
+        <a href="https://www.linkedin.com/in/doug-millner-p-e-26607a184/" target="_blank">LinkedIn Blog</a>
+      </h1>
+    </div>
+    <div class="toolkit-title">Phasor Diagram — Equation-Driven (Multi-Set)</div>
+    <div class="header-right">
+      <a href="https://www.nerxpower.com/toolkits.html" id="backToMenu">Back to Main Menu</a>
+    </div>
+  </div>
+</div>
+
+<!-- Page title -->
+<div class="page-header">
+  <h1>Multi-Set Equation-Driven Phasor Diagram</h1>
+  <p>Create multiple independent phasor diagram sets, each with its own equations, canvas, and oscilloscope. Variables defined in any set are available in all other sets for cross-referencing.</p>
+</div>
+
+<!-- Top toolbar -->
+<div class="top-bar">
+  <button class="top-btn" id="btnAddSet">+ Add Phasor Set</button>
+  <button class="top-btn secondary" id="btnCollapseAll">Collapse All</button>
+  <button class="top-btn secondary" id="btnExpandAll">Expand All</button>
+</div>
+
+<!-- Sets container — filled dynamically by set-dom.js via initFromURL() -->
+<div id="setsContainer"></div>
+
+<!-- Instructions (static content) -->
+<div class="instructions">
+  <h2 id="instructionsToggle" style="cursor:pointer;user-select:none">▸ How to Use This Toolkit</h2>
+  <div id="instructionsBody" style="display:none">
+
+  <h3>Multi-Set Mode — NEW</h3>
+  <p>This version supports <b>multiple independent phasor diagram sets</b>. Click <b>+ Add Phasor Set</b> to create a new set. Each set has its own equation editor, phasor canvas, oscilloscope, adjustment sliders, and computed values table.</p>
+  <p><b>Cross-set variable sharing:</b> Variables defined in any equation set are automatically available in all other sets. For example, define <code>Z1 = 0.0 + j0.15</code> in Set 1, then use <code>Z1</code> freely in Set 2's equations. Cross-referenced variables appear with a purple badge in the computed values table showing their source set. Sets are evaluated in order (Set 1 first, then Set 2, etc.), with a two-pass evaluation that resolves forward references between sets.</p>
+  <p><b>Set management:</b> Rename sets by clicking the title. Collapse/expand sets to save screen space. Duplicate a set to fork it. Delete sets you no longer need (at least one must remain).</p>
+
+  <h3>Writing Equations</h3>
+  <p>Each line in the equation editor defines a phasor variable. The format is <code>Name = expression</code>. Variables defined on earlier lines can be used in later equations. Lines starting with <code>#</code> or <code>//</code> are comments.</p>
+  <p>You can also use <code>|X|</code> (vertical bars) to get the magnitude of a phasor inline, and the variable angle operator <code>d &lt; 120</code> treats the left side as a magnitude variable rather than a literal number — so if you change d with a slider, the angle stays fixed.</p>
+
+  <table>
+    <tbody><tr><th>Input Format</th><th>Example</th><th>Description</th></tr>
+    <tr><td>Polar</td><td><code>Vs = 1.0 ∠ 30</code> or <code>Vs = 1.0 &lt; 30</code></td><td>Magnitude (RMS) and angle in degrees</td></tr>
+    <tr><td>Rectangular</td><td><code>Z = 3 + j4</code> or <code>Z = 3 + 4j</code></td><td>Real + imaginary components</td></tr>
+    <tr><td>Pure imaginary</td><td><code>X = j0.3</code> or <code>X = -j5</code></td><td>Imaginary only</td></tr>
+    <tr><td>Pure real</td><td><code>R = 0.05</code></td><td>Real scalar value</td></tr>
+  </tbody></table>
+
+  <h3>Operators</h3>
+  <table>
+    <tbody><tr><th>Operator</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>A + B</code></td><td><code>Vs = VR + VX</code></td><td>Phasor addition</td></tr>
+    <tr><td><code>A - B</code></td><td><code>Vr = Vs - Vdrop</code></td><td>Phasor subtraction</td></tr>
+    <tr><td><code>A * B</code></td><td><code>Vdrop = Z * I</code></td><td>Phasor multiplication (magnitudes multiply, angles add)</td></tr>
+    <tr><td><code>A / B</code></td><td><code>I = V / Z</code></td><td>Phasor division (magnitudes divide, angles subtract)</td></tr>
+    <tr><td><code>A ^ n</code></td><td><code>Zbase = Vbase ^ 2 / Sbase</code></td><td>Complex power: |A|<sup>n</sup> at angle n·θ</td></tr>
+    <tr><td><code>-A</code></td><td><code>I2 = -I1</code></td><td>Negate (180° phase shift)</td></tr>
+    <tr><td><code>j * X</code></td><td><code>VX = j * X * I</code></td><td>90° rotation (multiply by √−1)</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Phasor Operations</h3>
+  <table>
+    <tbody><tr><th>Function</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>abs(A)</code> or <code>|A|</code></td><td><code>Imag = abs(I1)</code></td><td>Magnitude (returns real scalar)</td></tr>
+    <tr><td><code>ang(A)</code></td><td><code>theta = ang(V1)</code></td><td>Angle in degrees (returns real scalar)</td></tr>
+    <tr><td><code>re(A)</code></td><td><code>Px = re(S)</code></td><td>Real part (returns real scalar)</td></tr>
+    <tr><td><code>im(A)</code></td><td><code>Qx = im(S)</code></td><td>Imaginary part (returns real scalar)</td></tr>
+    <tr><td><code>conj(A)</code></td><td><code>S = V * conj(I)</code></td><td>Complex conjugate (negates angle)</td></tr>
+    <tr><td><code>sqrt(A)</code></td><td><code>VLN = VLL / sqrt3</code></td><td>Complex square root: √|A| at θ/2</td></tr>
+    <tr><td><code>pow(A, n)</code></td><td><code>Z2 = pow(Z, 2)</code></td><td>Complex power: |A|<sup>n</sup> at n·θ (same as A^n)</td></tr>
+    <tr><td><code>proj(A, deg)</code></td><td><code>BfA = proj(Ia, 0)</code></td><td>Signed projection of phasor A onto an axis at the specified angle. Returns real scalar: positive = along axis, negative = opposite. Used for extracting radial field components in motor analysis.</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Trigonometric (angles in degrees)</h3>
+  <table>
+    <tbody><tr><th>Function</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>sin(x)</code></td><td><code>y = sin(30)</code> → 0.5</td><td>Sine (input in degrees)</td></tr>
+    <tr><td><code>cos(x)</code></td><td><code>PF = cos(36.87)</code> → 0.8</td><td>Cosine (input in degrees)</td></tr>
+    <tr><td><code>tan(x)</code></td><td><code>slope = tan(45)</code> → 1.0</td><td>Tangent (input in degrees)</td></tr>
+    <tr><td><code>asin(x)</code></td><td><code>deg = asin(0.5)</code> → 30</td><td>Inverse sine (returns degrees)</td></tr>
+    <tr><td><code>acos(x)</code></td><td><code>deg = acos(0.8)</code> → 36.87</td><td>Inverse cosine (returns degrees)</td></tr>
+    <tr><td><code>atan(x)</code></td><td><code>deg = atan(1)</code> → 45</td><td>Inverse tangent (returns degrees)</td></tr>
+    <tr><td><code>atan2(y, x)</code></td><td><code>deg = atan2(1, 1)</code> → 45</td><td>Two-argument arctangent (returns degrees, resolves quadrant)</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Logarithmic &amp; Exponential</h3>
+  <table>
+    <tbody><tr><th>Function</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>ln(x)</code></td><td><code>y = ln(2.718)</code> → 1.0</td><td>Natural logarithm (base e)</td></tr>
+    <tr><td><code>log(x)</code></td><td><code>dB = 20 * log(Vout/Vin)</code></td><td>Base-10 logarithm</td></tr>
+    <tr><td><code>exp(x)</code></td><td><code>y = exp(1)</code> → 2.718</td><td>Exponential (e<sup>x</sup>)</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Sequence / Phase Transforms</h3>
+  <p>These functions perform the standard symmetrical component transformations using multi-assignment syntax. Each call takes three phasor inputs and assigns all three outputs at once.</p>
+  <table>
+    <tbody><tr><th>Syntax</th><th>Description</th></tr>
+    <tr><td colspan="2" style="font-weight:600;background:rgba(37,99,235,0.04)">Phase → Sequence (forward transform)</td></tr>
+    <tr><td><code>V0, V1, V2 = seq(Vag, Vbg, Vcg)</code></td><td>Decompose line-to-ground phase quantities into zero, positive, and negative sequence components.<br>V0 = ⅓(Vag + Vbg + Vcg)<br>V1 = ⅓(Vag + a·Vbg + a²·Vcg)<br>V2 = ⅓(Vag + a²·Vbg + a·Vcg)</td></tr>
+    <tr><td colspan="2" style="font-weight:600;background:rgba(37,99,235,0.04)">Sequence → Phase (inverse transform)</td></tr>
+    <tr><td><code>Vag, Vbg, Vcg = phase(V0, V1, V2)</code></td><td>Reconstruct line-to-ground phase quantities from sequence components.<br>Vag = V0 + V1 + V2<br>Vbg = V0 + a²·V1 + a·V2<br>Vcg = V0 + a·V1 + a²·V2</td></tr>
+  </tbody></table>
+  <p>Where a = 1∠120° and a² = 1∠240° are applied internally. Aliases: <code>toseq()</code>, <code>abc2seq()</code> for the forward transform; <code>tophase()</code>, <code>seq2abc()</code> for the inverse. The single-output functions <code>seq0()</code>, <code>seq1()</code>, <code>seq2()</code>, <code>pha()</code>, <code>phb()</code>, <code>phc()</code> are also still available.</p>
+
+  <h3>Functions — Voltage Conversions (3-phase)</h3>
+  <p>Multi-assignment functions to convert between line-to-neutral (LN), line-to-line (LL), and line-to-ground (LG) voltages. All take three phasor inputs and return three phasor outputs.</p>
+  <table>
+    <tbody><tr><th>Syntax</th><th>Description</th></tr>
+    <tr><td colspan="2" style="font-weight:600;background:rgba(37,99,235,0.04)">Line-Neutral ↔ Line-Line</td></tr>
+    <tr><td><code>Vab, Vbc, Vca = lntoll(Van, Vbn, Vcn)</code></td><td>LN → LL. Vab = Van − Vbn, Vbc = Vbn − Vcn, Vca = Vcn − Van</td></tr>
+    <tr><td><code>Van, Vbn, Vcn = lltoln(Vab, Vbc, Vca)</code></td><td>LL → LN. Van = ⅓(Vab − Vca), etc.</td></tr>
+    <tr><td colspan="2" style="font-weight:600;background:rgba(37,99,235,0.04)">Line-Ground ↔ Line-Line</td></tr>
+    <tr><td><code>Vab, Vbc, Vca = lgtoll(Vag, Vbg, Vcg)</code></td><td>LG → LL. Vab = Vag − Vbg, etc. (V0 cancels in subtraction)</td></tr>
+    <tr><td><code>Vag, Vbg, Vcg = lltolg(Vab, Vbc, Vca, V0)</code></td><td>LL → LG. Requires V0 as 4th argument — cannot recover zero-sequence from LL alone.</td></tr>
+    <tr><td colspan="2" style="font-weight:600;background:rgba(37,99,235,0.04)">Line-Ground ↔ Line-Neutral</td></tr>
+    <tr><td><code>Van, Vbn, Vcn = lgtoln(Vag, Vbg, Vcg)</code></td><td>LG → LN. Extracts V0 = ⅓(Vag+Vbg+Vcg), then Van = Vag − V0</td></tr>
+    <tr><td><code>Vag, Vbg, Vcg = lntolg(Van, Vbn, Vcn, V0)</code></td><td>LN → LG. Requires V0 as 4th argument — true LN voltages have zero-sequence removed.</td></tr>
+  </tbody></table>
+  <p><b>Key relationships:</b> Line-to-ground = line-to-neutral + zero sequence. For a balanced system with no ground path, LG = LN. During ground faults, V0 ≠ 0 and LG ≠ LN. Converting <i>to</i> line-to-ground always requires V0 as a 4th argument because that information is lost in LN and LL quantities. Converting <i>from</i> line-to-ground can extract V0 internally. Line-to-line voltages are always the same whether computed from LN or LG because V0 cancels.</p>
+  <p><b>Example — SLG fault showing LG ≠ LN:</b></p>
+  <pre style="background:var(--bg);padding:8px 12px;border-radius:4px;font-size:0.72rem;line-height:1.7;border:1px solid var(--border)"># Start with faulted phase voltages (line-to-ground)
+Vag = 0.0 &lt; 0
+Vbg = 1.12 &lt; -128
+Vcg = 1.12 &lt; 128
+# Extract line-to-neutral (removes V0)
+Van, Vbn, Vcn = lgtoln(Vag, Vbg, Vcg)
+# Line-to-line (same from either LG or LN)
+Vab, Vbc, Vca = lgtoll(Vag, Vbg, Vcg)
+# Get V0 for round-trip back to LG
+V0 = seq0(Vag, Vbg, Vcg)
+# Reconstruct LG from LN + V0
+Vag2, Vbg2, Vcg2 = lntolg(Van, Vbn, Vcn, V0)</pre>
+
+  <h3>Functions — Power Calculations</h3>
+  <table>
+    <tbody><tr><th>Function</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>pf(V, I)</code></td><td><code>PF = pf(Vag, Ia)</code></td><td>Power factor = cos(∠V − ∠I). Positive = lagging, negative = leading.</td></tr>
+    <tr><td><code>power(V, I)</code></td><td><code>S = power(Vag, Ia)</code></td><td>Complex power S = V × I*. Real part = P (watts), imaginary part = Q (vars).</td></tr>
+    <tr><td><code>preal(V, I)</code></td><td><code>Pw = preal(Vag, Ia)</code></td><td>Real power P = |V|·|I|·cos(θ). Returns scalar.</td></tr>
+    <tr><td><code>qreactive(V, I)</code></td><td><code>Qv = qreactive(Vag, Ia)</code></td><td>Reactive power Q = |V|·|I|·sin(θ). Positive = lagging/inductive.</td></tr>
+    <tr><td><code>s3p(Vln, I)</code></td><td><code>S3 = s3p(Vag, Ia)</code></td><td>Three-phase complex power = 3 × Vln × I*. Use line-to-neutral (or LG when V0 = 0).</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Per-Unit Conversions</h3>
+  <table>
+    <tbody><tr><th>Function</th><th>Example</th><th>Description</th></tr>
+    <tr><td><code>pu(actual, base)</code></td><td><code>Vpu = pu(Vact, Vbase)</code></td><td>Convert to per-unit: actual / base.</td></tr>
+    <tr><td><code>frompu(pu_val, base)</code></td><td><code>Vact = frompu(Vpu, Vbase)</code></td><td>Convert from per-unit: pu × base.</td></tr>
+    <tr><td><code>zbase(Vbase, Sbase)</code></td><td><code>Zb = zbase(138000, 100e6)</code></td><td>Impedance base = Vbase² / Sbase.</td></tr>
+  </tbody></table>
+
+  <h3>Functions — Circle (Relay Characteristics)</h3>
+  <p>Plot circles on the phasor diagram for relay operating characteristics, zone boundaries, or any circular region. The circle is drawn as a dashed outline with a light fill, and the variable stores the center point as a phasor.</p>
+  <table>
+    <tbody><tr><th>Syntax</th><th>Description</th></tr>
+    <tr><td><code>Name = circle(Zfar, Znear)</code></td><td><b>Mho circle</b> — diameter from Znear to Zfar. For a standard mho element passing through the origin, use <code>circle(Zreach, 0 &lt; 0)</code>.</td></tr>
+    <tr><td><code>Name = circle(Zcenter, radius)</code></td><td><b>Offset circle</b> — centered at Zcenter with the given radius (a non-negative real scalar). Use for offset mho or any arbitrary circle.</td></tr>
+  </tbody></table>
+
+  <h3>Built-in Constants</h3>
+  <table>
+    <tbody><tr><th>Constant</th><th>Value</th><th>Usage</th></tr>
+    <tr><td><code>pi</code> or <code>PI</code></td><td>3.14159…</td><td>Circle constant. E.g. <code>omega = 2 * pi * 60</code></td></tr>
+    <tr><td><code>e</code></td><td>2.71828…</td><td>Euler's number. Base of natural logarithm.</td></tr>
+    <tr><td><code>sqrt3</code></td><td>1.73205…</td><td>√3, used in three-phase conversions. E.g. <code>VLL = VLN * sqrt3</code></td></tr>
+    <tr><td><code>j</code></td><td>0 + j1</td><td>Imaginary unit (√−1). Multiplying by j rotates 90°.</td></tr>
+  </tbody></table>
+
+  <h3>Tail Placement &amp; Visibility — the <code>::</code> Suffix</h3>
+  <p>Append <code>:: VarName</code> to draw a phasor starting from the tip of another phasor (tail-to-tip placement). This is how voltage drop diagrams and sequence component sums are constructed. The phasor's <em>computed value</em> is unchanged — only its drawing position moves.</p>
+  <table>
+    <tbody><tr><td><code>Vdrop = Z * I :: Vr</code></td><td>Draw Vdrop with its tail at the tip of Vr</td></tr>
+    <tr><td><code>Z = 0.05 + j0.28 :: ds</code></td><td>Compute Z but don't draw it (hidden / "don't show")</td></tr>
+    <tr><td><code>X = expr :: Vr ds</code></td><td>Anchor on Vr and also hide from diagram</td></tr>
+    <tr><td><code>Ba = expr :: posA fixed</code></td><td>Exempt from animation rotation — stays on its axis.</td></tr>
+    <tr><td><code>Van = expr :: d1</code></td><td>Assign to diagram 1 in triple view. Use <code>d2</code> or <code>d3</code> for diagrams 2 and 3.</td></tr>
+    <tr><td><code>Zflt = expr :: dot</code></td><td>Draw as a filled dot at the tip position instead of an arrow.</td></tr>
+    <tr><td><code>Van = expr :: osc1</code></td><td>Assign to oscilloscope 1. Use <code>osc2</code>, <code>osc3</code>, etc. to split traces.</td></tr>
+  </tbody></table>
+
+  <h3>Adjustment Sliders</h3>
+  <p>Every base variable (one that doesn't reference other phasors) gets angle and magnitude sliders. Drag the <b>Angle</b> slider to rotate a phasor ±180°. Drag the <b>Magnitude</b> slider to scale from 0× to 10× (logarithmic, with 0× at the bottom). All dependent variables recompute automatically. Click the per-variable reset button or "Reset All" to restore original values.</p>
+
+  <h3>Animation</h3>
+  <p>Click <b>▶ Animate</b> to rotate all phasors counter-clockwise at the selected frequency (0.1–0.5 Hz). The entire phasor system rotates uniformly, preserving all relative angles. The oscilloscope updates in sync, showing how the instantaneous waveforms evolve. Click <b>⏸ Pause</b> to freeze at the current angle.</p>
+
+  <h3>Fullscreen Phasor &amp; Oscilloscope</h3>
+  <p>Every phasor diagram and oscilloscope has a <b>⛶</b> expand button in the top-right corner. Click to open a fullscreen view.<br>
+  <b>Zoom &amp; Pan (phasor only):</b> Scroll wheel or <code>+</code>/<code>−</code> keys to zoom in/out. Click-drag or arrow keys to pan. Double-click to reset to auto-scale. Close with <b>✕</b>, clicking the backdrop, or pressing <b>Esc</b>.</p>
+
+  <h2 style="margin-top:28px">Preset Reference</h2>
+  <p>Click any preset button to load a pre-built example. Loading a preset resets all slider adjustments and stops animation.</p>
+  <p><b>Available presets:</b> Lagging Load, Leading Load, 3φ System, Voltage Drop, PF Correction, Seq Components, SLG Fault, KVL Loop, Shunt Cap, Shunt Reactor, LL Fault, Seq↔Phase, Power Triangle, Phase Distance, Ground Distance.</p>
+  <p><b>Multi-set preset:</b> Motor Field — demonstrates stator rotating field with <code>proj()</code> and <code>:: fixed</code> directives.</p>
+
+  <h2 style="margin-top:28px">Function Summary</h2>
+  <table>
+    <tbody><tr><th>Category</th><th>Functions</th></tr>
+    <tr><td>Phasor Operations</td><td><code>abs()</code> <code>ang()</code> <code>re()</code> <code>im()</code> <code>conj()</code> <code>sqrt()</code> <code>pow(A,n)</code> <code>proj(A,deg)</code></td></tr>
+    <tr><td>Trigonometric (degrees)</td><td><code>sin()</code> <code>cos()</code> <code>tan()</code> <code>asin()</code> <code>acos()</code> <code>atan()</code> <code>atan2(y,x)</code></td></tr>
+    <tr><td>Logarithmic / Exponential</td><td><code>ln()</code> <code>log()</code> <code>exp()</code></td></tr>
+    <tr><td>Sequence ↔ Phase</td><td><code>V0,V1,V2 = seq(Vag,Vbg,Vcg)</code> &nbsp; <code>Vag,Vbg,Vcg = phase(V0,V1,V2)</code><br>Single-output: <code>seq0()</code> <code>seq1()</code> <code>seq2()</code> <code>pha()</code> <code>phb()</code> <code>phc()</code></td></tr>
+    <tr><td>Voltage Conversions</td><td><code>lntoll()</code> <code>lltoln()</code> — line-neutral ↔ line-line<br><code>lgtoll()</code> <code>lltolg(…, V0)</code> — line-ground ↔ line-line<br><code>lgtoln()</code> <code>lntolg(…, V0)</code> — line-ground ↔ line-neutral</td></tr>
+    <tr><td>Power Calculations</td><td><code>pf(V,I)</code> power factor &nbsp; <code>power(V,I)</code> complex S = V×I*<br><code>preal(V,I)</code> real power P &nbsp; <code>qreactive(V,I)</code> reactive power Q<br><code>s3p(Vln,I)</code> three-phase complex power</td></tr>
+    <tr><td>Per-Unit Conversions</td><td><code>pu(actual,base)</code> <code>frompu(pu,base)</code> <code>zbase(Vbase,Sbase)</code></td></tr>
+    <tr><td>Circle (Relay Zones)</td><td><code>circle(Zfar, Znear)</code> mho circle with diameter &nbsp; <code>circle(Zcenter, radius)</code> offset circle</td></tr>
+    <tr><td>Constants</td><td><code>pi</code> <code>e</code> <code>sqrt3</code> <code>j</code></td></tr>
+    <tr><td>Directives (<code>::</code>)</td><td><code>ds</code> hide &nbsp; <code>fixed</code> lock axis &nbsp; <code>dot</code> point marker &nbsp; <code>d1 d2 d3</code> triple diagram &nbsp; <code>osc1 osc2 …</code> oscilloscope group &nbsp; <code>VarName</code> tail placement</td></tr>
+  </tbody></table>
+
+  </div>
+</div>
+
+<!-- Import / Export panel -->
+<div class="instructions" style="margin-top:16px">
+  <h2>Import / Export</h2>
+  <p>Save all equation sets to a single text file, or load a previously saved file to restore all sets. The file uses <code>===SET: Title===</code> delimiters to separate each set's equations.</p>
+  <p><b>Shareable links:</b> Click <b>🔗 Copy Shareable Link</b> to generate a URL that encodes your current equations. Anyone who opens the link will see your exact diagram. You can also construct URLs manually:</p>
+  <p style="margin-left:16px"><code>?preset=phasedist</code> — load a named preset</p>
+  <p style="margin-left:16px"><code>?eq=Vs%3D1.0%3C0%0AI%3D0.85%3C-32</code> — URL-encoded equations for a single set</p>
+  <p style="margin-left:16px"><code>#Vs%3D1.0%3C0%0AI%3D0.85%3C-32</code> — same but in the URL hash (not sent to server)</p>
+  <p style="margin-left:16px"><code>?title=My+Diagram&amp;eq=...</code> — optionally set the title with the <code>title</code> parameter</p>
+  <p>Links are automatically compressed with deflate (typically 40–70% shorter). Check <b>Strip comments</b> before generating to exclude comment lines and blank lines for even shorter URLs. The link box shows character count and compression ratio.</p>
+  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+    <button class="top-btn" id="btnExport" style="font-size:0.76rem;padding:8px 16px">⬇ Export All Sets to .txt</button>
+    <button class="top-btn" id="btnImport" style="font-size:0.76rem;padding:8px 16px">⬆ Import Sets from .txt</button>
+    <button class="top-btn" id="btnCopyLink" style="font-size:0.76rem;padding:8px 16px">🔗 Copy Shareable Link</button>
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-dim);cursor:pointer;user-select:none">
+      <input type="checkbox" id="chkStripComments" style="margin:0;width:14px;height:14px;cursor:pointer"> Strip comments
+    </label>
+    <input type="file" id="importFileInput" accept=".txt" style="display:none">
+  </div>
+  <div id="importExportStatus" style="font-size:0.72rem;color:var(--accent);margin-top:8px;min-height:1.2em"></div>
+  <div id="shareableLinkBox" style="display:none;margin-top:10px">
+    <label style="font-size:0.72rem;font-weight:600;color:var(--text-dim)">Shareable Link:</label>
+    <div style="display:flex;gap:6px;margin-top:4px;align-items:stretch">
+      <textarea id="shareableLinkText" readonly rows="3" style="flex:1;font-size:0.68rem;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-family:'IBM Plex Mono',monospace;resize:vertical;word-break:break-all" onclick="this.select()"></textarea>
+      <button class="top-btn" id="btnCopyLinkBox" style="font-size:0.72rem;padding:6px 12px;white-space:nowrap;align-self:flex-start" title="Copy to clipboard">📋 Copy</button>
+    </div>
+    <div id="shareableLinkInfo" style="font-size:0.65rem;color:var(--text-dim);margin-top:3px"></div>
+  </div>
+</div>
+
+<!-- Equation fullscreen modal -->
+<div class="eq-fullscreen-overlay" id="eqFullscreenOverlay">
+  <div class="eq-fullscreen-modal">
+    <div class="eq-fullscreen-header">
+      <span id="eqFullscreenTitle">Equations</span>
+      <button class="eq-fullscreen-close" id="eqFullscreenClose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="eq-fullscreen-body">
+      <div class="eq-line-numbers" id="eqFullscreenLineNums"></div>
+      <textarea id="eqFullscreenEditor" spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Canvas fullscreen modal -->
+<div class="canvas-fullscreen-overlay" id="canvasFullscreenOverlay">
+  <div class="canvas-fullscreen-modal">
+    <div class="canvas-fullscreen-header">
+      <span id="canvasFullscreenTitle">Phasor Diagram</span>
+      <span id="canvasFullscreenHint" style="font-size:0.62rem;color:var(--text-dim);font-weight:400">Scroll or +/− to zoom · Drag or arrow keys to pan · Double-click to reset</span>
+      <button class="canvas-fullscreen-close" id="canvasFullscreenClose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="canvas-fullscreen-controls" id="canvasFullscreenControls">
+      <div class="cvs-fs-anim">
+        <button class="cvs-fs-anim-btn" id="cvsFsAnimBtn">▶ Animate</button>
+        <button class="cvs-fs-anim-btn" id="cvsFsShowValues">Show values</button>
+        <label class="cvs-fs-speed">Speed
+          <input type="range" id="cvsFsSpeedSlider" min="0.1" max="0.5" step="0.05" value="0.2">
+          <span id="cvsFsSpeedVal">0.2 Hz</span>
+        </label>
+      </div>
+      <div class="cvs-fs-traces" id="cvsFsTraces"></div>
+    </div>
+    <div class="canvas-fullscreen-body">
+      <canvas id="canvasFullscreenCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- App entry point — ES module (deferred by default, no defer attribute needed) -->
+<script type="module" src="./phasor_diagram_files/js/main.js"></script>
+
+<!-- Ticker overlay (injected by ticker.js.download) -->
+<div class="ticker-overlay" style="display: block; visibility: visible; opacity: 1;">
+  <div class="ticker-content" style="display: inline-block; visibility: visible; opacity: 1;">
+    <span class="ticker-item"><strong>NERX Power Consultants LLC</strong> offers professional engineering services</span>
+    <span class="ticker-item"><strong>Training:</strong> Calendar-scheduled and on-demand courses - all live with expert instructors</span>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; font-size:0.8em; color:#555; padding:12px 0; margin-top:20px; border-top:1px solid #ccc;">
+  Written by Doug Millner of NERX Power Consultants LLC. This code may be used freely provided that proper attribution is always given to either Doug Millner or NERX Power Consultants LLC.
+</div>
+
+</body>
+</html>

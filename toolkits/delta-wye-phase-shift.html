@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Transformer Fault Current Visualization</title>
+    <script src="header.js"></script>
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2ecc71;
+            --accent: #e74c3c;
+            --background: #f8f9fa;
+            --text: #2c3e50;
+            --light-gray: #ecf0f1;
+            --dark-gray: #7f8c8d;
+            --border: #bdc3c7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .description {
+            font-size: 16px;
+            max-width: 800px;
+            margin: 0 auto 20px auto;
+            text-align: center;
+            color: var(--dark-gray);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+            background-color: var(--light-gray);
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group h3 {
+            font-size: 16px;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+        
+        select {
+            padding: 10px 15px;
+            border: 2px solid var(--border);
+            border-radius: 5px;
+            background-color: white;
+            font-size: 16px;
+            color: var(--text);
+            cursor: pointer;
+            min-width: 150px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--primary);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button.active {
+            background-color: #2c3e50;
+            transform: translateY(0);
+        }
+
+        .visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .diagram-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .info-panel {
+            background-color: var(--light-gray);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .info-box {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-box h4 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--light-gray);
+            padding-bottom: 5px;
+        }
+
+        .info-box p {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        th {
+            background-color: var(--light-gray);
+            color: var(--text);
+        }
+
+        .phase-a {
+            color: #e74c3c;
+        }
+
+        .phase-b {
+            color: #2ecc71;
+        }
+
+        .phase-c {
+            color: #3498db;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--dark-gray);
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .diagram-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Interactive Transformer Fault Current Visualization Toolkit</h1>
+            <p class="description">
+                Visualize how fault current passing through a Dy-grounded transformer to a low-side fault results in unusual high-side currents due to transformer phase shifts and zero-sequence current blockage by the delta winding.
+            </p>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>Vector Group Selection</h3>
+                <select id="vector-group">
+                    <option value="1">Dy1</option>
+                    <option value="3">Dy3</option>
+                    <option value="5">Dy5</option>
+                    <option value="7">Dy7</option>
+                    <option value="9">Dy9</option>
+                    <option value="11" selected>Dy11</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <h3>Fault Type Selection</h3>
+                <div class="button-group">
+                    <button id="slg-fault" class="active">Single Line-to-Ground (SLG)</button>
+                    <button id="ll-fault">Phase-to-Phase</button>
+                    <button id="3p-fault">Three-Phase</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Phasor Rotation Demo</h3>
+                <div class="button-group">
+                    <button id="rotate-demo">Demonstrate CCW Rotation</button>
+                    <button id="stop-rotation" disabled>Stop Rotation</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="rotation-speed">Animation Speed:</label>
+                    <input type="range" id="rotation-speed" min="1" max="20" value="5" style="width: 100%;">
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization">
+            <h2>Phasor Diagram Visualization</h2>
+            <div class="diagram-container">
+                <div class="diagram">
+                    <div class="diagram-title">LV Side Phase Currents</div>
+                    <svg id="lv-phasor" width="300" height="300" viewBox="-150 -150 300 300"></svg>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">HV Side Phase Currents</div>
+                    <svg id="hv-phasor" width="300" height="300" viewBox="-150 -150 300 300"></svg>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 30px; text-align: center;">Sequence Components</h3>
+            <div class="diagram-container">
+                <div class="diagram">
+                    <div class="diagram-title">LV Side Sequence Components</div>
+                    <svg id="lv-sequence" width="300" height="300" viewBox="-150 -150 300 300"></svg>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">HV Side Sequence Components</div>
+                    <svg id="hv-sequence" width="300" height="300" viewBox="-150 -150 300 300"></svg>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 30px; text-align: center;">Current Waveforms (Real Part)</h3>
+            <div class="diagram-container">
+                <div class="diagram">
+                    <div class="diagram-title">LV Side Current Waveforms</div>
+                    <svg id="lv-oscillography" width="300" height="200" viewBox="0 0 300 200"></svg>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">HV Side Current Waveforms</div>
+                    <svg id="hv-oscillography" width="300" height="200" viewBox="0 0 300 200"></svg>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e74c3c;"></div>
+                    <span>Phase A</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #2ecc71;"></div>
+                    <span>Phase B</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3498db;"></div>
+                    <span>Phase C</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #9b59b6;"></div>
+                    <span>Zero Sequence</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f1c40f;"></div>
+                    <span>Positive Sequence</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e67e22;"></div>
+                    <span>Negative Sequence</span>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>Current Values</h3>
+                <div class="info-grid">
+                    <div class="info-box">
+                        <h4>LV Side Currents</h4>
+                        <table id="lv-currents">
+                            <tr>
+                                <th>Phase</th>
+                                <th>Magnitude (pu)</th>
+                                <th>Angle (degrees)</th>
+                            </tr>
+                            <tr>
+                                <td class="phase-a">Phase A</td>
+                                <td id="lv-mag-a">1.0</td>
+                                <td id="lv-ang-a">0</td>
+                            </tr>
+                            <tr>
+                                <td class="phase-b">Phase B</td>
+                                <td id="lv-mag-b">0.0</td>
+                                <td id="lv-ang-b">-120</td>
+                            </tr>
+                            <tr>
+                                <td class="phase-c">Phase C</td>
+                                <td id="lv-mag-c">0.0</td>
+                                <td id="lv-ang-c">120</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="info-box">
+                        <h4>HV Side Currents</h4>
+                        <table id="hv-currents">
+                            <tr>
+                                <th>Phase</th>
+                                <th>Magnitude (pu)</th>
+                                <th>Angle (degrees)</th>
+                            </tr>
+                            <tr>
+                                <td class="phase-a">Phase A</td>
+                                <td id="hv-mag-a">0.67</td>
+                                <td id="hv-ang-a">0</td>
+                            </tr>
+                            <tr>
+                                <td class="phase-b">Phase B</td>
+                                <td id="hv-mag-b">0.33</td>
+                                <td id="hv-ang-b">180</td>
+                            </tr>
+                            <tr>
+                                <td class="phase-c">Phase C</td>
+                                <td id="hv-mag-c">0.33</td>
+                                <td id="hv-ang-c">180</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="info-grid" style="margin-top: 20px;">
+                    <div class="info-box">
+                        <h4>LV Side Sequence Components</h4>
+                        <table id="lv-sequence-table">
+                            <tr>
+                                <th>Component</th>
+                                <th>Magnitude (pu)</th>
+                                <th>Angle (degrees)</th>
+                            </tr>
+                            <tr>
+                                <td style="color: #f1c40f;">Positive</td>
+                                <td id="lv-seq-pos-mag">0.33</td>
+                                <td id="lv-seq-pos-ang">0</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #e67e22;">Negative</td>
+                                <td id="lv-seq-neg-mag">0.33</td>
+                                <td id="lv-seq-neg-ang">0</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #9b59b6;">Zero</td>
+                                <td id="lv-seq-zero-mag">0.33</td>
+                                <td id="lv-seq-zero-ang">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="info-box">
+                        <h4>HV Side Sequence Components</h4>
+                        <table id="hv-sequence-table">
+                            <tr>
+                                <th>Component</th>
+                                <th>Magnitude (pu)</th>
+                                <th>Angle (degrees)</th>
+                            </tr>
+                            <tr>
+                                <td style="color: #f1c40f;">Positive</td>
+                                <td id="hv-seq-pos-mag">0.33</td>
+                                <td id="hv-seq-pos-ang">30</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #e67e22;">Negative</td>
+                                <td id="hv-seq-neg-mag">0.33</td>
+                                <td id="hv-seq-neg-ang">-30</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #9b59b6;">Zero</td>
+                                <td id="hv-seq-zero-mag">0.00</td>
+                                <td id="hv-seq-zero-ang">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="info-box" style="margin-top: 20px;">
+                    <h4>Explanation of Transformer Behavior</h4>
+                    <p>
+                        This visualization demonstrates how the delta winding blocks zero-sequence current.
+                        For single line-to-ground faults, the zero-sequence component gets blocked by the delta winding,
+                        resulting in different current patterns on the high-voltage side.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        Key observations:
+                    </p>
+                    <ul style="margin-top: 5px; padding-left: 20px;">
+                        <li>In SLG faults, the LV side contains all three sequence components in equal amounts</li>
+                        <li>The delta winding blocks zero-sequence currents from flowing on the HV side</li>
+                        <li>Positive sequence components are shifted by the vector group number × 30° in the positive direction</li>
+                        <li>Negative sequence components are shifted by the vector group number × 30° in the negative direction</li>
+                        <li>Different transformer vector groups produce different HV current patterns for the same fault type</li>
+                        <li>For three-phase balanced faults, only positive sequence currents exist</li>
+                        <li>For phase-to-phase faults, equal positive and negative sequence components appear, but no zero sequence</li>
+                    </ul>
+                </div>
+                
+                <div class="info-box" style="margin-top: 20px;">
+                    <h4>Phasor Rotation Convention in Power Engineering</h4>
+                    <p>
+                        In power engineering, phasors are represented as rotating vectors in the complex plane. By convention:
+                    </p>
+                    <ul style="margin-top: 5px; padding-left: 20px;">
+                        <li><strong>Counterclockwise rotation</strong> is the standard direction of phasor rotation</li>
+                        <li><strong>Positive phase shifts</strong> are always in the counterclockwise direction</li>
+                        <li><strong>Negative phase shifts</strong> are in the clockwise direction</li>
+                        <li>A phase shift of +30° means the phasor is rotated 30° counterclockwise from the reference</li>
+                        <li>In transformer vector groups, the number indicates the phase shift in multiples of 30° (e.g., Dy11 means 330° or -30°)</li>
+                        <li>Positive sequence components rotate counterclockwise at the system frequency</li>
+                        <li>Negative sequence components rotate clockwise at the system frequency</li>
+                    </ul>
+                    <p style="margin-top: 10px;">
+                        This convention is consistent throughout power systems analysis, including transformer connections,
+                        symmetrical components, and fault calculations. In this visualization, you can observe how the phasors
+                        rotate counterclockwise when their angle increases.
+                    </p>
+                </div>
+                
+                <div class="info-box" style="margin-top: 20px;">
+                    <h4>ABC Phase Sequence in Power Engineering</h4>
+                    <p>
+                        The standard phase sequence in power engineering is ABC, with counterclockwise rotation:
+                    </p>
+                    <ul style="margin-top: 5px; padding-left: 20px;">
+                        <li>Phase A is typically used as the reference at 0°</li>
+                        <li>Phase B is at -120° relative to Phase A (or equivalently 240°)</li>
+                        <li>Phase C is at +120° relative to Phase A</li>
+                        <li>In the counterclockwise direction: A leads B by 120°</li>
+                        <li>In the counterclockwise direction: C leads A by 120°</li>
+                        <li>In the counterclockwise direction: C leads B by 240°</li>
+                        <li>The full 360° rotation represents one complete cycle of the AC waveform</li>
+                    </ul>
+                    <p style="margin-top: 10px;">
+                        This standard convention in power engineering represents the physical reality of three-phase systems.
+                        With counterclockwise rotation, the phases pass a fixed point in the sequence A-B-C, with each phase
+                        separated by 120 electrical degrees. The "Demonstrate CCW Rotation" button shows this standard rotation,
+                        with all three phases maintaining their proper angular relationships while rotating counterclockwise together.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Interactive Transformer Fault Current Visualization Toolkit &copy; 2025</p>
+        </div>
+    </div>
+
+    <script>
+        // Constants for calculations
+        const SQRT3 = Math.sqrt(3);
+        const DEG_TO_RAD = Math.PI / 180;
+        const RAD_TO_DEG = 180 / Math.PI;
+        
+        // Complex number operations
+        class Complex {
+            constructor(real = 0, imag = 0) {
+                this.real = real;
+                this.imag = imag;
+            }
+
+            static fromPolar(magnitude, angleInDegrees) {
+                const angleInRadians = angleInDegrees * DEG_TO_RAD;
+                return new Complex(
+                    magnitude * Math.cos(angleInRadians),
+                    magnitude * Math.sin(angleInRadians)
+                );
+            }
+
+            add(other) {
+                return new Complex(
+                    this.real + other.real,
+                    this.imag + other.imag
+                );
+            }
+
+            subtract(other) {
+                return new Complex(
+                    this.real - other.real,
+                    this.imag - other.imag
+                );
+            }
+
+            multiply(other) {
+                return new Complex(
+                    this.real * other.real - this.imag * other.imag,
+                    this.real * other.imag + this.imag * other.real
+                );
+            }
+
+            scale(factor) {
+                return new Complex(
+                    this.real * factor,
+                    this.imag * factor
+                );
+            }
+
+            getMagnitude() {
+                return Math.sqrt(this.real * this.real + this.imag * this.imag);
+            }
+
+            getAngle() {
+                return Math.atan2(this.imag, this.real) * RAD_TO_DEG;
+            }
+
+            rotate(angleInDegrees) {
+                const currentAngle = this.getAngle();
+                const newAngle = currentAngle + angleInDegrees;
+                const magnitude = this.getMagnitude();
+                return Complex.fromPolar(magnitude, newAngle);
+            }
+        }
+
+        // Transformer vector group phase shifts (in degrees)
+        const vectorGroupShifts = {
+            1: 30,
+            3: 90,
+            5: 150,
+            7: 210,
+            9: 270,
+            11: 330
+        };
+
+        // Current states with proper ABC phase order (counterclockwise rotation)
+        let lvCurrents = {
+            a: Complex.fromPolar(1, 0),     // Phase A at 0° (reference)
+            b: Complex.fromPolar(0, -120),  // Phase B at -120° to phase A
+            c: Complex.fromPolar(0, 120)    // Phase C at 120° ahead of phase A
+        };
+
+        let hvCurrents = {
+            a: Complex.fromPolar(0, 0),     // Phase A at 0° (reference)
+            b: Complex.fromPolar(0, -120),  // Phase B at -120° to phase A
+            c: Complex.fromPolar(0, 120)    // Phase C at 120° ahead of phase A
+        };
+
+        // Sequence components
+        let sequenceComponents = {
+            positive: new Complex(),
+            negative: new Complex(),
+            zero: new Complex()
+        };
+
+        // Selected options
+        let selectedVectorGroup = "11";
+        let selectedFaultType = "slg"; // slg, ll, 3p
+
+        // DOM elements
+        const vectorGroupSelect = document.getElementById('vector-group');
+        const slgFaultButton = document.getElementById('slg-fault');
+        const llFaultButton = document.getElementById('ll-fault');
+        const tpFaultButton = document.getElementById('3p-fault');
+        const lvPhasorSvg = document.getElementById('lv-phasor');
+        const hvPhasorSvg = document.getElementById('hv-phasor');
+        const lvSequenceSvg = document.getElementById('lv-sequence');
+        const hvSequenceSvg = document.getElementById('hv-sequence');
+        const lvOscillographySvg = document.getElementById('lv-oscillography');
+        const hvOscillographySvg = document.getElementById('hv-oscillography');
+        
+        // Arrays to store waveform points for oscillography
+        const waveformPoints = {
+            lv: { a: [], b: [], c: [] },
+            hv: { a: [], b: [], c: [] }
+        };
+        
+        // Maximum number of points to show in oscillography
+        const MAX_WAVEFORM_POINTS = 100;
+        
+        // No staggered display mode
+
+        // SVG elements for phasors
+        const lvPhasors = {
+            a: createPhasorElement(),
+            b: createPhasorElement(),
+            c: createPhasorElement(),
+            grid: createGridElement()
+        };
+
+        const hvPhasors = {
+            a: createPhasorElement(),
+            b: createPhasorElement(),
+            c: createPhasorElement(),
+            grid: createGridElement()
+        };
+
+        // Sequence component phasors
+        const lvSequencePhasors = {
+            positive: createPhasorElement(),
+            negative: createPhasorElement(),
+            zero: createPhasorElement(),
+            grid: createGridElement()
+        };
+
+        const hvSequencePhasors = {
+            positive: createPhasorElement(),
+            negative: createPhasorElement(),
+            zero: createPhasorElement(),
+            grid: createGridElement()
+        };
+
+        // Initialize SVG elements
+        function initializeSVG() {
+            // Add grid to SVGs
+            lvPhasorSvg.appendChild(lvPhasors.grid);
+            hvPhasorSvg.appendChild(hvPhasors.grid);
+
+            // Add phasors to SVGs
+            lvPhasorSvg.appendChild(lvPhasors.a);
+            lvPhasorSvg.appendChild(lvPhasors.b);
+            lvPhasorSvg.appendChild(lvPhasors.c);
+
+            hvPhasorSvg.appendChild(hvPhasors.a);
+            hvPhasorSvg.appendChild(hvPhasors.b);
+            hvPhasorSvg.appendChild(hvPhasors.c);
+            
+            // Initialize sequence component SVGs
+            const lvSequenceSvg = document.getElementById('lv-sequence');
+            const hvSequenceSvg = document.getElementById('hv-sequence');
+            
+            // Add grid to sequence SVGs
+            lvSequenceSvg.appendChild(lvSequencePhasors.grid);
+            hvSequenceSvg.appendChild(hvSequencePhasors.grid);
+            
+            // Add sequence phasors to SVGs
+            lvSequenceSvg.appendChild(lvSequencePhasors.positive);
+            lvSequenceSvg.appendChild(lvSequencePhasors.negative);
+            lvSequenceSvg.appendChild(lvSequencePhasors.zero);
+            
+            hvSequenceSvg.appendChild(hvSequencePhasors.positive);
+            hvSequenceSvg.appendChild(hvSequencePhasors.negative);
+            hvSequenceSvg.appendChild(hvSequencePhasors.zero);
+            
+            // Initialize oscillography plots
+            initializeOscillographyPlots();
+        }
+        
+        // Initialize oscillography plots
+        function initializeOscillographyPlots() {
+            // Create grid for LV oscillography
+            const lvGrid = createOscillographyGrid();
+            lvOscillographySvg.appendChild(lvGrid);
+            
+            // Create grid for HV oscillography
+            const hvGrid = createOscillographyGrid();
+            hvOscillographySvg.appendChild(hvGrid);
+            
+            // Create polylines for LV waveforms
+            const lvPolylineA = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            lvPolylineA.setAttribute("id", "lv-waveform-a");
+            lvPolylineA.setAttribute("fill", "none");
+            lvPolylineA.setAttribute("stroke", "#e74c3c");
+            lvPolylineA.setAttribute("stroke-width", "2");
+            lvOscillographySvg.appendChild(lvPolylineA);
+            
+            const lvPolylineB = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            lvPolylineB.setAttribute("id", "lv-waveform-b");
+            lvPolylineB.setAttribute("fill", "none");
+            lvPolylineB.setAttribute("stroke", "#2ecc71");
+            lvPolylineB.setAttribute("stroke-width", "2");
+            lvOscillographySvg.appendChild(lvPolylineB);
+            
+            const lvPolylineC = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            lvPolylineC.setAttribute("id", "lv-waveform-c");
+            lvPolylineC.setAttribute("fill", "none");
+            lvPolylineC.setAttribute("stroke", "#3498db");
+            lvPolylineC.setAttribute("stroke-width", "2");
+            lvOscillographySvg.appendChild(lvPolylineC);
+            
+            // Create polylines for HV waveforms
+            const hvPolylineA = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            hvPolylineA.setAttribute("id", "hv-waveform-a");
+            hvPolylineA.setAttribute("fill", "none");
+            hvPolylineA.setAttribute("stroke", "#e74c3c");
+            hvPolylineA.setAttribute("stroke-width", "2");
+            hvOscillographySvg.appendChild(hvPolylineA);
+            
+            const hvPolylineB = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            hvPolylineB.setAttribute("id", "hv-waveform-b");
+            hvPolylineB.setAttribute("fill", "none");
+            hvPolylineB.setAttribute("stroke", "#2ecc71");
+            hvPolylineB.setAttribute("stroke-width", "2");
+            hvOscillographySvg.appendChild(hvPolylineB);
+            
+            const hvPolylineC = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            hvPolylineC.setAttribute("id", "hv-waveform-c");
+            hvPolylineC.setAttribute("fill", "none");
+            hvPolylineC.setAttribute("stroke", "#3498db");
+            hvPolylineC.setAttribute("stroke-width", "2");
+            hvOscillographySvg.appendChild(hvPolylineC);
+        }
+        
+        // Create grid for oscillography plots
+        function createOscillographyGrid() {
+            const gridGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            // Add horizontal center line
+            const centerLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            centerLine.setAttribute("x1", "0");
+            centerLine.setAttribute("y1", "100");
+            centerLine.setAttribute("x2", "300");
+            centerLine.setAttribute("y2", "100");
+            centerLine.setAttribute("stroke", "#e0e0e0");
+            centerLine.setAttribute("stroke-width", "1");
+            gridGroup.appendChild(centerLine);
+            
+            // Add horizontal grid lines
+            for (let y = 25; y < 200; y += 25) {
+                if (y === 100) continue; // Skip center line
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", "0");
+                line.setAttribute("y1", y.toString());
+                line.setAttribute("x2", "300");
+                line.setAttribute("y2", y.toString());
+                line.setAttribute("stroke", "#e0e0e0");
+                line.setAttribute("stroke-width", "0.5");
+                gridGroup.appendChild(line);
+            }
+            
+            // Add vertical grid lines
+            for (let x = 0; x <= 300; x += 30) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", x.toString());
+                line.setAttribute("y1", "0");
+                line.setAttribute("x2", x.toString());
+                line.setAttribute("y2", "200");
+                line.setAttribute("stroke", "#e0e0e0");
+                line.setAttribute("stroke-width", "0.5");
+                gridGroup.appendChild(line);
+            }
+            
+            return gridGroup;
+        }
+
+        // Create grid element for SVG
+        function createGridElement() {
+            const gridGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            // Create the circular grid lines
+            for (let radius = 30; radius <= 120; radius += 30) {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", "0");
+                circle.setAttribute("cy", "0");
+                circle.setAttribute("r", radius.toString());
+                circle.setAttribute("fill", "none");
+                circle.setAttribute("stroke", "#e0e0e0");
+                circle.setAttribute("stroke-width", "1");
+                gridGroup.appendChild(circle);
+            }
+            
+            // Create the radial grid lines
+            for (let angle = 0; angle < 360; angle += 30) {
+                const radians = angle * DEG_TO_RAD;
+                const x = 150 * Math.cos(radians);
+                const y = -150 * Math.sin(radians); // Negate y for counterclockwise rotation
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", "0");
+                line.setAttribute("y1", "0");
+                line.setAttribute("x2", x.toString());
+                line.setAttribute("y2", y.toString());
+                line.setAttribute("stroke", "#e0e0e0");
+                line.setAttribute("stroke-width", "1");
+                gridGroup.appendChild(line);
+            }
+
+            // Create axis labels
+            const labels = [
+                { angle: 0, text: "0°" },
+                { angle: 90, text: "90°" },
+                { angle: 180, text: "180°" },
+                { angle: 270, text: "270°" }
+            ];
+
+            labels.forEach(label => {
+                const radians = label.angle * DEG_TO_RAD;
+                const x = 130 * Math.cos(radians);
+                const y = -130 * Math.sin(radians); // Negate y for counterclockwise rotation
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", x.toString());
+                text.setAttribute("y", y.toString());
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("dominant-baseline", "middle");
+                text.setAttribute("font-size", "12");
+                text.setAttribute("fill", "#7f8c8d");
+                text.textContent = label.text;
+                gridGroup.appendChild(text);
+            });
+
+            return gridGroup;
+        }
+
+        // Create a phasor arrow element with phase angle indicator
+        function createPhasorElement() {
+            const phasor = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            // Add event listeners for hover effects
+            phasor.addEventListener('mouseover', function(e) {
+                this.setAttribute('stroke-width', '5');
+                this.setAttribute('stroke-opacity', '1');
+                // Show value tooltip if available
+                const tooltip = this.nextElementSibling;
+                if (tooltip && tooltip.tagName === 'text') {
+                    tooltip.setAttribute('visibility', 'visible');
+                }
+                // Raise z-index by moving to end of parent
+                const parent = this.parentNode;
+                parent.removeChild(this);
+                parent.appendChild(this);
+            });
+            
+            phasor.addEventListener('mouseout', function(e) {
+                this.setAttribute('stroke-width', '3');
+                this.setAttribute('stroke-opacity', '0.8');
+                // Hide value tooltip if available
+                const tooltip = this.nextElementSibling;
+                if (tooltip && tooltip.tagName === 'text') {
+                    tooltip.setAttribute('visibility', 'hidden');
+                }
+            });
+            
+            return phasor;
+        }
+
+        // Update phasor display
+        function updatePhasorDisplay() {
+            try {
+                // Update LV phasors
+                updatePhasor(lvPhasors.a, lvCurrents.a, "#e74c3c", "Phase A");
+                updatePhasor(lvPhasors.b, lvCurrents.b, "#2ecc71", "Phase B");
+                updatePhasor(lvPhasors.c, lvCurrents.c, "#3498db", "Phase C");
+
+                // Update HV phasors
+                updatePhasor(hvPhasors.a, hvCurrents.a, "#e74c3c", "Phase A");
+                updatePhasor(hvPhasors.b, hvCurrents.b, "#2ecc71", "Phase B");
+                updatePhasor(hvPhasors.c, hvCurrents.c, "#3498db", "Phase C");
+
+                // Update current values in table
+                updateCurrentTable("lv", lvCurrents);
+                updateCurrentTable("hv", hvCurrents);
+                
+                // Update sequence components
+                const lvSeqComps = calculateSequenceComponents(lvCurrents);
+                const hvSeqComps = calculateSequenceComponents(hvCurrents);
+                
+                // Update sequence phasors
+                updatePhasor(lvSequencePhasors.positive, lvSeqComps.positive, "#f1c40f", "Positive");
+                updatePhasor(lvSequencePhasors.negative, lvSeqComps.negative, "#e67e22", "Negative");
+                updatePhasor(lvSequencePhasors.zero, lvSeqComps.zero, "#9b59b6", "Zero");
+                
+                updatePhasor(hvSequencePhasors.positive, hvSeqComps.positive, "#f1c40f", "Positive");
+                updatePhasor(hvSequencePhasors.negative, hvSeqComps.negative, "#e67e22", "Negative");
+                updatePhasor(hvSequencePhasors.zero, hvSeqComps.zero, "#9b59b6", "Zero");
+                
+                // Update sequence component values in tables
+                updateSequenceTable("lv", lvSeqComps);
+                updateSequenceTable("hv", hvSeqComps);
+                
+            } catch (error) {
+                console.error("Error in updatePhasorDisplay:", error);
+            }
+        }
+
+        // Update a single phasor arrow
+        function updatePhasor(phasorElement, complex, color, label) {
+            const magnitude = complex.getMagnitude();
+            const angle = complex.getAngle() * DEG_TO_RAD;
+            
+            // Scale magnitude for display (max 120 units)
+            const scaledMagnitude = magnitude * 100;
+            
+            // Negate y to ensure counterclockwise rotation in SVG
+            // (SVG y-axis is inverted compared to standard Cartesian coordinates)
+            const x = scaledMagnitude * Math.cos(angle);
+            const y = -scaledMagnitude * Math.sin(angle);
+            
+            phasorElement.setAttribute("x1", "0");
+            phasorElement.setAttribute("y1", "0");
+            phasorElement.setAttribute("x2", x.toString());
+            phasorElement.setAttribute("y2", y.toString());
+            phasorElement.setAttribute("stroke", color);
+            phasorElement.setAttribute("stroke-width", "3");
+            phasorElement.setAttribute("stroke-opacity", "0.8");
+            phasorElement.setAttribute("data-magnitude", magnitude.toFixed(2));
+            phasorElement.setAttribute("data-angle", complex.getAngle().toFixed(0));
+            phasorElement.setAttribute("data-label", label || "");
+            
+            // Add or update tooltip text
+            let tooltipText = phasorElement.nextElementSibling;
+            if (tooltipText && tooltipText.tagName === "text") {
+                // Update existing tooltip
+                tooltipText.setAttribute("x", x + 10);
+                tooltipText.setAttribute("y", y);
+                tooltipText.textContent = `${label}: ${magnitude.toFixed(2)} ∠ ${complex.getAngle().toFixed(0)}°`;
+            } else {
+                // Create new tooltip
+                tooltipText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                tooltipText.setAttribute("x", x + 10);
+                tooltipText.setAttribute("y", y);
+                tooltipText.setAttribute("font-size", "12");
+                tooltipText.setAttribute("fill", color);
+                tooltipText.setAttribute("visibility", "hidden");
+                tooltipText.textContent = `${label}: ${magnitude.toFixed(2)} ∠ ${complex.getAngle().toFixed(0)}°`;
+                const parent = phasorElement.parentNode;
+                parent.insertBefore(tooltipText, phasorElement.nextSibling);
+            }
+        }
+
+        // Update current values in table
+        function updateCurrentTable(side, currents) {
+            document.getElementById(`${side}-mag-a`).textContent = currents.a.getMagnitude().toFixed(2);
+            document.getElementById(`${side}-ang-a`).textContent = currents.a.getAngle().toFixed(0);
+            
+            document.getElementById(`${side}-mag-b`).textContent = currents.b.getMagnitude().toFixed(2);
+            document.getElementById(`${side}-ang-b`).textContent = currents.b.getAngle().toFixed(0);
+            
+            document.getElementById(`${side}-mag-c`).textContent = currents.c.getMagnitude().toFixed(2);
+            document.getElementById(`${side}-ang-c`).textContent = currents.c.getAngle().toFixed(0);
+        }
+        
+        // Apply staggered mode to phasors to distinguish overlapping ones
+        function applyStaggeredMode() {
+            try {
+                // Apply a small offset to each phasor to help distinguish overlapping ones
+                // LV Phase phasors
+                const lvPhasorsList = [lvPhasors.a, lvPhasors.b, lvPhasors.c];
+                staggerPhasors(lvPhasorsList, lvPhasorSvg);
+                
+                // HV Phase phasors
+                const hvPhasorsList = [hvPhasors.a, hvPhasors.b, hvPhasors.c];
+                staggerPhasors(hvPhasorsList, hvPhasorSvg);
+                
+                // LV Sequence phasors
+                const lvSeqList = [
+                    lvSequencePhasors.positive, 
+                    lvSequencePhasors.negative, 
+                    lvSequencePhasors.zero
+                ];
+                staggerPhasors(lvSeqList, lvSequenceSvg);
+                
+                // HV Sequence phasors
+                const hvSeqList = [
+                    hvSequencePhasors.positive, 
+                    hvSequencePhasors.negative, 
+                    hvSequencePhasors.zero
+                ];
+                staggerPhasors(hvSeqList, hvSequenceSvg);
+            } catch (error) {
+                console.error("Error in applyStaggeredMode:", error);
+            }
+        }
+        
+        // Stagger a list of phasors in a given SVG
+        function staggerPhasors(phasorsList, svgElement) {
+            try {
+                // Group phasors by their angles (within 5 degrees)
+                const angleGroups = {};
+                
+                phasorsList.forEach(phasor => {
+                    if (!phasor) return;
+                    
+                    // Skip phasors with zero magnitude
+                    const magnitudeStr = phasor.getAttribute('data-magnitude');
+                    if (!magnitudeStr) return;
+                    
+                    const magnitude = parseFloat(magnitudeStr);
+                    if (magnitude < 0.1) return;
+                    
+                    const angleStr = phasor.getAttribute('data-angle');
+                    if (!angleStr) return;
+                    
+                    const angle = parseInt(angleStr);
+                    // Use 5-degree buckets
+                    const angleBucket = Math.round(angle / 5) * 5;
+                    
+                    if (!angleGroups[angleBucket]) {
+                        angleGroups[angleBucket] = [];
+                    }
+                    angleGroups[angleBucket].push(phasor);
+                });
+                
+                // Apply staggering within each angle group
+                for (const angleStr in angleGroups) {
+                    const phasors = angleGroups[angleStr];
+                    if (phasors.length <= 1) continue; // No need to stagger just one phasor
+                    
+                    // Calculate magnitude offset to stagger phasors
+                    const baseOffset = 0.15; // Base offset as a fraction of magnitude
+                    
+                    // Sort phasors by magnitude to stagger from shortest to longest
+                    phasors.sort((a, b) => {
+                        if (!a || !b) return 0;
+                        const aMag = parseFloat(a.getAttribute('data-magnitude') || "0");
+                        const bMag = parseFloat(b.getAttribute('data-magnitude') || "0");
+                        return aMag - bMag;
+                    });
+                    
+                    // Apply staggering
+                    phasors.forEach((phasor, index) => {
+                        if (index === 0 || !phasor) return; // Don't modify the shortest phasor
+                        
+                        // Get current end points
+                        const x2Str = phasor.getAttribute('x2');
+                        const y2Str = phasor.getAttribute('y2');
+                        if (!x2Str || !y2Str) return;
+                        
+                        const x2 = parseFloat(x2Str);
+                        const y2 = parseFloat(y2Str);
+                        
+                        // Calculate tangential offset (perpendicular to the phasor)
+                        const angleStr = phasor.getAttribute('data-angle');
+                        if (!angleStr) return;
+                        
+                        const angle = parseFloat(angleStr) * DEG_TO_RAD;
+                        const perpAngle = angle + Math.PI/2; // 90 degrees perpendicular
+                        
+                        // Calculate offset based on the phasor's magnitude and position in the group
+                        const magnitudeStr = phasor.getAttribute('data-magnitude');
+                        if (!magnitudeStr) return;
+                        
+                        const magnitude = parseFloat(magnitudeStr);
+                        const offset = baseOffset * index * magnitude;
+                        
+                        // Apply offset perpendicular to the phasor direction
+                        const offsetX = offset * Math.cos(perpAngle);
+                        const offsetY = offset * Math.sin(perpAngle);
+                        
+                        // Update the phasor position
+                        phasor.setAttribute('x1', offsetX.toString());
+                        phasor.setAttribute('y1', offsetY.toString());
+                        phasor.setAttribute('x2', (x2 + offsetX).toString());
+                        phasor.setAttribute('y2', (y2 + offsetY).toString());
+                        
+                        // Update the arrowhead and tooltip if they exist
+                        const arrowhead = phasor.nextSibling;
+                        if (arrowhead && arrowhead.tagName === 'polygon') {
+                            // Parse existing points
+                            const pointsStr = arrowhead.getAttribute('points');
+                            if (pointsStr) {
+                                const pointsArr = pointsStr.split(' ').map(p => {
+                                    const [x, y] = p.split(',');
+                                    return [parseFloat(x) + offsetX, parseFloat(y) + offsetY];
+                                });
+                                
+                                // Update points
+                                const newPointsStr = pointsArr.map(p => `${p[0]},${p[1]}`).join(' ');
+                                arrowhead.setAttribute('points', newPointsStr);
+                            }
+                        }
+                        
+                        // Update tooltip position
+                        const tooltip = phasor.nextElementSibling;
+                        if (tooltip && tooltip.tagName === 'text') {
+                            const xStr = tooltip.getAttribute('x');
+                            const yStr = tooltip.getAttribute('y');
+                            if (xStr && yStr) {
+                                tooltip.setAttribute('x', (parseFloat(xStr) + offsetX).toString());
+                                tooltip.setAttribute('y', (parseFloat(yStr) + offsetY).toString());
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Error in staggerPhasors:", error);
+            }
+        }
+
+        // Calculate sequence components from phase components
+        function calculateSequenceComponents(phaseComponents) {
+            const a_op = Complex.fromPolar(1, 120); // 'a' operator: 1 angle 120 deg
+            const a2_op = Complex.fromPolar(1, 240); // 'a^2' operator: 1 angle 240 deg
+
+            // Sequence transformation matrix
+            // [I0]   [1  1  1 ] [Ia]
+            // [I1] = [1  a  a²] [Ib] * (1/3)
+            // [I2]   [1  a² a ] [Ic]
+            
+            // Zero sequence component
+            const zero = phaseComponents.a.add(phaseComponents.b).add(phaseComponents.c).scale(1/3);
+            
+            // Positive sequence component
+            const positive = phaseComponents.a
+                .add(phaseComponents.b.multiply(a_op))
+                .add(phaseComponents.c.multiply(a2_op))
+                .scale(1/3);
+            
+            // Negative sequence component
+            const negative = phaseComponents.a
+                .add(phaseComponents.b.multiply(a2_op))
+                .add(phaseComponents.c.multiply(a_op))
+                .scale(1/3);
+            
+            return {
+                positive: positive,
+                negative: negative,
+                zero: zero
+            };
+        }
+
+        // Calculate phase components from sequence components
+        function calculatePhaseComponents(sequenceComponents) {
+            const a_op = Complex.fromPolar(1, 120);
+            const a2_op = Complex.fromPolar(1, 240);
+            
+            // Phase transformation matrix
+            // [Ia]   [1  1  1 ] [I0]
+            // [Ib] = [1  a² a ] [I1]
+            // [Ic]   [1  a  a²] [I2]
+            
+            const phaseA = sequenceComponents.zero
+                .add(sequenceComponents.positive)
+                .add(sequenceComponents.negative);
+            
+            const phaseB = sequenceComponents.zero
+                .add(sequenceComponents.positive.multiply(a2_op))
+                .add(sequenceComponents.negative.multiply(a_op));
+            
+            const phaseC = sequenceComponents.zero
+                .add(sequenceComponents.positive.multiply(a_op))
+                .add(sequenceComponents.negative.multiply(a2_op));
+            
+            return {
+                a: phaseA,
+                b: phaseB,
+                c: phaseC
+            };
+        }
+
+        // Apply transformer vector group phase shift
+        function applyTransformerShift(phaseComponents, angle) {
+            // Get sequence components
+            const seqComps = calculateSequenceComponents(phaseComponents);
+            
+            // Apply phase shift to positive sequence
+            const shiftedPositive = seqComps.positive.rotate(angle);
+            
+            // Apply inverse phase shift to negative sequence
+            const shiftedNegative = seqComps.negative.rotate(-angle);
+            
+            // Zero sequence is blocked by delta winding
+            const shiftedZero = new Complex(0, 0);
+            
+            // Store for visualization (though this global `sequenceComponents` might be confusing if not careful)
+            // This global variable is not directly used for HV sequence display, HV sequence is recalculated.
+            // sequenceComponents = { 
+            //     positive: shiftedPositive,
+            //     negative: shiftedNegative,
+            //     zero: shiftedZero
+            // };
+            
+            // Recombine to get shifted phase components
+            return calculatePhaseComponents({
+                positive: shiftedPositive,
+                negative: shiftedNegative,
+                zero: shiftedZero
+            });
+        }
+
+        // Set fault currents based on fault type
+        function setFaultCurrents() {
+            try {
+                // Remove existing labels
+                removeAllLabels();
+                
+                switch (selectedFaultType) {
+                    case "slg": // Single Line-to-Ground Fault on Phase A
+                        lvCurrents = {
+                            a: Complex.fromPolar(1, 0),     // Phase A fault current
+                            b: Complex.fromPolar(0, -120),  // No current in Phase B
+                            c: Complex.fromPolar(0, 120)    // No current in Phase C
+                        };
+                        break;
+                    
+                    case "ll": // Phase-to-Phase Fault between Phase A and Phase B
+                        lvCurrents = {
+                            a: Complex.fromPolar(1, 0),     // Phase A fault current
+                            b: Complex.fromPolar(1, 180),   // Phase B fault current (opposite to Phase A)
+                            c: Complex.fromPolar(0, 120)    // No current in Phase C
+                        };
+                        break;
+                    
+                    case "3p": // Three-Phase Fault
+                        lvCurrents = {
+                            a: Complex.fromPolar(1, 0),     // Phase A at 0° (reference)
+                            b: Complex.fromPolar(1, -120),  // Phase B at -120° to phase A
+                            c: Complex.fromPolar(1, 120)    // Phase C at 120° ahead of phase A
+                        };
+                        break;
+                    
+                    default:
+                        // Default to SLG fault if unknown fault type
+                        lvCurrents = {
+                            a: Complex.fromPolar(1, 0),
+                            b: Complex.fromPolar(0, -120),
+                            c: Complex.fromPolar(0, 120)
+                        };
+                }
+                
+                // Calculate sequence components (primarily for LV side display if needed)
+                // sequenceComponents = calculateSequenceComponents(lvCurrents); // This global might be for other purposes
+                
+                // Calculate HV currents with vector group shift
+                const vectorGroupAngle = vectorGroupShifts[selectedVectorGroup] || 330; // Default to Dy11 if not found
+                hvCurrents = applyTransformerShift(lvCurrents, vectorGroupAngle);
+                
+                // Update display
+                updatePhasorDisplay();
+                
+                // Update oscillography plots
+                updateOscillographyPlots(lvCurrents, hvCurrents);
+                
+                // Add labels to phasors
+                addPhasorLabels();
+            } catch (error) {
+                console.error("Error in setFaultCurrents:", error);
+            }
+        }
+        
+        // Function to remove all labels from SVG
+        function removeAllLabels() {
+            try {
+                const svgElements = [lvPhasorSvg, hvPhasorSvg, lvSequenceSvg, hvSequenceSvg];
+                
+                svgElements.forEach(svg => {
+                    if (!svg) return;
+                    
+                    // Remove text and rect elements (labels and backgrounds)
+                    // Exclude tooltips (which have visibility attribute) and axis labels (which are part of the grid)
+                    const texts = svg.querySelectorAll('text:not([visibility]):not([text-anchor="middle"])'); 
+                    const rects = svg.querySelectorAll('rect'); // Assuming label backgrounds are the only rects other than grid
+                    
+                    texts.forEach(el => {
+                        if (el && el.parentNode && !el.closest('g')) { // Avoid removing grid labels
+                             el.parentNode.removeChild(el);
+                        }
+                    });
+                    
+                    rects.forEach(el => {
+                        if (el && el.parentNode && !el.closest('g')) {
+                             el.parentNode.removeChild(el);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error("Error in removeAllLabels:", error);
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Vector group selection
+            vectorGroupSelect.addEventListener('change', function() {
+                selectedVectorGroup = this.value;
+                setFaultCurrents();
+            });
+            
+            // Fault type buttons
+            slgFaultButton.addEventListener('click', function() {
+                setActiveFaultButton(this);
+                selectedFaultType = "slg";
+                setFaultCurrents();
+            });
+            
+            llFaultButton.addEventListener('click', function() {
+                setActiveFaultButton(this);
+                selectedFaultType = "ll";
+                setFaultCurrents();
+            });
+            
+            tpFaultButton.addEventListener('click', function() {
+                setActiveFaultButton(this);
+                selectedFaultType = "3p";
+                setFaultCurrents();
+            });
+            
+            // No staggered mode buttons
+            
+            // Phasor rotation demonstration
+            const rotateDemoButton = document.getElementById('rotate-demo');
+            const stopRotationButton = document.getElementById('stop-rotation');
+            const rotationSpeedSlider = document.getElementById('rotation-speed');
+            let rotationAnimationId = null;
+            let rotationAngle = 0;
+            let rotationSpeed = 5; // Default speed
+            
+            // Update rotation speed when slider changes
+            rotationSpeedSlider.addEventListener('input', function() {
+                rotationSpeed = parseInt(this.value);
+            });
+            
+            rotateDemoButton.addEventListener('click', function() {
+                // Disable other controls during animation
+                rotateDemoButton.disabled = true;
+                stopRotationButton.disabled = false;
+                vectorGroupSelect.disabled = true;
+                slgFaultButton.disabled = true;
+                llFaultButton.disabled = true;
+                tpFaultButton.disabled = true;
+                // No staggered mode buttons to disable
+                
+                // Store original currents for restoration later
+                const originalLvCurrents = {
+                    a: new Complex(lvCurrents.a.real, lvCurrents.a.imag),
+                    b: new Complex(lvCurrents.b.real, lvCurrents.b.imag),
+                    c: new Complex(lvCurrents.c.real, lvCurrents.c.imag)
+                };
+                
+                // Store original angles and magnitudes
+                const originalAngles = {
+                    a: lvCurrents.a.getAngle(),
+                    b: lvCurrents.b.getAngle(),
+                    c: lvCurrents.c.getAngle()
+                };
+                
+                const originalMagnitudes = {
+                    a: lvCurrents.a.getMagnitude(),
+                    b: lvCurrents.b.getMagnitude(),
+                    c: lvCurrents.c.getMagnitude()
+                };
+                
+                // Get current vector group angle for HV calculation during animation
+                const vectorGroupAngle = vectorGroupShifts[selectedVectorGroup] || 330;
+                
+                // Update display (initial state of animation)
+                // updatePhasorDisplay(); // Already called by setFaultCurrents if needed, or will be in loop
+                
+                // Start rotation animation
+                rotationAngle = 0;
+                rotatePhaseCurrents();
+                
+                function rotatePhaseCurrents() {
+                    // Rotate all phasors by rotationSpeed degrees counterclockwise
+                    rotationAngle += rotationSpeed;
+                    if (rotationAngle >= 360) rotationAngle -= 360; // Normalize angle
+                    
+                    // Rotate the existing LV phasors by adding degrees to their original angles
+                    // while preserving their original magnitudes
+                    lvCurrents = {
+                        a: Complex.fromPolar(originalMagnitudes.a, originalAngles.a + rotationAngle),
+                        b: Complex.fromPolar(originalMagnitudes.b, originalAngles.b + rotationAngle),
+                        c: Complex.fromPolar(originalMagnitudes.c, originalAngles.c + rotationAngle)
+                    };
+                    
+                    // Calculate HV currents with vector group shift based on the rotated LV currents
+                    hvCurrents = applyTransformerShift(lvCurrents, vectorGroupAngle);
+                    
+                    // Update phasor display
+                    updatePhasorDisplay();
+                    
+                    // Update oscillography plots with the rotated currents
+                    updateOscillographyPlots(lvCurrents, hvCurrents);
+                    
+                    // Continue animation
+                    rotationAnimationId = requestAnimationFrame(rotatePhaseCurrents);
+                }
+                
+                // Stop rotation handler
+                stopRotationButton.addEventListener('click', function handler() {
+                    // Stop animation
+                    if (rotationAnimationId) {
+                        cancelAnimationFrame(rotationAnimationId);
+                        rotationAnimationId = null;
+                    }
+                    
+                    // Re-enable controls
+                    rotateDemoButton.disabled = false;
+                    stopRotationButton.disabled = true;
+                    vectorGroupSelect.disabled = false;
+                    slgFaultButton.disabled = false;
+                    llFaultButton.disabled = false;
+                    tpFaultButton.disabled = false;
+                    // No staggered mode buttons to re-enable
+                    
+                    // Restore original currents (or rather, recalculate based on selected fault type)
+                    // This ensures the display returns to the correct static state for the selected fault.
+                    setFaultCurrents(); 
+                    
+                    // Remove this event listener after it's been triggered once
+                    stopRotationButton.removeEventListener('click', handler);
+                });
+            });
+        }
+
+        // Set active fault button
+        function setActiveFaultButton(button) {
+            slgFaultButton.classList.remove('active');
+            llFaultButton.classList.remove('active');
+            tpFaultButton.classList.remove('active');
+            button.classList.add('active');
+        }
+
+        // Initialize the application
+        function initialize() {
+            initializeSVG();
+            setupEventListeners();
+            setFaultCurrents(); // Initial calculation and display
+        }
+
+        // Update sequence component values in table
+        function updateSequenceTable(side, seqComps) {
+            try {
+                document.getElementById(`${side}-seq-pos-mag`).textContent = seqComps.positive.getMagnitude().toFixed(2);
+                document.getElementById(`${side}-seq-pos-ang`).textContent = seqComps.positive.getAngle().toFixed(0);
+                
+                document.getElementById(`${side}-seq-neg-mag`).textContent = seqComps.negative.getMagnitude().toFixed(2);
+                document.getElementById(`${side}-seq-neg-ang`).textContent = seqComps.negative.getAngle().toFixed(0);
+                
+                document.getElementById(`${side}-seq-zero-mag`).textContent = seqComps.zero.getMagnitude().toFixed(2);
+                document.getElementById(`${side}-seq-zero-ang`).textContent = seqComps.zero.getAngle().toFixed(0);
+            } catch (error) {
+                console.error(`Error updating ${side} sequence table:`, error);
+            }
+        }
+        
+        // Add labels to phasors for better visualization
+        function addPhasorLabels() {
+            try {
+                // Add labels to phase phasors
+                addPhasorLabel(lvPhasorSvg, lvCurrents.a, "A", "#e74c3c");
+                addPhasorLabel(lvPhasorSvg, lvCurrents.b, "B", "#2ecc71");
+                addPhasorLabel(lvPhasorSvg, lvCurrents.c, "C", "#3498db");
+                
+                addPhasorLabel(hvPhasorSvg, hvCurrents.a, "A", "#e74c3c");
+                addPhasorLabel(hvPhasorSvg, hvCurrents.b, "B", "#2ecc71");
+                addPhasorLabel(hvPhasorSvg, hvCurrents.c, "C", "#3498db");
+                
+                // Add labels to sequence phasors
+                const lvSeqComps = calculateSequenceComponents(lvCurrents);
+                const hvSeqComps = calculateSequenceComponents(hvCurrents);
+                
+                addPhasorLabel(lvSequenceSvg, lvSeqComps.positive, "+", "#f1c40f");
+                addPhasorLabel(lvSequenceSvg, lvSeqComps.negative, "-", "#e67e22");
+                addPhasorLabel(lvSequenceSvg, lvSeqComps.zero, "0", "#9b59b6");
+                
+                addPhasorLabel(hvSequenceSvg, hvSeqComps.positive, "+", "#f1c40f");
+                addPhasorLabel(hvSequenceSvg, hvSeqComps.negative, "-", "#e67e22");
+                addPhasorLabel(hvSequenceSvg, hvSeqComps.zero, "0", "#9b59b6");
+            } catch (error) {
+                console.error("Error in addPhasorLabels:", error);
+            }
+        }
+        
+        // Add a label to a phasor
+        function addPhasorLabel(svg, complex, label, color) {
+            try {
+                // Skip if magnitude is too small
+                const magnitude = complex.getMagnitude();
+                if (magnitude < 0.1) return;
+                
+                const angle = complex.getAngle() * DEG_TO_RAD;
+                const scaledMagnitude = magnitude * 100;
+                
+                // Position at the end of the phasor
+                const x = scaledMagnitude * Math.cos(angle);
+                const y = -scaledMagnitude * Math.sin(angle); // Negate y for counterclockwise rotation
+                
+                // Create label background
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", (x + 5).toString());
+                rect.setAttribute("y", (y - 15).toString()); // Adjusted y for better centering
+                rect.setAttribute("width", "20");
+                rect.setAttribute("height", "20");
+                rect.setAttribute("rx", "5");
+                rect.setAttribute("ry", "5");
+                rect.setAttribute("fill", "white");
+                rect.setAttribute("stroke", color);
+                rect.setAttribute("stroke-width", "1");
+                rect.setAttribute("fill-opacity", "0.8");
+                
+                // Create label text
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", (x + 15).toString()); // Adjusted x for background
+                text.setAttribute("y", (y - 5).toString());  // Adjusted y for background
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("dominant-baseline", "middle");
+                text.setAttribute("font-size", "12");
+                text.setAttribute("font-weight", "bold");
+                text.setAttribute("fill", color);
+                text.textContent = label;
+                
+                // Add to SVG
+                svg.appendChild(rect);
+                svg.appendChild(text);
+            } catch (error) {
+                console.error("Error in addPhasorLabel:", error);
+            }
+        }
+
+        // Update oscillography plots - showing one period of the waveform
+        function updateOscillographyPlots(lvCurrents, hvCurrents) {
+            try {
+                const F_BASE = 60; // 60 Hz
+                const PERIOD = 1 / F_BASE; // One period in seconds
+                const NUM_POINTS = 100; // Number of points to plot
+                const PLOT_WIDTH = 300; // SVG width
+                const omega = 2 * Math.PI * F_BASE;
+                
+                // Generate waveform points for LV side
+                const lvPointsA = [];
+                const lvPointsB = [];
+                const lvPointsC = [];
+                
+                // Generate waveform points for HV side
+                const hvPointsA = [];
+                const hvPointsB = [];
+                const hvPointsC = [];
+                
+                // Get magnitudes and angles from current phasors
+                const lvMagA = lvCurrents.a.getMagnitude();
+                const lvMagB = lvCurrents.b.getMagnitude();
+                const lvMagC = lvCurrents.c.getMagnitude();
+                
+                const lvAngA = lvCurrents.a.getAngle() * DEG_TO_RAD;
+                const lvAngB = lvCurrents.b.getAngle() * DEG_TO_RAD;
+                const lvAngC = lvCurrents.c.getAngle() * DEG_TO_RAD;
+                
+                const hvMagA = hvCurrents.a.getMagnitude();
+                const hvMagB = hvCurrents.b.getMagnitude();
+                const hvMagC = hvCurrents.c.getMagnitude();
+                
+                const hvAngA = hvCurrents.a.getAngle() * DEG_TO_RAD;
+                const hvAngB = hvCurrents.b.getAngle() * DEG_TO_RAD;
+                const hvAngC = hvCurrents.c.getAngle() * DEG_TO_RAD;
+                
+                // Generate one full period of the waveform
+                for (let i = 0; i < NUM_POINTS; i++) {
+                    // Time point (0 to PERIOD)
+                    const t = (i / (NUM_POINTS - 1)) * PERIOD;
+                    // X position (0 to PLOT_WIDTH)
+                    const x = (i / (NUM_POINTS - 1)) * PLOT_WIDTH;
+                    
+                    // LV side waveforms
+                    // The angle (e.g., lvAngA) already includes any rotation from the animation
+                    const lvValueA = lvMagA * Math.cos(omega * t + lvAngA);
+                    const lvValueB = lvMagB * Math.cos(omega * t + lvAngB);
+                    const lvValueC = lvMagC * Math.cos(omega * t + lvAngC);
+                    
+                    // HV side waveforms
+                    const hvValueA = hvMagA * Math.cos(omega * t + hvAngA);
+                    const hvValueB = hvMagB * Math.cos(omega * t + hvAngB);
+                    const hvValueC = hvMagC * Math.cos(omega * t + hvAngC);
+                    
+                    // Scale and invert y (100 is center, up is negative in SVG)
+                    const lvYA = 100 - lvValueA * 75; // Scale by 75 to fit in the 200px height
+                    const lvYB = 100 - lvValueB * 75;
+                    const lvYC = 100 - lvValueC * 75;
+                    
+                    const hvYA = 100 - hvValueA * 75;
+                    const hvYB = 100 - hvValueB * 75;
+                    const hvYC = 100 - hvValueC * 75;
+                    
+                    // Add points to the waveforms
+                    lvPointsA.push(`${x},${lvYA}`);
+                    lvPointsB.push(`${x},${lvYB}`);
+                    lvPointsC.push(`${x},${lvYC}`);
+                    
+                    hvPointsA.push(`${x},${hvYA}`);
+                    hvPointsB.push(`${x},${hvYB}`);
+                    hvPointsC.push(`${x},${hvYC}`);
+                }
+                
+                // Update polylines
+                document.getElementById('lv-waveform-a').setAttribute('points', lvPointsA.join(' '));
+                document.getElementById('lv-waveform-b').setAttribute('points', lvPointsB.join(' '));
+                document.getElementById('lv-waveform-c').setAttribute('points', lvPointsC.join(' '));
+                
+                document.getElementById('hv-waveform-a').setAttribute('points', hvPointsA.join(' '));
+                document.getElementById('hv-waveform-b').setAttribute('points', hvPointsB.join(' '));
+                document.getElementById('hv-waveform-c').setAttribute('points', hvPointsC.join(' '));
+                
+                // Add time axis labels (if not already present or if they need update)
+                const lvSvg = document.getElementById('lv-oscillography');
+                const hvSvg = document.getElementById('hv-oscillography');
+                
+                // Remove existing time labels to prevent duplication if this function is called multiple times
+                // More robust would be to check if they exist and update, or give them IDs.
+                const existingLvTimeLabels = lvSvg.querySelectorAll('.time-label');
+                existingLvTimeLabels.forEach(label => label.remove());
+                const existingHvTimeLabels = hvSvg.querySelectorAll('.time-label');
+                existingHvTimeLabels.forEach(label => label.remove());
+
+                // Add time labels (0ms to 16.67ms for 60Hz)
+                const timeLabel1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                timeLabel1.setAttribute("x", "5");
+                timeLabel1.setAttribute("y", "195");
+                timeLabel1.setAttribute("font-size", "10");
+                timeLabel1.setAttribute("class", "time-label"); // Added class for potential removal
+                timeLabel1.textContent = "0ms";
+                
+                const timeLabel2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                timeLabel2.setAttribute("x", PLOT_WIDTH - 30); // Adjusted for better placement
+                timeLabel2.setAttribute("y", "195");
+                timeLabel2.setAttribute("font-size", "10");
+                timeLabel2.setAttribute("text-anchor", "end"); // Align text to the end
+                timeLabel2.setAttribute("class", "time-label");
+                timeLabel2.textContent = (PERIOD * 1000).toFixed(2) + "ms";
+                
+                lvSvg.appendChild(timeLabel1.cloneNode(true));
+                lvSvg.appendChild(timeLabel2.cloneNode(true));
+                hvSvg.appendChild(timeLabel1.cloneNode(true));
+                hvSvg.appendChild(timeLabel2.cloneNode(true));
+                
+            } catch (error) {
+                console.error("Error in updateOscillographyPlots:", error);
+            }
+        }
+        
+        // Function removed - functionality moved to updateOscillographyPlots
+        
+        // Start the application
+        initialize();
+    </script>
+    
+    <script src="ticker.js"></script>
+</body>
+</html>

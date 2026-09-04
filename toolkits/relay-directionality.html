@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relay Directionality Demonstrator (Enhanced)</title>
+    <style>
+        /* --- Basic Layout & Styling --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* Modern system font stack */
+            overflow: hidden;
+            font-size: 14px;
+            background-color: #f0f2f5; /* Slightly off-white background */
+        }
+        
+        /* Responsive design for mobile devices */
+        @media (max-width: 900px) {
+            body {
+                font-size: 16px; /* Slightly larger font for mobile */
+                overflow: auto; /* Allow scrolling on mobile */
+            }
+            
+            #app-container {
+                flex-direction: column; /* Stack sidebar and content vertically */
+                height: auto;
+                overflow: auto;
+            }
+            
+            #sidebar {
+                width: 100%;
+                max-width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #d1d5db;
+                padding: 10px;
+            }
+            
+            #main-content {
+                max-height: none;
+                padding: 10px;
+            }
+            
+            .input-controls > div {
+                flex-direction: column;
+            }
+            
+            #visualization-area {
+                flex-direction: column;
+            }
+            
+            /* Restructure the columns on mobile */
+            #visualization-area {
+                display: block; /* Change from flex to block for better control */
+            }
+            
+            /* Make phasor column full width */
+            #phasor-column {
+                flex-basis: auto;
+                width: 100%;
+                padding-right: 0;
+            }
+            
+            /* Make directional plot appear directly after phase plots */
+            .phase-plots-container {
+                margin-bottom: 20px; /* Space before directional plot */
+            }
+            
+            #directional-column {
+                width: 100%;
+            }
+            
+            /* Keep directional plot a good size on mobile */
+            .directional-plot-area {
+                height: 350px; /* Fixed height for mobile */
+                min-height: 350px;
+                margin-bottom: 20px; /* Space after directional plot */
+            }
+            
+            /* Move the status below the directional plot */
+            #status-and-values {
+                margin-bottom: 30px; /* Add space at bottom */
+            }
+            
+            .phasor-diagrams {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns instead of 3 on mobile */
+            }
+            
+            .phase-plots-container {
+                flex-direction: column;
+            }
+            
+            /* Make inputs more touch-friendly */
+            .input-group input[type="range"] {
+                height: 8px;
+            }
+            
+            .input-group input[type="range"]::-webkit-slider-thumb {
+                height: 20px;
+                width: 20px;
+                margin-top: -6px;
+            }
+            
+            .input-group input[type="range"]::-moz-range-thumb {
+                height: 20px;
+                width: 20px;
+            }
+            
+            .input-group input[type="number"] {
+                width: 70px;
+                padding: 6px 8px;
+                font-size: 1rem;
+            }
+            
+            #status-display {
+                min-width: 120px;
+                font-size: 1.1rem;
+            }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 500px) {
+            .phasor-diagrams {
+                grid-template-columns: 1fr; /* Single column for very small screens */
+            }
+            
+            .input-group label {
+                width: 50px; /* Wider labels */
+            }
+        }
+
+        #app-container {
+             display: flex;
+             height: 100vh;
+        }
+
+        #sidebar {
+            width: 250px; /* Slightly wider sidebar for explanation */
+            padding: 15px; /* Increased padding */
+            border-right: 1px solid #d1d5db; /* Softer border color */
+            overflow-y: auto;
+            background-color: #f9fafb; /* Lighter sidebar background */
+            flex-shrink: 0;
+            display: flex; /* Enable flex column for attribution */
+            flex-direction: column;
+        }
+
+        #main-content {
+            flex-grow: 1;
+            padding: 15px; /* Increased padding */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+             max-height: 100vh;
+             background-color: #ffffff; /* White main area */
+        }
+
+        /* --- Sidebar Content --- */
+        #sidebar h3 {
+            font-size: 1.1em;
+            color: #1f2937; /* Darker heading */
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        #explanation {
+            font-size: 0.8rem; /* Smaller font for explanations */
+            color: #4b5563; /* Medium gray text */
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f3f4f6; /* Slightly different background */
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+        #explanation p {
+            margin-top: 0;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+         #explanation strong {
+             color: #374151; /* Slightly darker for emphasis */
+         }
+
+        #sidebar fieldset {
+            margin-bottom: 15px; /* Increased spacing */
+            padding: 8px 12px; /* Increased padding */
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03); /* Subtle shadow */
+        }
+        #sidebar legend {
+             font-size: 0.9em;
+             font-weight: 600; /* Bolder legend */
+             color: #374151;
+             padding: 0 5px; /* Add padding around legend text */
+             margin-left: 5px; /* Align with content */
+             border-bottom: none; /* Remove default border */
+        }
+        #sidebar .input-group label { /* Specific to sidebar labels */
+             width: auto; /* Allow label width to adjust */
+             margin-right: 8px;
+             font-size: 0.85em;
+             color: #4b5563;
+        }
+        #sidebar input[type="radio"] {
+             margin-right: 5px;
+        }
+        #sidebar .vertical label { /* Stack radio buttons */
+           display: block;
+           margin-bottom: 5px;
+       }
+       
+       /* Method Explanation Styling */
+       .method-explanation {
+           background-color: #f8f9fa;
+           border-left: 3px solid #3b82f6;
+           padding: 12px;
+           margin: 12px 0;
+           border-radius: 4px;
+       }
+       
+       .method-explanation h3 {
+           margin-top: 0;
+           margin-bottom: 8px;
+           color: #1d4ed8;
+           font-size: 0.95em;
+       }
+       
+       .method-explanation p {
+           margin: 6px 0;
+           font-size: 0.85em;
+           line-height: 1.4;
+       }
+
+       #attribution {
+           margin-top: auto; /* Push to bottom */
+           padding-top: 15px; /* Space above */
+           font-size: 0.75rem; /* Smallest font */
+           color: #6b7280; /* Lighter gray */
+           text-align: left;
+           border-top: 1px solid #e5e7eb;
+       }
+
+
+        /* --- Input Controls Area (Top) --- */
+        .input-controls {
+            margin-bottom: 15px;
+             padding-bottom: 15px;
+             border-bottom: 1px solid #e5e7eb;
+             flex-shrink: 0; /* Prevent shrinking */
+             flex-grow: 0;
+        }
+         .input-controls > div { /* Flex container for fieldsets */
+             display: flex;
+             gap: 15px;
+             flex-wrap: nowrap;
+         }
+        .input-controls fieldset {
+             margin-bottom: 5px;
+             padding: 8px 12px; /* Increased padding */
+              flex: 1;
+              min-width: 250px;
+              border: 1px solid #d1d5db;
+              border-radius: 4px;
+              background-color: #f9fafb; /* Match sidebar background */
+              box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03); /* Subtle shadow */
+        }
+         .input-controls legend {
+             font-size: 0.9em;
+             font-weight: 600;
+             color: #374151;
+             padding: 0 5px;
+             margin-left: 5px;
+             border-bottom: none;
+         }
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px; /* Slightly more spacing */
+        }
+        .input-group label { /* For top controls */
+            width: 40px; /* Slightly wider label */
+            font-size: 0.8rem;
+            margin-right: 5px;
+            color: #4b5563;
+            text-align: right; /* Align text right */
+        }
+        .input-group input[type="range"] {
+            flex-grow: 1;
+            margin: 0 5px;
+             height: 5px; /* Thinner modern slider track */
+             cursor: pointer;
+             accent-color: #3b82f6; /* Style slider color */
+             background: #e5e7eb; /* Track background */
+             border-radius: 99px;
+             vertical-align: middle; /* Align with number input */
+        }
+         /* Basic thumb styling (more complex styling needed for full cross-browser consistency) */
+        .input-group input[type="range"]::-webkit-slider-thumb {
+             height: 14px; width: 14px; border-radius: 50%; background: #3b82f6; cursor: pointer; -webkit-appearance: none; margin-top: -4.5px; /* Center thumb */
+        }
+        /* Larger touch targets on mobile */
+        @media (max-width: 900px) {
+            .input-group input[type="range"]::-webkit-slider-thumb {
+                height: 22px; width: 22px; margin-top: -8px;
+            }
+        }
+        .input-group input[type="range"]::-moz-range-thumb {
+             height: 14px; width: 14px; border-radius: 50%; background: #3b82f6; cursor: pointer; border: none;
+        }
+        /* Larger touch targets on mobile */
+        @media (max-width: 900px) {
+            .input-group input[type="range"]::-moz-range-thumb {
+                height: 22px; width: 22px;
+            }
+        }
+
+         .input-group input[type="number"] {
+            width: 60px; /* Slightly wider */
+            font-size: 0.8rem;
+            padding: 3px 5px; /* Adjust padding */
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            margin-left: 5px; /* Space between slider and number */
+         }
+        .input-group .value-display {
+            min-width: 40px; /* Match label width */
+            text-align: right;
+            font-size: 0.8rem;
+            margin-left: 5px;
+            color: #1f2937; /* Darker value display */
+            font-family: monospace; /* Monospace for numbers */
+        }
+
+        /* --- Visualization Area (Bottom) --- */
+        #visualization-area {
+             flex-grow: 1;
+             flex-shrink: 1;
+             display: flex;
+             gap: 15px; /* Increased gap */
+             overflow: hidden;
+             min-height: 0;
+        }
+
+         /* Column 1: Phasors */
+         #phasor-column {
+             display: flex;
+             flex-direction: column;
+             gap: 15px;
+              flex-basis: 525px; /* 50% wider */
+              flex-shrink: 0;
+              overflow-y: auto;
+              padding-right: 15px; /* More padding for scrollbar */
+         }
+
+        .phasor-diagrams {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Force 3 column layout */
+            gap: 10px; /* Increased gap */
+        }
+        .phasor-plot, .phase-plot { /* Combined styles */
+            border: 1px solid #d1d5db;
+            text-align: center;
+             background-color: #ffffff;
+             border-radius: 4px; /* Rounded corners */
+             padding: 5px;
+             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); /* Slightly more shadow */
+             overflow: hidden; /* Ensure canvas fits */
+        }
+        .phasor-plot canvas, .phase-plot canvas {
+             max-width: 100%;
+             height: auto;
+             display: block;
+        }
+         .phasor-plot p, .phase-plot p {
+             margin: 2px 0 4px 0; /* Adjust margin */
+             font-weight: 600; /* Bolder */
+             font-size: 0.75rem; /* Smaller labels */
+             color: #374151;
+         }
+
+        .phase-plots-container {
+             display: flex;
+             justify-content: space-between;
+             gap: 15px;
+        }
+        .phase-plot {
+             flex: 1;
+        }
+
+
+        /* Column 2: Directional Plot & Status */
+        #directional-column {
+            flex-grow: 1;
+            flex-shrink: 1;
+            display: flex;
+             flex-direction: column;
+            gap: 15px;
+             min-width: 0;
+        }
+        .directional-plot-area {
+             border: 1px solid #d1d5db;
+             background-color: #ffffff;
+             flex-grow: 1;
+             flex-shrink: 1;
+              min-height: 0;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             border-radius: 4px; /* Rounded corners */
+             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); /* Shadow */
+             padding: 10px; /* Padding around canvas container */
+        }
+        #directionalCanvasContainer {
+             width: 100%;
+             height: 100%;
+             display:flex;
+             align-items: center;
+             justify-content: center;
+        }
+         #directionalCanvas {
+             display: block;
+              max-width: 100%;
+              max-height: 100%;
+              /* object-fit: contain; */ /* Rely on container size */
+         }
+
+        #status-and-values {
+             display: flex;
+             gap: 15px;
+             align-items: center;
+             flex-shrink: 0;
+             background-color: #f9fafb; /* Match sidebar */
+             padding: 8px 12px; /* Add padding */
+             border-radius: 4px;
+             border: 1px solid #d1d5db;
+             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+        }
+
+        #status-display {
+            padding: 6px 12px; /* Slightly larger padding */
+            border-radius: 4px;
+            font-size: 1rem; /* Slightly larger status text */
+            font-weight: 600; /* Bolder status */
+            text-align: center;
+            flex-shrink: 0;
+            transition: background-color 0.3s ease, color 0.3s ease; /* Added color transition */
+            border: 1px solid transparent; /* Add border for structure */
+            min-width: 140px; /* Ensure minimum width */
+        }
+         #calc-values {
+             font-size: 0.8rem; /* Slightly larger calc values */
+             line-height: 1.4;
+             background-color: transparent; /* Remove background */
+             padding: 0; /* Remove padding */
+             border-radius: 0;
+             overflow: visible; /* Allow text to wrap if needed */
+             text-overflow: clip;
+             color: #374151;
+             font-family: monospace; /* Monospace for values */
+         }
+
+        /* General Styles */
+        button {
+             /* More mobile-friendly button */
+             @media (max-width: 900px) {
+                 padding: 10px 16px;
+                 font-size: 1rem;
+                 margin-top: 15px;
+             }
+             padding: 6px 12px; /* Adjust padding */
+             margin-top: 10px; /* More space above */
+             cursor: pointer;
+             border: 1px solid #3b82f6; /* Border matches background */
+             background-color: #3b82f6; /* Blue */
+             color: white;
+             border-radius: 4px;
+             font-size: 0.9em;
+             font-weight: 500;
+             transition: background-color 0.2s ease, border-color 0.2s ease;
+             align-self: flex-start; /* Align button left in sidebar */
+        }
+        button:hover {
+             background-color: #2563eb; /* Darker blue on hover */
+             border-color: #2563eb;
+        }
+
+
+        /* Status Colors (using Tailwind/modern palette) */
+        .status-trip { background-color: #dcfce7; color: #166534; border-color: #86efac; } /* Green */
+        .status-no-trip { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; } /* Red */
+        .status-below-pickup { background-color: #fef3c7; color: #92400e; border-color: #fcd34d; } /* Amber/Yellow */
+        .status-no-polarization { background-color: #e5e7eb; color: #4b5563; border-color: #9ca3af; } /* Gray */
+
+         /* Specific Phasor Colors */
+         .va-color, .ia-color { color: #ef4444; } /* Red */
+         .vb-color, .ib-color { color: #22c55e; } /* Green */
+         .vc-color, .ic-color { color: #3b82f6; } /* Blue */
+         .v1-color, .i1-color { color: #a855f7; } /* Purple */
+         .v2-color, .i2-color { color: #0891b2; } /* Cyan */
+         .v0-color, .i0-color { color: #ca8a04; } /* Gold/Yellow */
+         .op-color { color: #f97316; } /* Orange */
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+
+        <aside id="sidebar">
+            <h3>Settings</h3>
+
+            <div id="explanation">
+                <p><strong>Polarization Methods:</strong> Choose how the relay determines direction.</p>
+                
+                <div class="method-explanation">
+                    <h3>V1 Pol / I1 Op</h3>
+                    <p>Positive sequence voltage (V1) polarizes, positive sequence current (I1) operates.</p>
+                    <p>This is the standard method for phase fault detection. It works by comparing the angle between positive sequence voltage and current.</p>
+                    <p>When I1 is within ±90° of V1 (adjusted by MTA), the relay determines forward direction.</p>
+                </div>
+                
+                <div class="method-explanation">
+                    <h3>(-3V0) Pol / (3I0) Op</h3>
+                    <p>Zero sequence voltage (-3V0) polarizes, zero sequence current (3I0) operates.</p>
+                    <p>This is the primary method for ground fault detection. The negative sign on -3V0 aligns the polarizing quantity with expected fault direction.</p>
+                    <p>The factor of 3 compensates for the sequence network calculations, making quantities comparable to phase values.</p>
+                </div>
+                
+                <div class="method-explanation">
+                    <h3>V2 Pol / I2 Op</h3>
+                    <p>Negative sequence voltage (V2) polarizes, negative sequence current (I2) operates.</p>
+                    <p>Used for sensitive ground fault detection and specific unbalanced fault conditions.</p>
+                    <p>More sensitive than zero sequence for some ground faults and can detect high-resistance faults.</p>
+                </div>
+                
+                <div class="method-explanation">
+                    <h3>Vbc Pol / Ia Op</h3>
+                    <p>Quadrature voltage (Vbc = Vb-Vc) polarizes, phase A current (Ia) operates.</p>
+                    <p>Common for phase distance elements, providing memory voltage during close-in faults.</p>
+                    <p>The quadrature relationship (90° shift) between Vbc and Ia in normal system conditions provides good discrimination.</p>
+                </div>
+            </div>
+
+            <fieldset>
+                <legend>Polarization Method</legend>
+                <div class="input-group vertical">
+                     <label><input type="radio" name="polarization" value="V1I1" checked> V1 Pol / I1 Op</label>
+                     <label><input type="radio" name="polarization" value="V0I0"> (-3V0) Pol / (3I0) Op</label>
+                     <label><input type="radio" name="polarization" value="V2I2"> V2 Pol / I2 Op</label>
+                     <label><input type="radio" name="polarization" value="QuadVbcIa"> Vbc Pol / Ia Op</label>
+                </div>
+            </fieldset>
+
+             <!-- Mutual current settings removed -->
+
+            <fieldset>
+                <legend>Relay Settings</legend>
+                 <div class="input-group">
+                     <label for="mtaSlider">MTA:</label>
+                     <input type="range" id="mtaSlider" min="-90" max="90" value="-45" step="1">
+                      <input type="number" id="mtaNumber" min="-90" max="90" value="-45" step="1">
+                     <span id="mtaValue" class="value-display">-45°</span>
+                 </div>
+                 <div class="input-group">
+                     <label for="minOpSlider">Min Op:</label>
+                     <input type="range" id="minOpSlider" min="0" max="1" value="0.1" step="0.05">
+                      <input type="number" id="minOpNumber" min="0" max="1" value="0.1" step="0.05">
+                     <span id="minOpValue" class="value-display">0.10pu</span> </div>
+                  <div class="input-group">
+                      <label for="charDiameterSlider">Char. Diam:</label>
+                      <input type="range" id="charDiameterSlider" min="0.5" max="5" value="2.0" step="0.1">
+                       <input type="number" id="charDiameterNumber" min="0.5" max="5" value="2.0" step="0.1">
+                      <span id="charDiameterValue" class="value-display">2.00pu</span> </div>
+            </fieldset>
+
+             <button id="resetButton">Reset Defaults</button>
+<div id="attribution">
+    Relay Directionality Toolkit by Doug Millner of NERX Power Consultants LLC
+                 
+             </div>
+        </aside>
+
+        <main id="main-content">
+            <section class="input-controls">
+                <div> <fieldset>
+                        <legend>Voltages</legend>
+                        <div class="input-group">
+                            <label for="v1MagSlider">V1 Mag:</label>
+                            <input type="range" id="v1MagSlider" min="0" max="1.5" value="1.0" step="0.01">
+                            <input type="number" id="v1MagNumber" min="0" max="1.5" value="1.0" step="0.01">
+                            <span id="v1MagValue" class="value-display">1.00</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="v1AngSlider">V1 Ang:</label>
+                            <input type="range" id="v1AngSlider" min="0" max="359" value="0" step="1">
+                             <input type="number" id="v1AngNumber" min="0" max="359" value="0" step="1">
+                            <span id="v1AngValue" class="value-display">0°</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="v2MagSlider">V2 Mag:</label>
+                            <input type="range" id="v2MagSlider" min="0" max="1.0" value="0" step="0.01">
+                             <input type="number" id="v2MagNumber" min="0" max="1.0" value="0" step="0.01">
+                            <span id="v2MagValue" class="value-display">0.00</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="v2AngSlider">V2 Ang:</label>
+                            <input type="range" id="v2AngSlider" min="0" max="359" value="0" step="1">
+                             <input type="number" id="v2AngNumber" min="0" max="359" value="0" step="1">
+                            <span id="v2AngValue" class="value-display">0°</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="v0MagSlider">V0 Mag:</label>
+                            <input type="range" id="v0MagSlider" min="0" max="1.0" value="0" step="0.01">
+                             <input type="number" id="v0MagNumber" min="0" max="1.0" value="0" step="0.01">
+                            <span id="v0MagValue" class="value-display">0.00</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="v0AngSlider">V0 Ang:</label>
+                            <input type="range" id="v0AngSlider" min="0" max="359" value="0" step="1">
+                             <input type="number" id="v0AngNumber" min="0" max="359" value="0" step="1">
+                            <span id="v0AngValue" class="value-display">0°</span>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                         <legend>Currents</legend>
+                         <div class="input-group">
+                             <label for="i1MagSlider">I1 Mag:</label>
+                             <input type="range" id="i1MagSlider" min="0" max="5.0" value="1.0" step="0.05">
+                              <input type="number" id="i1MagNumber" min="0" max="5.0" value="1.0" step="0.05">
+                             <span id="i1MagValue" class="value-display">1.00</span>
+                        </div>
+                        <div class="input-group">
+                             <label for="i1AngSlider">I1 Ang:</label>
+                             <input type="range" id="i1AngSlider" min="0" max="359" value="330" step="1">
+                              <input type="number" id="i1AngNumber" min="0" max="359" value="330" step="1">
+                             <span id="i1AngValue" class="value-display">330°</span>
+                        </div>
+                         <div class="input-group">
+                             <label for="i2MagSlider">I2 Mag:</label>
+                             <input type="range" id="i2MagSlider" min="0" max="5.0" value="0" step="0.05">
+                              <input type="number" id="i2MagNumber" min="0" max="5.0" value="0" step="0.05">
+                             <span id="i2MagValue" class="value-display">0.00</span>
+                        </div>
+                        <div class="input-group">
+                             <label for="i2AngSlider">I2 Ang:</label>
+                             <input type="range" id="i2AngSlider" min="0" max="359" value="0" step="1">
+                              <input type="number" id="i2AngNumber" min="0" max="359" value="0" step="1">
+                             <span id="i2AngValue" class="value-display">0°</span>
+                        </div>
+                         <div class="input-group">
+                             <label for="i0MagSlider">I0 Mag:</label>
+                             <input type="range" id="i0MagSlider" min="0" max="5.0" value="0" step="0.05">
+                              <input type="number" id="i0MagNumber" min="0" max="5.0" value="0" step="0.05">
+                             <span id="i0MagValue" class="value-display">0.00</span>
+                        </div>
+                        <div class="input-group">
+                             <label for="i0AngSlider">I0 Ang:</label>
+                             <input type="range" id="i0AngSlider" min="0" max="359" value="0" step="1">
+                              <input type="number" id="i0AngNumber" min="0" max="359" value="0" step="1">
+                             <span id="i0AngValue" class="value-display">0°</span>
+                        </div>
+                    </fieldset>
+                 </div>
+            </section>
+
+            <section id="visualization-area">
+
+                <div id="phasor-column">
+                     <div class="phasor-diagrams">
+                         <div class="phasor-plot"><p>V1</p><canvas id="v1Canvas" width="180" height="180"></canvas></div>
+                         <div class="phasor-plot"><p>V2</p><canvas id="v2Canvas" width="180" height="180"></canvas></div>
+                         <div class="phasor-plot"><p>V0</p><canvas id="v0Canvas" width="180" height="180"></canvas></div>
+                         <div class="phasor-plot"><p>I1</p><canvas id="i1Canvas" width="180" height="180"></canvas></div>
+                         <div class="phasor-plot"><p>I2</p><canvas id="i2Canvas" width="180" height="180"></canvas></div>
+                         <div class="phasor-plot"><p>I0</p><canvas id="i0Canvas" width="180" height="180"></canvas></div>
+                     </div>
+                     <div class="phase-plots-container">
+                         <div class="phase-plot">
+                             <p>Phase Voltages</p>
+                             <canvas id="phaseVoltageCanvas" width="255" height="255"></canvas>
+                         </div>
+                         <div class="phase-plot">
+                             <p>Phase Currents</p>
+                             <canvas id="phaseCurrentCanvas" width="255" height="255"></canvas>
+                         </div>
+                     </div>
+                </div>
+
+                <div id="directional-column">
+                     <div class="directional-plot-area">
+                          <div id="directionalCanvasContainer">
+                               <canvas id="directionalCanvas" width="825" height="825"></canvas>
+                          </div>
+                     </div>
+                     <div id="status-and-values">
+                         <div id="status-display" class="status-polarized">POLARIZED</div>
+                         <div id="calc-values">
+                             </div>
+                     </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // --- Constants ---
+        const PI = Math.PI;
+        const DEG_TO_RAD = PI / 180;
+        const RAD_TO_DEG = 180 / PI;
+        const A_OP = { real: -0.5, imag: Math.sqrt(3) / 2 }; // 1 angle 120 deg
+        const A_OP_SQ = { real: -0.5, imag: -Math.sqrt(3) / 2 }; // 1 angle 240 deg
+        const POLARIZATION_LOST_THRESHOLD = 1e-6;
+
+        // --- State Variables ---
+        let state = {
+            v1Mag: 1.0, v1Ang: 0.0,
+            v2Mag: 0.0, v2Ang: 0.0,
+            v0Mag: 0.0, v0Ang: 0.0,
+            i1Mag: 1.0, i1Ang: 330.0,
+            i2Mag: 0.0, i2Ang: 0.0,
+            i0Mag: 0.0, i0Ang: 0.0,
+            polarization: 'V1I1',
+            mta: -45.0,
+            minOp: 0.1,
+            charDiameter: 2.0,
+            deltaAngle: 0.0
+        };
+
+        // --- Canvas Contexts ---
+        const contexts = {};
+
+        // --- Complex Number Utilities (Unchanged) ---
+        const Complex = {
+            add: (z1, z2) => ({ real: z1.real + z2.real, imag: z1.imag + z2.imag }),
+            sub: (z1, z2) => ({ real: z1.real - z2.real, imag: z1.imag - z2.imag }),
+            mul: (z1, z2) => ({
+                real: z1.real * z2.real - z1.imag * z2.imag,
+                imag: z1.real * z2.imag + z1.imag * z2.real
+            }),
+            mulReal: (z, r) => ({ real: z.real * r, imag: z.imag * r }),
+            div: (z1, z2) => {
+                const denom = z2.real * z2.real + z2.imag * z2.imag;
+                if (Math.abs(denom) < POLARIZATION_LOST_THRESHOLD) return { real: NaN, imag: NaN };
+                return {
+                    real: (z1.real * z2.real + z1.imag * z2.imag) / denom,
+                    imag: (z1.imag * z2.real - z1.real * z2.imag) / denom
+                };
+            },
+            mag: (z) => Math.sqrt(z.real * z.real + z.imag * z.imag),
+            angleRad: (z) => Math.atan2(z.imag, z.real),
+            angleDeg: (z) => {
+                 let angle = Math.atan2(z.imag, z.real) * RAD_TO_DEG;
+                 return (angle < 0) ? angle + 360 : angle;
+            },
+            fromPolar: (mag, angRad) => ({ real: mag * Math.cos(angRad), imag: mag * Math.sin(angRad) }),
+            neg: (z) => ({real: -z.real, imag: -z.imag})
+        };
+
+        // --- Drawing Utilities (Minor adjustments for style) ---
+        function drawPhasorArrow(ctx, x0, y0, x1, y1, color, lineWidth = 1.5, arrowSize = 5) { // Slightly smaller arrow
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.stroke();
+            const angle = Math.atan2(y1 - y0, x1 - x0);
+            ctx.translate(x1, y1);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-arrowSize, -arrowSize / 2);
+            ctx.lineTo(-arrowSize, arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function setupCanvas(canvasId) {
+             const canvas = document.getElementById(canvasId);
+             if (!canvas) {
+                 console.error("Canvas not found:", canvasId);
+                 return null;
+             }
+             contexts[canvasId] = canvas.getContext('2d');
+             return contexts[canvasId];
+        }
+
+         function drawGrid(ctx, width, height, scale) {
+             const centerX = width / 2;
+             const centerY = height / 2;
+             const maxRadius = Math.min(centerX, centerY) * 0.9;
+
+              ctx.save();
+              ctx.strokeStyle = '#e5e7eb'; // Grid color matches borders
+              ctx.lineWidth = 0.5;
+              // Polar Grid
+             const radialSteps = Math.min(Math.max(2, Math.floor(scale * 1.5)), 5); // Adjusted steps
+             for(let i = 1; i <= radialSteps; i++) {
+                 ctx.beginPath();
+                 ctx.arc(centerX, centerY, maxRadius * (i / radialSteps), 0, 2 * PI);
+                 ctx.stroke();
+             }
+              const angularSteps = 12; // More angular lines (30 deg)
+              for(let i = 0; i < angularSteps; i++) {
+                  const angle = (i / angularSteps) * 2 * PI;
+                  ctx.beginPath();
+                  ctx.moveTo(centerX, centerY);
+                  ctx.lineTo(centerX + maxRadius * Math.cos(angle), centerY + maxRadius * Math.sin(angle));
+                  ctx.stroke();
+              }
+               // Axes
+              ctx.strokeStyle = '#9ca3af'; // Slightly darker axes
+              ctx.lineWidth = 0.75;
+              ctx.beginPath();
+              ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); // X-axis
+              ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); // Y-axis
+              ctx.stroke();
+              ctx.restore();
+         }
+
+        // --- Plotting Functions (Adjusted colors and potentially labels) ---
+        function drawSequencePhasor(canvasId, phasor, label, color, scale = 1.5) {
+            const ctx = contexts[canvasId];
+            if (!ctx) return;
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.min(centerX, centerY) * 0.85;
+            const plotScale = maxRadius / scale;
+
+            ctx.clearRect(0, 0, width, height);
+            drawGrid(ctx, width, height, scale);
+
+            const mag = Complex.mag(phasor);
+            const angRad = Complex.angleRad(phasor);
+            const endX = centerX + mag * plotScale * Math.cos(angRad);
+            const endY = centerY - mag * plotScale * Math.sin(angRad); // Y inverted
+
+            // Assign color based on label if not provided explicitly
+            const phasorColor = color || { V1: '#a855f7', V2: '#0891b2', V0: '#ca8a04', I1: '#a855f7', I2: '#0891b2', I0: '#ca8a04' }[label] || '#4b5563';
+
+            drawPhasorArrow(ctx, centerX, centerY, endX, endY, phasorColor, 1.5);
+
+             // Magnitude label
+             ctx.fillStyle = '#4b5563'; // Label color
+             ctx.font = '8px sans-serif'; // Smaller font
+             ctx.textAlign = 'center';
+              if (mag > 0.01 * scale) {
+                 ctx.fillText(mag.toFixed(2), endX + 8 * Math.cos(angRad+PI/4) , endY - 8 * Math.sin(angRad+PI/4));
+              }
+        }
+
+        function drawPhasePhasors(canvasId, phasors, colors, labels, scale = 1.5) {
+             const ctx = contexts[canvasId];
+             if (!ctx) return;
+             const width = ctx.canvas.width;
+             const height = ctx.canvas.height;
+             const centerX = width / 2;
+             const centerY = height / 2;
+             const maxRadius = Math.min(centerX, centerY) * 0.85;
+             const plotScale = maxRadius / scale;
+
+             ctx.clearRect(0, 0, width, height);
+             drawGrid(ctx, width, height, scale);
+
+             // Use predefined phase colors if colors array is not sufficient
+             const phaseColors = ['#ef4444', '#22c55e', '#3b82f6']; // Red, Green, Blue
+
+             for (let i = 0; i < phasors.length; i++) {
+                 const phasor = phasors[i];
+                 const mag = Complex.mag(phasor);
+                 const angRad = Complex.angleRad(phasor);
+                 const endX = centerX + mag * plotScale * Math.cos(angRad);
+                 const endY = centerY - mag * plotScale * Math.sin(angRad); // Y inverted
+                 const color = colors && colors[i] ? colors[i] : phaseColors[i % phaseColors.length];
+
+                 drawPhasorArrow(ctx, centerX, centerY, endX, endY, color, 1.8); // Slightly thicker
+
+                 // Label near tip
+                 if (mag > 0.05 * scale) {
+                     ctx.fillStyle = color;
+                     ctx.font = 'bold 9px sans-serif'; // Slightly smaller bold
+                     ctx.textAlign = 'center';
+                      const labelX = endX + 10 * Math.cos(angRad); // Adjust offset
+                      const labelY = endY - 10 * Math.sin(angRad); // Adjust offset
+                     ctx.fillText(labels[i], labelX , labelY );
+                 }
+             }
+        }
+
+         function drawDirectionalCharacteristic(canvasId, s_op, s_pol, mtaDeg, minOp, charDiameter) {
+             const ctx = contexts[canvasId];
+             if (!ctx) return { status: 'ERROR', torqueAngle: NaN, isInsideAngle: false, isInsideCircle: false, isAboveMin: false };
+             const width = ctx.canvas.width;
+             const height = ctx.canvas.height;
+             const centerX = width / 2;
+             const centerY = height / 2;
+
+             // Determine plot scale
+             const s_op_mag = Complex.mag(s_op);
+             const s_op_angRad = Complex.angleRad(s_op); // Define s_op_angRad
+             const maxVal = Math.max(s_op_mag, charDiameter, minOp, 0.5);
+             const plotScaleMax = maxVal * 1.3; // Scale includes Op point, Char Diameter, Min Op + 30% margin
+             const maxRadiusPx = Math.max(width, height) * 1.5; // For filling background zones
+             const plotScale = Math.min(centerX, centerY) * 0.9 / plotScaleMax; // Pixels per p.u.
+
+             ctx.clearRect(0, 0, width, height);
+             drawGrid(ctx, width, height, plotScaleMax);
+
+             const mtaRad = mtaDeg * DEG_TO_RAD;
+             const s_pol_mag = Complex.mag(s_pol);
+             const s_pol_angRad = Complex.angleRad(s_pol);
+
+             // Check for polarization loss
+             if (s_pol_mag < POLARIZATION_LOST_THRESHOLD) {
+                 ctx.fillStyle = '#6b7280'; // Gray text
+                 ctx.font = 'bold 16px sans-serif'; // Larger text
+                 ctx.textAlign = 'center';
+                 ctx.fillText("Polarization Lost", centerX, centerY);
+                 updateStatusDisplay('NO_POLARIZATION');
+                 return { status: 'NO_POLARIZATION', torqueAngle: NaN, isInsideAngle: false, isInsideCircle: false, isAboveMin: false };
+             }
+
+             // --- Calculate angles ---
+             const mtaLineAngleRad = s_pol_angRad + mtaRad;
+             const zeroTorqueAngle1 = mtaLineAngleRad + PI / 2;
+             const zeroTorqueAngle2 = mtaLineAngleRad - PI / 2;
+
+             // --- Fill Zones ---
+             // Trip Zone (Reddish)
+             ctx.fillStyle = 'rgba(252, 165, 165, 0.3)'; // Lighter red fill #fca5a5
+             ctx.beginPath();
+             ctx.moveTo(centerX, centerY);
+             ctx.arc(centerX, centerY, maxRadiusPx, -zeroTorqueAngle2, -zeroTorqueAngle1); // Y inverted -> negative angles
+             ctx.closePath();
+             ctx.fill();
+
+             // No-Trip Zone (Greenish)
+             ctx.fillStyle = 'rgba(134, 239, 172, 0.3)'; // Lighter green fill #86efac
+             ctx.beginPath();
+             ctx.moveTo(centerX, centerY);
+             ctx.arc(centerX, centerY, maxRadiusPx, -zeroTorqueAngle1, -zeroTorqueAngle2); // Y inverted -> negative angles
+             ctx.closePath();
+             ctx.fill();
+
+             // --- Overlay "Below Pickup" Zone ---
+             const minOpRadiusPx = minOp * plotScale;
+             if (minOpRadiusPx > 0) {
+                  ctx.fillStyle = 'rgba(252, 211, 77, 0.35)'; // Lighter yellow fill #fcd34d
+                 ctx.beginPath();
+                 ctx.arc(centerX, centerY, minOpRadiusPx, 0, 2 * PI);
+                 ctx.fill();
+             }
+
+             // --- Draw Boundaries, Outlines, and Points ---
+             // Mho Circle Outline
+             const charRadiusPu = charDiameter / 2.0;
+             const charRadiusPx = charRadiusPu * plotScale;
+             const mhoCenterAngleRad = mtaLineAngleRad;
+             const centerPu = Complex.fromPolar(charRadiusPu, mhoCenterAngleRad);
+             const centerMhoXpx = centerX + centerPu.real * plotScale;
+             const centerMhoYpx = centerY - centerPu.imag * plotScale; // Y inverted
+
+             ctx.strokeStyle = 'rgba(75, 85, 99, 0.5)'; // Gray outline
+             ctx.lineWidth = 1;
+             ctx.setLineDash([4, 2]); // Dashed line
+             ctx.beginPath();
+             //ctx.arc(centerMhoXpx, centerMhoYpx, charRadiusPx, 0, 2 * PI);
+             ctx.stroke();
+             ctx.setLineDash([]);
+
+             // Minimum Operation Threshold Circle Outline
+             if (minOpRadiusPx > 0.5) { // Only draw if visible pixel size
+                 ctx.strokeStyle = 'rgba(107, 114, 128, 0.7)'; // Darker gray outline
+                 ctx.lineWidth = 1;
+                 ctx.beginPath();
+                 ctx.arc(centerX, centerY, minOpRadiusPx, 0, 2 * PI);
+                 ctx.stroke();
+                 if(minOpRadiusPx > 10) {
+                     ctx.fillStyle = '#4b5563';
+                     ctx.font = '9px sans-serif';
+                     ctx.textAlign = 'start';
+                     ctx.fillText('MinOp', centerX + minOpRadiusPx * Math.cos(PI/4) + 3, centerY - minOpRadiusPx * Math.sin(PI/4) - 3);
+                 }
+             }
+
+             // MTA Line
+             const lineDisplayRadius = Math.min(centerX, centerY) * 0.95;
+             ctx.strokeStyle = '#3b82f6'; // Blue
+             ctx.lineWidth = 1;
+             ctx.setLineDash([6, 3]);
+             ctx.beginPath();
+             ctx.moveTo(centerX, centerY);
+             ctx.lineTo(centerX + lineDisplayRadius * Math.cos(mtaLineAngleRad),
+                           centerY - lineDisplayRadius * Math.sin(mtaLineAngleRad)); // Y inverted
+             ctx.stroke();
+             ctx.setLineDash([]);
+             ctx.fillStyle = '#3b82f6';
+             ctx.font = '10px sans-serif';
+             ctx.textAlign = 'start';
+             ctx.fillText('MTA', centerX + lineDisplayRadius * 0.9 * Math.cos(mtaLineAngleRad) + 4,
+                                 centerY - lineDisplayRadius * 0.9 * Math.sin(mtaLineAngleRad) - 4);
+
+             // Zero-Torque / Boundary Line
+             ctx.strokeStyle = '#374151'; // Dark gray/black
+             ctx.lineWidth = 1.5;
+             ctx.beginPath();
+             ctx.moveTo(centerX + lineDisplayRadius * Math.cos(zeroTorqueAngle1), centerY - lineDisplayRadius * Math.sin(zeroTorqueAngle1));
+             ctx.lineTo(centerX + lineDisplayRadius * Math.cos(zeroTorqueAngle2), centerY - lineDisplayRadius * Math.sin(zeroTorqueAngle2));
+             ctx.stroke();
+
+
+             // Operating point coordinates
+              const opX = centerX + s_op.real * plotScale;
+              const opY = centerY - s_op.imag * plotScale; // Y inverted
+
+              // Draw Operating Point
+              ctx.fillStyle = '#f97316'; // Orange
+              ctx.strokeStyle = '#1f2937'; // Dark outline
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.arc(opX, opY, 6, 0, 2 * PI); // Slightly larger dot
+              ctx.fill();
+              ctx.stroke();
+
+              // --- Determine Status based on operating point position ---
+              const deltaAngleRad = s_op_angRad - s_pol_angRad;
+              const torqueAngleRad = deltaAngleRad - mtaRad;
+              const normTorqueAngleRad = Math.atan2(Math.sin(torqueAngleRad), Math.cos(torqueAngleRad));
+              
+              // Check if point is in the red zone (which is now the TRIP zone)
+              // Since we swapped red/green colors, "isInsideTripAngle" is now when point is
+              // in the red zone which is when |angle| <= 90°
+              const isInRedZone = Math.abs(normTorqueAngleRad) <= (PI / 2 + 1e-6);
+              const isAboveMin = s_op_mag >= minOp;
+              const distOpMhoCenterSq = Math.pow(opX - centerMhoXpx, 2) + Math.pow(opY - centerMhoYpx, 2);
+              const isInsideCircle = distOpMhoCenterSq <= Math.pow(charRadiusPx, 2) * 1.001;
+
+              let status = 'NO_TRIP';
+              if (isInRedZone) {
+                  if (isAboveMin) {
+                      status = 'TRIP'; // In red zone and above minimum pickup
+                  } else {
+                      status = 'BELOW_PICKUP'; // In red zone but below pickup threshold
+                  }
+              } else {
+                  status = 'NO_TRIP'; // In green zone (no trip)
+              }
+
+              updateStatusDisplay(status);
+
+              return {
+                  status,
+                  torqueAngle: normTorqueAngleRad * RAD_TO_DEG,
+                  isInsideAngle: isInRedZone, // Fixed variable name reference
+                  isInsideCircle: isInsideCircle,
+                  isAboveMin: isAboveMin
+              };
+         }
+
+        // --- Update Status Display Function (Unchanged logic, relies on CSS classes) ---
+         function updateStatusDisplay(status) {
+             const display = document.getElementById('status-display');
+             if (!display) return;
+             display.classList.remove('status-trip', 'status-no-trip', 'status-below-pickup', 'status-no-polarization');
+
+             switch (status) {
+                 case 'TRIP': display.textContent = 'TRIP'; display.classList.add('status-trip'); break; // Green class showing TRIP text
+                 case 'BELOW_PICKUP': display.textContent = 'BELOW PICKUP'; display.classList.add('status-below-pickup'); break;
+                 case 'NO_POLARIZATION': display.textContent = 'NO POLARIZATION'; display.classList.add('status-no-polarization'); break;
+                 case 'NO_TRIP': default: display.textContent = 'NO TRIP'; display.classList.add('status-no-trip'); break; // Red class showing NO TRIP text
+             }
+         }
+
+        // --- Update Application Logic (Unchanged logic) ---
+        function updateApplication() {
+             // 1. Read state
+             const V1 = Complex.fromPolar(state.v1Mag, state.v1Ang * DEG_TO_RAD);
+             const V2 = Complex.fromPolar(state.v2Mag, state.v2Ang * DEG_TO_RAD);
+             const V0 = Complex.fromPolar(state.v0Mag, state.v0Ang * DEG_TO_RAD);
+             const I1 = Complex.fromPolar(state.i1Mag, state.i1Ang * DEG_TO_RAD);
+             const I2 = Complex.fromPolar(state.i2Mag, state.i2Ang * DEG_TO_RAD);
+             const I0 = Complex.fromPolar(state.i0Mag, state.i0Ang * DEG_TO_RAD);
+
+             // 2. Calculate Phase Quantities
+             const Va = Complex.add(V0, Complex.add(V1, V2));
+             const Vb = Complex.add(V0, Complex.add(Complex.mul(A_OP_SQ, V1), Complex.mul(A_OP, V2)));
+             const Vc = Complex.add(V0, Complex.add(Complex.mul(A_OP, V1), Complex.mul(A_OP_SQ, V2)));
+             const Ia = Complex.add(I0, Complex.add(I1, I2));
+             const Ib = Complex.add(I0, Complex.add(Complex.mul(A_OP_SQ, I1), Complex.mul(A_OP, I2)));
+             const Ic = Complex.add(I0, Complex.add(Complex.mul(A_OP, I1), Complex.mul(A_OP_SQ, I2)));
+
+             // 3. Determine S_op and S_pol
+              let S_op = { real: 0, imag: 0 };
+              let S_pol = { real: 0, imag: 0 };
+              let s_op_label = "";
+              let s_pol_label = "";
+
+             switch (state.polarization) {
+                 case 'V1I1': S_pol = V1; s_pol_label="V1"; S_op = I1; s_op_label="I1"; break;
+                 case 'V0I0': S_pol = Complex.mulReal(V0, -3.0); s_pol_label="-3V0"; S_op = Complex.mulReal(I0, 3.0); s_op_label="3I0"; break;
+                 case 'V2I2': S_pol = V2; s_pol_label="V2"; S_op = I2; s_op_label="I2"; break;
+                 case 'QuadVbcIa': S_pol = Complex.sub(Vb, Vc); s_pol_label="Vbc"; S_op = Ia; s_op_label="Ia"; break;
+                 default: S_pol = V1; s_pol_label="V1"; S_op = I1; s_op_label="I1"; // Fallback
+             }
+
+             // 4. Call Drawing Functions
+             // Use specific colors defined in CSS via classes or pass directly if needed
+             drawSequencePhasor('v1Canvas', V1, 'V1', '#a855f7', 1.5);
+             drawSequencePhasor('v2Canvas', V2, 'V2', '#0891b2', 1.0);
+             drawSequencePhasor('v0Canvas', V0, 'V0', '#ca8a04', 1.0);
+             drawSequencePhasor('i1Canvas', I1, 'I1', '#a855f7', 5.0);
+             drawSequencePhasor('i2Canvas', I2, 'I2', '#0891b2', 5.0);
+             drawSequencePhasor('i0Canvas', I0, 'I0', '#ca8a04', 5.0);
+
+             drawPhasePhasors('phaseVoltageCanvas', [Va, Vb, Vc], ['#ef4444', '#22c55e', '#3b82f6'], ['Va', 'Vb', 'Vc'], 1.5);
+             drawPhasePhasors('phaseCurrentCanvas', [Ia, Ib, Ic], ['#ef4444', '#22c55e', '#3b82f6'], ['Ia', 'Ib', 'Ic'], 5.0);
+
+             const directionalResult = drawDirectionalCharacteristic('directionalCanvas', S_op, S_pol, state.mta, state.minOp, state.charDiameter);
+
+             // 5. Update calculated values display
+             const calcDisplay = document.getElementById('calc-values');
+              if(calcDisplay && directionalResult && directionalResult.status !== 'ERROR') {
+                 calcDisplay.innerHTML = `
+                     S<sub>op</sub>(${s_op_label}): ${Complex.mag(S_op).toFixed(2)} &#x2220; ${Complex.angleDeg(S_op).toFixed(0)}&deg;<br>
+                     S<sub>pol</sub>(${s_pol_label}): ${Complex.mag(S_pol).toFixed(2)} &#x2220; ${Complex.angleDeg(S_pol).toFixed(0)}&deg;<br>
+                     TqAng: ${directionalResult.torqueAngle ? directionalResult.torqueAngle.toFixed(0) + '&deg;' : 'N/A'} | In:${directionalResult.isInsideAngle?'Y':'N'} | &gt;Min:${directionalResult.isAboveMin?'Y':'N'}
+                 `; // Using HTML entities for angle symbol and subscript
+              } else if (calcDisplay) {
+                  calcDisplay.innerHTML = (directionalResult && directionalResult.status === 'NO_POLARIZATION') ? "Polarization Lost" : "";
+              }
+        }
+
+        // --- Event Listeners Setup (Input handling logic adjusted slightly for precision) ---
+         function setupEventListeners() {
+             const inputs = [
+                 'v1Mag', 'v1Ang', 'v2Mag', 'v2Ang', 'v0Mag', 'v0Ang',
+                 'i1Mag', 'i1Ang', 'i2Mag', 'i2Ang', 'i0Mag', 'i0Ang',
+                 'mta', 'minOp', 'charDiameter'
+             ];
+
+             inputs.forEach(id => {
+                 const slider = document.getElementById(id + 'Slider');
+                 const number = document.getElementById(id + 'Number');
+                 const valueDisplay = document.getElementById(id + 'Value');
+
+                 const updateStateAndUI = (newValue) => {
+                     const min = slider ? parseFloat(slider.min) : -Infinity;
+                     const max = slider ? parseFloat(slider.max) : Infinity;
+                     const step = slider ? parseFloat(slider.step) : 1; // Get step for rounding
+                     let clampedValue = Math.max(min, Math.min(max, newValue));
+
+                     // Determine precision based on ID or step attribute
+                     let precision = 0;
+                     if (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') {
+                         precision = (step && step < 1) ? (step.toString().split('.')[1]?.length || 2) : 2; // Infer precision from step or default to 2
+                     } else if (id.includes('Ang') || id === 'mta') {
+                         precision = 0; // Angles are integers
+                     }
+                      // Round clamped value to the determined precision to avoid floating point issues
+                      clampedValue = parseFloat(clampedValue.toFixed(precision));
+
+
+                     if (state[id] !== clampedValue) {
+                         state[id] = clampedValue;
+
+                         if (slider) slider.value = clampedValue;
+                         if (number) number.value = clampedValue.toFixed(precision);
+                         if (valueDisplay) {
+                             const unit = (id.includes('Ang') || id === 'mta') ? '°' :
+                                          (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') ? 'pu' : '';
+                             valueDisplay.textContent = `${clampedValue.toFixed(precision)}${unit}`;
+                         }
+                         requestAnimationFrame(updateApplication);
+                     } else if (number && parseFloat(number.value).toFixed(precision) !== clampedValue.toFixed(precision)) {
+                         // If state didn't change but number input is different (e.g., formatting), reset number input
+                         number.value = clampedValue.toFixed(precision);
+                     }
+                 };
+
+                 if (slider) {
+                     slider.addEventListener('input', (e) => {
+                         updateStateAndUI(parseFloat(e.target.value));
+                     });
+                 }
+                 if (number) {
+                     number.addEventListener('input', (e) => {
+                         const value = parseFloat(e.target.value);
+                         if (!isNaN(value)) {
+                             updateStateAndUI(value);
+                         }
+                     });
+                     number.addEventListener('change', (e) => {
+                          const value = parseFloat(e.target.value);
+                          if (isNaN(value)) {
+                              updateStateAndUI(state[id]); // Reset to current state value if invalid
+                          } else {
+                              updateStateAndUI(value); // Re-validate and clamp on change
+                          }
+                     });
+                 }
+             });
+
+             document.querySelectorAll('input[name="polarization"]').forEach(radio => {
+                 radio.addEventListener('change', (e) => { state.polarization = e.target.value; updateApplication(); });
+             });
+
+             document.getElementById('resetButton').addEventListener('click', () => {
+                 const defaultState = {
+                     v1Mag: 1.0, v1Ang: 0.0, v2Mag: 0.0, v2Ang: 0.0, v0Mag: 0.0, v0Ang: 0.0,
+                     i1Mag: 1.0, i1Ang: 330.0, i2Mag: 0.0, i2Ang: 0.0, i0Mag: 0.0, i0Ang: 0.0,
+                     polarization: 'V1I1', mta: -45.0, minOp: 0.1, charDiameter: 2.0
+                 };
+                 state = { ...defaultState };
+
+                 inputs.forEach(id => {
+                     const slider = document.getElementById(id + 'Slider');
+                     const number = document.getElementById(id + 'Number');
+                     const valueDisplay = document.getElementById(id + 'Value');
+                     const value = state[id];
+
+                     let precision = 0;
+                      if (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') {
+                          precision = 2;
+                      }
+                     const unit = (id.includes('Ang') || id === 'mta' || id === 'deltaAngle') ? '°' :
+                                  (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') ? 'pu' : '';
+
+                     if (slider) slider.value = value;
+                     if (number) number.value = value.toFixed(precision);
+                     if (valueDisplay) valueDisplay.textContent = `${value.toFixed(precision)}${unit}`;
+                 });
+                 document.querySelector('input[name="polarization"][value="V1I1"]').checked = true;
+                 updateApplication();
+             });
+         }
+
+        // --- Initialization (Trigger initial value display update) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("Initializing Relay Directionality Demo (Enhanced)...");
+            setupCanvas('v1Canvas'); setupCanvas('v2Canvas'); setupCanvas('v0Canvas');
+            setupCanvas('i1Canvas'); setupCanvas('i2Canvas'); setupCanvas('i0Canvas');
+            setupCanvas('phaseVoltageCanvas'); setupCanvas('phaseCurrentCanvas');
+            setupCanvas('directionalCanvas');
+            setupEventListeners();
+            updateApplication(); // Initial draw
+            
+            // Handle responsive canvas sizing for mobile
+            function resizeCanvas() {
+                const canvas = document.getElementById('directionalCanvas');
+                const container = document.getElementById('directionalCanvasContainer');
+                if (window.innerWidth <= 900) {
+                    const scaleFactor = Math.min(container.clientWidth / 825, container.clientHeight / 825);
+                    canvas.style.width = (825 * scaleFactor) + 'px';
+                    canvas.style.height = (825 * scaleFactor) + 'px';
+                } else {
+                    canvas.style.width = '';
+                    canvas.style.height = '';
+                }
+            }
+            
+            // Initial canvas resize and add window resize listener
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Handle mobile layout reordering - move directional plot below phase plots
+            function updateMobileLayout() {
+                if (window.innerWidth <= 900) {
+                    // On mobile, move the directional plot directly after the phase plots container
+                    const phasorColumn = document.getElementById('phasor-column');
+                    const directionalColumn = document.getElementById('directional-column');
+                    const directionalPlotArea = document.querySelector('.directional-plot-area');
+                    const statusValues = document.getElementById('status-and-values');
+                    const phasePlots = document.querySelector('.phase-plots-container');
+                    
+                    // If all elements exist, reposition them
+                    if (phasorColumn && directionalPlotArea && phasePlots) {
+                        // Only reposition if not already done
+                        if (directionalPlotArea.parentNode === directionalColumn) {
+                            // Move directional plot after phase plots
+                            phasePlots.after(directionalPlotArea);
+                            // Move status below directional plot
+                            directionalPlotArea.after(statusValues);
+                        }
+                    }
+                } else {
+                    // Restore original positions for desktop
+                    const directionalColumn = document.getElementById('directional-column');
+                    const directionalPlotArea = document.querySelector('.directional-plot-area');
+                    const statusValues = document.getElementById('status-and-values');
+                    
+                    // Only restore if elements were moved
+                    if (directionalColumn && directionalPlotArea &&
+                        directionalPlotArea.parentNode !== directionalColumn) {
+                        // Add plot back to column
+                        directionalColumn.prepend(directionalPlotArea);
+                        // Add status back to column
+                        directionalColumn.appendChild(statusValues);
+                    }
+                }
+            }
+            
+            // Run on load and resize
+            updateMobileLayout();
+            window.addEventListener('resize', updateMobileLayout);
+
+            // Trigger initial display update for all value displays after setup
+             document.querySelectorAll('.input-group').forEach(group => {
+                 const slider = group.querySelector('input[type="range"]');
+                 const number = group.querySelector('input[type="number"]');
+                 const display = group.querySelector('.value-display');
+                 let control = slider || number; // Prefer slider if exists
+                 if (control && display) {
+                     const id = control.id.replace(/Slider|Number/, '');
+                     const value = parseFloat(control.value);
+                     let precision = 0;
+                     if (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') {
+                         const step = control.step ? parseFloat(control.step) : 0.01;
+                         precision = (step < 1) ? (step.toString().split('.')[1]?.length || 2) : 2;
+                     }
+                     const unit = (id.includes('Ang') || id === 'mta' || id === 'deltaAngle') ? '°' :
+                                  (id.includes('Mag') || id === 'minOp' || id === 'charDiameter') ? 'pu' : '';
+                     if(!isNaN(value)) {
+                        display.textContent = `${value.toFixed(precision)}${unit}`;
+                     }
+                 }
+             });
+            console.log("Initialization Complete.");
+        });
+
+    </script>
+
+    <!-- Include header.js and ticker.js files -->
+    <script src="header.js"></script>
+    <script src="ticker.js"></script>
+</body>
+</html>

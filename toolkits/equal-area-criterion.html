@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>The Equal Area Criterion </title>
+
+  <style>
+    body {
+      margin: 0; 
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #ffffff;
+    }
+    header, footer {
+      background-color: #f8f8f8;
+      padding: 10px 20px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    header h2 {
+      margin: 0;
+      font-size: 1em;
+      font-weight: normal;
+      color: #555;
+    }
+    #container {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 10px;
+    }
+    #controls {
+      flex: 1 1 250px;
+      min-width: 250px;
+      max-width: 300px;
+      padding: 10px;
+      box-sizing: border-box;
+      background: #fafafa;
+      border-right: 1px solid #ccc;
+    }
+    #controls label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #controls input[type="range"] {
+      width: 100%;
+    }
+    #visualization {
+      flex: 1 1 auto;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    /* Motor (top), Power Swing (middle), Big Oscillography (bottom) */
+    #motorCanvas,
+    #powerAngleCanvas,
+    /* Height=600 => 3x bigger than a typical 200px high plot */
+    #oscillographyCanvas {
+      border: 1px solid #ccc;
+      background-color: #fff;
+      display: block;
+      margin: 0 auto;
+      margin-bottom: 10px;
+    }
+    button {
+      margin: 5px 5px 5px 0;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .slider-value {
+      font-weight: normal;
+      font-size: 0.9em;
+      color: #333;
+      margin-left: 5px;
+    }
+    footer p {
+      margin: 5px;
+      font-size: 0.9em;
+      color: #333;
+    }
+    .explanation {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 10px;
+      text-align: left;
+      line-height: 1.5em;
+      color: #333;
+      font-size: 0.9em;
+    }
+    .explanation h3 {
+      margin-top: 0;
+      color: #111;
+    }
+    .explanation ul {
+      margin: 10px 0 20px 0;
+      padding-left: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>Power System Stability: Equal Area Criterion </h1>
+  <h2>
+    Equal Area Criterion Toolkit by 
+    <a href="mailto:douglas.millner@nerxpower.com" target="_blank">Doug Millner</a> - 
+    <a href="http://www.nerxpower.com" target="_blank">www.nerxpower.com</a> - 
+    <a href="https://www.linkedin.com/in/doug-millner-p-e-26607a184/" target="_blank">LinkedIn Blog</a>
+  </h2>
+</header>
+
+<div id="container">
+  <!-- ============================================= -->
+  <!-- Controls Section -->
+  <!-- ============================================= -->
+  <div id="controls">
+    <!-- Default Slider Values -->
+    <label for="sliderV1">V1 [0.01 - 1.1]
+      <span id="valV1" class="slider-value">1</span>
+    </label>
+    <input type="range" id="sliderV1" min="0.01" max="1.1" step="0.01" value="1">
+
+    <label for="sliderV2">V2 [0.01 - 1.1]
+      <span id="valV2" class="slider-value">1</span>
+    </label>
+    <input type="range" id="sliderV2" min="0.01" max="1.1" step="0.01" value="1">
+
+    <label for="sliderZ">Z (Pre-Fault) [0.01 - 1.1]
+      <span id="valZ" class="slider-value">0.73</span>
+    </label>
+    <input type="range" id="sliderZ" min="0.01" max="1.1" step="0.01" value="0.73">
+
+    <label for="sliderPmech">Pmech [0.0 - 1.1]
+      <span id="valPmech" class="slider-value">0.22</span>
+    </label>
+    <input type="range" id="sliderPmech" min="0.0" max="1.1" step="0.01" value="0.22">
+
+    <label for="sliderInertia">Inertia (H) [0.01 - 1.0]
+      <span id="valInertia" class="slider-value">0.52</span>
+    </label>
+    <input type="range" id="sliderInertia" min="0.01" max="1.0" step="0.01" value="0.52">
+
+    <label for="sliderFaultDuration">Fault Duration (cycles) [0 - 360]
+      <span id="valFaultDuration" class="slider-value">14</span>
+    </label>
+    <input type="range" id="sliderFaultDuration" min="0" max="360" step="1" value="14">
+
+    <label for="sliderZpost">Z-Post-Breaker-Clear [0.01 - 1.1]
+      <span id="valZpost" class="slider-value">0.3</span>
+    </label>
+    <input type="range" id="sliderZpost" min="0.01" max="1.1" step="0.01" value="0.3">
+
+    <label for="sliderSpeed">Playback Slowdown (Log Scale) [1x - 10,000x]
+      <span id="valSpeed" class="slider-value">63.10</span>
+    </label>
+    <input type="range" id="sliderSpeed" min="0" max="4" step="0.01" value="1.80">
+
+    <label for="sliderDamping">Damping (D) [0.0 - 2.0]
+      <span id="valDamping" class="slider-value">0.5</span>
+    </label>
+    <input type="range" id="sliderDamping" min="0.0" max="2.0" step="0.1" value="0.5">
+
+    <div style="margin-top: 15px;">
+      <button id="playPauseBtn">Play</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <!-- ============================================= -->
+  <!-- Visualization Section -->
+  <!-- ============================================= -->
+  <div id="visualization">
+    <!-- Top: Motor Diagram (300x300) -->
+    <canvas id="motorCanvas" width="300" height="300"></canvas>
+
+    <!-- Middle: Power Swing Plot (700x400) -->
+    <canvas id="powerAngleCanvas" width="700" height="400"></canvas>
+
+    <!-- Bottom: Big Oscillography (700x600) with Auto-Scaled Y-axis -->
+    <canvas id="oscillographyCanvas" width="700" height="600"></canvas>
+  </div>
+</div>
+
+<footer>
+  <p>
+    Observe power swings. The green area represents accelerating (Pmech &gt; Pdel), 
+    red area represents decelerating (Pmech &lt; Pdel).
+  </p>
+</footer>
+
+<script>
+  // ================================
+  // Canvas & Context
+  // ================================
+  const motorCanvas  = document.getElementById('motorCanvas');
+  const motorCtx     = motorCanvas.getContext('2d');
+  const powerCanvas  = document.getElementById('powerAngleCanvas');
+  const powerCtx     = powerCanvas.getContext('2d');
+  const oscCanvas    = document.getElementById('oscillographyCanvas');
+  const oscCtx       = oscCanvas.getContext('2d');
+
+  // ================================
+  // Sliders & Labels
+  // ================================
+  const sliderV1            = document.getElementById('sliderV1');
+  const sliderV2            = document.getElementById('sliderV2');
+  const sliderZ             = document.getElementById('sliderZ');
+  const sliderPmech         = document.getElementById('sliderPmech');
+  const sliderInertia       = document.getElementById('sliderInertia');
+  const sliderFaultDuration = document.getElementById('sliderFaultDuration');
+  const sliderZpost         = document.getElementById('sliderZpost');
+  const sliderSpeed         = document.getElementById('sliderSpeed');
+  const sliderDamping       = document.getElementById('sliderDamping');
+
+  const valV1            = document.getElementById('valV1');
+  const valV2            = document.getElementById('valV2');
+  const valZ             = document.getElementById('valZ');
+  const valPmech         = document.getElementById('valPmech');
+  const valInertia       = document.getElementById('valInertia');
+  const valFaultDuration = document.getElementById('valFaultDuration');
+  const valZpost         = document.getElementById('valZpost');
+  const valSpeed         = document.getElementById('valSpeed');
+  const valDamping       = document.getElementById('valDamping');
+
+  // ================================
+  // Buttons
+  // ================================
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const resetBtn     = document.getElementById('resetBtn');
+
+  // ================================
+  // Simulation State
+  // ================================
+  let playing     = false;   // Play/Pause
+  let time        = 0;       // Simulation time
+  let delta       = 0;       // Rotor angle (radians)
+  let omega       = 0;       // Speed deviation (rad/s)
+  const dt        = 0.001;   // numeric integration step
+  const freq      = 60;      
+  const omega_s   = 2*Math.PI*freq; 
+
+  let angleHistory= [];
+  let pdelHistory = [];
+  let timeHistory = [];
+
+  let lastFrameTime= null;
+  const maxOscTime= 5.0;
+
+  // ================================
+  // Utility
+  // ================================
+  function degToRad(deg){ return (Math.PI/180)* deg; }
+  function radToDeg(rad){ return (180/Math.PI)* rad; }
+
+  function pDelivered(angle, v1, v2, z){
+    return (v1*v2/ z)* Math.sin(angle);
+  }
+
+  function findIntersectionAngle(pmech, v1, v2, z){
+    for (let i=0; i<=360; i++){
+      const r= degToRad(i);
+      const p= pDelivered(r, v1, v2, z);
+      if (p>= pmech) {
+        return r;
+      }
+    }
+    return degToRad(360);
+  }
+
+  // ================================
+  // 1) Motor Plot (Top)
+  // CCW rotation => negative stator angle
+  // +delta => rotor leads red phasor
+  // => rotorDeg= statorAngleDeg - delta
+  // ================================
+  function drawMotor(){
+    motorCtx.clearRect(0,0, motorCanvas.width, motorCanvas.height);
+
+    motorCtx.font="14px sans-serif";
+    motorCtx.fillStyle="#000";
+    motorCtx.textAlign="center";
+    motorCtx.fillText("Rotor Swinging w.r.t Red Phase", 
+                      motorCanvas.width/2, 20);
+
+    const cx= motorCanvas.width/2;
+    const cy= motorCanvas.height/2;
+    const radius= 100;
+
+    const statorDegPerSec= 360 * freq;
+    // negative => ccw
+    const statorAngleDeg= -(statorDegPerSec * time);
+
+    // Outer circle
+    motorCtx.beginPath();
+    motorCtx.arc(cx, cy, radius, 0, 2*Math.PI,false);
+    motorCtx.strokeStyle="#666";
+    motorCtx.lineWidth=2;
+    motorCtx.stroke();
+    motorCtx.closePath();
+
+    function drawStatorLine(baseDeg,color){
+      const aRad= degToRad(baseDeg + statorAngleDeg);
+      const x2= cx+ radius*Math.cos(aRad);
+      const y2= cy+ radius*Math.sin(aRad);
+      motorCtx.beginPath();
+      motorCtx.moveTo(cx, cy);
+      motorCtx.lineTo(x2, y2);
+      motorCtx.strokeStyle=color;
+      motorCtx.lineWidth=2;
+      motorCtx.stroke();
+      motorCtx.closePath();
+    }
+    drawStatorLine(0,   "red");
+    drawStatorLine(120, "green");
+    drawStatorLine(240, "blue");
+
+    // center dot
+    motorCtx.beginPath();
+    motorCtx.arc(cx,cy,4,0,2*Math.PI,false);
+    motorCtx.fillStyle="black";
+    motorCtx.fill();
+    motorCtx.closePath();
+
+    // rotor
+    const rotorDeg= statorAngleDeg - radToDeg(delta);
+    const rotorRad= degToRad(rotorDeg);
+    const rx= cx+ radius*0.8*Math.cos(rotorRad);
+    const ry= cy+ radius*0.8*Math.sin(rotorRad);
+
+    motorCtx.beginPath();
+    motorCtx.moveTo(cx, cy);
+    motorCtx.lineTo(rx, ry);
+    motorCtx.strokeStyle="orange";
+    motorCtx.lineWidth=3;
+    motorCtx.stroke();
+    motorCtx.closePath();
+  }
+
+  // ================================
+  // 2) Power Swing (Middle) auto-scale
+  // ================================
+  function drawPowerAnglePlot(){
+    powerCtx.clearRect(0,0, powerCanvas.width, powerCanvas.height);
+
+    let baseMargin=10;
+    let labelValues=[];
+
+    // angle range
+    const anglesDeg= angleHistory.map(a=> radToDeg(a));
+    let minAnglePlot=0, maxAnglePlot=180;
+    if (anglesDeg.length>0){
+      minAnglePlot= Math.min(...anglesDeg,0);
+      maxAnglePlot= Math.max(...anglesDeg,180);
+      const rangeA= maxAnglePlot- minAnglePlot;
+      if (rangeA<1e-6){
+        maxAnglePlot= minAnglePlot+1;
+      } else {
+        const pad= 0.1*rangeA;
+        minAnglePlot-= pad;
+        maxAnglePlot+= pad;
+      }
+    }
+
+    // power range
+    let pMinAuto= Infinity;
+    let pMaxAuto= -Infinity;
+    const V1= parseFloat(sliderV1.value);
+    const V2= parseFloat(sliderV2.value);
+    const Z=  parseFloat(sliderZ.value);
+    const Zpost= parseFloat(sliderZpost.value);
+    const Pmech= parseFloat(sliderPmech.value);
+
+    // pre-fault
+    for (let aDeg=0; aDeg<=360; aDeg++){
+      let val= pDelivered(degToRad(aDeg), V1, V2, Z);
+      if (val< pMinAuto) pMinAuto= val;
+      if (val> pMaxAuto) pMaxAuto= val;
+    }
+    // post-fault
+    for (let aDeg=0; aDeg<=360; aDeg++){
+      let val= pDelivered(degToRad(aDeg), V1, V2, Zpost);
+      if (val< pMinAuto) pMinAuto= val;
+      if (val> pMaxAuto) pMaxAuto= val;
+    }
+    // pmech
+    if (Pmech< pMinAuto) pMinAuto= Pmech;
+    if (Pmech> pMaxAuto) pMaxAuto= Pmech;
+    // pdelHistory
+    if (pdelHistory.length>0){
+      const histMin= Math.min(...pdelHistory);
+      const histMax= Math.max(...pdelHistory);
+      if (histMin< pMinAuto) pMinAuto= histMin;
+      if (histMax> pMaxAuto) pMaxAuto= histMax;
+    }
+
+    if (pMinAuto> pMaxAuto){
+      pMinAuto=0; pMaxAuto=1;
+    } else {
+      let rng= pMaxAuto- pMinAuto;
+      let pad= 0.1* rng;
+      pMinAuto-= pad;
+      pMaxAuto+= pad;
+      if (Math.abs(rng)<1e-6){
+        pMaxAuto= pMinAuto+1;
+      }
+    }
+
+    // y-ticks
+    const numYTicks=5;
+    for (let i=0; i<= numYTicks; i++){
+      let val= pMinAuto+ (pMaxAuto- pMinAuto)*(i/ numYTicks);
+      labelValues.push(val.toFixed(3));
+    }
+
+    powerCtx.font="12px sans-serif";
+    let widest=0;
+    labelValues.forEach(txt=>{
+      let w= powerCtx.measureText(txt).width;
+      if (w> widest) widest= w;
+    });
+    let finalMargin= baseMargin+ widest+40;
+
+    // Title
+    powerCtx.font="16px sans-serif";
+    powerCtx.fillStyle="#000";
+    powerCtx.textAlign="center";
+    powerCtx.fillText("Power Swing Plot", powerCanvas.width/2, finalMargin-15);
+
+    let plotWidth= powerCanvas.width -2* finalMargin;
+    let plotHeight= powerCanvas.height-2* finalMargin;
+
+    function xFromAngle(aDeg){
+      if (maxAnglePlot=== minAnglePlot) return finalMargin;
+      return finalMargin + (aDeg- minAnglePlot)/(maxAnglePlot- minAnglePlot)* plotWidth;
+    }
+    function yFromPower(p){
+      if (p< pMinAuto) p= pMinAuto;
+      if (p> pMaxAuto) p= pMaxAuto;
+      return finalMargin + (pMaxAuto- p)/(pMaxAuto- pMinAuto)* plotHeight;
+    }
+
+    // x-axis => p=0 if in range
+    let zeroY= yFromPower(0);
+    if (0< pMinAuto || 0> pMaxAuto){
+      zeroY= finalMargin+ plotHeight;
+    }
+    powerCtx.strokeStyle="#000";
+    powerCtx.lineWidth=1;
+    powerCtx.beginPath();
+    powerCtx.moveTo(finalMargin, zeroY);
+    powerCtx.lineTo(finalMargin+ plotWidth, zeroY);
+    powerCtx.stroke();
+
+    // y-axis
+    powerCtx.beginPath();
+    powerCtx.moveTo(finalMargin, finalMargin);
+    powerCtx.lineTo(finalMargin, finalMargin+ plotHeight);
+    powerCtx.stroke();
+
+    // y-ticks
+    powerCtx.font="12px sans-serif";
+    powerCtx.textAlign="right";
+    for (let i=0; i<= numYTicks; i++){
+      let val= pMinAuto+ (pMaxAuto- pMinAuto)*(i/ numYTicks);
+      let py= yFromPower(val);
+      powerCtx.fillText(val.toFixed(3), finalMargin-8, py+4);
+      powerCtx.beginPath();
+      powerCtx.moveTo(finalMargin-3, py);
+      powerCtx.lineTo(finalMargin,   py);
+      powerCtx.stroke();
+    }
+    // x-ticks
+    powerCtx.textAlign="center";
+    let xTicks=5;
+    for (let i=0; i<= xTicks; i++){
+      let aVal= minAnglePlot+ (maxAnglePlot- minAnglePlot)*(i/ xTicks);
+      let px= xFromAngle(aVal);
+      powerCtx.fillText(aVal.toFixed(0)+"°", px, zeroY+15);
+    }
+    powerCtx.fillText("Angle (°)", finalMargin+ plotWidth/2, zeroY+35);
+
+    powerCtx.save();
+    powerCtx.translate(finalMargin-60, finalMargin+ plotHeight/2);
+    powerCtx.rotate(-Math.PI/2);
+    powerCtx.textAlign="center";
+    powerCtx.font="14px sans-serif";
+    powerCtx.fillText("Power (p.u.)", 0,0);
+    powerCtx.restore();
+
+    // Pre-fault
+    powerCtx.strokeStyle="blue";
+    powerCtx.beginPath();
+    let first=true;
+    for (let aDeg=0; aDeg<=360; aDeg++){
+      let val= pDelivered(degToRad(aDeg), V1, V2, Z);
+      let px= xFromAngle(aDeg);
+      let py= yFromPower(val);
+      if (first){
+        powerCtx.moveTo(px,py);
+        first=false;
+      } else {
+        powerCtx.lineTo(px,py);
+      }
+    }
+    powerCtx.stroke();
+
+    // Post-fault
+    powerCtx.strokeStyle="green";
+    powerCtx.beginPath();
+    first=true;
+    for (let aDeg=0; aDeg<=360; aDeg++){
+      let val= pDelivered(degToRad(aDeg), V1, V2, Zpost);
+      let px= xFromAngle(aDeg);
+      let py= yFromPower(val);
+      if (first){
+        powerCtx.moveTo(px,py);
+        first=false;
+      } else {
+        powerCtx.lineTo(px,py);
+      }
+    }
+    powerCtx.stroke();
+
+    // Pmech line
+    powerCtx.strokeStyle="red";
+    powerCtx.beginPath();
+    powerCtx.moveTo(xFromAngle(minAnglePlot), yFromPower(Pmech));
+    powerCtx.lineTo(xFromAngle(maxAnglePlot), yFromPower(Pmech));
+    powerCtx.stroke();
+
+    // fill accelerate/decelerate
+    for (let i=0; i< angleHistory.length-1; i++){
+      let a1Deg= radToDeg(angleHistory[i]);
+      let a2Deg= radToDeg(angleHistory[i+1]);
+      if ((a1Deg< minAnglePlot && a2Deg< minAnglePlot) ||
+          (a1Deg> maxAnglePlot && a2Deg> maxAnglePlot)) {
+        continue;
+      }
+      let pd1= pdelHistory[i];
+      let pd2= pdelHistory[i+1];
+      let avgPdel= 0.5*(pd1+ pd2);
+      let isAccel= (Pmech> avgPdel);
+
+      powerCtx.fillStyle= isAccel? "rgba(0,255,0,0.4)": "rgba(255,0,0,0.3)";
+      let x1= xFromAngle(a1Deg);
+      let x2= xFromAngle(a2Deg);
+      let yP1= yFromPower(Pmech);
+      let yP2= yFromPower(Pmech);
+      let yD1= yFromPower(pd1);
+      let yD2= yFromPower(pd2);
+
+      powerCtx.beginPath();
+      powerCtx.moveTo(x1,yP1);
+      powerCtx.lineTo(x1,yD1);
+      powerCtx.lineTo(x2,yD2);
+      powerCtx.lineTo(x2,yP2);
+      powerCtx.closePath();
+      powerCtx.fill();
+    }
+
+    // marker
+    let currentDeg= radToDeg(delta);
+    let cx= xFromAngle(currentDeg);
+    powerCtx.setLineDash([5,5]);
+    powerCtx.strokeStyle="rgba(0,0,0,0.6)";
+    powerCtx.beginPath();
+    powerCtx.moveTo(cx, yFromPower(pMinAuto));
+    powerCtx.lineTo(cx, finalMargin);
+    powerCtx.stroke();
+    powerCtx.setLineDash([]);
+
+    // info text
+    powerCtx.fillStyle="#000";
+    powerCtx.font="13px sans-serif";
+    powerCtx.textAlign="left";
+    powerCtx.fillText(`Time = ${time.toFixed(3)} s`, finalMargin+5, finalMargin+15);
+    powerCtx.fillText(`delta = ${currentDeg.toFixed(2)}°`, finalMargin+5, finalMargin+30);
+    powerCtx.fillText(`omega = ${omega.toFixed(3)} rad/s`, finalMargin+5, finalMargin+45);
+  }
+
+  // ================================
+  // 3) Oscillography (Bottom), 3x bigger, auto-scale y-axis
+  // ================================
+  function drawOscillography(){
+    oscCtx.clearRect(0,0, oscCanvas.width, oscCanvas.height);
+
+    let baseMargin=10;
+    let labelValues=[];
+
+    const minTime= 0, maxTime= maxOscTime; // 0..5 s
+
+    // angle auto-scale
+    const anglesDeg= angleHistory.map(a=> radToDeg(a));
+    let minAngle=0, maxAngle=180;
+    if (anglesDeg.length>0){
+      minAngle= Math.min(...anglesDeg,0);
+      maxAngle= Math.max(...anglesDeg,180);
+    }
+    if (Math.abs(maxAngle- minAngle)<1e-6){
+      maxAngle= minAngle+1;
+    } else {
+      let rng= maxAngle- minAngle;
+      let pad= 0.1* rng;
+      minAngle-= pad;
+      maxAngle+= pad;
+    }
+
+    const numYTicks=4;
+    for (let i=0; i<= numYTicks; i++){
+      let val= minAngle+ (maxAngle- minAngle)*(i/ numYTicks);
+      labelValues.push(val.toFixed(1));
+    }
+
+    oscCtx.font="12px sans-serif";
+    let widest=0;
+    labelValues.forEach(txt=>{
+      let w= oscCtx.measureText(txt).width;
+      if (w> widest) widest= w;
+    });
+    let finalMargin= baseMargin+ widest+40;
+
+    oscCtx.font="16px sans-serif";
+    oscCtx.fillStyle="#000";
+    oscCtx.textAlign="center";
+    oscCtx.fillText("Time vs Theta (0–5s)", 
+                    oscCanvas.width/2, finalMargin-15);
+
+    let plotWidth=  oscCanvas.width  - 2* finalMargin;
+    let plotHeight= oscCanvas.height - 2* finalMargin;
+
+    // axes
+    oscCtx.strokeStyle="#000";
+    oscCtx.lineWidth=1;
+    // x-axis
+    oscCtx.beginPath();
+    oscCtx.moveTo(finalMargin, oscCanvas.height- finalMargin);
+    oscCtx.lineTo(finalMargin+ plotWidth, oscCanvas.height- finalMargin);
+    oscCtx.stroke();
+
+    // y-axis
+    oscCtx.beginPath();
+    oscCtx.moveTo(finalMargin, finalMargin);
+    oscCtx.lineTo(finalMargin, finalMargin+ plotHeight);
+    oscCtx.stroke();
+
+    // x-label
+    oscCtx.font="14px sans-serif";
+    oscCtx.textAlign="center";
+    oscCtx.fillText("Time (s) [0–5]", finalMargin+ plotWidth/2, oscCanvas.height-5);
+
+    // y-label
+    oscCtx.save();
+    oscCtx.translate(finalMargin-60, finalMargin+ plotHeight/2);
+    oscCtx.rotate(-Math.PI/2);
+    oscCtx.textAlign="center";
+    oscCtx.font="14px sans-serif";
+    oscCtx.fillText("Theta (Degrees)", 0,0);
+    oscCtx.restore();
+
+    // x-ticks
+    const xTicks=5;
+    for (let i=0; i<= xTicks; i++){
+      let tVal= minTime+ (maxTime- minTime)*(i/ xTicks);
+      let x= finalMargin+ (tVal- minTime)/(maxTime- minTime)* plotWidth;
+      oscCtx.fillText(tVal.toFixed(1), x, oscCanvas.height- finalMargin+15);
+    }
+
+    // y-ticks
+    oscCtx.textAlign="right";
+    for (let i=0; i<= numYTicks; i++){
+      let aVal= minAngle+ (maxAngle- minAngle)*(i/ numYTicks);
+      let y= finalMargin+ (numYTicks- i)/ numYTicks* plotHeight;
+      oscCtx.fillText(aVal.toFixed(1), finalMargin-8, y+4);
+
+      oscCtx.strokeStyle="#eee";
+      oscCtx.beginPath();
+      oscCtx.moveTo(finalMargin,y);
+      oscCtx.lineTo(finalMargin+ plotWidth,y);
+      oscCtx.stroke();
+    }
+
+    // plot 0..5 s
+    oscCtx.strokeStyle="blue";
+    oscCtx.lineWidth=2;
+    oscCtx.beginPath();
+    let started=false;
+    for (let i=0; i< timeHistory.length; i++){
+      let t= timeHistory[i];
+      if (t> maxTime) break; // only show 0..5 s
+
+      let aDeg= radToDeg(angleHistory[i]);
+      if (aDeg< minAngle) aDeg= minAngle;
+      if (aDeg> maxAngle) aDeg= maxAngle;
+
+      let xFrac= (t- minTime)/(maxTime- minTime);
+      let yFrac= (aDeg- minAngle)/(maxAngle- minAngle);
+
+      let px= finalMargin+ xFrac* plotWidth;
+      let py= finalMargin+ (1- yFrac)* plotHeight;
+      if(!started){
+        oscCtx.moveTo(px,py);
+        started=true;
+      } else {
+        oscCtx.lineTo(px,py);
+      }
+    }
+    oscCtx.stroke();
+  }
+
+  // ================================
+  // Numerical Integration
+  // ================================
+  function stepSimulation(simDT){
+    const V1    = parseFloat(sliderV1.value);
+    const V2    = parseFloat(sliderV2.value);
+    const Z     = parseFloat(sliderZ.value);
+    const Zpost = parseFloat(sliderZpost.value);
+    const Pmech = parseFloat(sliderPmech.value);
+    const H     = parseFloat(sliderInertia.value);
+    const D     = parseFloat(sliderDamping.value);
+
+    const faultCycles= parseFloat(sliderFaultDuration.value);
+    const faultSec= faultCycles/freq;
+
+    let Pdel=0;
+    if(time< faultSec){
+      // During fault => Pdel=0
+      Pdel=0;
+    } else {
+      Pdel= pDelivered(delta, V1, V2, Zpost);
+    }
+
+    const dampingTorque= D*(omega/omega_s);
+    const accel= (omega_s/(2*H))*(Pmech - Pdel - dampingTorque);
+
+    omega += accel* simDT;
+    delta += omega* simDT;
+    time  += simDT;
+
+    angleHistory.push(delta);
+    pdelHistory.push(Pdel);
+    timeHistory.push(time);
+  }
+
+  // ================================
+  // Animation
+  // ================================
+  function animateFrame(timestampMS){
+    if(!playing) return;
+
+    if(lastFrameTime=== null){
+      lastFrameTime= timestampMS;
+    }
+    let realDeltaMS= timestampMS- lastFrameTime;
+    lastFrameTime= timestampMS;
+
+    let slowVal= parseFloat(sliderSpeed.value);
+    let slowdown= Math.pow(10, slowVal);
+    let simDelta= (realDeltaMS/1000)/ slowdown;
+
+    // multiple dt steps
+    let simLeft= simDelta;
+    while(simLeft> dt){
+      stepSimulation(dt);
+      simLeft-= dt;
+    }
+    if(simLeft>0){
+      stepSimulation(simLeft);
+    }
+
+    // remove data older than 5s
+    while(timeHistory.length>0 && timeHistory[0]< time- maxOscTime){
+      angleHistory.shift();
+      pdelHistory.shift();
+      timeHistory.shift();
+    }
+
+    // re-draw
+    drawMotor();
+    drawPowerAnglePlot();
+    drawOscillography();
+
+    requestAnimationFrame(animateFrame);
+  }
+
+  // ================================
+  // Handlers
+  // ================================
+  function refreshSliderLabels(){
+    valV1.textContent            = sliderV1.value;
+    valV2.textContent            = sliderV2.value;
+    valZ.textContent             = sliderZ.value;
+    valPmech.textContent         = sliderPmech.value;
+    valInertia.textContent       = sliderInertia.value;
+    valFaultDuration.textContent = sliderFaultDuration.value;
+    valZpost.textContent         = sliderZpost.value;
+
+    let factor= Math.pow(10, parseFloat(sliderSpeed.value));
+    valSpeed.textContent= factor.toFixed(2);
+
+    valDamping.textContent       = sliderDamping.value;
+  }
+
+  function reinitSimulation(){
+    const V1= parseFloat(sliderV1.value);
+    const V2= parseFloat(sliderV2.value);
+    const Z=  parseFloat(sliderZ.value);
+    const Pmech= parseFloat(sliderPmech.value);
+
+    time=0;
+    delta= findIntersectionAngle(Pmech, V1, V2, Z);
+    omega=0;
+
+    angleHistory= [];
+    pdelHistory= [];
+    timeHistory= [];
+
+    angleHistory.push(delta);
+    pdelHistory.push(pDelivered(delta, V1, V2, Z));
+    timeHistory.push(0);
+  }
+
+  function onSliderChange(){
+    refreshSliderLabels();
+    if(!playing){
+      reinitSimulation();
+      drawMotor();
+      drawPowerAnglePlot();
+      drawOscillography();
+    }
+  }
+
+  playPauseBtn.addEventListener('click', ()=>{
+    playing= !playing;
+    playPauseBtn.textContent= playing? "Pause":"Play";
+    if(playing){
+      lastFrameTime= null;
+      requestAnimationFrame(animateFrame);
+    }
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    playing= false;
+    playPauseBtn.textContent="Play";
+    reinitSimulation();
+    drawMotor();
+    drawPowerAnglePlot();
+    drawOscillography();
+  });
+
+  [
+    sliderV1, sliderV2, sliderZ, sliderPmech,
+    sliderInertia, sliderFaultDuration, sliderZpost,
+    sliderSpeed, sliderDamping
+  ].forEach(slider =>{
+    slider.addEventListener('input', onSliderChange);
+  });
+
+  function init(){
+    refreshSliderLabels();
+    reinitSimulation();
+    drawMotor();
+    drawPowerAnglePlot();
+    drawOscillography();
+  }
+  init();
+</script>
+
+<!-- ============ Explanations ============ -->
+<div class="explanation">
+  <h3>Slider Explanations</h3>
+  <ul>
+    <li><strong>V1 &amp; V2:</strong> Per-unit voltages on either side of the transmission path (0.01–1.1).</li>
+    <li><strong>Z (Pre-Fault):</strong> The system/line reactance (in p.u.) before the fault occurs.</li>
+    <li><strong>Pmech:</strong> The mechanical power (p.u.) supplied by the prime mover.</li>
+    <li><strong>Inertia (H):</strong> Per-unit inertia constant; higher values mean a heavier rotor (slower acceleration).</li>
+    <li><strong>Fault Duration (cycles):</strong> How many 60&nbsp;Hz cycles the fault persists (0–360) before clearing.</li>
+    <li><strong>Z-Post-Breaker-Clear:</strong> The system/line reactance after the fault is cleared (0.01–1.1).</li>
+    <li><strong>Playback Slowdown (Log Scale):</strong> 
+      1 = real-time, 10 = 10× slower, 1000 = 1000× slower, etc. 
+      The slider value is interpreted as 10^(slider), up to 10,000× slower.
+    </li>
+    <li><strong>Damping (D):</strong> A simple damping coefficient representing resistive torques on the rotor.</li>
+  </ul>
+
+  <h3>The Equal Area Criterion</h3>
+  <p>
+    The <em>Equal Area Criterion</em> is a graphical method to assess 
+    whether a synchronous machine remains in synchronism after a disturbance.
+    We compare:
+  </p>
+  <ul>
+    <li><strong>Accelerating Region</strong> (when <code>Pmech &gt; Pdel</code>)</li>
+    <li><strong>Decelerating Region</strong> (when <code>Pmech &lt; Pdel</code>)</li>
+  </ul>
+  <p>
+    If the area of the “accelerating region” is less than or about equal to 
+    the area of the “decelerating region,” the machine typically remains in 
+    synchronism. Otherwise, it risks losing step and going out of sync.
+  </p>
+  <h3>Plot Descriptions</h3>
+  <ul>
+    <li>
+      <strong>Top (Motor Diagram):</strong> 
+      A rotating stator with 3 phases in <em>counterclockwise</em> direction. 
+      A positive rotor angle <code>(delta &gt; 0)</code> means the rotor <em>leads</em> 
+      the red phase in CCW.
+    </li>
+    <li>
+      <strong>Middle (Power Swing Plot):</strong> 
+      Plots the sine-based power delivery vs. rotor angle. Green or red shading 
+      shows periods of acceleration or deceleration relative to mechanical power.
+    </li>
+    <li>
+      <strong>Bottom (Time vs. Theta, Large):</strong> 
+      Display the rotor angle in degrees from time=0 to time=5s. 
+    </li>
+  </ul>
+</div>
+
+<!-- Include header.js and ticker.js files -->
+<script src="header.js"></script>
+<script src="ticker.js"></script>
+</body>
+</html>

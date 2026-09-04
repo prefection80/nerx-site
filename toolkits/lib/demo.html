@@ -13,7 +13,7 @@
   h1{font-size:1.5rem; margin:0 0 4px} .sub{color:var(--mut); margin:0 0 26px; font-size:.95rem}
   .demo{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px 20px; margin-bottom:22px}
   .demo h2{font-size:1.05rem; margin:0 0 2px} .demo p{color:var(--mut); font-size:.88rem; margin:0 0 14px}
-  canvas{display:block; width:100%; background:#0a121a; border-radius:8px; border:1px solid #1b2833}
+  canvas{display:block; width:100%; background:#f7fafc; border-radius:8px; border:1px solid #1b2833}
   .controls{display:flex; flex-wrap:wrap; gap:14px 22px; margin-top:14px}
   .ns-ctrl{display:inline-flex; align-items:center; gap:8px; font-size:.85rem; color:var(--mut)}
   .ns-ctrl .ns-lab{white-space:nowrap}
@@ -28,7 +28,7 @@
 <body>
 <div class="wrap">
   <h1>nerx-signals</h1>
-  <p class="sub">Live component demo — phasor animation, oscillography, and the calc engine that feeds them. One 20&nbsp;KB script, no dependencies.</p>
+  <p class="sub">Live component demo — phasor animation, oscillography, and the calc engine that feeds them. One script, no dependencies.</p>
 
   <div class="demo">
     <h2>1 · Phasor — rotating, with waveform projection</h2>
@@ -84,6 +84,41 @@
     <p>A radial feed with current flowing along the conductors; thickness tracks magnitude, dots track direction.</p>
     <canvas id="cv8"></canvas>
   </div>
+
+  <div class="demo">
+    <h2>9 · Power — power factor, and what it actually costs</h2>
+    <p>V and I with the angle between them, <code>p(t) = v·i</code> underneath, and the P–Q–S triangle. Drag the pf: the middle panel ripples at twice line frequency, averages to P, and the red lobes are energy handed <em>back</em> to the source. At pf&nbsp;=&nbsp;1 they disappear.</p>
+    <canvas id="cv9"></canvas>
+    <div class="controls" id="ctl9"></div>
+  </div>
+
+  <div class="demo">
+    <h2>10 · Decompose — the transform as a construction</h2>
+    <p>Not a matrix: rotate by the <code>a</code>-operator, add tip to tail, divide by three. Pick the row and drag the step, or let it run. Unbalance the set with <code>|Vₐ|</code> and watch V₂ grow out of nothing.</p>
+    <canvas id="cv10"></canvas>
+    <div class="controls" id="ctl10"></div>
+  </div>
+
+  <div class="demo">
+    <h2>11 · Estimator — why the relay needs a cycle</h2>
+    <p>A DFT window slides along the record; the phasor it produces is on the dial, and its magnitude against window position is on the right. The estimate is only true once the window is <em>entirely</em> inside the fault. Add dc offset with <code>X/R</code> and watch a one-cycle window overshoot.</p>
+    <canvas id="cv11"></canvas>
+    <div class="controls" id="ctl11"></div>
+  </div>
+
+  <div class="demo">
+    <h2>12 · Compare — two figures, one canvas</h2>
+    <p>Wipe, split or crossfade between two components. This is the <code>-orig</code>/<code>-rev</code> slide pair as a single slide with a handle you drag in front of the room. Same geometry on both sides, so the difference is the only thing that moves.</p>
+    <canvas id="cv12"></canvas>
+    <div class="controls" id="ctl12"></div>
+  </div>
+
+  <div class="demo">
+    <h2>13 · Callout — annotation that survives the PDF</h2>
+    <p>An arrow and a label anchored to a point in the figure, not to a pixel — and revealed on a step. Ink is great live and gone in the export; this isn't. Drag <code>step</code> to build them up the way a fragment would.</p>
+    <canvas id="cv13"></canvas>
+    <div class="controls" id="ctl13"></div>
+  </div>
 </div>
 
 <script src="nerx-signals.js"></script>
@@ -92,7 +127,7 @@ const S = NS.calc.SEQ, TAU = NS.calc.TAU;
 
 /* 1 — Phasor */
 let ui1;
-const ph1 = NS.Phasor(null, {
+const ph1 = NS.Phasor({
   origin: [130, 150], radius: 96, refCircle: true, waveform: 'right', wavePixels: 150, freq: 0.16,
   phasors: () => { const m = ui1.p.mag, a = ui1.p.ang; return [
     { mag: m, ang: a,       color: S.a, label: 'a' },
@@ -110,7 +145,7 @@ ui1 = NS.mount('#cv1', '#ctl1', { aspect: 0.33,
 /* 2 — Scope */
 let ui2;
 const tF = 0.08;
-const scope = NS.Scope(null, {
+const scope = NS.Scope({
   window: 0.25, freq: 60, trigger: tF, motion: 'sweep',
   channels: () => {
     const xr = ui2.p.xr, tau = xr / (TAU * 60);
@@ -118,28 +153,28 @@ const scope = NS.Scope(null, {
     const ib = t => 0.7 * Math.sin(TAU*60*t - 2.094);
     const ic = t => 0.7 * Math.sin(TAU*60*t + 2.094);
     return [
-      { name: 'Iₐ', color: S.a, signal: ia },
-      { name: 'I_b', color: S.b, signal: ib },
-      { name: 'I_c', color: S.c, signal: ic },
+      { name: 'Ia', color: S.a, signal: ia },
+      { name: 'Ib', color: S.b, signal: ib },
+      { name: 'Ic', color: S.c, signal: ic },
       { name: '3I₀', color: S.zero, derived: 'residual' },
     ];
   }
 });
-ui2 = NS.mount('#cv2', '#ctl2', { aspect: 0.42, gain: 1,
+ui2 = NS.mount('#cv2', '#ctl2', { aspect: 0.42,
   params: { xr: { label: 'X/R', min: 2, max: 30, step: 1, value: 12 } },
-  view: (ctx, t) => { scope.config.gain = 6; scope.draw(ctx, t); }
+  view: (ctx, t) => scope.draw(ctx, t)
 });
 
 /* 3 — Calc -> Phasor */
 let ui3;
-const ph3 = NS.Phasor(null, {
+const ph3 = NS.Phasor({
   origin: [150, 150], radius: 100, refCircle: true, waveform: false, rotate: false, scale: 'fit',
   phasors: () => {
     const f = NS.calc.faults({ z1: NS.calc.j(0.1), z2: NS.calc.j(0.1), z0: NS.calc.j(ui3.p.z0) }).slg;
     return [
-      { mag: NS.calc.abs(f.phase.a), ang: NS.calc.ang(f.phase.a), color: S.a, label: 'Iₐ' },
-      { mag: NS.calc.abs(f.phase.b), ang: NS.calc.ang(f.phase.b), color: S.b, label: 'I_b' },
-      { mag: NS.calc.abs(f.phase.c), ang: NS.calc.ang(f.phase.c), color: S.c, label: 'I_c' },
+      { mag: NS.calc.abs(f.phase.a), ang: NS.calc.ang(f.phase.a), color: S.a, label: 'Ia' },
+      { mag: NS.calc.abs(f.phase.b), ang: NS.calc.ang(f.phase.b), color: S.b, label: 'Ib' },
+      { mag: NS.calc.abs(f.phase.c), ang: NS.calc.ang(f.phase.c), color: S.c, label: 'Ic' },
     ];
   }
 });
@@ -155,7 +190,7 @@ ui3 = NS.mount('#cv3', '#ctl3', { aspect: 0.4,
 });
 
 /* 4 — Impedance (R–X plane) */
-const imp = NS.Impedance(null, {
+const imp = NS.Impedance({
   range: 1.2, trail: true,
   zones: [
     { type: 'mho', reach: 0.4, angle: 75, color: S.a,    label: 'Z1' },
@@ -169,11 +204,11 @@ NS.mount('#cv4', null, { aspect: 0.6, view: (ctx, t) => imp.draw(ctx, t) });
 
 /* 5 — Coordination (TCC) */
 let ui5;
-const coord = NS.Coordination(null, {
+const coord = NS.Coordination({
   iMin: 100, iMax: 100000, tMin: 0.01, tMax: 100,
   devices: () => [
     { name: '51 · IEEE-VI', color: S.a, curve: I => NS.calc.ocTime('IEEE-VI', I / ui5.p.pickup, ui5.p.td) },
-    { name: 'fuse', color: S.zero, curve: I => I > 300 ? 6e6 / Math.pow(I, 1.6) : null },
+    { name: 'fuse', color: S.zero, curve: I => I > 300 ? 1e6 / Math.pow(I, 1.6) : null },
   ],
   faultCurrent: () => ui5.p.fault,
 });
@@ -185,7 +220,7 @@ ui5 = NS.mount('#cv5', '#ctl5', { aspect: 0.6,
 
 /* 6 — Stability (P–δ + equal area) */
 let ui6;
-const stab = NS.Stability(null, { pmax: 1.8, pmaxFault: 0.5, pmaxPost: 1.5, pm: 1.0, clearAngle: 1.15, period: 4.5 });
+const stab = NS.Stability({ pmax: 1.8, pmaxFault: 0.5, pmaxPost: 1.5, pm: 1.0, clearAngle: 1.15, period: 4.5 });
 ui6 = NS.mount('#cv6', '#ctl6', { aspect: 0.52,
   params: { clear: { label: 'clearing δ', min: 0.6, max: 1.7, step: 0.05, value: 1.15 },
             pm: { label: 'Pₘ', min: 0.4, max: 1.6, step: 0.05, value: 1.0 } },
@@ -193,7 +228,7 @@ ui6 = NS.mount('#cv6', '#ctl6', { aspect: 0.52,
 
 /* 7 — Spectrum (harmonics) */
 let ui7;
-const spec = NS.Spectrum(null, { showWave: true, cycles: 2, maxOrder: 13,
+const spec = NS.Spectrum({ showWave: true, cycles: 2, maxOrder: 13,
   harmonics: () => [ { n: 1, mag: 1, ang: 0 }, { n: 3, mag: ui7.p.h3 / 100, ang: 0 }, { n: 5, mag: ui7.p.h5 / 100, ang: 0 }, { n: 7, mag: ui7.p.h7 / 100, ang: 0 } ] });
 ui7 = NS.mount('#cv7', '#ctl7', { aspect: 0.58,
   params: { h3: { label: '3rd %', min: 0, max: 40, step: 1, value: 25 },
@@ -202,7 +237,7 @@ ui7 = NS.mount('#cv7', '#ctl7', { aspect: 0.58,
   view: (ctx, t) => spec.draw(ctx, t) });
 
 /* 8 — One-line (animated flow) */
-const one = NS.OneLine(null, {
+const one = NS.OneLine({
   nodes: {
     src: { x: 70, y: 54, type: 'source', label: 'Utility', lx: -66 },
     b1:  { x: 70, y: 108, type: 'bus', w: 46, label: '115 kV', lx: -70 },
@@ -220,6 +255,100 @@ const one = NS.OneLine(null, {
   ],
 });
 NS.mount('#cv8', null, { aspect: 0.5, view: (ctx, t) => one.draw(ctx, t) });
+
+/* 9 — Power (pf, instantaneous power, triangle) */
+let ui9;
+const pow = NS.Power({
+  v: 1, i: () => ui9.p.amps, pf: () => ui9.p.pf, lead: () => ui9.p.sign === 'leading',
+  cycles: 2, negativeLobes: true,
+});
+ui9 = NS.mount('#cv9', '#ctl9', { aspect: 0.36,
+  params: { pf:   { label: 'pf',   min: 0, max: 1, step: 0.01, value: 0.8 },
+            amps: { label: '|I|',  min: 0.2, max: 1.5, step: 0.05, value: 1 },
+            sign: { label: 'sign', choices: ['lagging', 'leading'], value: 'lagging' } },
+  view: (ctx, t) => pow.draw(ctx, t) });
+
+/* 10 — Decompose (the a-operator construction) */
+let ui10;
+const ROWS = {                                    // rotations applied to [a, b, c] for each row
+  'positive V₁': { rot: [0, 120, 240], label: 'V₁' },
+  'negative V₂': { rot: [0, 240, 120], label: 'V₂' },
+  'zero V₀':     { rot: [0, 0, 0],     label: 'V₀' },
+};
+const NAMES = ['Vₐ', 'Vb', 'Vc'];
+const dec = NS.Decompose({
+  divide: 3,
+  result: () => ROWS[ui10.p.row],
+  progress: () => (ui10.p.mode === 'auto' ? NaN : ui10.p.step),   // NaN = let it sweep
+  terms: () => {
+    const row = ROWS[ui10.p.row];
+    const set = [NS.calc.polar(ui10.p.mag, 0), NS.calc.polar(1, -120), NS.calc.polar(1, 120)];
+    return set.map((z, i) => ({
+      z, rot: row.rot[i], color: [S.a, S.b, S.c][i],
+      label: (row.rot[i] === 120 ? 'a·' : row.rot[i] === 240 ? 'a²·' : '') + NAMES[i],
+    }));
+  },
+});
+ui10 = NS.mount('#cv10', '#ctl10', { aspect: 0.42,
+  params: { row:  { label: 'row', choices: Object.keys(ROWS), value: 'positive V₁' },
+            mag:  { label: '|Vₐ|', min: 0.2, max: 1.8, step: 0.05, value: 1.3 },
+            mode: { label: 'run', choices: ['auto', 'manual'], value: 'auto' },
+            step: { label: 'step', min: 0, max: 1, step: 0.01, value: 1 } },
+  view: (ctx, t) => dec.draw(ctx, t) });
+
+/* 11 — Estimator (sliding DFT window) */
+let ui11;
+const tFault = 0.05;
+const est = NS.Estimator({
+  freq: 60, fs: 1920, span: 0.15, trigger: tFault,
+  window: () => parseFloat(ui11.p.win),
+  signal: t => {
+    const tau = ui11.p.xr / (TAU * 60);
+    return t < tFault ? 0.5 * Math.sin(TAU * 60 * t)
+                      : 3 * Math.sin(TAU * 60 * t) + 2.5 * Math.exp(-(t - tFault) / tau);
+  },
+  refs: [{ mag: 0.5, label: 'load' }, { mag: 3, label: 'fault' }],
+});
+ui11 = NS.mount('#cv11', '#ctl11', { aspect: 0.5,
+  params: { win: { label: 'window (cycles)', choices: ['0.5', '1', '2'], value: '1' },
+            xr:  { label: 'X/R', min: 0, max: 30, step: 1, value: 0 } },
+  view: (ctx, t) => est.draw(ctx, t) });
+
+/* 12 — Compare (wipe / split / fade) */
+let ui12;
+const balanced   = NS.Phasor({ radius: 92, rotate: 'ccw', freq: 0.14, refCircle: true, waveform: false,
+  phasors: () => [ { mag: 1, ang: 0, color: S.a, label: 'a' }, { mag: 1, ang: -120, color: S.b, label: 'b' }, { mag: 1, ang: 120, color: S.c, label: 'c' } ] });
+const unbalanced = NS.Phasor({ radius: 92, rotate: 'ccw', freq: 0.14, refCircle: true, waveform: false,
+  phasors: () => [ { mag: 1.45, ang: 0, color: S.a, label: 'a' }, { mag: 0.8, ang: -132, color: S.b, label: 'b' }, { mag: 1, ang: 116, color: S.c, label: 'c' } ] });
+const cmp = NS.Compare({
+  a: balanced, b: unbalanced, labels: ['balanced', 'unbalanced'],
+  mode: () => ui12.p.mode, at: () => ui12.p.at,
+});
+ui12 = NS.mount('#cv12', '#ctl12', { aspect: 0.34,
+  params: { mode: { label: 'mode', choices: ['wipe', 'split', 'fade'], value: 'wipe' },
+            at:   { label: 'position', min: 0, max: 1, step: 0.01, value: 0.5 } },
+  view: (ctx, t) => cmp.draw(ctx, t) });
+
+/* 13 — Callout (anchored annotation, revealed by step) */
+const Z_ORIGIN = [300, 300], Z_SCALE = 190;                 // pin the mapping so a callout can be exact
+const zpx = (r, x) => [Z_ORIGIN[0] + r * Z_SCALE, Z_ORIGIN[1] - x * Z_SCALE];
+const swing = t => { const th = t * 0.5; return { r: 0.55 * Math.cos(th) + 0.1, x: 0.45 + 0.55 * Math.sin(th) }; };
+const imp13 = NS.Impedance({
+  origin: Z_ORIGIN, scale: Z_SCALE, trail: true, pointLabel: 'Z', point: swing,
+  zones: [ { type: 'mho', reach: 0.4, angle: 75, color: S.a, label: 'Z1' },
+           { type: 'mho', reach: 0.7, angle: 75, color: S.zero, label: 'Z2', dash: [6, 4] } ],
+});
+let ui13, t13 = 0;
+const notes = [
+  NS.Callout({ at: () => zpx(0.7 * Math.cos(75 * NS.calc.D2R), 0.7 * Math.sin(75 * NS.calc.D2R)),
+               text: 'Z2 reach — 70 % of the line', from: 'right', show: () => ui13.p.step >= 1 }),
+  NS.Callout({ at: () => { const p = swing(t13); return zpx(p.r, p.x); },
+               text: 'the swing crosses in', from: 'left', color: '#c9482f', show: () => ui13.p.step >= 2 }),
+  NS.Callout({ at: () => zpx(0, 0), text: 'relay location', from: 'below', gap: 40, show: () => ui13.p.step >= 3 }),
+];
+ui13 = NS.mount('#cv13', '#ctl13', { aspect: 0.55,
+  params: { step: { label: 'step', min: 0, max: 3, step: 1, value: 0 } },
+  view: (ctx, t) => { t13 = t; imp13.draw(ctx, t); notes.forEach(n => n.draw(ctx, t)); } });
 </script>
 </body>
 </html>

@@ -48,6 +48,20 @@
   .sc-tk .sc-go { font-weight: 600; color: var(--blue); font-size: .9rem; }
   .sc-tk:hover .sc-go { text-decoration: underline; }
   .sc-note { font-size: .84rem; color: #6b7278; margin-top: 18px; }
+  /* Featured / flagship card */
+  .tk-card.featured { border-color: #bcd7df; box-shadow: 0 2px 6px rgba(26,118,144,.10), 0 12px 34px rgba(33,35,39,.09); margin-top: 8px; }
+  .toolkit-figure img.shot { display: block; width: 100%; height: auto; max-width: 1040px; margin: 0 auto;
+    border: 1px solid #d3dde3; border-radius: 8px; box-shadow: 0 2px 10px rgba(33,35,39,.12); }
+  .feat-badge { display: inline-block; font-family: "IBM Plex Mono", Consolas, monospace; font-size: .66rem;
+    font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--blue);
+    border-radius: 5px; padding: 3px 9px; margin-bottom: 12px; }
+  .feat-lead { font-size: 1.06rem !important; color: #3c434b !important; max-width: 72ch; }
+  .feat-list { list-style: none; padding: 0; margin: 18px 0 24px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(292px, 1fr)); gap: 14px 28px; }
+  .feat-list li { font-size: .92rem; color: #4a525b; line-height: 1.5; padding-left: 15px; position: relative; }
+  .feat-list li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px;
+    border-radius: 2px; background: var(--blue); }
+  .feat-list b { color: var(--charcoal); font-weight: 600; }
   /* Toolkit library grid */
   .lib-section { border-top: 1px solid #e0e5eb; margin-top: 44px; padding-top: 34px; }
   .lib-cat { margin-top: 30px; }
@@ -114,6 +128,56 @@
     <p class="tk-intro">Free, interactive tools built by a practicing protection engineer to make the
       hard-to-picture parts of power systems tangible. They run entirely in your browser — nothing to
       install, nothing to sign up for.</p>
+
+    <article class="tk-card featured">
+      <div class="toolkit-figure">
+        <img class="shot" src="toolkits/assets/pfas-features.jpg" width="1500" height="729" loading="eager"
+          alt="Power System Fault Analysis app: an interactive one-line diagram with a live fault overlay and phasor scope, a fault-analysis panel for 3P/LG/LL/LLG faults, and a voltage-depression heatmap.">
+      </div>
+      <div class="toolkit-body">
+        <span class="feat-badge">Featured · Flagship application</span>
+        <h2>Power System Fault Analysis &amp; Protection</h2>
+        <p class="feat-lead">A full browser-based studies workbench for protection engineers and students. Build a
+          network on an interactive one-line diagram, then run fault, coordination, power-flow, arc-flash and
+          contingency studies against a server-grade analysis engine — all in one place. It's the most capable
+          tool on this site.</p>
+
+        <ul class="feat-list">
+          <li><b>Model the network.</b> Buses, generators, sources, transformers, lines, loads and impedances,
+            placed and wired on a drag-and-drop one-line with industry-standard parameters.</li>
+          <li><b>Fault analysis.</b> Symmetrical-component fault currents for three-phase, line-to-ground,
+            line-to-line and double-line-to-ground faults, with positive / negative / zero sequence networks,
+            bus voltages, and a live fault overlay on the diagram.</li>
+          <li><b>Relay coordination.</b> Overcurrent (50/51, 50N/51N), directional (67) and distance (21)
+            elements; IEEE/ANSI &amp; IEC curves; TCC plotting; automated coordination checks with CTI grading
+            and violation detection; and reach / protection-coverage sweeps.</li>
+          <li><b>Protection sequence.</b> Re-solves the clearing cascade with auto-reclose (79) and lockout (86),
+            played back on the one-line and a sequence timeline.</li>
+          <li><b>Power flow.</b> A Newton-Raphson solver (slack / PV / PQ) validated against the IEEE 14-bus
+            benchmark, overlaying per-bus V/θ and per-branch P/Q loading and seeding the pre-fault operating point.</li>
+          <li><b>Arc flash (IEEE 1584-2018).</b> Incident energy, arc-flash boundary and PPE category per
+            equipment, or a whole-system study with one row per bus.</li>
+          <li><b>N-1 contingency.</b> Outages every branch and source in turn and re-solves, ranking overloads,
+            voltage violations, islanding and dropped load — highlighted on the diagram.</li>
+          <li><b>Programmable logic.</b> A PLC-style structured-text scan engine whose Boolean variables drive
+            breaker trip/close equations, one scan per protection-sequence frame.</li>
+          <li><b>Teaching mode &amp; worksheets.</b> Step-by-step Thévenin reduction you can scrub, KaTeX hand-calc
+            sheets with printable reports, and a MATLAB-flavored script worksheet with phasor plots.</li>
+          <li><b>Phasors &amp; oscillography.</b> Animated bus voltages and branch currents from any solved case.</li>
+          <li><b>Live teacher mode.</b> Host a room with a 6-character code; students join and follow the same
+            diagram and analyses in real time, with control hand-off, presence cursors, a roster and chat.</li>
+          <li><b>Guided tutorials.</b> Self-driving narrated tours that build a plant, wire protection and run
+            each study — with "take the wheel" hand-offs so you can try a step yourself.</li>
+          <li><b>Projects.</b> JSON import/export, ready-to-open sample and teaching models, and a Git-friendly
+            file format.</li>
+        </ul>
+
+        <div class="toolkit-cta">
+          <a class="btn btn-primary" href="https://pfas.nerxpower.com" target="_blank" rel="noopener">Launch the application &rarr;</a>
+          <span class="note">Opens in a new tab · free to use · best on desktop</span>
+        </div>
+      </div>
+    </article>
 
     <article class="tk-card">
       <div class="toolkit-figure">

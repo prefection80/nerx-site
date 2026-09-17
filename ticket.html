@@ -20,6 +20,9 @@
     max-width: 680px;
   }
   .ticket-box label { font-weight: 600; display: block; margin-bottom: 8px; }
+  .code-jobs { margin: 10px 0 0 0; padding-left: 20px; }
+  .code-jobs li { margin-bottom: 8px; }
+  .code-hint { font-size: 0.92rem; color: #5f6368; margin: -4px 0 10px 0; }
   .code-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .code-row input {
     flex: 1; min-width: 220px;
@@ -256,17 +259,25 @@
   <div class="container">
     <div class="section-head">
       <div class="kicker">My Ticket</div>
-      <h2>Enter Your Ticket Code</h2>
+      <h2>Enter Your Ticket Code &mdash; Booking or PDH Certificate</h2>
       <p>When you pay for a session, a ticket code is sent to the email address you
-         submitted at checkout. That ticket is your seat — and it lets you change to a
-         different session after your payment is made. Enter it here, then click a session
-         on the calendar below to book or move your booking to a different track or date.
-         Changes close one hour before your session starts. The same code is how you
-         collect your PDH certificate after the class &mdash; see below.</p>
+         submitted at checkout. That one code does two jobs, and looking it up shows you
+         whichever one applies:</p>
+      <ul class="code-jobs">
+        <li><b>Before your class</b> &mdash; it is your seat. Look it up, then click a
+            session on the calendar below to book, or to move your booking to a different
+            track or date. Changes close one hour before your session starts.</li>
+        <li><b>After your class</b> &mdash; it is your certificate. Look up a code that
+            comes back marked <b>used</b> and a <b>Get My PDH Certificate</b> button
+            appears with your ticket. It asks for the name to print, then opens your
+            certificate to print or save as a PDF.</li>
+      </ul>
     </div>
 
     <div class="ticket-box">
       <label for="code">Ticket code</label>
+      <p class="code-hint">Enter it to book or reschedule a session &mdash; or, if you have
+         already attended, to collect your PDH certificate.</p>
       <div class="code-row">
         <input id="code" placeholder="NERX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
         <button class="btn btn-primary small" id="lookupBtn">Look Up</button>
@@ -274,12 +285,10 @@
       <div id="result" aria-live="polite"></div>
 
       <div class="howto" style="margin-top:18px">
-        <b>Getting your PDH certificate</b><br>
-        Your ticket code is also your certificate. Once your class has finished, enter the
-        code above and click <b>Look Up</b> &mdash; a <b>Get My PDH Certificate</b> button
-        appears on your ticket. It asks for the name to print (include your credentials if
-        you want them shown, for example <i>Jane Smith, P.E.</i>), then opens your
-        certificate ready to print or save as a PDF.
+        <b>More about your PDH certificate</b><br>
+        When you are asked for the name to print, enter it exactly as it should appear on
+        the certificate &mdash; include your credentials if you want them shown, for
+        example <i>Jane Smith, P.E.</i>
         <ul style="margin:8px 0 0 18px">
           <li>It unlocks once you have joined the class with the <b>Join Training</b>
               button and the session&rsquo;s end time has passed &mdash; usually within a

@@ -261,7 +261,8 @@
          submitted at checkout. That ticket is your seat — and it lets you change to a
          different session after your payment is made. Enter it here, then click a session
          on the calendar below to book or move your booking to a different track or date.
-         Changes close one hour before your session starts.</p>
+         Changes close one hour before your session starts. The same code is how you
+         collect your PDH certificate after the class &mdash; see below.</p>
     </div>
 
     <div class="ticket-box">
@@ -271,6 +272,25 @@
         <button class="btn btn-primary small" id="lookupBtn">Look Up</button>
       </div>
       <div id="result" aria-live="polite"></div>
+
+      <div class="howto" style="margin-top:18px">
+        <b>Getting your PDH certificate</b><br>
+        Your ticket code is also your certificate. Once your class has finished, enter the
+        code above and click <b>Look Up</b> &mdash; a <b>Get My PDH Certificate</b> button
+        appears on your ticket. It asks for the name to print (include your credentials if
+        you want them shown, for example <i>Jane Smith, P.E.</i>), then opens your
+        certificate ready to print or save as a PDF.
+        <ul style="margin:8px 0 0 18px">
+          <li>It unlocks once you have joined the class with the <b>Join Training</b>
+              button and the session&rsquo;s end time has passed &mdash; usually within a
+              few minutes of class wrapping up.</li>
+          <li>The name is saved with your ticket the first time, so every reprint matches.
+              Need it corrected? Email
+              <a href="mailto:douglas.millner@nerxpower.com?subject=Certificate%20name">douglas.millner@nerxpower.com</a>.</li>
+          <li>Come back with the same code any time you need another copy &mdash; there is
+              nothing to download or keep.</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
@@ -568,6 +588,31 @@ async function refreshSessions() {
 // ---------------- ticket ----------------
 function pill(status) { return '<span class="status-pill st-' + status + '">' + status + '</span>'; }
 
+/* PDH certificate: earned once the ticket has been used and the class has finished.
+   The server decides; this only surfaces its verdict and hands the code to the
+   certificate page through sessionStorage (never the URL). */
+function certBlock(t) {
+  const c = t.cert || {};
+  if (c.available) {
+    return '<div class="howto" style="margin-top:14px"><b>Your PDH certificate is ready.</b> ' +
+      (c.name ? 'It is made out to <b>' + esc(c.name) + '</b> — open it any time to print ' +
+                'another copy.'
+              : 'You will be asked for the name to print on it, then you can save it as a PDF.') +
+      '</div><button class="btn btn-primary small" id="certBtn" style="margin-top:10px">' +
+      (c.name ? 'View / Print My Certificate' : 'Get My PDH Certificate') + '</button>';
+  }
+  if (c.reason) {
+    return '<p class="meta" style="margin-top:12px"><b>PDH certificate:</b> ' +
+           esc(c.reason) + '</p>';
+  }
+  return '';
+}
+
+function openCertificate(code) {
+  try { sessionStorage.setItem('nerx_cert_code', code); } catch (e) {}
+  window.location.href = 'certificate.html';
+}
+
 function enterBookingMode(msg) {
   bookingMode = true;
   const b = $('#pickBanner');
@@ -597,6 +642,7 @@ async function renderTicket(code) {
               t.session.course_name + ' — ' + trackName(t.session) + ' track</b></p>' +
               '<p class="meta">' + describe(t.session) + '. Thanks for attending!</p>';
       if (t.link_available) html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
+      html += certBlock(t);
     } else if (t.status === 'booked') {
       html += '<p class="assign-yes">&#10004; This ticket IS assigned to a session:</p>' +
               '<p><b>' + t.session.course_name + ' — ' + trackName(t.session) + ' track</b><br>' +
@@ -637,6 +683,7 @@ async function renderTicket(code) {
       }
       catch (e) { box.insertAdjacentHTML('beforeend', '<p class="err">' + esc(e.message) + '</p>'); }
     };
+    if ($('#certBtn')) $('#certBtn').onclick = () => openCertificate(code);
     if ($('#rebookLink')) $('#rebookLink').onclick = (ev) => {
       ev.preventDefault();
       enterBookingMode('Rescheduling — click your new session on the calendar. Your current booking is highlighted in blue.');

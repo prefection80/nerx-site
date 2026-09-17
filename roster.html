@@ -178,7 +178,7 @@
         <p class="roster-summary" id="rosterSummary"></p>
         <table>
           <thead><tr><th>Student</th><th>Email</th><th>Code</th><th>Status</th>
-                     <th>Booked</th><th>Used</th><th>Actions</th></tr></thead>
+                     <th>Booked</th><th>Used</th><th>Certificate</th><th>Actions</th></tr></thead>
           <tbody id="rosterBody"></tbody>
         </table>
         <p id="rosterMsg"></p>
@@ -218,6 +218,12 @@
             <option value="closed">closed</option>
             <option value="cancelled">cancelled</option>
           </select>
+        </div>
+        <div class="flex" style="margin-top:10px">
+          <label for="ePdh" title="Credit printed on the attendee's certificate. Leave blank to use the class length.">PDH awarded</label>
+          <input id="ePdh" type="number" min="0" step="0.25" placeholder="auto" style="width:90px">
+          <label for="eSub" title="Italic line printed under the course title on the certificate">Certificate subtitle</label>
+          <input id="eSub" placeholder="Theory and application of…" style="flex:1;min-width:260px">
         </div>
         <div class="flex" style="margin-top:10px">
           <label for="eLink">Meeting link</label>
@@ -608,6 +614,16 @@ function renderUnassigned() {
   });
 }
 
+/* What the roster shows in the Certificate column: who it is made out to, or why
+   no certificate is available yet. */
+function certCell(t) {
+  if (t.cert_blocked) return '<span class="status-pill st-void">withheld</span>';
+  if (t.cert_name) return esc(t.cert_name) + '<br><span class="meta">issued ' +
+                           fmt(t.cert_issued_at) + '</span>';
+  if (t.cert_available) return '<span class="meta">ready — not downloaded</span>';
+  return '<span class="meta">—</span>';
+}
+
 // ---- session editor / dropdown -------------------------------------------
 function fillEditor() {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
@@ -619,6 +635,10 @@ function fillEditor() {
   $('#ePrice').value = s.price_usd.toFixed(2);
   $('#eStatus').value = s.status;
   $('#eLink').value = s.meeting_link || '';
+  // Blank = derive the PDH credit from the class length.
+  $('#ePdh').value = s.pdh_explicit ? s.pdh_hours : '';
+  $('#ePdh').placeholder = 'auto (' + ((s.duration_min || 90) / 60) + ')';
+  $('#eSub').value = s.course_subtitle || '';
 }
 
 async function loadSessions() {
@@ -641,7 +661,7 @@ async function loadSessions() {
 async function loadRoster() {
   const sid = $('#sessSel').value;
   const body = $('#rosterBody');
-  body.innerHTML = '<tr><td colspan="7">Loading…</td></tr>';
+  body.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
   try {
     const rows = await api('/admin/sessions/' + sid + '/roster');
     const n = (st) => rows.filter((r) => r.status === st).length;
@@ -651,14 +671,15 @@ async function loadRoster() {
         '</b> used (attended) &nbsp;·&nbsp; <b>' + n('void') + '</b> void' +
         (sess ? ' &nbsp;·&nbsp; ' + sess.seats_left + ' of ' + sess.capacity + ' seats open' : '')
       : 'No tickets on this session yet.';
-    body.innerHTML = rows.length ? '' : '<tr><td colspan="7">No bookings yet.</td></tr>';
+    body.innerHTML = rows.length ? '' : '<tr><td colspan="8">No bookings yet.</td></tr>';
     rows.forEach((t) => {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
         '</td><td class="mono">' + esc(t.code || t.code_hint) +
         '</td><td><span class="status-pill st-' + esc(t.status) + '">' +
         esc(t.status) + '</span></td><td>' + fmt(t.booked_at) +
-        '</td><td>' + fmt(t.used_at) + '</td><td class="row-actions"></td>';
+        '</td><td>' + fmt(t.used_at) + '</td><td>' + certCell(t) +
+        '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
       if (t.status === 'booked') {
         const useBtn = document.createElement('button');
@@ -685,6 +706,34 @@ async function loadRoster() {
             .catch((e) => alert(e.message));
         actions.appendChild(codeBtn);
       }
+      if (t.status === 'used' || t.cert_name || t.cert_blocked) {
+        const certBtn = document.createElement('button');
+        certBtn.className = 'btn btn-outline tiny';
+        certBtn.textContent = t.cert_blocked ? 'Allow Cert' : 'Withhold Cert';
+        certBtn.title = t.cert_blocked
+          ? 'Let this student download their PDH certificate again'
+          : 'Block this student from downloading a PDH certificate';
+        certBtn.onclick = () => api('/admin/tickets/' + t.ticket_id + '/certificate',
+            {method: 'POST', body: JSON.stringify({blocked: !t.cert_blocked})})
+          .then(loadRoster).catch((e) => alert(e.message));
+        actions.appendChild(certBtn);
+
+        if (t.cert_name) {
+          const fixBtn = document.createElement('button');
+          fixBtn.className = 'btn btn-outline tiny'; fixBtn.textContent = 'Cert Name';
+          fixBtn.title = 'Correct the name printed on the certificate (blank lets the ' +
+                         'student enter it again)';
+          fixBtn.onclick = () => {
+            const v = prompt('Name printed on ' + t.buyer_email + '\u2019s certificate:',
+                             t.cert_name);
+            if (v === null) return;
+            api('/admin/tickets/' + t.ticket_id + '/certificate',
+                {method: 'POST', body: JSON.stringify({name: v})})
+              .then(loadRoster).catch((e) => alert(e.message));
+          };
+          actions.appendChild(fixBtn);
+        }
+      }
       if (t.status === 'booked' || t.status === 'used') {
         const relBtn = document.createElement('button');
         relBtn.className = 'btn btn-outline tiny'; relBtn.textContent = 'Release';
@@ -706,7 +755,7 @@ async function loadRoster() {
       }
       body.appendChild(tr);
     });
-  } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + esc(e.message) + '</td></tr>'; }
+  } catch (e) { body.innerHTML = '<tr><td colspan="8" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 
 // ---- wiring ---------------------------------------------------------------
@@ -797,7 +846,9 @@ $('#eSave').onclick = async () => {
       duration_min: parseInt($('#eMins').value, 10) || 90,
       price_usd: parseFloat($('#ePrice').value),
       status: $('#eStatus').value,
-      meeting_link: $('#eLink').value.trim() || null })});
+      meeting_link: $('#eLink').value.trim() || null,
+      pdh_hours: $('#ePdh').value.trim() === '' ? null : parseFloat($('#ePdh').value),
+      course_subtitle: $('#eSub').value.trim() || null })});
     let msg = 'Saved.';
     if (r.released) msg += ' ' + r.released + ' ticket(s) released back to their holders.';
     if (r.notified) msg += ' ' + r.notified + ' student(s) emailed about the change.';

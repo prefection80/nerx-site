@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your PDH Certificate — NERX Power Consultants</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    --ink:#1b2a41;          /* deep engraver's navy */
+    --ink-soft:#3d4f66;
+    --gold:#a67c2e;         /* old gold */
+    --gold-deep:#7d5b1d;
+    --parchment:#fdfbf4;
+    --rule:#8a7647;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{ background:#4a4f57; font-family:Georgia,'Times New Roman',serif; }
+
+  /* ---------- Screen control bar (never prints) ---------- */
+  .toolbar{
+    max-width:11in; margin:0 auto; padding:14px 18px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+    color:#e8e8e8; font-family:Verdana,Arial,sans-serif; font-size:13px;
+  }
+  .toolbar .hint{ opacity:.85; }
+  .toolbar button{
+    font-family:inherit; font-size:13px; padding:7px 16px; cursor:pointer;
+    background:#e8e0cc; color:#1b2a41; border:1px solid #a67c2e; border-radius:3px;
+  }
+  .toolbar button:hover{ background:#f5efdd; }
+  .toolbar label{ display:flex; gap:5px; align-items:center; cursor:pointer; }
+
+  /* ---------- Certificate sheet: exactly 11 x 8.5 in ---------- */
+  .sheet{
+    width:11in; height:8.5in; margin:0 auto 40px auto;
+    background:var(--parchment);
+    position:relative;
+    box-shadow:0 6px 30px rgba(0,0,0,.45);
+    color:var(--ink);
+  }
+
+  /* Engraved double border */
+  .frame-outer{
+    position:absolute; inset:0.28in;
+    border:3px solid var(--ink);
+  }
+  .frame-gold{
+    position:absolute; inset:0.36in;
+    border:1px solid var(--gold);
+  }
+  .frame-inner{
+    position:absolute; inset:0.44in;
+    border:1px solid var(--ink);
+  }
+  /* corner ornaments */
+  .corner{ position:absolute; width:0.52in; height:0.52in; }
+  .corner svg{ width:100%; height:100%; display:block; }
+  .c-tl{ top:0.30in; left:0.30in; }
+  .c-tr{ top:0.30in; right:0.30in; transform:scaleX(-1); }
+  .c-bl{ bottom:0.30in; left:0.30in; transform:scaleY(-1); }
+  .c-br{ bottom:0.30in; right:0.30in; transform:scale(-1,-1); }
+
+  .content{
+    position:absolute; inset:0.62in;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:0.22in 0.55in 0.18in 0.55in;
+  }
+
+  .provider{
+    font-family:Verdana,Arial,sans-serif;
+    font-size:10.5pt; letter-spacing:0.32em; text-transform:uppercase;
+    color:var(--ink); font-weight:bold;
+  }
+  .provider-sub{
+    font-size:8.5pt; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--ink-soft); margin-top:4px; font-family:Verdana,Arial,sans-serif;
+  }
+
+  .cert-title{
+    margin-top:0.16in;
+    font-size:34pt; font-weight:normal; letter-spacing:0.10em;
+    color:var(--ink);
+    font-variant:small-caps;
+  }
+  .cert-title-rule{
+    width:3.2in; height:14px; margin-top:2px;
+  }
+
+  .presented{
+    margin-top:0.10in; font-style:italic; font-size:12pt; color:var(--ink-soft);
+  }
+
+  .attendee{
+    margin-top:0.06in;
+    font-size:26pt; letter-spacing:0.03em; color:var(--ink);
+    min-width:4.5in; padding:0 0.2in 2px 0.2in;
+    border-bottom:1px solid var(--rule);
+  }
+
+  .completed-line{
+    margin-top:0.12in; font-style:italic; font-size:12pt; color:var(--ink-soft);
+    line-height:1.5;
+  }
+
+  .course{
+    margin-top:0.05in;
+    font-size:19pt; font-variant:small-caps; letter-spacing:0.06em;
+    color:var(--gold-deep); font-weight:bold;
+  }
+  .course-sub{
+    font-size:10.5pt; font-style:italic; color:var(--ink-soft); margin-top:3px;
+  }
+
+  .hours-line{
+    margin-top:0.13in; font-size:12.5pt; color:var(--ink); line-height:1.5;
+  }
+  .hours-num{
+    font-size:15pt; font-weight:bold; padding:0 4px 1px 4px;
+    border-bottom:1px solid var(--rule);
+  }
+
+  /* ---------- bottom row: date | seal | signature ---------- */
+  .bottom{
+    margin-top:auto;
+    width:100%;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:0.3in;
+  }
+  .sig-block{ width:3.1in; text-align:center; }
+  .sig-line{
+    border-bottom:1px solid var(--ink);
+    font-size:13pt; padding-bottom:3px; min-height:0.32in;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sig-script{ font-style:italic; font-size:16pt; }
+  .signature{ height:0.52in; width:auto; display:block; margin:0 auto -3px auto; overflow:visible; }
+  .sig-caption{
+    margin-top:5px; font-family:Verdana,Arial,sans-serif;
+    font-size:8pt; letter-spacing:0.10em; text-transform:uppercase; color:var(--ink-soft);
+  }
+
+  .seal-block{ text-align:center; flex:0 0 auto; }
+  .seal-block svg{ width:1.45in; height:auto; display:block; margin:0 auto; }
+  .cert-no{
+    margin-top:4px; font-family:Verdana,Arial,sans-serif;
+    font-size:7.5pt; letter-spacing:0.08em; color:var(--ink-soft);
+  }
+
+  .footer-note{
+    margin-top:0.10in;
+    font-family:Verdana,Arial,sans-serif;
+    font-size:7pt; letter-spacing:0.05em; color:var(--ink-soft);
+  }
+
+  /* ---------- print ---------- */
+  @page{ size:11in 8.5in; margin:0; }
+  @media print{
+    html,body{ background:#fff; }
+    .toolbar{ display:none !important; }
+    .sheet{ margin:0; box-shadow:none; page-break-inside:avoid; page-break-after:always; }
+    .sheet:last-child{ page-break-after:auto; }
+  }
+
+
+  /* ---------- app shell (screen only) ---------- */
+  .appbar{
+    max-width:11in; margin:0 auto; padding:16px 18px 0 18px;
+    font-family:Verdana,Arial,sans-serif; color:#e8e8e8; font-size:13px;
+  }
+  .appbar a{ color:#e8e0cc; }
+  .appbar .brand{ font-weight:bold; letter-spacing:.18em; text-transform:uppercase; }
+  .gate{
+    max-width:640px; margin:18px auto 40px auto; padding:22px 24px;
+    background:#fdfbf4; border-radius:4px; box-shadow:0 6px 30px rgba(0,0,0,.35);
+    font-family:Verdana,Arial,sans-serif; color:#1b2a41; font-size:14px; line-height:1.55;
+  }
+  .gate h1{ font-family:Georgia,serif; font-size:22px; margin-bottom:10px; font-weight:normal; }
+  .gate p{ margin-bottom:12px; }
+  .gate label{ display:block; font-size:12px; letter-spacing:.08em;
+    text-transform:uppercase; color:#3d4f66; margin-bottom:5px; }
+  .gate input{
+    width:100%; font-family:inherit; font-size:15px; padding:10px 12px;
+    border:1px solid #a67c2e; border-radius:3px; background:#fff; color:#1b2a41;
+  }
+  .gate .row{ margin-bottom:14px; }
+  .gate .btn{
+    font-family:inherit; font-size:14px; padding:10px 20px; cursor:pointer;
+    background:#1b2a41; color:#fdfbf4; border:1px solid #1b2a41; border-radius:3px;
+  }
+  .gate .btn:hover{ background:#2b3f5e; }
+  .gate .btn.ghost{ background:transparent; color:#1b2a41; border-color:#a67c2e; }
+  .gate .note{ font-size:12.5px; color:#3d4f66; }
+  .gate .err{ color:#9c2b1f; font-size:13px; margin-top:10px; }
+  .gate .ok{ color:#2f6b42; font-size:13px; margin-top:10px; }
+  .gate .locked{ background:#f3eedd; border-left:3px solid #a67c2e;
+    padding:10px 14px; margin-bottom:14px; }
+  .certbar{
+    max-width:11in; margin:0 auto; padding:14px 18px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+    color:#e8e8e8; font-family:Verdana,Arial,sans-serif; font-size:13px;
+  }
+  .certbar button{
+    font-family:inherit; font-size:13px; padding:8px 18px; cursor:pointer;
+    background:#e8e0cc; color:#1b2a41; border:1px solid #a67c2e; border-radius:3px;
+  }
+  .certbar button:hover{ background:#f5efdd; }
+  .certbar .hint{ opacity:.85; }
+  [hidden]{ display:none !important; }
+
+  /* the 11in sheet is scaled down to fit narrow screens (screen only) */
+  .scale-wrap{ transform-origin:top left; }
+  @media screen{ html,body{ overflow-x:hidden; } }
+  @media print{
+    .appbar, .gate, .certbar{ display:none !important; }
+    .scale-wrap{ transform:none !important; height:auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <span class="brand">NERX Power Consultants</span> &nbsp;·&nbsp;
+  <a href="ticket.html">&larr; My Ticket</a>
+</div>
+
+<!-- Step 1: identify the ticket / collect the attendee's name -->
+<div class="gate" id="gate">
+  <h1 id="gateTitle">Your PDH Certificate</h1>
+  <div id="gateBody"><p class="note">Checking your ticket&hellip;</p></div>
+</div>
+
+<!-- Step 2: the certificate itself -->
+<div class="certbar" id="certbar" hidden>
+  <button id="printBtn">&#128424;&nbsp; Print / Save as PDF</button>
+  <button id="againBtn" class="ghost">Look up a different ticket</button>
+  <span class="hint">In the print dialog choose <b>Landscape</b>, paper size Letter,
+    margins None.</span>
+</div>
+
+<div class="scale-wrap" id="sheetWrap" hidden>
+<div class="sheet">
+
+  <div class="frame-outer"></div>
+  <div class="frame-gold"></div>
+  <div class="frame-inner"></div>
+
+  <!-- corner ornaments -->
+  <div class="corner c-tl"><svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 48 L2 14 Q2 2 14 2 L48 2" fill="none" stroke="#a67c2e" stroke-width="2"/>
+    <path d="M8 48 L8 18 Q8 8 18 8 L48 8" fill="none" stroke="#1b2a41" stroke-width="1"/>
+    <circle cx="8" cy="8" r="2.4" fill="#a67c2e"/>
+  </svg></div>
+  <div class="corner c-tr"><svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 48 L2 14 Q2 2 14 2 L48 2" fill="none" stroke="#a67c2e" stroke-width="2"/>
+    <path d="M8 48 L8 18 Q8 8 18 8 L48 8" fill="none" stroke="#1b2a41" stroke-width="1"/>
+    <circle cx="8" cy="8" r="2.4" fill="#a67c2e"/>
+  </svg></div>
+  <div class="corner c-bl"><svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 48 L2 14 Q2 2 14 2 L48 2" fill="none" stroke="#a67c2e" stroke-width="2"/>
+    <path d="M8 48 L8 18 Q8 8 18 8 L48 8" fill="none" stroke="#1b2a41" stroke-width="1"/>
+    <circle cx="8" cy="8" r="2.4" fill="#a67c2e"/>
+  </svg></div>
+  <div class="corner c-br"><svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 48 L2 14 Q2 2 14 2 L48 2" fill="none" stroke="#a67c2e" stroke-width="2"/>
+    <path d="M8 48 L8 18 Q8 8 18 8 L48 8" fill="none" stroke="#1b2a41" stroke-width="1"/>
+    <circle cx="8" cy="8" r="2.4" fill="#a67c2e"/>
+  </svg></div>
+
+  <div class="content">
+
+    <div class="provider">NERX&nbsp;Power&nbsp;Consultants&nbsp;LLC</div>
+    <div class="provider-sub">Protective Relaying &nbsp;·&nbsp; Power System Protection &nbsp;·&nbsp; NERC Compliance &nbsp;·&nbsp; Houston, Texas</div>
+
+    <div class="cert-title">Certificate of Completion</div>
+    <svg class="cert-title-rule" viewBox="0 0 320 14" xmlns="http://www.w3.org/2000/svg">
+      <line x1="0" y1="7" x2="130" y2="7" stroke="#a67c2e" stroke-width="1"/>
+      <line x1="190" y1="7" x2="320" y2="7" stroke="#a67c2e" stroke-width="1"/>
+      <path d="M160 1 L166 7 L160 13 L154 7 Z" fill="none" stroke="#a67c2e" stroke-width="1"/>
+      <circle cx="160" cy="7" r="1.6" fill="#a67c2e"/>
+    </svg>
+
+    <div class="presented">This certifies that</div>
+
+    <div class="attendee" id="fName"></div>
+
+    <div class="completed-line">has successfully completed the continuing education course</div>
+
+    <div class="course" id="fCourse"></div>
+    <div class="course-sub" id="fSub"></div>
+
+    <div class="hours-line">
+      and is hereby awarded
+      <span class="hours-num" id="fHours"></span>
+      <b><span class="unit-abbr">PDH</span></b>
+      (<span class="unit-full">Professional Development Hours</span>)
+      of technical instruction
+    </div>
+
+    <div class="bottom">
+      <div class="sig-block">
+        <div class="sig-line"><span id="fDate"></span></div>
+        <div class="sig-caption">Date of Completion</div>
+      </div>
+
+      <div class="seal-block">
+        <!-- NERX brand seal: scalloped rosette with ribbon tails -->
+        <svg viewBox="0 0 200 246" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <path id="ringTop" d="M 100,100 m -74,0 a 74,74 0 1,1 148,0"/>
+            <path id="ringBot" d="M 100,100 m -74,0 a 74,74 0 1,0 148,0"/>
+          </defs>
+
+          <!-- ribbon tails (behind medallion) -->
+          <g stroke="#1f6e88" stroke-width="1" stroke-linejoin="round">
+            <path d="M89 145 L111 145 L108 226 L100 210 L92 228 Z" transform="rotate(-18 100 140)" fill="#2f90af"/>
+            <path d="M89 145 L111 145 L108 228 L100 210 L92 226 Z" transform="rotate(18 100 140)" fill="#2f90af"/>
+            <path d="M89 145 L111 145 L109 168 L91 168 Z" transform="rotate(-18 100 140)" fill="#256f87"/>
+            <path d="M89 145 L111 145 L109 168 L91 168 Z" transform="rotate(18 100 140)" fill="#256f87"/>
+          </g>
+
+          <!-- medallion field to mask ribbons behind seal -->
+          <circle cx="100" cy="100" r="93" fill="#fdfbf4"/>
+
+          <!-- scalloped embossed edge -->
+          <path d="M100.0 9.5 Q108.5 2.9 115.7 10.9 Q125.2 5.8 131.0 15.0 Q141.2 11.6 145.2 21.6 Q155.9 20.1 158.2 30.7 Q168.9 31.1 169.3 41.8 Q179.9 44.1 178.4 54.8 Q188.4 58.8 185.0 69.0 Q194.2 74.8 189.1 84.3 Q197.1 91.5 190.5 100.0 Q197.1 108.5 189.1 115.7 Q194.2 125.2 185.0 131.0 Q188.4 141.2 178.4 145.2 Q179.9 155.9 169.3 158.2 Q168.9 168.9 158.2 169.3 Q155.9 179.9 145.3 178.4 Q141.2 188.4 131.0 185.0 Q125.2 194.2 115.7 189.1 Q108.5 197.1 100.0 190.5 Q91.5 197.1 84.3 189.1 Q74.8 194.2 69.0 185.0 Q58.8 188.4 54.7 178.4 Q44.1 179.9 41.8 169.3 Q31.1 168.9 30.7 158.2 Q20.1 155.9 21.6 145.3 Q11.6 141.2 15.0 131.0 Q5.8 125.2 10.9 115.7 Q2.9 108.5 9.5 100.0 Q2.9 91.5 10.9 84.3 Q5.8 74.8 15.0 69.0 Q11.6 58.8 21.6 54.8 Q20.1 44.1 30.7 41.8 Q31.1 31.1 41.8 30.7 Q44.1 20.1 54.8 21.6 Q58.8 11.6 69.0 15.0 Q74.8 5.8 84.3 10.9 Q91.5 2.9 100.0 9.5 Z"
+                fill="none" stroke="#2f90af" stroke-width="2.4"/>
+          <circle cx="100" cy="100" r="86.5" fill="none" stroke="#2f90af" stroke-width="1"/>
+
+          <!-- inner double ring -->
+          <circle cx="100" cy="100" r="64" fill="none" stroke="#2f90af" stroke-width="1.3"/>
+          <circle cx="100" cy="100" r="61" fill="none" stroke="#2f90af" stroke-width="0.7"/>
+
+          <!-- ring text with diamond separators -->
+          <text font-family="Verdana,Arial,sans-serif" font-size="11.5" letter-spacing="2.5" fill="#1f6e88" font-weight="bold">
+            <textPath href="#ringTop" startOffset="50%" text-anchor="middle">CONTINUING EDUCATION</textPath>
+          </text>
+          <text font-family="Verdana,Arial,sans-serif" font-size="10" letter-spacing="3" fill="#1f6e88">
+            <textPath href="#ringBot" startOffset="50%" text-anchor="middle">HOUSTON, TEXAS</textPath>
+          </text>
+          <path d="M25 96 L29 100 L25 104 L21 100 Z" fill="#2f90af"/>
+          <path d="M175 96 L179 100 L175 104 L171 100 Z" fill="#2f90af"/>
+
+          <!-- radial burst fringe inside inner ring -->
+          <path d="M145.0 100.0L158.0 100.0M144.6 105.9L157.5 107.6M143.5 111.6L156.0 115.0M141.6 117.2L153.6 122.2M139.0 122.5L150.2 129.0M135.7 127.4L146.0 135.3M131.8 131.8L141.0 141.0M127.4 135.7L135.3 146.0M122.5 139.0L129.0 150.2M117.2 141.6L122.2 153.6M111.6 143.5L115.0 156.0M105.9 144.6L107.6 157.5M100.0 145.0L100.0 158.0M94.1 144.6L92.4 157.5M88.4 143.5L85.0 156.0M82.8 141.6L77.8 153.6M77.5 139.0L71.0 150.2M72.6 135.7L64.7 146.0M68.2 131.8L59.0 141.0M64.3 127.4L54.0 135.3M61.0 122.5L49.8 129.0M58.4 117.2L46.4 122.2M56.5 111.6L44.0 115.0M55.4 105.9L42.5 107.6M55.0 100.0L42.0 100.0M55.4 94.1L42.5 92.4M56.5 88.4L44.0 85.0M58.4 82.8L46.4 77.8M61.0 77.5L49.8 71.0M64.3 72.6L54.0 64.7M68.2 68.2L59.0 59.0M72.6 64.3L64.7 54.0M77.5 61.0L71.0 49.8M82.8 58.4L77.8 46.4M88.4 56.5L85.0 44.0M94.1 55.4L92.4 42.5M100.0 55.0L100.0 42.0M105.9 55.4L107.6 42.5M111.6 56.5L115.0 44.0M117.2 58.4L122.2 46.4M122.5 61.0L129.0 49.8M127.4 64.3L135.3 54.0M131.8 68.2L141.0 59.0M135.7 72.6L146.0 64.7M139.0 77.5L150.2 71.0M141.6 82.8L153.6 77.8M143.5 88.4L156.0 85.0M144.6 94.1L157.5 92.4"
+                transform="rotate(3.75 100 100)" stroke="#2f90af" stroke-width="0.7" opacity="0.35"/>
+          <circle cx="100" cy="100" r="43" fill="#fdfbf4"/>
+
+          <!-- center wordmark: // NERX (constrained to fit inner ring) -->
+          <path d="M52 103 L57.5 86 L63 86 L57.5 103 Z" fill="#2f90af"/>
+          <path d="M61.5 103 L67 86 L72.5 86 L67 103 Z" fill="#2f90af"/>
+          <text x="76.5" y="103" font-family="'Arial Black','Arial Bold',Arial,sans-serif"
+                font-size="24" font-style="italic" font-weight="900"
+                textLength="71" lengthAdjust="spacingAndGlyphs"
+                fill="none" stroke="#1b2a41" stroke-width="1.5" stroke-linejoin="round">NERX</text>
+          <path d="M64 111 L136 111" stroke="#2f90af" stroke-width="0.8"/>
+          <text x="100" y="123" text-anchor="middle"
+                font-family="Verdana,Arial,sans-serif" font-size="9" font-weight="bold"
+                letter-spacing="0.5" fill="#2f90af">Power Consultants</text>
+        </svg>
+        <div class="cert-no">CERTIFICATE NO. <span id="fCertNo"></span></div>
+      </div>
+
+      <div class="sig-block">
+        <div class="sig-line">
+          <!-- Hand-drawn cursive signature: Douglas Millner, P.E. -->
+          <svg class="signature" viewBox="0 0 400 84" xmlns="http://www.w3.org/2000/svg" aria-label="Douglas Millner signature">
+            <path d="M53.92 34.69Q53.92 37.64 51.54 41.81Q49.16 45.98 45.43 49.86Q41.70 53.74 36.40 56.49Q31.10 59.23 26.00 59.28Q25.70 59.28 25.04 59.01Q24.38 58.74 23.93 58.35Q22.85 57.32 22.85 55.31Q23.20 53.49 24.38 52.36Q24.77 51.97 24.77 51.87H24.72Q24.62 51.87 24.23 52.12L15.35 58.74Q14.46 59.73 13.63 59.73Q13.38 59.73 13.09 59.58L11.91 58.45Q11.76 58.35 11.76 57.93Q11.76 57.52 12.25 56.58Q12.74 55.65 14.27 53.42Q15.79 51.18 18.66 47.45Q21.53 43.72 26.12 39.18Q30.71 34.64 35.86 30.82Q36.89 29.83 37.83 29.83Q38.07 29.83 38.66 30.18Q39.44 30.57 39.44 30.96Q39.44 31.36 39.20 31.55L35.76 34.89Q23.69 47.36 20.45 51.82Q20.06 52.26 20.06 52.44Q20.06 52.61 20.18 52.61Q20.30 52.61 20.45 52.46Q24.33 49.86 28.99 47.70Q29.33 47.50 29.60 47.50Q29.87 47.50 30.02 47.70L30.95 48.83Q31.15 49.12 31.15 49.39Q31.15 49.66 30.95 49.81L30.41 50.40Q27.52 53.25 27.42 54.03Q27.47 54.28 27.66 54.28Q30.56 54.28 36.21 50.79Q41.85 47.31 46.51 42.52Q51.18 37.74 51.18 34.59Q51.18 33.52 50.07 32.39Q48.97 31.26 47.74 30.57Q44.70 28.95 40.18 28.95Q35.67 28.95 31.54 29.96Q27.42 30.96 24.25 32.44Q21.09 33.91 18.51 35.55Q15.93 37.20 14.56 38.55Q13.19 39.90 13.19 40.53Q13.19 40.68 13.33 40.68Q14.85 40.68 19.10 38.57Q23.35 36.46 24.72 35.13Q25.95 34.25 26.29 34.25Q26.49 34.25 26.49 34.62Q26.49 34.99 25.85 35.92Q25.21 36.85 23.98 38.15Q22.76 39.45 21.28 40.71Q19.81 41.96 17.90 42.84Q15.98 43.72 14.51 43.72Q13.04 43.72 11.42 42.42Q9.80 41.12 9.80 39.16Q9.80 35.28 14.76 31.75Q19.71 28.21 26.27 26.30Q32.82 24.39 37.43 24.39Q42.05 24.39 44.99 25.27Q47.94 26.15 49.53 27.38Q51.13 28.61 52.21 30.18Q53.78 32.53 53.92 34.69Z M52.55 53.84Q54.12 53.84 56.43 51.77Q58.73 49.71 58.83 48.93Q58.24 48.44 57.58 47.14Q56.92 45.83 56.87 45.83Q55.35 47.26 54.17 49.12Q52.30 52.26 52.30 53.44Q52.30 53.84 52.55 53.84ZM63.15 41.81Q62.66 41.81 61.11 43.33Q59.57 44.85 59.57 45.44Q59.57 45.59 59.86 46.03Q60.16 46.47 60.30 46.47Q61.14 46.47 62.19 44.46Q63.25 42.45 63.25 42.13Q63.25 41.81 63.15 41.81ZM63.25 48.14Q64.62 48.14 67.54 46.47Q70.47 44.80 72.67 43.14L74.88 41.42Q75.32 41.76 75.32 42.25Q75.32 42.74 74.88 43.14Q66.78 50.64 62.61 50.64Q62.32 50.64 61.73 50.55Q56.18 56.98 52.21 56.98Q49.56 56.58 48.87 55.11Q48.48 54.38 48.48 53.25Q48.48 50.01 52.21 45.52Q55.94 41.02 61.58 38.91Q62.07 38.91 62.32 39.14Q62.56 39.36 62.76 39.38Q62.96 39.40 63.27 39.18Q63.59 38.96 64.13 38.94Q64.67 38.91 65.26 39.55Q66.05 40.19 66.05 41.12Q66.05 43.87 63.25 48.14Z M78.81 51.63Q86.12 47.70 94.91 41.17Q95.35 41.52 95.35 42.01Q95.35 42.50 94.86 42.94Q94.37 43.38 93.46 44.22Q92.55 45.05 90.00 47.21Q87.45 49.37 85.24 51.14Q79.45 55.80 76.70 56.63Q75.82 56.88 74.78 56.88Q73.12 56.88 73.12 54.28Q73.12 53.74 73.58 52.66Q74.05 51.58 74.12 51.41Q74.20 51.23 74.24 51.14Q74.29 51.04 74.34 50.96Q74.39 50.89 74.39 50.79Q74.39 50.69 74.10 50.69Q73.85 50.69 72.48 51.99Q71.10 53.30 70.20 54.08Q69.29 54.87 68.13 55.55Q66.98 56.24 66.24 56.24Q64.28 56.24 64.28 54.42Q64.28 53.34 65.02 51.77Q66.73 48.14 70.17 44.51Q73.61 40.88 75.08 40.83Q75.62 40.83 76.06 41.22Q76.50 41.61 76.50 42.10Q76.50 42.60 75.52 43.58Q74.54 44.56 73.04 46.10Q71.54 47.65 70.93 48.68Q70.32 49.71 70.32 50.06Q70.32 50.40 70.71 50.40Q71.10 50.40 72.13 49.76Q74.93 47.85 78.54 45.05Q82.15 42.25 83.18 40.98Q83.42 40.09 84.65 40.09Q87.01 40.09 87.01 40.93Q87.01 41.27 84.70 43.48Q77.78 50.11 77.78 51.68Q77.78 51.92 78.00 51.92Q78.22 51.92 78.81 51.63Z M76.50 74.35Q75.47 74.35 74.44 73.91Q72.48 73.08 72.48 70.82Q72.48 67.97 77.80 64.12Q83.13 60.27 85.73 60.27Q86.12 60.27 86.12 60.41Q86.12 60.56 85.63 60.90Q81.41 63.80 77.95 67.16Q74.49 70.52 74.49 71.95Q74.49 72.14 74.78 72.14Q75.08 72.14 76.06 71.51Q78.42 69.84 82.74 65.42Q87.50 60.12 88.58 58.65Q90.49 56.04 93.14 53.25L94.12 52.22Q94.17 52.12 94.27 52.02Q94.37 51.92 94.52 51.68Q94.91 51.04 94.86 51.04Q94.71 51.04 94.22 51.53Q93.73 52.02 92.82 52.88Q91.91 53.74 89.75 55.19Q87.60 56.63 86.27 56.63Q84.94 56.63 84.21 55.75Q83.47 54.87 83.47 53.86Q83.47 52.85 84.75 50.84Q86.02 48.83 88.09 46.47Q90.15 44.12 93.41 42.10Q96.68 40.09 100.11 39.70Q102.12 40.14 102.71 41.12Q102.81 41.07 103.11 41.07Q103.40 41.07 104.11 41.64Q104.82 42.20 104.82 42.67Q104.82 43.14 104.41 43.53Q103.99 43.92 99.82 49.54Q95.64 55.16 94.20 57.27Q92.75 59.38 92.16 60.34Q91.57 61.30 89.73 63.75Q87.89 66.20 86.02 68.19Q84.16 70.18 81.53 72.02Q78.91 73.86 76.50 74.35ZM88.87 52.02Q90.15 51.92 93.31 49.66Q96.48 47.41 99.06 45.15Q101.63 42.89 101.63 42.55Q101.63 42.45 101.44 42.45Q98.88 42.99 95.74 45.15Q92.60 47.31 90.64 49.32Q88.67 51.33 88.67 51.87Q88.67 52.02 88.87 52.02Z M107.08 52.76Q108.70 52.76 113.49 49.86Q118.27 46.96 122.20 44.07L126.17 41.17Q126.62 41.52 126.62 42.01Q126.62 42.50 126.13 42.94Q125.63 43.38 124.73 44.22Q123.82 45.05 121.27 47.21Q118.71 49.37 116.50 51.14Q110.71 55.80 107.96 56.63Q107.08 56.88 106.15 56.88Q105.22 56.88 104.68 56.73Q104.14 56.58 103.50 56.09Q102.22 55.01 102.22 51.28Q102.22 50.25 103.11 48.14Q103.99 46.03 106.03 43.04Q108.06 40.04 110.79 37.05Q113.51 34.05 117.71 31.06Q121.90 28.07 126.67 26.20Q127.40 25.96 127.99 25.96Q128.58 25.96 129.07 26.47Q129.56 26.99 129.76 27.53L130.00 28.02Q130.00 29.15 126.52 32.98Q122.93 36.95 118.25 40.56Q113.56 44.17 109.54 46.72Q106.25 48.88 106.25 51.23Q106.25 52.76 107.08 52.76ZM111.50 42.60Q112.73 42.60 118.93 36.56Q125.14 30.52 125.14 29.83L125.09 29.74L124.26 30.13Q121.71 31.80 117.46 35.82Q113.22 39.85 111.60 42.10Q111.40 42.35 111.40 42.47Q111.40 42.60 111.50 42.60Z M125.39 53.93 125.78 50.79Q125.78 50.64 125.71 50.64Q125.63 50.64 125.44 50.84Q124.80 51.53 123.82 52.53Q122.84 53.54 120.46 55.23Q118.08 56.93 116.60 56.93Q116.36 56.88 115.99 56.76Q115.62 56.63 115.03 55.95Q114.44 55.26 114.44 53.98Q114.44 52.71 116.38 50.08Q118.32 47.45 121.02 44.93Q123.72 42.40 127.03 40.53Q130.35 38.67 132.80 38.67Q133.73 38.72 134.27 39.99Q134.76 39.50 135.16 39.50Q135.55 39.50 136.09 40.09Q136.38 40.14 136.68 40.41Q136.97 40.68 136.97 41.17Q136.97 41.66 136.29 42.25Q135.25 43.53 133.88 45.15Q132.51 46.77 131.92 47.48Q131.33 48.19 130.69 49.07Q129.61 50.60 129.51 51.53Q134.52 49.12 145.27 41.17Q145.71 41.52 145.71 42.01Q145.71 42.50 145.32 42.84Q144.92 43.18 144.36 43.68Q143.80 44.17 142.13 45.59Q140.46 47.01 138.91 48.31Q137.37 49.61 135.38 51.21Q133.39 52.80 131.82 53.93Q128.04 56.63 127.11 56.63Q126.17 56.63 125.78 56.04Q125.39 55.46 125.39 53.93ZM120.38 51.87Q120.97 51.87 123.99 49.47Q127.01 47.06 129.71 44.66L132.46 42.25Q132.65 42.06 132.65 41.98Q132.65 41.91 132.51 41.91Q130.64 41.91 127.65 44.04Q124.65 46.18 122.47 48.56Q120.28 50.94 120.28 51.77Q120.28 51.87 120.38 51.87Z M147.62 42.69Q147.62 42.35 147.11 42.35Q146.59 42.35 145.91 42.89L139.48 47.85Q138.79 48.24 137.91 48.24Q137.02 48.24 137.02 47.60Q137.02 47.16 137.14 47.01Q137.27 46.87 137.86 46.52Q141.49 44.02 147.77 38.37Q148.51 37.39 149.10 37.39Q149.69 37.39 151.06 37.76Q152.43 38.13 152.43 38.62Q152.43 41.56 151.89 43.97Q151.35 46.37 150.79 47.63Q150.22 48.88 150.22 48.98Q150.22 49.07 150.32 49.07Q150.42 49.07 150.72 48.93Q154.40 47.06 160.09 42.84L161.27 41.96Q161.71 42.30 161.71 42.79Q161.71 43.28 161.27 43.68Q161.17 43.68 158.74 45.74Q156.31 47.80 153.34 50.23Q150.37 52.66 146.99 54.67Q143.60 56.68 141.73 56.68Q137.12 56.68 137.12 51.14Q137.12 50.69 137.49 50.33Q137.86 49.96 138.45 49.96Q138.45 50.20 138.71 50.72Q138.98 51.23 139.28 51.58Q140.16 52.41 141.86 52.41Q143.55 52.41 145.00 50.33Q146.45 48.24 147.03 46.10Q147.62 43.97 147.62 42.69Z M210.01 24.14 210.70 24.34Q211.04 24.34 211.53 23.82Q212.02 23.31 212.39 23.31Q212.76 23.31 213.44 23.72Q214.13 24.14 214.13 24.48Q214.13 25.27 210.55 29.61Q206.96 33.96 202.69 38.91Q198.42 43.87 194.84 48.90Q191.26 53.93 191.26 55.90Q191.26 59.23 191.75 61.00L191.90 61.49Q191.90 61.84 191.06 61.84Q190.23 61.84 189.76 61.71Q189.29 61.59 188.66 61.20Q187.48 60.41 186.99 57.03Q186.99 55.41 187.28 54.01Q187.58 52.61 188.68 50.64Q189.79 48.68 190.84 47.11Q191.90 45.54 194.55 42.35Q198.03 38.18 202.35 33.34Q206.67 28.51 207.09 28.04Q207.50 27.58 207.50 27.48Q207.50 27.38 204.73 29.86Q201.96 32.34 195.16 38.72Q188.36 45.10 186.74 47.01Q180.31 54.38 178.84 56.58Q178.59 57.22 177.98 57.22Q177.37 57.22 176.88 56.39Q176.04 54.96 176.04 52.80Q177.02 49.22 179.87 43.75Q182.72 38.28 186.20 32.98L188.51 29.98Q188.85 29.44 188.85 29.29L188.80 29.24Q188.76 29.24 185.02 33.27Q181.29 37.29 180.61 38.08L170.10 49.57Q163.87 56.39 161.12 57.81Q156.36 59.38 155.38 59.58Q154.84 59.58 154.84 59.38Q154.84 59.19 155.33 58.74Q162.50 51.43 164.31 49.66Q164.70 49.42 170.74 43.50Q176.78 37.59 183.67 31.26Q190.57 24.93 193.47 23.35Q195.38 22.77 196.34 22.77Q197.30 22.77 197.30 23.31Q197.30 23.65 196.85 24.09Q189.44 34.69 188.17 37.49L185.17 43.14Q185.02 43.48 185.02 43.63Q185.02 43.92 185.12 43.82Q189.00 40.68 195.31 34.99Q201.61 29.29 204.95 26.72Q208.29 24.14 210.01 24.14Z M215.36 31.70Q215.85 31.70 216.00 31.90Q216.68 32.73 216.68 33.25Q216.68 33.76 216.39 34.13Q216.09 34.50 215.68 34.96Q215.26 35.43 214.01 36.24Q212.76 37.05 211.58 37.05Q210.70 36.90 210.70 35.97Q210.70 34.50 212.46 33.10Q214.23 31.70 215.36 31.70ZM203.58 51.04Q203.19 51.72 203.19 52.26Q203.19 52.80 203.77 52.80Q204.12 52.80 204.95 52.51Q214.13 47.70 222.92 41.17Q223.36 41.52 223.36 42.01Q223.36 42.50 222.87 42.94Q222.38 43.38 221.47 44.22Q220.56 45.05 218.01 47.21Q215.46 49.37 213.25 51.14Q207.46 55.80 204.71 56.63Q203.82 56.88 202.79 56.88Q199.01 56.88 199.01 52.85Q199.01 51.28 200.73 48.36Q202.45 45.44 204.27 43.21Q206.08 40.98 206.67 40.73Q207.55 40.19 208.58 40.19Q209.62 40.19 210.55 40.58Q210.84 40.73 210.84 40.98Q210.84 41.22 210.38 41.71Q209.91 42.20 208.95 43.23Q208.00 44.26 206.11 46.79Q204.22 49.32 203.58 51.04Z M219.63 52.76Q221.25 52.76 226.03 49.86Q230.82 46.96 234.75 44.07L238.72 41.17Q239.16 41.52 239.16 42.01Q239.16 42.50 238.67 42.94Q238.18 43.38 237.27 44.22Q236.37 45.05 233.81 47.21Q231.26 49.37 229.05 51.14Q223.26 55.80 220.51 56.63Q219.63 56.88 218.70 56.88Q217.76 56.88 217.22 56.73Q216.68 56.58 216.05 56.09Q214.77 55.01 214.77 51.28Q214.77 50.25 215.65 48.14Q216.54 46.03 218.57 43.04Q220.61 40.04 223.33 37.05Q226.06 34.05 230.25 31.06Q234.45 28.07 239.21 26.20Q239.95 25.96 240.54 25.96Q241.13 25.96 241.62 26.47Q242.11 26.99 242.30 27.53L242.55 28.02Q242.55 29.15 239.07 32.98Q235.48 36.95 230.79 40.56Q226.11 44.17 222.08 46.72Q218.79 48.88 218.79 51.23Q218.79 52.76 219.63 52.76ZM224.05 42.60Q225.27 42.60 231.48 36.56Q237.69 30.52 237.69 29.83L237.64 29.74L236.81 30.13Q234.25 31.80 230.01 35.82Q225.76 39.85 224.14 42.10Q223.95 42.35 223.95 42.47Q223.95 42.60 224.05 42.60Z M235.78 52.76Q237.40 52.76 242.18 49.86Q246.97 46.96 250.89 44.07L254.87 41.17Q255.31 41.52 255.31 42.01Q255.31 42.50 254.82 42.94Q254.33 43.38 253.42 44.22Q252.51 45.05 249.96 47.21Q247.41 49.37 245.20 51.14Q239.41 55.80 236.66 56.63Q235.78 56.88 234.84 56.88Q233.91 56.88 233.37 56.73Q232.83 56.58 232.19 56.09Q230.92 55.01 230.92 51.28Q230.92 50.25 231.80 48.14Q232.68 46.03 234.72 43.04Q236.76 40.04 239.48 37.05Q242.21 34.05 246.40 31.06Q250.60 28.07 255.36 26.20Q256.10 25.96 256.69 25.96Q257.27 25.96 257.77 26.47Q258.26 26.99 258.45 27.53L258.70 28.02Q258.70 29.15 255.21 32.98Q251.63 36.95 246.94 40.56Q242.26 44.17 238.23 46.72Q234.94 48.88 234.94 51.23Q234.94 52.76 235.78 52.76ZM240.19 42.60Q241.42 42.60 247.63 36.56Q253.84 30.52 253.84 29.83L253.79 29.74L252.96 30.13Q250.40 31.80 246.16 35.82Q241.91 39.85 240.29 42.10Q240.10 42.35 240.10 42.47Q240.10 42.60 240.19 42.60Z M256.10 39.75Q256.49 39.75 257.40 40.14Q258.31 40.53 258.31 41.02Q258.31 41.37 258.06 41.71L254.38 46.82Q253.74 47.60 253.74 47.70Q253.74 47.80 253.79 47.80L254.04 47.65Q259.73 43.68 263.41 40.68Q264.10 40.19 264.56 40.19Q265.03 40.19 265.18 40.29L266.55 40.68Q267.04 40.93 267.04 41.32Q267.04 41.71 266.85 41.96Q265.91 42.99 264.71 44.29Q263.51 45.59 262.92 46.25Q262.33 46.91 261.59 47.75Q260.86 48.58 260.54 49.03Q260.22 49.47 259.83 50.03Q259.43 50.60 259.29 50.99Q258.99 52.12 258.99 52.95Q258.99 53.39 259.56 53.39Q260.12 53.39 261.62 52.71Q263.12 52.02 265.20 50.60Q267.29 49.17 270.75 46.55Q274.21 43.92 276.81 42.10Q277.25 42.45 277.25 42.94Q277.25 43.43 276.81 43.82Q275.24 45.34 272.83 47.63Q270.43 49.91 265.50 53.74Q260.56 57.57 258.60 57.57Q254.82 57.57 254.82 53.54Q254.82 52.02 256.00 50.35L258.11 47.45Q258.40 47.01 258.40 46.94Q258.40 46.87 258.11 47.11Q249.57 54.23 247.21 55.46Q246.82 55.70 246.23 55.70Q244.61 55.70 244.61 54.23Q244.61 53.74 244.86 53.34Q248.49 50.01 249.96 47.90Q251.14 46.72 252.44 44.61Q253.74 42.50 254.65 41.12Q255.56 39.75 256.10 39.75Z M283.14 41.17Q281.87 41.17 278.82 43.80Q275.78 46.42 275.78 47.01Q275.78 47.11 275.93 47.11Q277.01 47.11 280.22 44.71Q283.44 42.30 283.44 41.42Q283.44 41.17 283.14 41.17ZM272.69 56.88Q268.91 56.88 268.91 52.26Q268.91 49.37 271.44 46.10Q273.96 42.84 277.40 40.75Q280.83 38.67 283.49 38.67Q284.66 38.67 285.67 39.60Q286.68 40.53 286.68 41.42Q286.68 43.04 284.37 45.07Q282.06 47.11 279.53 48.36Q277.01 49.61 276.20 49.61Q275.39 49.61 274.99 48.88Q274.80 48.73 274.45 48.73Q274.11 48.73 273.32 50.03Q272.54 51.33 272.54 52.14Q272.54 52.95 273.13 53.15Q276.86 53.15 281.23 50.96Q285.60 48.78 293.30 43.28Q293.84 42.89 294.95 42.10Q296.05 41.32 296.25 41.17Q296.69 41.52 296.69 42.01Q296.69 42.50 296.25 42.89Q293.79 45.34 289.89 48.39Q285.99 51.43 280.93 54.15Q275.88 56.88 272.69 56.88Z M288.05 46.82Q290.75 44.95 293.69 42.79Q292.12 41.71 291.68 40.68Q291.53 40.34 291.53 40.19Q291.53 39.21 292.17 38.89Q292.81 38.57 294.23 38.57Q294.77 38.57 297.42 39.90Q300.08 41.22 300.79 41.22Q301.50 41.22 302.77 40.80Q304.05 40.39 304.81 40.39Q305.57 40.39 305.92 40.73Q307.14 42.35 307.14 42.69Q307.14 43.04 306.82 43.26Q306.50 43.48 304.81 44.66Q303.12 45.83 301.50 47.06Q299.88 48.29 298.46 49.81Q297.03 51.33 297.03 52.26Q297.03 52.41 297.28 52.41Q299.93 52.41 315.14 41.66Q315.49 41.66 315.49 42.28Q315.49 42.89 311.61 46.50Q307.73 50.11 302.85 53.57Q297.96 57.03 295.76 57.03Q292.32 57.03 292.32 53.59Q292.32 51.72 293.57 49.98Q294.82 48.24 298.85 45.29Q298.01 45.29 296.59 44.88Q295.17 44.46 294.77 43.87Q293.50 45.00 290.36 47.65Q289.62 48.19 288.44 48.19Q287.26 48.19 287.26 47.82Q287.26 47.45 288.05 46.82Z M311.27 51.82Q311.76 51.82 311.90 52.02Q312.59 52.85 312.59 53.34Q312.59 54.28 310.73 56.44Q308.12 59.43 307.34 59.43Q307.19 59.43 307.19 59.28Q307.19 59.14 307.39 58.84Q308.12 57.86 308.37 57.42L308.66 56.93Q307.93 57.17 307.49 57.17Q306.60 57.03 306.60 56.09Q306.60 54.62 308.37 53.22Q310.14 51.82 311.27 51.82Z M358.63 24.58Q360.74 25.76 362.09 27.77Q363.44 29.78 363.44 32.29Q363.44 34.79 360.30 38.03Q357.16 41.27 352.67 43.55Q348.18 45.83 344.86 45.83Q341.55 45.83 340.08 43.09Q331.64 54.42 330.56 56.83Q330.60 57.07 330.60 57.54Q330.60 58.01 330.06 58.01Q329.52 58.01 328.67 57.10Q327.81 56.19 327.81 54.52Q327.81 54.03 327.86 53.74Q328.30 50.50 336.86 40.98Q345.43 31.45 349.21 29.39Q349.99 29.00 350.39 29.00Q350.78 29.00 351.19 29.24Q351.61 29.49 351.61 29.83Q351.61 30.18 351.42 30.37Q347.73 34.20 347.00 35.04L341.16 41.81Q341.06 41.96 341.06 42.10Q341.06 42.45 341.50 42.45Q343.46 42.45 346.83 41.32Q350.19 40.19 353.48 38.50Q356.77 36.80 359.17 34.52Q361.58 32.24 361.58 30.28Q361.58 28.66 358.48 27.87Q355.39 27.09 351.83 27.09Q348.27 27.09 344.15 28.09Q340.03 29.10 336.96 30.57Q333.89 32.04 331.44 33.64Q328.98 35.23 327.73 36.44Q326.48 37.64 326.48 38.01Q326.48 38.37 326.83 38.37Q327.17 38.37 328.69 37.88Q333.60 36.26 338.31 33.52Q338.65 33.32 338.78 33.32Q338.90 33.32 338.90 33.44Q338.90 33.56 338.29 34.37Q337.67 35.18 336.59 36.34Q335.51 37.49 334.24 38.57Q332.96 39.65 331.37 40.41Q329.77 41.17 328.27 41.17Q326.78 41.17 325.33 39.97Q323.88 38.77 323.88 36.68Q323.88 34.59 325.94 32.14Q328.00 29.69 331.37 27.48Q334.73 25.27 339.73 23.75Q344.74 22.23 349.50 22.23Q354.26 22.23 358.63 24.58Z M358.09 51.82Q358.58 51.82 358.73 52.02Q359.42 52.85 359.42 53.37Q359.42 53.88 359.12 54.25Q358.83 54.62 358.41 55.09Q357.99 55.55 356.74 56.36Q355.49 57.17 354.31 57.17Q353.43 57.03 353.43 56.09Q353.43 54.62 355.20 53.22Q356.96 51.82 358.09 51.82Z M360.40 30.77Q360.40 30.03 361.38 29.49L367.12 27.23Q367.32 27.13 367.69 27.13Q368.05 27.13 368.35 27.48Q368.64 27.82 368.99 27.82Q369.33 27.82 370.44 27.55Q371.54 27.28 373.40 26.86Q375.27 26.45 377.58 26.05Q382.98 25.12 388.82 25.12Q395.74 25.12 398.73 26.15Q399.91 26.59 400.72 27.36Q401.53 28.12 401.53 29.20Q401.53 29.83 400.65 29.83Q388.38 30.18 380.57 31.40Q379.79 31.50 379.79 31.94Q379.79 32.09 379.81 32.21Q379.83 32.34 379.44 32.78L373.90 38.72Q373.55 39.06 373.55 39.23Q373.55 39.40 373.67 39.40Q373.80 39.40 374.29 39.31Q377.48 39.11 380.18 39.11Q382.88 39.11 383.27 39.40Q385.43 41.02 385.80 41.52Q386.17 42.01 386.17 42.30Q386.17 42.94 385.09 43.09Q372.13 44.36 371.10 44.34Q370.07 44.31 369.77 44.31Q368.99 44.31 368.01 45.54L362.02 53.49Q361.77 53.88 361.77 54.06Q361.77 54.23 361.97 54.23Q362.16 54.23 362.56 54.03Q367.17 53.30 371.17 53.30Q375.17 53.30 377.14 53.54Q379.83 53.54 382.93 57.52Q383.17 57.86 383.17 58.15Q383.17 58.45 382.44 58.45Q370.21 58.45 363.83 58.94Q363.59 58.99 363.20 58.99Q361.09 58.99 360.30 58.01Q360.15 57.71 359.81 57.71Q359.47 57.71 359.20 58.06Q358.93 58.40 358.78 58.40Q358.63 58.40 358.19 58.11Q357.75 57.81 357.28 57.10Q356.81 56.39 356.81 55.58Q356.81 54.77 357.13 54.08Q357.45 53.39 357.97 52.31Q358.48 51.23 360.28 48.61Q362.07 45.98 364.03 44.12Q364.28 43.87 364.28 43.65Q364.28 43.43 363.76 43.43Q363.24 43.43 362.73 43.06Q362.21 42.69 362.21 42.03Q362.21 41.37 363.93 40.93L366.58 40.24Q366.63 40.24 366.63 40.24Q367.42 40.24 368.20 39.21Q373.90 33.66 375.17 33.02Q375.61 32.73 375.61 32.56Q375.61 32.39 375.32 32.39Q375.02 32.39 374.83 32.44Q370.26 33.17 367.56 33.17Q364.86 33.17 363.64 32.93Q362.41 32.68 361.82 32.34Q360.55 31.50 360.45 31.01Z M388.47 51.82Q388.96 51.82 389.11 52.02Q389.80 52.85 389.80 53.37Q389.80 53.88 389.50 54.25Q389.21 54.62 388.79 55.09Q388.38 55.55 387.12 56.36Q385.87 57.17 384.69 57.17Q383.81 57.03 383.81 56.09Q383.81 54.62 385.58 53.22Q387.34 51.82 388.47 51.82Z" fill="#1b2a41"/>
+            <path d="M28 73 C140 81, 275 79, 388 60" fill="none" stroke="#1b2a41" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="sig-caption">Douglas Millner, P.E. — Principal Engineer &amp; Instructor</div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      NERX Power Consultants LLC &nbsp;·&nbsp; 4111B Purdue St, Houston, TX 77005 &nbsp;·&nbsp; Retain this certificate for your professional licensure records. Acceptance of <span class="unit-abbr">PDH</span> credit is subject to the requirements of the attendee's state licensing board.
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+/* NERX PDH certificate page.
+   The ticket code is the credential: the server decides whether a certificate has
+   been earned (ticket USED + class finished + not withheld) and returns the course,
+   date, PDH hours and certificate number. Nothing on this page is trusted. */
+(function () {
+  'use strict';
+
+  var lsGet = function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+  var lsSet = function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} };
+  // Only a localhost ?api= override is honored (dev); never let a link repoint
+  // requests at another origin.
+  var isLocalApi = function (u) {
+    try { var h = new URL(u).hostname;
+      return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; }
+  };
+  var qs = new URLSearchParams(location.search);
+  var qApi = qs.get('api');
+  if (qApi && isLocalApi(qApi)) { try { localStorage.setItem('nerx_tickets_api', qApi); } catch (e) {} }
+  var stApi = null; try { stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+  var API = (stApi && isLocalApi(stApi)) ? stApi : 'https://tickets.nerxpower.com';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+
+  function api(path, body) {
+    return fetch(API + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok) throw new Error(d.detail || ('Request failed (' + r.status + ')'));
+        return d;
+      });
+    });
+  }
+
+  /* A code may arrive from the ticket page (sessionStorage) or in a link. A code in
+     the URL is stashed and stripped so it does not linger in the address bar. */
+  var code = lsGet('nerx_cert_code') || '';
+  var urlCode = qs.get('code');
+  if (urlCode) {
+    code = urlCode.trim();
+    lsSet('nerx_cert_code', code);
+    history.replaceState(null, '', location.pathname);
+  }
+
+  var gate = $('#gate'), gateBody = $('#gateBody'), gateTitle = $('#gateTitle');
+
+  function show(html, title) {
+    if (title) gateTitle.textContent = title;
+    gateBody.innerHTML = html;
+    gate.hidden = false;
+    $('#sheetWrap').hidden = true;
+    $('#certbar').hidden = true;
+  }
+
+  function askForCode(msg) {
+    show((msg ? '<p class="err">' + esc(msg) + '</p>' : '') +
+      '<p>Enter the ticket code you used for the class. It is the code from your ' +
+      'purchase email, in the form NERX-XXXX-XXXX-XXXX.</p>' +
+      '<div class="row"><label for="codeIn">Ticket code</label>' +
+      '<input id="codeIn" placeholder="NERX-XXXX-XXXX-XXXX" autocomplete="off" ' +
+      'spellcheck="false" value="' + esc(code) + '"></div>' +
+      '<button class="btn" id="codeGo">Continue</button>' +
+      '<p class="note" style="margin-top:14px">Lost your code? Request it again from the ' +
+      '<a href="ticket.html">My Ticket</a> page.</p>', 'Your PDH Certificate');
+    $('#codeGo').onclick = function () {
+      var v = $('#codeIn').value.trim();
+      if (!v) return;
+      code = v; lsSet('nerx_cert_code', v);
+      lookup();
+    };
+    $('#codeIn').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') $('#codeGo').click();
+    });
+  }
+
+  function askForName(existing) {
+    show('<p>Your attendance is confirmed. Enter your name exactly as it should be ' +
+      'printed on the certificate &mdash; include your credentials if you want them ' +
+      'shown, for example <i>Jane Smith, P.E.</i></p>' +
+      '<div class="row"><label for="nameIn">Full name for the certificate</label>' +
+      '<input id="nameIn" maxlength="80" autocomplete="name" placeholder="Jane Smith, P.E." ' +
+      'value="' + esc(existing || '') + '"></div>' +
+      '<button class="btn" id="nameGo">Create my certificate</button>' +
+      '<p class="note" style="margin-top:14px">The name is saved with your ticket the ' +
+      'first time, so every reprint matches. Need it corrected afterward? Email ' +
+      '<a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>.</p>' +
+      '<p class="err" id="nameErr" hidden></p>', 'Your PDH Certificate');
+    $('#nameGo').onclick = function () {
+      var n = $('#nameIn').value.trim();
+      if (n.length < 2) {
+        $('#nameErr').hidden = false;
+        $('#nameErr').textContent = 'Please enter the full name to print.';
+        return;
+      }
+      issue(n);
+    };
+    $('#nameIn').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') $('#nameGo').click();
+    });
+    $('#nameIn').focus();
+  }
+
+  /* The sheet is a fixed 11in x 8.5in page. On a narrow screen it is scaled down to
+     fit rather than scrolled sideways; printing always uses the full-size sheet. */
+  function fitSheet() {
+    var wrap = $('#sheetWrap');
+    if (wrap.hidden) return;
+    var sheetPx = 11 * 96, sheetH = 8.5 * 96;    // inches at 96dpi
+    var avail = document.documentElement.clientWidth - 24;
+    var k = Math.min(1, avail / sheetPx);
+    if (k < 1) {
+      wrap.style.width = sheetPx + 'px';
+      wrap.style.transformOrigin = 'top left';
+      wrap.style.transform = 'scale(' + k + ')';
+      wrap.style.marginLeft = '12px';
+      wrap.style.height = (sheetH * k + 40) + 'px';   // reclaim the empty space below
+    } else {
+      wrap.style.width = wrap.style.transform = wrap.style.marginLeft = wrap.style.height = '';
+    }
+  }
+
+  function render(c) {
+    $('#fName').textContent = c.name;
+    $('#fCourse').textContent = c.course_name;
+    var sub = $('#fSub');
+    sub.textContent = c.course_subtitle || '';
+    sub.style.display = c.course_subtitle ? '' : 'none';
+    $('#fHours').textContent = c.pdh_hours;
+    $('#fDate').textContent = c.completed_on;
+    $('#fCertNo').textContent = c.cert_no;
+    document.title = 'PDH Certificate — ' + c.name + ' — ' + c.course_name;
+    gate.hidden = true;
+    $('#sheetWrap').hidden = false;
+    $('#certbar').hidden = false;
+    fitSheet();
+    window.scrollTo(0, 0);
+  }
+
+  function issue(name) {
+    var body = { code: code };
+    if (name) body.name = name;
+    api('/tickets/certificate', body).then(render).catch(function (e) {
+      if ($('#nameErr')) { $('#nameErr').hidden = false; $('#nameErr').textContent = e.message; }
+      else show('<p class="err">' + esc(e.message) + '</p>' +
+        '<button class="btn ghost" id="retry">Use a different code</button>',
+        'Certificate not available yet');
+      if ($('#retry')) $('#retry').onclick = function () { askForCode(''); };
+    });
+  }
+
+  function lookup() {
+    if (!code) { askForCode(''); return; }
+    show('<p class="note">Checking your ticket&hellip;</p>');
+    api('/tickets/lookup', { code: code }).then(function (t) {
+      var cert = t.cert || {};
+      if (cert.available) {
+        if (cert.name) issue(null);        // name already on file: print straight away
+        else askForName(null);
+        return;
+      }
+      show('<div class="locked">' + esc(cert.reason ||
+          'A certificate is issued once you have attended the class.') + '</div>' +
+        '<p class="note">Ticket &hellip;' + esc(t.code_hint) + ' &mdash; status <b>' +
+        esc(t.status) + '</b>' +
+        (t.session ? ' &mdash; ' + esc(t.session.course_name) : '') + '.</p>' +
+        '<button class="btn ghost" id="retry">Use a different code</button> ' +
+        '<a class="btn" style="text-decoration:none" href="ticket.html">Back to My Ticket</a>',
+        'Certificate not available yet');
+      $('#retry').onclick = function () { askForCode(''); };
+    }).catch(function (e) { askForCode(e.message); });
+  }
+
+  $('#printBtn').onclick = function () { window.print(); };
+  $('#againBtn').onclick = function () { code = ''; lsSet('nerx_cert_code', ''); askForCode(''); };
+  window.addEventListener('resize', fitSheet);
+
+  lookup();
+}());
+</script>
+
+</body>
+</html>

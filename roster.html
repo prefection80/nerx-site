@@ -225,6 +225,15 @@
           <label for="eSub" title="Italic line printed under the course title on the certificate">Certificate subtitle</label>
           <input id="eSub" placeholder="Theory and application of…" style="flex:1;min-width:260px">
         </div>
+        <div class="flex" style="margin-top:10px; align-items:flex-start">
+          <label for="eMats" title="Files students on this session can download from their ticket page">Class files</label>
+          <textarea id="eMats" rows="3" spellcheck="false"
+                    placeholder="One per line:  Slide deck | https://drive.google.com/file/d/..."
+                    style="flex:1;min-width:280px;font-family:inherit;font-size:0.9rem;padding:8px"></textarea>
+          <span class="meta" style="flex-basis:100%;font-size:0.8rem">Label, a vertical bar,
+            then the share link. A line with only a link uses the link as its label. Visible
+            only to someone whose ticket is booked on this session.</span>
+        </div>
         <div class="flex" style="margin-top:10px">
           <label for="eLink">Meeting link</label>
           <input id="eLink" placeholder="https://zoom.us/j/…" style="flex:1;min-width:280px">
@@ -639,6 +648,17 @@ function fillEditor() {
   $('#ePdh').value = s.pdh_explicit ? s.pdh_hours : '';
   $('#ePdh').placeholder = 'auto (' + ((s.duration_min || 90) / 60) + ')';
   $('#eSub').value = s.course_subtitle || '';
+  $('#eMats').value = (s.materials || [])
+    .map((m) => (m.label && m.label !== m.url ? m.label + ' | ' : '') + m.url).join('\n');
+}
+
+/* "Label | https://..." per line -> [{label, url}]. A line with no bar is all URL. */
+function parseMaterials(text) {
+  return text.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+    const i = line.indexOf('|');
+    return i === -1 ? { label: '', url: line.trim() }
+                    : { label: line.slice(0, i).trim(), url: line.slice(i + 1).trim() };
+  });
 }
 
 async function loadSessions() {
@@ -848,7 +868,8 @@ $('#eSave').onclick = async () => {
       status: $('#eStatus').value,
       meeting_link: $('#eLink').value.trim() || null,
       pdh_hours: $('#ePdh').value.trim() === '' ? null : parseFloat($('#ePdh').value),
-      course_subtitle: $('#eSub').value.trim() || null })});
+      course_subtitle: $('#eSub').value.trim() || null,
+      materials: parseMaterials($('#eMats').value) })});
     let msg = 'Saved.';
     if (r.released) msg += ' ' + r.released + ' ticket(s) released back to their holders.';
     if (r.notified) msg += ' ' + r.notified + ' student(s) emailed about the change.';

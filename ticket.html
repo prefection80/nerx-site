@@ -20,6 +20,8 @@
     max-width: 680px;
   }
   .ticket-box label { font-weight: 600; display: block; margin-bottom: 8px; }
+  .mat-list { margin: 8px 0 0 0; padding-left: 20px; }
+  .mat-list li { margin-bottom: 4px; }
   .code-jobs { margin: 10px 0 0 0; padding-left: 20px; }
   .code-jobs li { margin-bottom: 8px; }
   .code-hint { font-size: 0.92rem; color: #5f6368; margin: -4px 0 10px 0; }
@@ -266,7 +268,8 @@
       <ul class="code-jobs">
         <li><b>Before your class</b> &mdash; it is your seat. Look it up, then click a
             session on the calendar below to book, or to move your booking to a different
-            track or date. Changes close one hour before your session starts.</li>
+            track or date. Changes close one hour before your session starts. Any class
+            files posted for your session appear with your ticket too.</li>
         <li><b>After your class</b> &mdash; it is your certificate. Look up a code that
             comes back marked <b>used</b> and a <b>Get My PDH Certificate</b> button
             appears with your ticket. It asks for the name to print, then opens your
@@ -617,6 +620,18 @@ function certBlock(t) {
   return '';
 }
 
+/* Class files for the session this ticket holds a seat on. The server only sends
+   them to a booked or used ticket, so anything here is already authorized. */
+function materialsBlock(t) {
+  const mats = t.materials || [];
+  if (!mats.length) return '';
+  return '<div class="howto" style="margin-top:14px"><b>Class files for this session</b>' +
+    '<ul class="mat-list">' +
+    mats.map((m) => '<li><a href="' + esc(m.url) + '" target="_blank" ' +
+                    'rel="noopener noreferrer">' + esc(m.label) + '</a></li>').join('') +
+    '</ul></div>';
+}
+
 function openCertificate(code) {
   try { sessionStorage.setItem('nerx_cert_code', code); } catch (e) {}
   window.location.href = 'certificate.html';
@@ -651,6 +666,7 @@ async function renderTicket(code) {
               t.session.course_name + ' — ' + trackName(t.session) + ' track</b></p>' +
               '<p class="meta">' + describe(t.session) + '. Thanks for attending!</p>';
       if (t.link_available) html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
+      html += materialsBlock(t);
       html += certBlock(t);
     } else if (t.status === 'booked') {
       html += '<p class="assign-yes">&#10004; This ticket IS assigned to a session:</p>' +
@@ -672,6 +688,7 @@ async function renderTicket(code) {
                 '<a href="mailto:douglas.millner@nerxpower.com?subject=Move%20my%20training%20ticket">email Doug</a> ' +
                 'and he can release your ticket for rebooking.</div>';
       }
+      html += materialsBlock(t);
     } else {
       html += '<p class="assign-no">&#9888; This ticket is NOT yet assigned to a session.</p>' +
               '<div class="howto"><b>To assign it:</b> click the session date you want on the ' +

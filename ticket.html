@@ -252,6 +252,12 @@
          code is emailed to the address you submitted and your seat is reserved
          automatically. Already have a ticket code? Enter it below to manage your
          booking instead.</p>
+      <p class="cutoff-rule"><b>Bookings must be made more than <span class="cutoff-hrs">24</span> hours
+         before a session starts.</b> Dates inside that window are shown locked
+         (&#128274;) on the calendar and cannot be booked or paid for &mdash; if you need
+         a seat in one of them, email
+         <a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup">douglas.millner@nerxpower.com</a>
+         and Doug can add you.</p>
       <div class="buy-later-note">
         <p style="margin:0 0 10px">Not ready to pick a date — or buying for others?
           Buy training seats now and schedule later: pay once for yourself or a team,
@@ -349,7 +355,9 @@
       <ol>
         <li><b>Click your session's date on the calendar above</b> — that's how you
             first reserve and pay for a session. Each date shows its own price and
-            seats remaining.</li>
+            seats remaining. <span class="cutoff-rule">Dates must be booked more than
+            <span class="cutoff-hrs">24</span> hours ahead; anything closer shows as
+            &#128274; locked.</span></li>
         <li><b>Pay with PayPal right there</b> — secure checkout in the popup. Signing
             up for several trainings, or buying for your team? Use <b>Add to Cart</b> to
             collect seats across any sessions, name the attendee for each seat (or leave
@@ -625,6 +633,11 @@ async function loadCutoff() {
   try {
     const cfg = await (await fetch(API + '/config')).json();
     CUTOFF_HOURS = cfg.signup_cutoff_hours;
+    // Keep every stated number honest, and drop the rule entirely if it is turned off.
+    document.querySelectorAll('.cutoff-hrs').forEach((n) => { n.textContent = CUTOFF_HOURS; });
+    document.querySelectorAll('.cutoff-rule').forEach((n) => {
+      n.style.display = CUTOFF_HOURS ? '' : 'none';
+    });
     const el = $('#cutoffNote');
     if (el && CUTOFF_HOURS) {
       el.innerHTML = '<b>Signups close ' + CUTOFF_HOURS + ' hours before each class.</b> ' +

@@ -244,9 +244,12 @@
     <div class="section-head">
       <div class="kicker">2026 Series</div>
       <h2>Training Calendar</h2>
-      <p>Every course runs four parallel tracks — <b>Tuesdays 11:00 AM</b>,
-         <b>Thursdays 12:00 PM</b>, <b>Saturdays 6:00 AM</b>, and <b>Sundays 7:00 PM</b>
-         (Central). Each session is a single meeting with its own price shown on the calendar.
+      <p>Every course runs in several weekly time slots &mdash;
+         <span id="trackList"><b>Sundays 5:00 PM and 7:00 PM</b>, <b>Tuesdays 11:00 AM</b>,
+         <b>Wednesdays 6:00 PM</b>, <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM and
+         10:00 AM</b></span> (Central) &mdash; so you can take the same class on whichever
+         day suits you. Each session is a single meeting with its own price shown on the
+         calendar.
          <b>Clicking a training date on the calendar below is how you first reserve and
          pay for a session on that date.</b> After the payment is processed, your ticket
          code is emailed to the address you submitted and your seat is reserved
@@ -629,6 +632,39 @@ $('#calNext').onclick = () => { calMonth.m++; if (calMonth.m > 11) { calMonth.m 
 async function refreshSessions() {
   SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
   renderCalendar();
+  updateTrackList();
+}
+
+/* The weekly slots are whatever is really on the calendar - read them off the
+   schedule instead of hard-coding a list that goes stale when Doug adds a track. */
+const DAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_PLURAL = { Sun: 'Sundays', Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays',
+                     Thu: 'Thursdays', Fri: 'Fridays', Sat: 'Saturdays' };
+
+function updateTrackList() {
+  const el = $('#trackList');
+  if (!el) return;
+  const now = Date.now();
+  const byDay = {};
+  SESSIONS.forEach((s) => {
+    if (new Date(s.starts_at).getTime() <= now) return;      // only what can still be booked
+    const p = ctParts(s.starts_at);
+    const mins = (p.hour === '12' ? 0 : +p.hour * 60) + (+p.minute) +
+                 (p.dayPeriod === 'PM' ? 720 : 0);
+    (byDay[p.weekday] = byDay[p.weekday] || {})[mins] =
+      p.hour + ':' + p.minute + ' ' + p.dayPeriod;
+  });
+  const parts = DAY_ORDER.filter((d) => byDay[d]).map((d) => {
+    const times = Object.keys(byDay[d]).sort((a, b) => a - b).map((k) => byDay[d][k]);
+    const joined = times.length > 1
+      ? times.slice(0, -1).join(', ') + ' and ' + times[times.length - 1]
+      : times[0];
+    return '<b>' + DAY_PLURAL[d] + ' ' + joined + '</b>';
+  });
+  if (!parts.length) return;                                  // keep the written fallback
+  el.innerHTML = parts.length > 1
+    ? parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]
+    : parts[0];
 }
 
 /* The signup cutoff is set in the roster, so the page asks the server for it

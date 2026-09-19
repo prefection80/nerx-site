@@ -300,6 +300,17 @@
           <button class="btn btn-primary small" id="oSave">Save Price</button>
         </div>
         <p id="oMsg"></p>
+        <p class="meta" style="margin-top:16px">Signups (and moves onto a date) close
+          this many hours before a session starts. Sessions inside the window show as
+          locked on the calendar and cannot be booked or paid for. 0 keeps them open
+          until class begins; you can always seat someone yourself from the roster.</p>
+        <div class="flex">
+          <label for="oCut">Signups close</label>
+          <input id="oCut" type="number" min="0" max="720" step="1" style="width:90px">
+          <span class="meta">hours before class</span>
+          <button class="btn btn-primary small" id="oCutSave">Save Cutoff</button>
+        </div>
+        <p id="oCutMsg"></p>
       </div>
 
       <div class="admin-box">
@@ -795,8 +806,23 @@ async function loadOpenPrice() {
   try {
     const r = await api('/admin/settings');
     $('#oPrice').value = Number(r.open_ticket_price_usd).toFixed(2);
+    $('#oCut').value = r.signup_cutoff_hours;
   } catch (e) { /* leave blank */ }
 }
+$('#oCutSave').onclick = async () => {
+  try {
+    const v = parseInt($('#oCut').value, 10);
+    if (!(v >= 0)) throw new Error('Enter a whole number of hours (0 or more).');
+    const r = await api('/admin/settings', {method: 'PATCH',
+      body: JSON.stringify({signup_cutoff_hours: v})});
+    $('#oCut').value = r.signup_cutoff_hours;
+    $('#oCutMsg').textContent = r.signup_cutoff_hours === 0
+      ? 'Saved — sessions stay bookable until they start.'
+      : 'Saved — signups now close ' + r.signup_cutoff_hours + ' hour(s) before class.';
+    $('#oCutMsg').className = 'ok-msg';
+    loadSessions();
+  } catch (e) { $('#oCutMsg').textContent = e.message; $('#oCutMsg').className = 'err'; }
+};
 $('#oSave').onclick = async () => {
   try {
     const v = parseFloat($('#oPrice').value);

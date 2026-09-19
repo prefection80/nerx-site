@@ -72,6 +72,7 @@
   .cal-nav button:hover { border-color: var(--blue); color: var(--blue); }
   .cal-legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; font-size: 0.85rem; }
   .cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .cal-legend .lg-locked { background: #9aa0a6; }
   .lg-tue { background: #2f90b0; }
   .lg-thu { background: #1e7e34; }
   .lg-sat { background: #c77414; }
@@ -108,9 +109,13 @@
   .track-other { background: rgba(108,117,125,0.13); border-left: 3px solid #6c757d; }
   .cal-chip .cnt-full { color: #b02a37; font-weight: 700; }
   .cal-chip.full { opacity: 0.45; cursor: not-allowed; }
+  .cal-chip.locked { opacity: 0.5; cursor: not-allowed; background: #eceff1;
+    color: #5f6368; border-left-color: #9aa0a6; }
+  .cal-chip.locked small { color: #6b7075; }
+  .cal-chip .lock { font-style: normal; }
   .cal-chip.mine { background: var(--blue); color: var(--white); border-left-color: #1a5b73; }
   .cal-chip.mine small { color: rgba(255,255,255,0.85); }
-  html.js .pickable .cal-chip:not(.full):hover { outline: 2px solid var(--blue); }
+  html.js .pickable .cal-chip:not(.full):not(.locked):hover { outline: 2px solid var(--blue); }
 
   /* ---- buy modal ---- */
   .buy-overlay {
@@ -317,8 +322,10 @@
       <span><i class="lg-thu"></i>Thursday track · 12:00 PM</span>
       <span><i class="lg-sat"></i>Saturday track · 6:00 AM</span>
       <span><i class="lg-other"></i>Other day</span>
+      <span><i class="lg-locked"></i>Closed &mdash; signups ended</span>
       <span class="meta">Each session shows its price and bookings, e.g. "3/20 booked".</span>
     </div>
+    <p class="howto" id="cutoffNote" hidden></p>
     <div class="cal-nav">
       <button id="calPrev" aria-label="Previous month">&lsaquo;</button>
       <h3 id="calTitle">Loading…</h3>
@@ -503,7 +510,7 @@ function describe(s) {
   return s.course_name + ' — ' + sessionDates(s);
 }
 
-let SESSIONS = [], TICKET = null, bookingMode = false, calMonth = null;
+let SESSIONS = [], TICKET = null, bookingMode = false, calMonth = null, CUTOFF_HOURS = null;
 
 async function api(path, body) {
   const r = await fetch(API + path, body === undefined ? {} :
@@ -546,15 +553,20 @@ function renderCalendar() {
     (byDay[key] || []).sort((a, b) => a.starts_at < b.starts_at ? -1 : 1).forEach((s) => {
       const mine = TICKET && TICKET.session && TICKET.session.id === s.id;
       const full = s.seats_left <= 0 && !mine;
-      const cls = 'cal-chip track-' + trackOf(s) + (mine ? ' mine' : '') + (full ? ' full' : '');
+      // The server decides: a session inside the signup cutoff is not bookable.
+      const locked = s.bookable === false && !mine;
+      const cls = 'cal-chip track-' + trackOf(s) + (mine ? ' mine' : '') +
+                  (full ? ' full' : '') + (locked ? ' locked' : '');
       const booked = (s.booked !== undefined) ? s.booked + '/' + s.capacity + ' booked'
                                               : s.seats_left + ' seats left';
+      const lockNote = locked ? (s.started ? ' · class has run' : ' · signups closed') : '';
       html += '<button type="button" class="' + cls + '" data-sid="' + s.id +
-        '" title="' + describe(s).replace(/"/g, '&quot;') + ' · ' + booked +
-        '">' + s.course_name +
+        '" title="' + describe(s).replace(/"/g, '&quot;') + ' · ' + booked + lockNote +
+        '">' + (locked ? '<i class="lock">&#128274;</i> ' : '') + s.course_name +
         '<small>' + ctTime(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
         ' · <span class="' + (s.seats_left <= 0 ? 'cnt-full' : '') + '">' +
         (mine ? 'YOUR SESSION · ' : '') + (s.seats_left <= 0 ? 'FULL · ' : '') +
+        (locked ? (s.started ? 'CLOSED · ' : 'SIGNUPS CLOSED · ') : '') +
         booked + '</span></small></button>';
     });
     html += '</div>';
@@ -565,6 +577,16 @@ function renderCalendar() {
   grid.querySelectorAll('.cal-chip').forEach((chip) => {
     chip.onclick = async () => {
       const s = SESSIONS.find((x) => x.id === chip.dataset.sid);
+      const mine = TICKET && TICKET.session && TICKET.session.id === s.id;
+      if (s.bookable === false && !mine) {
+        alert(describe(s) + '\n\n' + (s.started
+          ? 'This session has already run.'
+          : 'Signups for this session are closed' +
+            (CUTOFF_HOURS ? ' — they close ' + CUTOFF_HOURS + ' hours before class starts.' : '.')) +
+          '\n\nIf you need a seat in it anyway, email douglas.millner@nerxpower.com and ' +
+          'Doug can add you.');
+        return;
+      }
       if (!TICKET) {
         if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
         openBuyModal(s); return;
@@ -595,6 +617,24 @@ $('#calNext').onclick = () => { calMonth.m++; if (calMonth.m > 11) { calMonth.m 
 async function refreshSessions() {
   SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
   renderCalendar();
+}
+
+/* The signup cutoff is set in the roster, so the page asks the server for it
+   rather than hard-coding 24 hours in two places. */
+async function loadCutoff() {
+  try {
+    const cfg = await (await fetch(API + '/config')).json();
+    CUTOFF_HOURS = cfg.signup_cutoff_hours;
+    const el = $('#cutoffNote');
+    if (el && CUTOFF_HOURS) {
+      el.innerHTML = '<b>Signups close ' + CUTOFF_HOURS + ' hours before each class.</b> ' +
+        'Sessions inside that window show as &#128274; locked and cannot be booked or ' +
+        'paid for. Need a late seat? Email ' +
+        '<a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup">' +
+        'douglas.millner@nerxpower.com</a>.';
+      el.hidden = false;
+    }
+  } catch (e) { /* the calendar still works without the note */ }
 }
 
 // ---------------- ticket ----------------
@@ -1012,6 +1052,7 @@ updateCartFab();
 $('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) renderTicket(c); };
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lookupBtn').click(); });
 
+loadCutoff();
 refreshSessions().catch((e) => {
   $('#calErr').hidden = false;
   $('#calErr').textContent = 'Could not load the schedule (' + e.message +

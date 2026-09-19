@@ -254,10 +254,13 @@
          booking instead.</p>
       <p class="cutoff-rule"><b>Bookings must be made more than <span class="cutoff-hrs">24</span> hours
          before a session starts.</b> Dates inside that window are shown locked
-         (&#128274;) on the calendar and cannot be booked or paid for &mdash; if you need
-         a seat in one of them, email
-         <a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup">douglas.millner@nerxpower.com</a>
-         and Doug can add you.</p>
+         (&#128274;) on the calendar and cannot be booked or paid for.</p>
+      <p class="cutoff-rule"><b>Need a seat inside the
+         <span class="cutoff-hrs">24</span>-hour window?</b> Email
+         <a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup%20exception%20request">douglas.millner@nerxpower.com</a>
+         to try to arrange an exception. Late seats are not guaranteed &mdash; it depends
+         on the class and how close to the start time you are asking &mdash; but Doug will
+         do what he can, and can seat you directly if he approves it.</p>
       <div class="buy-later-note">
         <p style="margin:0 0 10px">Not ready to pick a date — or buying for others?
           Buy training seats now and schedule later: pay once for yourself or a team,
@@ -357,7 +360,8 @@
             first reserve and pay for a session. Each date shows its own price and
             seats remaining. <span class="cutoff-rule">Dates must be booked more than
             <span class="cutoff-hrs">24</span> hours ahead; anything closer shows as
-            &#128274; locked.</span></li>
+            &#128274; locked and needs an exception arranged by email with
+            douglas.millner@nerxpower.com.</span></li>
         <li><b>Pay with PayPal right there</b> — secure checkout in the popup. Signing
             up for several trainings, or buying for your team? Use <b>Add to Cart</b> to
             collect seats across any sessions, name the attendee for each seat (or leave
@@ -591,8 +595,8 @@ function renderCalendar() {
           ? 'This session has already run.'
           : 'Signups for this session are closed' +
             (CUTOFF_HOURS ? ' — they close ' + CUTOFF_HOURS + ' hours before class starts.' : '.')) +
-          '\n\nIf you need a seat in it anyway, email douglas.millner@nerxpower.com and ' +
-          'Doug can add you.');
+          '\n\nTo ask for an exception, email douglas.millner@nerxpower.com — Doug will ' +
+          'try to arrange a seat, though late requests cannot always be accommodated.');
         return;
       }
       if (!TICKET) {
@@ -642,9 +646,9 @@ async function loadCutoff() {
     if (el && CUTOFF_HOURS) {
       el.innerHTML = '<b>Signups close ' + CUTOFF_HOURS + ' hours before each class.</b> ' +
         'Sessions inside that window show as &#128274; locked and cannot be booked or ' +
-        'paid for. Need a late seat? Email ' +
-        '<a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup">' +
-        'douglas.millner@nerxpower.com</a>.';
+        'paid for. To ask for an exception, email ' +
+        '<a href="mailto:douglas.millner@nerxpower.com?subject=Late%20signup%20exception%20request">' +
+        'douglas.millner@nerxpower.com</a> and Doug will try to arrange one.';
       el.hidden = false;
     }
   } catch (e) { /* the calendar still works without the note */ }

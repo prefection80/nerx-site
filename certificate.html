@@ -208,13 +208,30 @@
   }
   .certbar button:hover{ background:#f5efdd; }
   .certbar .hint{ opacity:.85; }
+
+  /* ---------- class files for the course (screen only) ---------- */
+  .files{
+    max-width:11in; margin:0 auto 22px auto; padding:14px 18px;
+    background:#fdfbf4; border-left:4px solid #a67c2e; border-radius:4px;
+    box-shadow:0 6px 30px rgba(0,0,0,.35);
+    font-family:Verdana,Arial,sans-serif; color:#1b2a41; font-size:14px; line-height:1.55;
+  }
+  @media (max-width:1100px){ .files{ margin-left:12px; margin-right:12px; } }
+  .files h2, .gate-files h2{
+    font-family:Georgia,serif; font-size:18px; font-weight:normal; margin-bottom:6px;
+  }
+  .files ul, .gate-files ul{ margin:0; padding-left:22px; }
+  .files li, .gate-files li{ margin:4px 0; }
+  .files a, .gate-files a{ color:#1b2a41; }
+  .files .note, .gate-files .note{ font-size:12.5px; color:#3d4f66; margin-top:8px; }
+  .gate-files{ margin-top:18px; padding-top:14px; border-top:1px solid #e3dbc3; }
   [hidden]{ display:none !important; }
 
   /* the 11in sheet is scaled down to fit narrow screens (screen only) */
   .scale-wrap{ transform-origin:top left; }
   @media screen{ html,body{ overflow-x:hidden; } }
   @media print{
-    .appbar, .gate, .certbar{ display:none !important; }
+    .appbar, .gate, .certbar, .files{ display:none !important; }
     .scale-wrap{ transform:none !important; height:auto !important; }
   }
 </style>
@@ -239,6 +256,9 @@
   <span class="hint">In the print dialog choose <b>Landscape</b>, paper size Letter,
     margins None.</span>
 </div>
+
+<!-- Class files for the course this ticket attended (screen only; never printed) -->
+<div class="files" id="filesPanel" hidden></div>
 
 <div class="scale-wrap" id="sheetWrap" hidden>
 <div class="sheet">
@@ -436,15 +456,39 @@
 
   var gate = $('#gate'), gateBody = $('#gateBody'), gateTitle = $('#gateTitle');
 
+  /* Class files for the course this ticket is on. They come back with the ticket
+     lookup, and only for a ticket that holds (or held) a seat, so the server has
+     already decided who may see them. They are shown with the certificate and in
+     every waiting state, and never printed. */
+  var MATS = [], COURSE = '';
+  function setFiles(t) {
+    MATS = (Array.isArray(t.materials) ? t.materials : []).filter(function (m) {
+      return m && /^https?:\/\//i.test(m.url || '');
+    });
+    COURSE = (t.session && t.session.course_name) || '';
+  }
+  function filesHtml() {
+    if (!MATS.length) return '';
+    return '<h2>Class files' + (COURSE ? ' &mdash; ' + esc(COURSE) : '') + '</h2><ul>' +
+      MATS.map(function (m) {
+        return '<li><a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' +
+               esc(m.label || m.url) + '</a></li>';
+      }).join('') + '</ul>' +
+      '<p class="note">Links open in a new tab. They are not part of the printed certificate.</p>';
+  }
+
   function show(html, title) {
     if (title) gateTitle.textContent = title;
-    gateBody.innerHTML = html;
+    gateBody.innerHTML = html +
+      (MATS.length ? '<div class="gate-files">' + filesHtml() + '</div>' : '');
     gate.hidden = false;
     $('#sheetWrap').hidden = true;
     $('#certbar').hidden = true;
+    $('#filesPanel').hidden = true;
   }
 
   function askForCode(msg) {
+    MATS = []; COURSE = '';          // a new code means a new ticket's files
     show((msg ? '<p class="err">' + esc(msg) + '</p>' : '') +
       '<p>Enter the ticket code you used for the class. It is the code from your ' +
       'purchase email, in the form NERX-XXXX-XXXX-XXXX.</p>' +
@@ -524,6 +568,9 @@
     gate.hidden = true;
     $('#sheetWrap').hidden = false;
     $('#certbar').hidden = false;
+    var fp = $('#filesPanel');
+    fp.innerHTML = filesHtml();
+    fp.hidden = !MATS.length;
     fitSheet();
     window.scrollTo(0, 0);
   }
@@ -542,8 +589,10 @@
 
   function lookup() {
     if (!code) { askForCode(''); return; }
+    MATS = []; COURSE = '';
     show('<p class="note">Checking your ticket&hellip;</p>');
     api('/tickets/lookup', { code: code }).then(function (t) {
+      setFiles(t);
       var cert = t.cert || {};
       if (cert.available) {
         if (cert.name) issue(null);        // name already on file: print straight away

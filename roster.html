@@ -241,14 +241,16 @@
         <div class="flex" style="margin-top:10px; align-items:flex-start">
           <label for="eMats" title="Files students on this session can download from their ticket page">Class files</label>
           <textarea id="eMats" rows="3" spellcheck="false"
-                    placeholder="One per line:  Slide deck | https://drive.google.com/file/d/..."
+                    placeholder="One per line:  Slide deck | https://drive.google.com/file/d/... | The full deck shown in class, with notes"
                     style="flex:1;min-width:280px;font-family:inherit;font-size:0.9rem;padding:8px"></textarea>
-          <span class="meta" style="flex-basis:100%;font-size:0.8rem">Label, a vertical bar,
-            then the share link. A line with only a link uses the link as its label. Visible
-            only to someone whose ticket is booked on this session &mdash; on their ticket
-            page and beside their PDH certificate. This list is for <b>this date only</b>;
-            to set the files for every date of a course at once, use <b>Class files by
-            course</b> below.</span>
+          <span class="meta" style="flex-basis:100%;font-size:0.8rem">Each line is
+            <b>Label | link | description</b>, separated by vertical bars. The description
+            is optional (one short line, shown under the link); a line with only a link
+            uses the link as its label. Label and description together are limited to
+            120 characters. Visible only to someone whose ticket is booked on this session
+            &mdash; on their ticket page and when they collect their PDH certificate. This
+            list is for <b>this date only</b>; to set the files for every date of a course
+            at once, use <b>Class files by course</b> below.</span>
         </div>
         <div class="flex" style="margin-top:10px">
           <label for="eLink">Meeting link</label>
@@ -265,11 +267,14 @@
       <div class="admin-box" id="courseFilesBox">
         <h3 style="margin-bottom:6px">Class files by course</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
-          Slides, workbooks, recordings and other links for each course. A student with a
-          seat on any date of the course sees them on their ticket page and on their PDH
-          certificate page. <b>Save</b> writes the list to every session date of that
-          course, past and future, and new dates you add later start with it. To give one
-          date different files, edit that session under <b>Manage selected session</b>.</p>
+          Slides, workbooks, recordings and other links for each course, one per line as
+          <b>Label | link | description</b> (the description is optional &mdash; one short
+          line shown under the link; label and description together fit in 120 characters).
+          A student with a seat on any date of the course sees them on their ticket page
+          and when they collect their PDH certificate. <b>Save</b> writes the list to every
+          session date of that course, past and future, and new dates you add later start
+          with it. To give one date different files, edit that session under
+          <b>Manage selected session</b>.</p>
         <div id="courseFilesList"></div>
       </div>
 
@@ -693,25 +698,53 @@ function fillEditor() {
   $('#eMats').value = matsText(s.materials);
 }
 
-/* "Label | https://..." per line -> [{label, url}]. A line with no bar is all URL.
-   Every line must carry a full http(s) link; anything else is refused before it is
-   saved, since a bad link would be a dead button on a student's page. */
+/* A class file is "Label | https://... | description" per line; the last two parts
+   are optional. The ticket API stores only a label (120 characters) and a link per
+   file, so the description rides inside the label after an em dash — "Label — the
+   description" — and the student pages split it back out. Every line must carry a
+   full http(s) link; anything else is refused before it is saved, since a bad link
+   would be a dead button on a student's page. */
+const DESC_SEP = ' — ';
+const LABEL_MAX = 120;
 function parseMaterials(text) {
   return text.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
-    const i = line.indexOf('|');
-    const m = i === -1 ? { label: '', url: line }
-                       : { label: line.slice(0, i).trim(), url: line.slice(i + 1).trim() };
-    if (!/^https?:\/\/\S+$/i.test(m.url)) {
+    const parts = line.split('|').map((p) => p.trim());
+    let label = '', url = '', desc = '';
+    const isUrl = (s) => /^https?:\/\/\S+$/i.test(s);
+    if (parts.length === 1) url = parts[0];
+    else if (parts.length === 2 && isUrl(parts[0]) && !isUrl(parts[1])) { url = parts[0]; desc = parts[1]; }
+    else if (parts.length === 2) { label = parts[0]; url = parts[1]; }
+    else { label = parts[0]; url = parts[1]; desc = parts.slice(2).join(' | ').trim(); }
+    if (!/^https?:\/\/\S+$/i.test(url)) {
       throw new Error('Each class-file line needs a full link starting with http:// or ' +
-                      'https:// — check "' + line.slice(0, 60) + '".');
+                      'https:// as its second part — check "' + line.slice(0, 60) + '".');
     }
-    if (m.label.length > 120) throw new Error('Class-file labels are limited to 120 characters.');
-    return m;
+    if (desc && !label) {
+      throw new Error('Give the link a label before adding a description: ' +
+                      '"Label | link | description" — check "' + line.slice(0, 60) + '".');
+    }
+    const packed = desc ? label + DESC_SEP + desc : label;
+    if (packed.length > LABEL_MAX) {
+      throw new Error('Label and description together are limited to ' + LABEL_MAX +
+                      ' characters (this one is ' + packed.length + ') — check "' +
+                      line.slice(0, 60) + '".');
+    }
+    return { label: packed, url: url };
   });
 }
-/* [{label, url}] -> the "Label | url" text shown in an editor. */
-const matsText = (mats) => (mats || [])
-  .map((m) => (m.label && m.label !== m.url ? m.label + ' | ' : '') + m.url).join('\n');
+/* {label, url} -> {label, url, desc} with the description unpacked from the label. */
+function unpackMaterial(m) {
+  const l = String(m.label || '');
+  const i = l.indexOf(DESC_SEP);
+  return i === -1 ? { label: l, url: m.url, desc: '' }
+                  : { label: l.slice(0, i).trim(), url: m.url, desc: l.slice(i + DESC_SEP.length).trim() };
+}
+/* [{label, url}] -> the "Label | url | description" text shown in an editor. */
+const matsText = (mats) => (mats || []).map((m) => {
+  const u = unpackMaterial(m);
+  const lab = u.label && u.label !== u.url ? u.label : '';
+  return (lab ? lab + ' | ' : '') + u.url + (lab && u.desc ? ' | ' + u.desc : '');
+}).join('\n');
 /* Canonical form for comparing two file lists. */
 const matsKey = (mats) => (mats || []).map((m) => (m.label || '') + '|' + (m.url || '')).join('\n');
 
@@ -760,8 +793,8 @@ function renderCourseFiles() {
       (upcoming ? ' · ' + upcoming + ' upcoming' : '') +
       (differ ? ' · <span class="warn">' + differ + ' date' + (differ === 1 ? ' has' : 's have') +
                 ' different files</span>' : '') + '</span></div>' +
-      '<textarea rows="3" spellcheck="false" ' +
-      'placeholder="One per line:  Slide deck | https://drive.google.com/file/d/..."></textarea>' +
+      '<textarea rows="3" spellcheck="false" placeholder="One per line:  Slide deck | ' +
+      'https://drive.google.com/file/d/... | The full deck shown in class, with notes"></textarea>' +
       '<div class="flex"><button class="btn btn-primary small">Save to all ' + n +
       ' date' + (n === 1 ? '' : 's') + '</button>' +
       '<span class="cf-msg ' + (msg.cls || '') + '">' + esc(msg.text || '') + '</span></div>';

@@ -221,8 +221,9 @@
     font-family:Georgia,serif; font-size:18px; font-weight:normal; margin-bottom:6px;
   }
   .files ul, .gate-files ul{ margin:0; padding-left:22px; }
-  .files li, .gate-files li{ margin:4px 0; }
-  .files a, .gate-files a{ color:#1b2a41; }
+  .files li, .gate-files li{ margin:6px 0; }
+  .files a, .gate-files a{ color:#1b2a41; font-weight:bold; }
+  .files .desc, .gate-files .desc{ display:block; font-size:12.5px; color:#3d4f66; }
   .files .note, .gate-files .note{ font-size:12.5px; color:#3d4f66; margin-top:8px; }
   .gate-files{ margin-top:18px; padding-top:14px; border-top:1px solid #e3dbc3; }
   [hidden]{ display:none !important; }
@@ -467,12 +468,22 @@
     });
     COURSE = (t.session && t.session.course_name) || '';
   }
+  /* The roster packs an optional description into the label as "Label — text"
+     (the API stores only a label and a link per file); split it back out here. */
+  var DESC_SEP = ' — ';
+  function unpack(m) {
+    var l = String(m.label || ''), i = l.indexOf(DESC_SEP);
+    return i === -1 ? { label: l || m.url, desc: '' }
+                    : { label: l.slice(0, i).trim() || m.url, desc: l.slice(i + DESC_SEP.length).trim() };
+  }
   function filesHtml() {
     if (!MATS.length) return '';
     return '<h2>Class files' + (COURSE ? ' &mdash; ' + esc(COURSE) : '') + '</h2><ul>' +
       MATS.map(function (m) {
+        var u = unpack(m);
         return '<li><a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' +
-               esc(m.label || m.url) + '</a></li>';
+               esc(u.label) + '</a>' +
+               (u.desc ? '<span class="desc">' + esc(u.desc) + '</span>' : '') + '</li>';
       }).join('') + '</ul>' +
       '<p class="note">Links open in a new tab. They are not part of the printed certificate.</p>';
   }

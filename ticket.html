@@ -21,7 +21,8 @@
   }
   .ticket-box label { font-weight: 600; display: block; margin-bottom: 8px; }
   .mat-list { margin: 8px 0 0 0; padding-left: 20px; }
-  .mat-list li { margin-bottom: 4px; }
+  .mat-list li { margin-bottom: 6px; }
+  .mat-list .mat-desc { display: block; font-size: 0.85rem; color: #5f6368; }
   .code-jobs { margin: 10px 0 0 0; padding-left: 20px; }
   .code-jobs li { margin-bottom: 8px; }
   .code-hint { font-size: 0.92rem; color: #5f6368; margin: -4px 0 10px 0; }
@@ -718,11 +719,18 @@ function certBlock(t) {
 function materialsBlock(t) {
   const mats = t.materials || [];
   if (!mats.length) return '';
+  // The roster packs an optional description into the label as "Label — text".
+  const SEP = ' — ';
   return '<div class="howto" style="margin-top:14px"><b>Class files for this session</b>' +
     '<ul class="mat-list">' +
-    mats.map((m) => '<li><a href="' + esc(m.url) + '" target="_blank" ' +
-                    'rel="noopener noreferrer">' + esc(m.label) + '</a></li>').join('') +
-    '</ul></div>';
+    mats.map((m) => {
+      const l = String(m.label || ''), i = l.indexOf(SEP);
+      const label = (i === -1 ? l : l.slice(0, i).trim()) || m.url;
+      const desc = i === -1 ? '' : l.slice(i + SEP.length).trim();
+      return '<li><a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' +
+             esc(label) + '</a>' + (desc ? '<span class="mat-desc">' + esc(desc) + '</span>' : '') +
+             '</li>';
+    }).join('') + '</ul></div>';
 }
 
 function openCertificate(code) {

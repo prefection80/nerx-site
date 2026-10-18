@@ -210,6 +210,26 @@
         </table>
       </div>
 
+      <div class="admin-box" id="findBox">
+        <h3 style="margin-bottom:12px">Find tickets by email</h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
+          Every ticket ever issued to an address &mdash; booked, used, waiting to be
+          scheduled, or void &mdash; with its code and session. Part of an email is enough;
+          a name or a ticket code works too.</p>
+        <div class="flex">
+          <input id="findQ" placeholder="student@company.com" style="min-width:280px"
+                 autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary small" id="findBtn">Find</button>
+          <button class="btn btn-outline small" id="findClear">Clear</button>
+          <span id="findSummary" style="color:#5f6368"></span>
+        </div>
+        <table id="findTable" hidden style="margin-top:12px">
+          <thead><tr><th>Student</th><th>Email</th><th>Code</th><th>Status</th>
+                     <th>Session</th><th>Paid</th><th>Issued</th><th>Actions</th></tr></thead>
+          <tbody id="findBody"></tbody>
+        </table>
+      </div>
+
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Manage selected session</h3>
         <div class="flex" style="margin-bottom:10px">
@@ -670,6 +690,81 @@ function renderUnassigned() {
   });
 }
 
+// ---- find tickets by email ------------------------------------------------
+/* A local search over TICKETS (every ticket the API knows), so it costs no request
+   and stays current with the background refresh. Matches on email, name or code. */
+let FIND_Q = '';
+function renderTicketSearch() {
+  const q = FIND_Q.trim().toLowerCase();
+  const table = $('#findTable'), body = $('#findBody'), sum = $('#findSummary');
+  if (!q) { table.hidden = true; body.innerHTML = ''; sum.textContent = ''; return; }
+  const hit = (v) => String(v || '').toLowerCase().includes(q);
+  const rows = TICKETS
+    .filter((t) => hit(t.buyer_email) || hit(t.buyer_name) || hit(t.code) || hit(t.code_hint))
+    .sort((a, b) => new Date(b.issued_at || 0) - new Date(a.issued_at || 0));
+  table.hidden = false;
+  if (!rows.length) {
+    sum.textContent = '';
+    body.innerHTML = '<tr><td colspan="8">No tickets match "' + esc(FIND_Q.trim()) + '".</td></tr>';
+    return;
+  }
+  const n = (st) => rows.filter((r) => r.status === st).length;
+  const emails = new Set(rows.map((r) => String(r.buyer_email || '').toLowerCase()));
+  sum.innerHTML = '<b>' + rows.length + '</b> ticket' + (rows.length === 1 ? '' : 's') +
+    (emails.size === 1 ? ' for ' + esc([...emails][0]) : ' across ' + emails.size + ' addresses') +
+    ' &nbsp;·&nbsp; ' + n('booked') + ' booked · ' + n('used') + ' used · ' +
+    n('issued') + ' unscheduled · ' + n('void') + ' void';
+  body.innerHTML = '';
+  rows.forEach((t) => {
+    const s = t.session_id ? SESSIONS.find((x) => x.id === t.session_id) : null;
+    const when = t.used_at ? 'used ' + fmt(t.used_at) : t.booked_at ? 'booked ' + fmt(t.booked_at) : '';
+    const sessCell = s
+      ? esc(s.course_name) + '<br><span class="meta">' + fmt(s.starts_at) +
+        (when ? ' · ' + when : '') + '</span>'
+      : t.status === 'issued' ? '<span class="meta">not scheduled yet</span>'
+      : t.session_id ? '<span class="mono">' + esc(t.session_id) + '</span>'
+      : '<span class="meta">—</span>';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
+      '</td><td class="mono">' + esc(t.code || t.code_hint) +
+      '</td><td><span class="status-pill st-' + esc(t.status) + '">' + esc(t.status) +
+      '</span></td><td>' + sessCell + '</td><td>$' + Number(t.amount_usd || 0).toFixed(2) +
+      '</td><td>' + fmt(t.issued_at) + '</td><td class="row-actions"></td>';
+    const actions = tr.querySelector('.row-actions');
+    const add = (label, cls, title, fn) => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + cls + ' tiny'; b.textContent = label; b.title = title; b.onclick = fn;
+      actions.appendChild(b);
+    };
+    if (s) add('Open Session', 'btn-primary', 'Show this session’s roster and calendar entry', () => {
+      selectSession(s.id);
+      $('#rosterBody').closest('.admin-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    if (t.status === 'issued') add('Assign', 'btn-primary', 'Place this ticket on a session date',
+      () => startMove(t));
+    if (t.status === 'booked' && s) add('Move', 'btn-outline', 'Move this student to a different session date',
+      () => startMove({ ...t, session_id: s.id }));
+    if (t.status !== 'void') {
+      add('New Code', 'btn-outline', 'Re-issue this ticket’s code: the old code stops working, ' +
+        'the new one is shown to you and emailed to the student', () =>
+        confirm('Re-issue the code for ' + t.buyer_email + '? Their current code will stop working.') &&
+        api('/admin/tickets/' + t.ticket_id + '/recode', {method: 'POST'})
+          .then((r) => { alert('New code for ' + t.buyer_email + ':\n\n' + r.code +
+                               '\n\n(Also emailed to the student.)'); loadSessions(); })
+          .catch((e) => alert(e.message)));
+      add('Void', 'btn-outline', 'Cancel this ticket', () =>
+        confirm('Void ticket ' + (t.code || t.code_hint) + ' for ' + t.buyer_email + '?') &&
+        api('/admin/tickets/' + t.ticket_id + '/void',
+            {method: 'POST', body: JSON.stringify({reason: 'admin'})})
+          .then(loadSessions).catch((e) => alert(e.message)));
+    }
+    body.appendChild(tr);
+  });
+}
+$('#findBtn').onclick = () => { FIND_Q = $('#findQ').value; renderTicketSearch(); };
+$('#findQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#findBtn').click(); });
+$('#findClear').onclick = () => { $('#findQ').value = ''; FIND_Q = ''; renderTicketSearch(); };
+
 /* What the roster shows in the Certificate column: who it is made out to, or why
    no certificate is available yet. */
 function certCell(t) {
@@ -845,7 +940,8 @@ async function loadSessions() {
     sel.appendChild(o);
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
-  renderCalendar(); renderStats(); renderUnassigned(); prefillWeeklyRange(); renderCourseFiles();
+  renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
+  prefillWeeklyRange(); renderCourseFiles();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
@@ -1182,7 +1278,7 @@ setInterval(async () => {
     const sel = $('#sessSel'); const prev = sel.value;
     [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
     if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
-    renderCalendar(); renderStats(); renderUnassigned();
+    renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 

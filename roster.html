@@ -363,6 +363,19 @@
           <button class="btn btn-primary small" id="oCutSave">Save Cutoff</button>
         </div>
         <p id="oCutMsg"></p>
+        <p class="meta" style="margin-top:16px">Shortly before each class, every booked
+          student is emailed a reminder with a <b>Join class</b> link (plus the class
+          files). The link checks them in for their PDH credit and opens the meeting, same
+          as the button on the ticket page. The roster shows when each seat was reminded.
+          Sessions without a meeting link skip the reminder and email you instead. 0 turns
+          reminders off.</p>
+        <div class="flex">
+          <label for="oRem">Email the join link</label>
+          <input id="oRem" type="number" min="0" max="1440" step="1" style="width:90px">
+          <span class="meta">minutes before class</span>
+          <button class="btn btn-primary small" id="oRemSave">Save Reminder</button>
+        </div>
+        <p id="oRemMsg"></p>
       </div>
 
       <div class="admin-box">
@@ -953,10 +966,12 @@ async function loadRoster() {
     const rows = await api('/admin/sessions/' + sid + '/roster');
     const n = (st) => rows.filter((r) => r.status === st).length;
     const sess = SESSIONS.find((s) => s.id === sid);
+    const reminded = rows.filter((r) => r.reminded_at).length;
     $('#rosterSummary').innerHTML = rows.length
       ? '<b>' + n('booked') + '</b> booked &nbsp;·&nbsp; <b>' + n('used') +
         '</b> used (attended) &nbsp;·&nbsp; <b>' + n('void') + '</b> void' +
-        (sess ? ' &nbsp;·&nbsp; ' + sess.seats_left + ' of ' + sess.capacity + ' seats open' : '')
+        (sess ? ' &nbsp;·&nbsp; ' + sess.seats_left + ' of ' + sess.capacity + ' seats open' : '') +
+        (reminded ? ' &nbsp;·&nbsp; <b>' + reminded + '</b> sent the join link' : '')
       : 'No tickets on this session yet.';
     body.innerHTML = rows.length ? '' : '<tr><td colspan="8">No bookings yet.</td></tr>';
     rows.forEach((t) => {
@@ -965,6 +980,8 @@ async function loadRoster() {
         '</td><td class="mono">' + esc(t.code || t.code_hint) +
         '</td><td><span class="status-pill st-' + esc(t.status) + '">' +
         esc(t.status) + '</span></td><td>' + fmt(t.booked_at) +
+        (t.reminded_at ? '<br><span class="meta" title="Join-link reminder emailed">' +
+                         'reminded ' + fmt(t.reminded_at) + '</span>' : '') +
         '</td><td>' + fmt(t.used_at) + '</td><td>' + certCell(t) +
         '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
@@ -1063,8 +1080,22 @@ async function loadOpenPrice() {
     const r = await api('/admin/settings');
     $('#oPrice').value = Number(r.open_ticket_price_usd).toFixed(2);
     $('#oCut').value = r.signup_cutoff_hours;
+    if (r.reminder_minutes != null) $('#oRem').value = r.reminder_minutes;
   } catch (e) { /* leave blank */ }
 }
+$('#oRemSave').onclick = async () => {
+  try {
+    const v = parseInt($('#oRem').value, 10);
+    if (!(v >= 0)) throw new Error('Enter a whole number of minutes (0 or more).');
+    const r = await api('/admin/settings', {method: 'PATCH',
+      body: JSON.stringify({reminder_minutes: v})});
+    $('#oRem').value = r.reminder_minutes;
+    $('#oRemMsg').textContent = r.reminder_minutes === 0
+      ? 'Saved — reminder emails are off.'
+      : 'Saved — students get the join link ' + r.reminder_minutes + ' minute(s) before class.';
+    $('#oRemMsg').className = 'ok-msg';
+  } catch (e) { $('#oRemMsg').textContent = e.message; $('#oRemMsg').className = 'err'; }
+};
 $('#oCutSave').onclick = async () => {
   try {
     const v = parseInt($('#oCut').value, 10);

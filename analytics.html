@@ -116,6 +116,10 @@
       <div class="admin-box chart" id="chRepeat" style="grid-column:1 / -1"></div>
       <div class="admin-box chart" id="chDomains"></div>
       <div class="admin-box chart" id="chWaitlist"></div>
+      <!-- The forum: not filtered by the course/range controls above (it is one
+           community), loaded from /admin/forum/stats. -->
+      <div class="admin-box chart" id="chForumWeekly"></div>
+      <div class="admin-box chart" id="chForumBoards"></div>
     </div>
   </div>
 </div></section>
@@ -485,12 +489,46 @@ function chartWaitlist() {
 function renderAll() {
   scope();
   tiles(); chartCourses(); chartRevenue(); chartTimeline(); chartCurve(); chartHeat(); chartNoShow(); chartLead(); chartRepeat(); chartDomains(); chartWaitlist();
+  chartForum();
+}
+
+/* ---- the forum ------------------------------------------------------------
+   Two boxes from /admin/forum/stats: activity per week (member questions and
+   replies, with how many different people posted) and questions by board with how
+   they fared. These ignore the course/range filters - the forum is one place. */
+let FORUM_STATS = null;
+function chartForum() {
+  const f = FORUM_STATS, wbox = $('#chForumWeekly'), bbox = $('#chForumBoards');
+  if (!f) { wbox.innerHTML = '<h3>Forum activity</h3><p class="meta">Forum numbers unavailable.</p>'; bbox.innerHTML = ''; return; }
+  const q = f.questions, m = f.members;
+  const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+  const head = '<div class="tiles" style="margin:0 0 12px">' +
+    '<div class="tile"><b>' + m.total + '</b><span>members</span><small>' + m.students + ' students · ' + m.new_30d + ' joined in 30 days</small></div>' +
+    '<div class="tile"><b>' + m.posted_30d + '</b><span>posted in 30 days</span><small>' + (f.held ? f.held + ' post' + (f.held === 1 ? '' : 's') + ' awaiting approval' : 'nothing awaiting approval') + '</small></div>' +
+    '<div class="tile"><b>' + pct(q.replied_within_24h, q.total) + '</b><span>questions replied to within a day</span><small>' + q.answered + ' of ' + q.total + ' answered · ' + q.open + ' with no reply</small></div>' +
+    '</div>';
+  const items = f.weekly.map((w) => ({ label: new Date(w.week + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+    tip: w.active_members + ' member' + (w.active_members === 1 ? '' : 's') + ' posted',
+    parts: [{ v: w.questions, color: COLORS[0], name: 'Questions' }, { v: w.replies, color: COLORS[1], name: 'Replies' }] }));
+  wbox.innerHTML = '<h3>Forum activity per week</h3><div class="sub">Member questions and replies, last ' + f.weeks + ' weeks (class and start-here threads not counted). Hover for how many different people posted.</div>' + head +
+    (items.length ? legend([[COLORS[0], 'Questions'], [COLORS[1], 'Replies']]) + bars(items, { label: 'Forum activity per week' }) : '<p class="meta">No posts yet.</p>') +
+    tableView('t-forum-weekly', ['Week of', 'Questions', 'Replies', 'People posting'], f.weekly.map((w) => [w.week, w.questions, w.replies, w.active_members]));
+  wireTables(wbox);
+  const bitems = f.boards.filter((b) => b.questions).map((b) => ({ label: b.board, tip: b.replies + ' repl' + (b.replies === 1 ? 'y' : 'ies') + ' · ' + pct(b.replied_24h, b.questions) + ' replied to within a day',
+    parts: [{ v: b.answered, color: COLORS[3], name: 'Answered (marked, or the instructor replied)' }, { v: b.questions - b.answered - b.open, color: COLORS[2], name: 'Discussed, not marked answered' },
+            { v: b.open, color: COLORS[4], name: 'No reply yet' }] }));
+  bbox.innerHTML = '<h3>Questions by board</h3><div class="sub">Where the questions are, and how many got an answer. A board full of red is a board that needs you.</div>' +
+    (bitems.length ? legend([[COLORS[3], 'Answered'], [COLORS[2], 'Discussed'], [COLORS[4], 'No reply']]) + hbars(bitems, { label: 'Questions by board' }) : '<p class="meta">No questions yet.</p>') +
+    tableView('t-forum-boards', ['Board', 'Questions', 'Answered', 'Replied within a day', 'No reply', 'Replies'],
+      f.boards.map((b) => [b.board, b.questions, b.answered, b.replied_24h, b.open, b.replies]));
+  wireTables(bbox);
 }
 
 async function load() {
   $('#authMsg').textContent = 'Loading…';
   try {
     [SESSIONS, TICKETS, WAITLIST] = await Promise.all([api('/admin/sessions'), api('/admin/tickets'), api('/admin/waitlist')]);
+    try { FORUM_STATS = await api('/admin/forum/stats?weeks=26'); } catch (e) { FORUM_STATS = null; }
     const sel = $('#course'); const cur = sel.value; sel.innerHTML = '<option value="">All courses</option>';
     [...new Set(SESSIONS.map((s) => s.course_name))].sort().forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (cur) sel.value = cur;

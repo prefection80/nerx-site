@@ -296,6 +296,19 @@
         <p id="rosterMsg"></p>
       </div>
 
+      <!-- The selected class's own forum thread: questions students post before,
+           during and after class, newest first, with anything of theirs awaiting
+           approval. Refreshed with the roster. -->
+      <div class="admin-box" id="classThreadBox">
+        <h3 style="margin-bottom:4px">Class thread
+          <span class="meta" id="ctFor" style="font-weight:400;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px" id="ctIntro">
+          Each class date gets its own thread on the forum, opened when the first seat is booked;
+          booked students with forum accounts are subscribed. Questions during class show here.</p>
+        <div class="flex" id="ctBar"></div>
+        <div id="ctPosts" style="margin-top:10px"></div>
+      </div>
+
       <div class="admin-box" id="afterBox">
         <h3 style="margin-bottom:4px">Attendance &amp; after class
           <span class="meta" id="afterFor" style="font-weight:400;font-size:0.9rem"></span></h3>
@@ -1472,6 +1485,7 @@ async function loadRoster() {
     ROSTER_ROWS = rows;
     renderAfterClass(sid, rows);
     loadWaitlist(sid);
+    loadClassThread(sid);
   } catch (e) { body.innerHTML = '<tr><td colspan="8" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 
@@ -1748,6 +1762,40 @@ const FORUM = _isLocalApi(API) ? API + '/forum' : 'https://forum.nerxpower.com';
 const forumApi = (path, opts = {}) => fetch(FORUM + path, { ...opts,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...tokenHdr(), ...(opts.headers || {}) } })
   .then(async (r) => { if (!r.ok) throw new Error('Forum request failed (' + r.status + ')'); return r.json(); });
+/* The selected class's forum thread (GET /mod/session/<id> on the forum). */
+let CT_FOR = '';
+async function loadClassThread(sid) {
+  const bar = $('#ctBar'), posts = $('#ctPosts');
+  const sess = SESSIONS.find((x) => x.id === sid);
+  $('#ctFor').textContent = sess ? '— ' + sess.course_name + ', ' + fmt(sess.starts_at) : '';
+  CT_FOR = sid;
+  let r;
+  try { r = await forumApi('/mod/session/' + encodeURIComponent(sid)); }
+  catch (e) { bar.innerHTML = '<span class="meta">' + esc(e.message) + '</span>'; posts.innerHTML = ''; return; }
+  if (CT_FOR !== sid) return;
+  if (!r.exists) {
+    bar.innerHTML = '<span class="meta">No thread yet — it opens by itself at the first booking.</span>' +
+      '<button class="btn btn-outline small" id="ctCreate">Open it now</button><span class="meta" id="ctMsg"></span>';
+    posts.innerHTML = '';
+    $('#ctCreate').onclick = async () => {
+      try { await forumApi('/mod/session/' + encodeURIComponent(sid) + '/thread', { method: 'POST', body: '{}' }); loadClassThread(sid); }
+      catch (e) { $('#ctMsg').textContent = e.message; }
+    };
+    return;
+  }
+  bar.innerHTML = '<a class="btn btn-primary small" href="' + esc(r.url) + '" target="_blank" rel="noopener">Open the thread &nearr;</a>' +
+    '<span class="meta"><b>' + r.replies + '</b> repl' + (r.replies === 1 ? 'y' : 'ies') + ' · <b>' + r.subscribers + '</b> subscribed' +
+    (r.held ? ' · <span class="mat-warn">' + r.held + ' awaiting approval</span>' : '') +
+    (r.pinned ? ' · pinned' : '') + (r.locked ? ' · locked' : '') + '</span>';
+  if (!r.latest.length) { posts.innerHTML = '<p class="meta">No questions yet.</p>'; return; }
+  posts.innerHTML = r.latest.map((p) =>
+    '<div class="course-card" style="padding:8px 12px;margin-bottom:6px' + (p.status === 'held' ? ';border-left:3px solid #d6771a' : '') + '">' +
+    '<div class="flex" style="justify-content:space-between"><b>' + esc(p.author) + (p.instructor ? ' <span class="meta">(you)</span>' : '') + '</b>' +
+    '<span class="meta">' + fmt(new Date(p.created_at * 1000).toISOString()) + (p.status === 'held' ? ' · awaiting approval' : '') +
+    ' · <a href="' + esc(p.url) + '" target="_blank" rel="noopener">reply &nearr;</a></span></div>' +
+    '<p style="white-space:pre-wrap;font-size:0.9rem;margin:6px 0 0;max-height:120px;overflow:auto">' + esc(p.body) + '</p></div>').join('');
+}
+
 async function loadForum() {
   const held = $('#forumHeld'), open = $('#forumOpen');
   $('#forumOpenLink').href = FORUM + '/';
@@ -2416,6 +2464,8 @@ setInterval(async () => {
     [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
     if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
     renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
+    // questions arriving during class show up without a reload
+    if (!$('[data-panel="today"]').hidden && sel.value) loadClassThread(sel.value);
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 

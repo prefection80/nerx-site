@@ -758,6 +758,16 @@ function certBlock(t) {
   return '';
 }
 
+/* The class's own discussion thread on the forum: questions before, during and after
+   class. Opened by the server when the first seat on the date is booked. */
+function threadBlock(t, attended) {
+  const url = t.session && t.session.thread_url;
+  if (!url) return '';
+  return '<p style="margin-top:10px"><a class="btn btn-outline small" href="' + url + '" target="_blank" rel="noopener">' +
+    (attended ? 'Class discussion &amp; follow-up questions &rarr;' : 'Class discussion &amp; questions &rarr;') + '</a>' +
+    '<br><span class="meta">Register on the forum with this ticket\'s email and you are subscribed to this class\'s thread.</span></p>';
+}
+
 /* Class materials for the session this ticket holds (or held) a seat on. The server
    only sends them to a booked or used ticket, so anything here is already authorized.
    They are grouped by what they are — the presentation first, then reference
@@ -818,6 +828,7 @@ async function renderTicket(code) {
               t.session.course_name + ' — ' + trackName(t.session) + ' track</b></p>' +
               '<p class="meta">' + describe(t.session) + '. Thanks for attending!</p>';
       if (t.link_available) html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
+      html += threadBlock(t, true);
       html += materialsBlock(t, true);
       html += certBlock(t);
     } else if (t.status === 'booked') {
@@ -829,6 +840,7 @@ async function renderTicket(code) {
       } else {
         html += '<p class="meta">Your join button appears here one hour before class.</p>';
       }
+      html += threadBlock(t, false);
       if (t.can_rebook) {
         html += '<div class="howto"><b>Want a different session?</b> Click the Reschedule button, ' +
                 'then click your new session on the calendar below (your current one is ' +

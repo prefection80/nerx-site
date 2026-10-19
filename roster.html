@@ -539,6 +539,33 @@
           <button class="btn btn-primary small" id="oHoldSave">Save Hold</button>
         </div>
         <p id="oHoldMsg"></p>
+        <h4 style="margin:22px 0 6px">Weekly backup email</h4>
+        <p class="meta">Once a week the <b>whole ticket database</b> &mdash; every ticket with its
+          code and payment, every session, the certificate register, the waitlist, the mailing
+          list and the full activity log &mdash; is emailed as a ZIP so a copy lives in your
+          inbox if this server is ever lost. Keep the latest one; it supersedes the rest.</p>
+        <div class="flex" style="margin-top:8px">
+          <label style="font-weight:600;display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="bkOn" style="width:auto"> On</label>
+          <label for="bkDay">every</label>
+          <select id="bkDay" style="padding:9px 10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit">
+            <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
+            <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option>
+            <option value="6">Sunday</option>
+          </select>
+          <label for="bkHour">at</label>
+          <select id="bkHour" style="padding:9px 10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit"></select>
+          <span class="meta">Central</span>
+          <label for="bkTo">to</label>
+          <input id="bkTo" type="email" style="min-width:260px" placeholder="douglas.millner@nerxpower.com">
+          <button class="btn btn-primary small" id="bkSave">Save Backup Schedule</button>
+        </div>
+        <div class="flex" style="margin-top:10px">
+          <button class="btn btn-outline small" id="bkSend">Send a backup now</button>
+          <button class="btn btn-outline small" id="bkDownload">Download the backup ZIP</button>
+          <span class="meta" id="bkLast"></span>
+        </div>
+        <p id="bkMsg"></p>
       </div>
 
       <div class="admin-box">
@@ -1739,7 +1766,8 @@ const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled
   'waitlist.join': 'joined waitlist', 'waitlist.offer': 'seat offered', 'waitlist.booked': 'took held seat',
   'waitlist.expired': 'hold expired', 'waitlist.removed': 'left waitlist', void: 'voided',
   'admin.session_create': 'session added', 'admin.session_patch': 'session edited',
-  'admin.course_patch': 'course edited', 'admin.test_email': 'test email', subscribe: 'joined mailing list' };
+  'admin.course_patch': 'course edited', 'admin.test_email': 'test email', subscribe: 'joined mailing list',
+  'backup.sent': 'backup emailed', 'backup.download': 'backup downloaded', 'admin.set_backup': 'backup schedule changed' };
 async function loadActivity() {
   const body = $('#actBody');
   body.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
@@ -1826,8 +1854,69 @@ async function loadOpenPrice() {
     if (r.reminder_minutes != null) $('#oRem').value = r.reminder_minutes;
     if (r.followup_minutes != null) $('#oFup').value = r.followup_minutes;
     if (r.waitlist_hold_hours != null) { $('#oHold').value = r.waitlist_hold_hours; $('#waitHoldHrs').textContent = r.waitlist_hold_hours; }
+    fillBackup(r);
   } catch (e) { /* leave blank */ }
 }
+// ---- weekly backup email ----
+(function () {
+  const sel = $('#bkHour');
+  for (let h = 0; h < 24; h++) {
+    const o = document.createElement('option'); o.value = h;
+    o.textContent = ((h + 11) % 12 + 1) + ' ' + (h < 12 ? 'AM' : 'PM');
+    sel.appendChild(o);
+  }
+})();
+function fillBackup(r) {
+  if (r.backup_enabled == null) return;
+  $('#bkOn').checked = !!r.backup_enabled;
+  $('#bkDay').value = r.backup_weekday;
+  $('#bkHour').value = r.backup_hour;
+  $('#bkTo').value = r.backup_to || '';
+  $('#bkLast').textContent = r.backup_last_sent
+    ? 'Last sent ' + fmt(r.backup_last_sent) + (r.backup_enabled ? '' : ' · schedule is off')
+    : (r.backup_enabled ? 'Not sent yet — goes out at the next scheduled time.' : 'Schedule is off.');
+}
+$('#bkSave').onclick = async () => {
+  const msg = $('#bkMsg');
+  try {
+    const to = $('#bkTo').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw new Error('Enter the address the backup should go to.');
+    const r = await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({
+      backup_enabled: $('#bkOn').checked, backup_weekday: +$('#bkDay').value,
+      backup_hour: +$('#bkHour').value, backup_to: to }) });
+    fillBackup(r);
+    msg.textContent = r.backup_enabled
+      ? 'Saved — the backup goes to ' + r.backup_to + ' every ' + $('#bkDay').selectedOptions[0].textContent +
+        ' at ' + $('#bkHour').selectedOptions[0].textContent + ' Central.'
+      : 'Saved — the weekly backup is off (you can still send or download one).';
+    msg.className = 'ok-msg';
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+};
+$('#bkSend').onclick = async () => {
+  const msg = $('#bkMsg');
+  $('#bkSend').disabled = true; msg.textContent = 'Building and sending…'; msg.className = 'meta';
+  try {
+    const r = await api('/admin/backup/send', { method: 'POST', body: JSON.stringify({}) });
+    msg.textContent = (r.accepted ? 'Sent to ' + r.to : 'Built, but the email provider did not accept it — check RESEND_API_KEY on the server') +
+      ' · ' + Math.round(r.bytes / 1024) + ' KB · ' + r.tickets + ' tickets, ' + r.sessions + ' sessions, ' + r.events + ' events.';
+    msg.className = r.accepted ? 'ok-msg' : 'err';
+    loadOpenPrice();
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+  finally { $('#bkSend').disabled = false; }
+};
+$('#bkDownload').onclick = async () => {
+  const msg = $('#bkMsg');
+  try {
+    const r = await fetch(API + '/admin/backup.zip', { headers: tokenHdr() });
+    if (!r.ok) throw new Error('Download failed (' + r.status + ')');
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (r.headers.get('content-disposition') || '').match(/filename=([^;]+)/)?.[1] || 'nerx-backup.zip';
+    a.click();
+    msg.textContent = 'Downloaded ' + Math.round(blob.size / 1024) + ' KB.'; msg.className = 'ok-msg';
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+};
 $('#oFupSave').onclick = async () => {
   try {
     const v = parseInt($('#oFup').value, 10);

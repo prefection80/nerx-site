@@ -235,6 +235,9 @@
         <input type="checkbox" id="tokRemember" style="width:auto"> Remember on this device</label>
       <span id="authMsg"></span>
     </div>
+    <!-- Shown instead of the token box while a stored token is being checked, so the
+         login row does not flash on screen and vanish once the server answers. -->
+    <div class="admin-box" id="connecting" hidden style="color:#5f6368">Connecting to the ticket server&hellip;</div>
 
     <div id="adminUi" hidden>
       <div class="stats" id="statsRow"></div>
@@ -749,7 +752,7 @@ async function api(path, opts = {}) {
     // A refused token is forgotten everywhere, so a stale remembered token can't keep
     // retrying (and tripping the server's failed-login limit) on every page load.
     try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (e) {}
-    $('#adminUi').hidden = true; $('#authBox').hidden = false; $('#signOut').hidden = true;
+    $('#adminUi').hidden = true; $('#connecting').hidden = true; $('#authBox').hidden = false; $('#signOut').hidden = true;
     throw new Error(r.status === 429 ? 'Too many failed attempts — wait a minute and try again.'
                                      : 'Unauthorized — check the token.');
   }
@@ -2029,14 +2032,17 @@ $('#saveTok').onclick = async () => {
   $('#authMsg').textContent = '…';
   try {
     await api('/admin/sessions');
-    $('#authBox').hidden = true; $('#adminUi').hidden = false; $('#signOut').hidden = false;
+    $('#authBox').hidden = true; $('#connecting').hidden = true; $('#adminUi').hidden = false; $('#signOut').hidden = false;
     $('#tok').value = '';                     // the token lives in storage, not in the field
     loadSessions();
     loadSubscribers();
     loadOpenPrice();
     loadForum();
     if (!$('[data-panel="reports"]').hidden) loadActivity();
-  } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+  } catch (e) {
+    $('#connecting').hidden = true; $('#authBox').hidden = false;
+    $('#authMsg').textContent = e.message; $('#authMsg').className = 'err';
+  }
 };
 
 async function loadOpenPrice() {
@@ -2376,10 +2382,16 @@ $('#signOut').onclick = (e) => {
   try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (x) {}
   location.reload();
 };
-// A remembered token (this device) or the one from this tab connects on load.
+// A remembered token (this device) or the one from this tab connects on its own. The token box is hidden before the server is
+// asked (that call can take a few seconds on a cold server) and comes back only if
+// the token is refused - otherwise the login row would sit on screen and then vanish.
 let _keep = null; try { _keep = localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
-if (_keep) { $('#tok').value = _keep; $('#tokRemember').checked = true; $('#saveTok').click(); }
-else if (sessionStorage.getItem('nerx_admin_token')) { $('#tok').value = sessionStorage.getItem('nerx_admin_token'); $('#saveTok').click(); }
+const _sess = sessionStorage.getItem('nerx_admin_token');
+if (_keep || _sess) {
+  $('#authBox').hidden = true; $('#connecting').hidden = false;
+  $('#tok').value = _keep || _sess; $('#tokRemember').checked = !!_keep;
+  $('#saveTok').click();
+}
 </script>
 
 </body>

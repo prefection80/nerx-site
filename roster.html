@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roster — NERX Training Admin</title>
 <meta name="robots" content="noindex, nofollow">
-<script>document.documentElement.classList.add('js');</script>
+<script>
+  document.documentElement.classList.add('js');
+  // The admin page must never render inside another site's frame (clickjacking).
+  if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }
+</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <style>
@@ -190,6 +194,7 @@
     </a>
     <nav aria-label="Main navigation"><ul>
       <li><a href="ticket.html">Ticket Page</a></li>
+      <li><a href="#" id="signOut" hidden title="Forget the admin token in this browser (including a remembered one)">Sign out</a></li>
     </ul></nav>
   </div>
 </header>
@@ -665,8 +670,14 @@ async function api(path, opts = {}) {
   const r = await fetch(API + path, {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...tokenHdr(), ...(opts.headers || {}) } });
-  if (r.status === 401) { $('#adminUi').hidden = true; $('#authBox').hidden = false;
-                          throw new Error('Unauthorized — check the token.'); }
+  if (r.status === 401 || r.status === 429) {
+    // A refused token is forgotten everywhere, so a stale remembered token can't keep
+    // retrying (and tripping the server's failed-login limit) on every page load.
+    try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (e) {}
+    $('#adminUi').hidden = true; $('#authBox').hidden = false; $('#signOut').hidden = true;
+    throw new Error(r.status === 429 ? 'Too many failed attempts — wait a minute and try again.'
+                                     : 'Unauthorized — check the token.');
+  }
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('json') ? await r.json() : await r.text();
   if (!r.ok) throw new Error((data && data.detail) || 'Request failed (' + r.status + ')');
@@ -1838,7 +1849,8 @@ $('#saveTok').onclick = async () => {
   $('#authMsg').textContent = '…';
   try {
     await api('/admin/sessions');
-    $('#authBox').hidden = true; $('#adminUi').hidden = false;
+    $('#authBox').hidden = true; $('#adminUi').hidden = false; $('#signOut').hidden = false;
+    $('#tok').value = '';                     // the token lives in storage, not in the field
     loadSessions();
     loadSubscribers();
     loadOpenPrice();
@@ -2168,6 +2180,11 @@ setInterval(async () => {
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 
+$('#signOut').onclick = (e) => {
+  e.preventDefault();
+  try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (x) {}
+  location.reload();
+};
 // A remembered token (this device) or the one from this tab connects on load.
 let _keep = null; try { _keep = localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
 if (_keep) { $('#tok').value = _keep; $('#tokRemember').checked = true; $('#saveTok').click(); }

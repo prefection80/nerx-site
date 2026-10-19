@@ -540,6 +540,10 @@
                      <th>Session</th><th>Paid</th><th>Issued</th><th>Actions</th></tr></thead>
           <tbody id="findBody"></tbody>
         </table>
+        <!-- The same person on the forum: account, topics, comments, anything awaiting
+             approval, with a link to their profile page (which shows the instructor
+             this training history too). Filled when the search names one address. -->
+        <div id="findForum" hidden style="margin-top:12px;font-size:0.9rem"></div>
       </div>
 
       <div class="admin-box">
@@ -1020,7 +1024,7 @@ let FIND_Q = '';
 function renderTicketSearch() {
   const q = FIND_Q.trim().toLowerCase();
   const table = $('#findTable'), body = $('#findBody'), sum = $('#findSummary');
-  if (!q) { table.hidden = true; body.innerHTML = ''; sum.textContent = ''; return; }
+  if (!q) { table.hidden = true; body.innerHTML = ''; sum.textContent = ''; showForumPerson(''); return; }
   const hit = (v) => String(v || '').toLowerCase().includes(q);
   const rows = TICKETS
     .filter((t) => hit(t.buyer_email) || hit(t.buyer_name) || hit(t.code) || hit(t.code_hint))
@@ -1029,10 +1033,12 @@ function renderTicketSearch() {
   if (!rows.length) {
     sum.textContent = '';
     body.innerHTML = '<tr><td colspan="8">No tickets match "' + esc(FIND_Q.trim()) + '".</td></tr>';
+    showForumPerson(q.includes('@') ? q : '');      // a forum member with no ticket yet still shows
     return;
   }
   const n = (st) => rows.filter((r) => r.status === st).length;
   const emails = new Set(rows.map((r) => String(r.buyer_email || '').toLowerCase()));
+  showForumPerson(emails.size === 1 ? [...emails][0] : (q.includes('@') ? q : ''));
   sum.innerHTML = '<b>' + rows.length + '</b> ticket' + (rows.length === 1 ? '' : 's') +
     (emails.size === 1 ? ' for ' + esc([...emails][0]) : ' across ' + emails.size + ' addresses') +
     ' &nbsp;·&nbsp; ' + n('booked') + ' booked · ' + n('used') + ' used · ' +
@@ -1084,6 +1090,40 @@ function renderTicketSearch() {
     body.appendChild(tr);
   });
 }
+/* The person's forum side, from /admin/forum/person: who they are there, how much
+   they post, whether anything of theirs is waiting for approval. */
+let FORUM_PERSON_FOR = '';
+async function showForumPerson(email) {
+  const box = $('#findForum');
+  if (!email) { box.hidden = true; box.innerHTML = ''; FORUM_PERSON_FOR = ''; return; }
+  if (email === FORUM_PERSON_FOR && !box.hidden) return;
+  FORUM_PERSON_FOR = email;
+  let r;
+  try { r = await api('/admin/forum/person?email=' + encodeURIComponent(email)); }
+  catch (e) { box.hidden = true; return; }
+  if (FORUM_PERSON_FOR !== email) return;          // a newer search won
+  box.hidden = false;
+  if (!r.found) {
+    box.innerHTML = '<b>Forum:</b> <span class="meta">' + esc(email) + ' has not registered on the forum.</span>';
+    return;
+  }
+  const role = { instructor: 'Instructor', student: 'Student', member: 'Member' }[r.role] || r.role;
+  const flags = [];
+  if (r.banned) flags.push('<span class="status-pill st-void">banned</span>');
+  if (r.held) flags.push('<span class="status-pill st-issued">' + r.held + ' awaiting approval</span>');
+  if (r.trusted && r.role === 'member') flags.push('<span class="meta">trusted</span>');
+  const topics = (r.recent_topics || []).map((t) =>
+    '<li><a href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.title) + '</a> ' +
+    '<span class="meta">' + esc(t.board) + ' · ' + t.replies + ' repl' + (t.replies === 1 ? 'y' : 'ies') +
+    (t.status !== 'visible' ? ' · ' + esc(t.status) : '') + '</span></li>').join('');
+  box.innerHTML = '<b>Forum:</b> <a href="' + esc(r.profile_url) + '" target="_blank" rel="noopener">' + esc(r.name) +
+    '</a> · ' + role + ' · joined ' + fmt(r.joined) + (r.last_seen ? ' · last seen ' + fmt(r.last_seen) : '') +
+    ' · <b>' + r.topics + '</b> topic' + (r.topics === 1 ? '' : 's') + ' · <b>' + r.comments + '</b> comment' +
+    (r.comments === 1 ? '' : 's') + (r.accepted_answers ? ' · <b>' + r.accepted_answers + '</b> accepted answer' +
+    (r.accepted_answers === 1 ? '' : 's') : '') + (flags.length ? ' ' + flags.join(' ') : '') +
+    (topics ? '<ul class="meta" style="margin:6px 0 0 18px">' + topics + '</ul>' : '');
+}
+
 $('#findBtn').onclick = () => { FIND_Q = $('#findQ').value; renderTicketSearch(); };
 $('#findQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#findBtn').click(); });
 $('#findClear').onclick = () => { $('#findQ').value = ''; FIND_Q = ''; renderTicketSearch(); };
@@ -1987,6 +2027,8 @@ function updateTabBadges(noShows, waiting) {
 }
 (function () {
   let t = (location.hash || '').slice(1);
+  const find = new URLSearchParams(location.search).get('find');
+  if (find) { $('#findQ').value = find; FIND_Q = find; t = 'people'; }
   if (!TABS.includes(t)) { try { t = localStorage.getItem('nerx_roster_tab') || 'today'; } catch (e) { t = 'today'; } }
   showTab(t, false);
 })();

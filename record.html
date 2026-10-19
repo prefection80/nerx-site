@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class Record — NERX Training Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<script>if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  :root { --ink: #1b2a41; --muted: #5f6368; --rule: #c9cdd2; --accent: #2f90b0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9ebee; font-family: Georgia, "Times New Roman", serif; color: var(--ink); }
+  .bar {
+    background: #212327; color: #fff; padding: 10px 18px; display: flex; gap: 14px; align-items: center;
+    font-family: Verdana, Arial, sans-serif; font-size: 0.9rem;
+  }
+  .bar a { color: #9fd3e6; }
+  .bar button {
+    margin-left: auto; background: var(--accent); color: #fff; border: none; border-radius: 4px;
+    padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  .bar input { padding: 7px 10px; border-radius: 4px; border: 1px solid #555; min-width: 260px; }
+  .sheet {
+    background: #fff; width: 8.5in; min-height: 11in; margin: 24px auto; padding: 0.75in 0.8in;
+    box-shadow: 0 6px 30px rgba(0,0,0,.25); font-size: 11.5pt; line-height: 1.45;
+  }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+  .head img { height: 44px; }
+  .head .org { text-align: right; font-size: 10pt; color: var(--muted); }
+  h1 { font-size: 20pt; margin: 18px 0 2px; font-weight: normal; letter-spacing: .02em; }
+  .sub { color: var(--muted); font-size: 10.5pt; margin: 0 0 16px; }
+  h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 20px 0 6px; font-weight: bold; font-family: Verdana, Arial, sans-serif; }
+  dl { display: grid; grid-template-columns: 11em 1fr; gap: 3px 12px; margin: 0; }
+  dt { color: var(--muted); } dd { margin: 0; }
+  ul.obj { margin: 4px 0 0 18px; padding: 0; } ul.obj li { margin: 2px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-top: 6px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: Verdana, Arial, sans-serif; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1.5px solid var(--ink); }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  tr.absent td { color: #8a8f94; }
+  .counts { display: flex; gap: 26px; margin-top: 10px; font-size: 10.5pt; }
+  .counts b { font-size: 14pt; display: block; }
+  .sign { display: flex; gap: 40px; margin-top: 34px; }
+  .sign div { flex: 1; border-top: 1px solid var(--ink); padding-top: 4px; font-size: 9.5pt; color: var(--muted); }
+  .foot { margin-top: 26px; font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 6px; display: flex; justify-content: space-between; }
+  .note { color: var(--muted); font-style: italic; }
+  .err { color: #b02a37; font-family: Verdana, Arial, sans-serif; }
+  @media print {
+    body { background: #fff; } .bar { display: none; }
+    .sheet { box-shadow: none; margin: 0; width: auto; min-height: 0; padding: 0; }
+    @page { size: letter; margin: 0.7in; }
+    tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a href="roster.html#today">&larr; Roster</a>
+  <span id="status">Loading the class record…</span>
+  <span id="auth" hidden><input id="tok" type="password" placeholder="Admin token"> <button id="go">Load</button></span>
+  <button id="print">Print / Save as PDF</button>
+</div>
+<div class="sheet" id="sheet" hidden>
+  <div class="head">
+    <img src="nerx-logo.png" alt="NERX Power Consultants">
+    <div class="org">NERX Power Consultants LLC<br>Continuing education for power engineers<br>douglas.millner@nerxpower.com</div>
+  </div>
+  <h1>Class Record</h1>
+  <p class="sub" id="subline"></p>
+
+  <h2>Course</h2>
+  <dl id="course"></dl>
+  <div id="descWrap"><h2>Description</h2><p id="desc" style="margin:0"></p></div>
+  <div id="objWrap"><h2>Learning objectives</h2><ul class="obj" id="obj"></ul></div>
+  <div id="matWrap"><h2>Materials provided</h2><ul class="obj" id="mats"></ul></div>
+
+  <h2>Attendance</h2>
+  <div class="counts" id="counts"></div>
+  <table>
+    <thead><tr><th>#</th><th>Attendee</th><th>Email</th><th>Attended</th><th class="n">Minutes</th><th>Certificate</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note" id="minNote"></p>
+
+  <div class="sign">
+    <div>Instructor signature</div>
+    <div>Date</div>
+  </div>
+  <div class="foot"><span id="prov"></span><span id="gen"></span></div>
+</div>
+
+<script>
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CT = 'America/Chicago';
+const fmtDT = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: CT, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+const fmtT = (iso) => iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: CT, hour: 'numeric', minute: '2-digit' }) : '—';
+const fmtD = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+function token() {
+  let t = null;
+  try { t = sessionStorage.getItem('nerx_admin_token') || localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
+  return t;
+}
+const sid = new URLSearchParams(location.search).get('session');
+
+async function load() {
+  const t = token();
+  if (!sid) { $('#status').innerHTML = '<span class="err">No session given. Open this page from the roster’s Attendance box.</span>'; return; }
+  if (!t) { $('#status').textContent = 'Enter the admin token to load the record.'; $('#auth').hidden = false; return; }
+  $('#status').textContent = 'Loading the class record…';
+  try {
+    const r = await fetch(API + '/admin/sessions/' + encodeURIComponent(sid) + '/record', { headers: { Authorization: 'Bearer ' + t } });
+    if (r.status === 401) { $('#status').textContent = 'That token was refused — enter it again.'; $('#auth').hidden = false; return; }
+    if (!r.ok) throw new Error('Could not load the record (' + r.status + ')');
+    render(await r.json());
+    $('#status').textContent = 'Class record ready.';
+    $('#auth').hidden = true;
+  } catch (e) { $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; }
+}
+
+function render(d) {
+  const s = d.session;
+  document.title = 'Class Record — ' + s.course_name + ' — ' + fmtD(s.starts_at);
+  $('#subline').textContent = s.course_name + ' · ' + fmtDT(s.starts_at) + ' Central';
+  const pdh = s.pdh_hours;
+  $('#course').innerHTML =
+    '<dt>Course</dt><dd>' + esc(s.course_name) + (s.course_subtitle ? ' <span class="note">— ' + esc(s.course_subtitle) + '</span>' : '') + '</dd>' +
+    '<dt>Date and time</dt><dd>' + esc(fmtDT(s.starts_at)) + ' to ' + esc(fmtT(s.ends_at)) + ' Central</dd>' +
+    '<dt>Duration</dt><dd>' + s.duration_min + ' minutes</dd>' +
+    '<dt>Credit</dt><dd>' + pdh + ' PDH awarded for ' + s.duration_min + ' minutes of live instruction</dd>' +
+    '<dt>Delivery</dt><dd>Live online instruction with interactive Q&amp;A (video meeting); attendance verified by individual join link and participant report</dd>' +
+    '<dt>Instructor</dt><dd>' + esc(d.instructor) + '</dd>' +
+    '<dt>Session ID</dt><dd>' + esc(s.id) + '</dd>';
+  $('#descWrap').hidden = !s.course_description;
+  $('#desc').textContent = s.course_description || '';
+  const objs = (s.objectives || '').split('\n').map((x) => x.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+  $('#objWrap').hidden = !objs.length;
+  $('#obj').innerHTML = objs.map((o) => '<li>' + esc(o) + '</li>').join('');
+  const mats = s.materials || [];
+  $('#matWrap').hidden = !mats.length;
+  $('#mats').innerHTML = mats.map((m) => '<li>' + esc(m.label) + (m.note ? ' <span class="note">— ' + esc(m.note) + '</span>' : '') + '</li>').join('');
+  const c = d.counts;
+  $('#counts').innerHTML =
+    '<div><b>' + (c.attended + c.booked) + '</b>registered</div>' +
+    '<div><b>' + c.attended + '</b>attended</div>' +
+    '<div><b>' + c.booked + '</b>did not attend</div>' +
+    (c.with_minutes ? '<div><b>' + c.with_minutes + '</b>with meeting minutes recorded</div>' : '');
+  $('#rows').innerHTML = d.attendees.map((a, i) =>
+    '<tr class="' + (a.attended ? '' : 'absent') + '"><td>' + (i + 1) + '</td><td>' + esc(a.name || '—') + '</td><td>' + esc(a.email) + '</td><td>' +
+    (a.attended ? 'Yes · ' + esc(fmtT(a.attended_at)) : 'No') + '</td><td class="n">' +
+    (a.attended_minutes != null ? a.attended_minutes : '—') + '</td><td>' +
+    (a.certificate_no ? esc(a.certificate_no) + ' <span class="note">(' + esc(a.certificate_status) + ')</span>' : '—') + '</td></tr>').join('') ||
+    '<tr><td colspan="6" class="note">No one was registered on this date.</td></tr>';
+  $('#minNote').textContent = c.with_minutes
+    ? 'Minutes are the time each attendee was present in the meeting per the video platform’s participant report. Attendance without minutes was recorded by the attendee’s individual join link or by the instructor.'
+    : 'Attendance was recorded by each attendee’s individual join link or by the instructor.';
+  $('#prov').textContent = d.provider_numbers ? 'Provider registrations: ' + d.provider_numbers : '';
+  $('#gen').textContent = 'Generated ' + fmtDT(d.generated_at) + ' Central';
+  $('#sheet').hidden = false;
+}
+$('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} load(); };
+$('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
+$('#print').onclick = () => window.print();
+load();
+</script>
+</body>
+</html>

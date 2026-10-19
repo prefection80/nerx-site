@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics — NERX Training Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<script>
+  document.documentElement.classList.add('js');
+  if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }
+</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  [hidden] { display: none !important; }
+  /* Chart colours: a validated categorical set (CVD-safe adjacent pairs) close to the brand. */
+  :root { --c1: #1a86ad; --c2: #d6771a; --c3: #6b4fd1; --c4: #2e9b5f; --c5: #b03a5b; --ink: #3c4043; --muted: #5f6368; --grid: #e4e6e8; }
+  .admin-box {
+    background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 22px 26px; margin-bottom: 22px;
+  }
+  .admin-box label { font-weight: 600; margin-right: 8px; }
+  .admin-box input, .admin-box select { padding: 9px 12px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem; font-family: inherit; }
+  .btn.small { padding: 9px 16px; font-size: 0.88rem; }
+  .btn.tiny { padding: 4px 10px; font-size: 0.78rem; }
+  .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .err { color: #b02a37; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 0.88rem; }
+  .filters { position: sticky; top: 0; z-index: 5; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .tile { background: var(--charcoal); color: var(--grey-light); border-radius: 6px; padding: 16px 20px; border-left: 3px solid var(--blue); }
+  .tile b { display: block; color: var(--white); font-size: 1.6rem; line-height: 1.2; }
+  .tile span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tile small { display: block; color: #9aa0a6; font-size: 0.78rem; margin-top: 4px; text-transform: none; letter-spacing: 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 22px; }
+  .chart h3 { font-size: 1.05rem; margin: 0 0 2px; }
+  .chart .sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+  .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart .bar { rx: 2; }
+  .chart .lbl { font-size: 11px; fill: var(--muted); }
+  .chart .val { font-size: 11px; fill: var(--ink); font-weight: 700; }
+  .chart .axis { stroke: var(--grid); stroke-width: 1; }
+  .chart .gridline { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 3; }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .hit:hover + .bar, .chart .bar:hover { filter: brightness(1.12); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink); margin: 6px 0 2px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .chart-foot { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+  .chart table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .chart th, .chart td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  .chart th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .chart td.n, .chart th.n { text-align: right; }
+  .tip {
+    position: fixed; pointer-events: none; z-index: 20; background: var(--charcoal); color: #fff;
+    font-size: 0.8rem; padding: 6px 9px; border-radius: 4px; max-width: 280px; line-height: 1.35;
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  .tip b { color: #fff; }
+  .heat { display: grid; grid-template-columns: 48px repeat(24, 1fr); gap: 2px; font-size: 0.7rem; color: var(--muted); }
+  .heat .cell { aspect-ratio: 1; border-radius: 2px; background: #eef2f5; }
+  .heat .rl { align-self: center; }
+  .heat .cl { text-align: center; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: rgba(47,144,176,0.15); color: var(--blue); }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .heat { font-size: 0.6rem; } }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home"><img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo"></a>
+    <nav aria-label="Main navigation"><ul>
+      <li><a href="roster.html">Roster</a></li>
+      <li><a href="ticket.html">Ticket Page</a></li>
+    </ul></nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-hero"><div class="container"><h1>Training Analytics</h1></div></div>
+<section><div class="container">
+
+  <div class="admin-box flex" id="authBox">
+    <label for="tok">Admin token</label>
+    <input id="tok" type="password" style="min-width:280px">
+    <button class="btn btn-primary small" id="go">Connect</button>
+    <span id="authMsg" class="meta"></span>
+  </div>
+
+  <div id="ui" hidden>
+    <div class="admin-box flex filters">
+      <label for="range">Period</label>
+      <select id="range">
+        <option value="90">Last 90 days</option>
+        <option value="180">Last 6 months</option>
+        <option value="365" selected>Last 12 months</option>
+        <option value="730">Last 2 years</option>
+        <option value="all">All time</option>
+      </select>
+      <label for="course">Course</label>
+      <select id="course"><option value="">All courses</option></select>
+      <label style="font-weight:400;display:flex;align-items:center;gap:6px"><input type="checkbox" id="hideTest" checked style="width:auto"> Hide $1 test dates</label>
+      <span class="meta" id="scope" style="margin-left:auto"></span>
+      <button class="btn btn-outline small" id="reload">Reload</button>
+    </div>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="grid2">
+      <div class="admin-box chart" id="chCourses"></div>
+      <div class="admin-box chart" id="chRevenue"></div>
+      <div class="admin-box chart" id="chTimeline" style="grid-column:1 / -1"></div>
+      <div class="admin-box chart" id="chCurve"></div>
+      <div class="admin-box chart" id="chHeat"></div>
+      <div class="admin-box chart" id="chNoShow"></div>
+      <div class="admin-box chart" id="chLead"></div>
+      <div class="admin-box chart" id="chRepeat" style="grid-column:1 / -1"></div>
+      <div class="admin-box chart" id="chDomains"></div>
+      <div class="admin-box chart" id="chWaitlist"></div>
+    </div>
+  </div>
+</div></section>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CT = 'America/Chicago';
+const money = (v) => '$' + Math.round(v).toLocaleString('en-US');
+const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+const fmtD = (iso) => new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' });
+const fmtDT = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: CT, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const ctParts = (iso) => new Intl.DateTimeFormat('en-US', { timeZone: CT, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: 'numeric', hour12: false })
+  .formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
+const token = () => { try { return sessionStorage.getItem('nerx_admin_token') || localStorage.getItem('nerx_admin_token_keep'); } catch (e) { return null; } };
+const COLORS = ['#1a86ad', '#d6771a', '#6b4fd1', '#2e9b5f', '#b03a5b'];
+const TRACK = { Tue: COLORS[0], Thu: COLORS[3], Sat: COLORS[1], other: COLORS[2] };
+
+async function api(path) {
+  const r = await fetch(API + path, { headers: { Authorization: 'Bearer ' + (token() || '') } });
+  if (r.status === 401 || r.status === 429) {
+    try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (e) {}
+    $('#ui').hidden = true; $('#authBox').hidden = false;
+    throw new Error(r.status === 429 ? 'Too many failed attempts — wait a minute.' : 'Unauthorized — check the token.');
+  }
+  if (!r.ok) throw new Error('Request failed (' + r.status + ')');
+  return r.json();
+}
+
+// ---- tooltip --------------------------------------------------------------
+const tip = $('#tip');
+document.addEventListener('mousemove', (e) => {
+  const t = e.target.closest('[data-tip]');
+  if (!t) { tip.hidden = true; return; }
+  tip.innerHTML = t.dataset.tip; tip.hidden = false;
+  const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8), y = Math.max(8, e.clientY - tip.offsetHeight - 12);
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+});
+
+// ---- data -----------------------------------------------------------------
+let SESSIONS = [], TICKETS = [], WAITLIST = [];
+const S = {};   // scoped (filtered) data
+
+function scope() {
+  const days = $('#range').value, course = $('#course').value, hideTest = $('#hideTest').checked;
+  const since = days === 'all' ? 0 : Date.now() - (+days) * 86400000;
+  const isTest = (s) => s.price_usd <= 1 || /^test$/i.test(String(s.course_name).trim());
+  const sess = SESSIONS.filter((s) => s.status !== 'cancelled' && !(hideTest && isTest(s)) && (!course || s.course_name === course)
+                                      && new Date(s.starts_at).getTime() >= since);
+  const sid = new Set(sess.map((s) => s.id));
+  const bySess = {}; SESSIONS.forEach((s) => { bySess[s.id] = s; });
+  // Tickets in scope: on a session in scope, or (if no course filter) undated ones issued in the period.
+  const tix = TICKETS.filter((t) => t.session_id ? sid.has(t.session_id)
+                                                 : (!course && new Date(t.issued_at).getTime() >= since && !(hideTest && t.amount_usd <= 1)));
+  Object.assign(S, { sess, tix, bySess, since, course });
+  $('#scope').textContent = sess.length + ' session' + (sess.length === 1 ? '' : 's') + ' · ' + tix.length + ' ticket' + (tix.length === 1 ? '' : 's') + ' in view';
+}
+
+function trackOf(s) { const d = ctParts(s.starts_at).weekday; return TRACK[d] ? d : 'other'; }
+const past = (s) => new Date(s.starts_at).getTime() + (s.duration_min || 90) * 60000 < Date.now();
+
+// ---- drawing helpers --------------------------------------------------------
+function svgOpen(W, H, label) { return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(label) + '">'; }
+function legend(items) { return '<div class="legend">' + items.map(([c, l]) => '<span><i style="background:' + c + '"></i>' + esc(l) + '</span>').join('') + '</div>'; }
+function tableView(id, head, rows) {
+  return '<div class="chart-foot"><button class="btn btn-outline tiny" data-toggle="' + id + '">Show data</button>' +
+    '<button class="btn btn-outline tiny" data-csv="' + id + '">Download CSV</button></div>' +
+    '<div id="' + id + '" hidden><table><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' +
+    rows.map((r) => '<tr>' + r.map((v, i) => '<td' + (i ? ' class="n"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+}
+function wireTables(box) {
+  box.querySelectorAll('[data-toggle]').forEach((b) => { b.onclick = () => { const t = $('#' + b.dataset.toggle); t.hidden = !t.hidden; b.textContent = t.hidden ? 'Show data' : 'Hide data'; }; });
+  box.querySelectorAll('[data-csv]').forEach((b) => { b.onclick = () => {
+    const rows = [...$('#' + b.dataset.csv).querySelectorAll('tr')].map((tr) => [...tr.children].map((c) => '"' + c.textContent.replace(/"/g, '""') + '"').join(','));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = 'nerx-' + b.dataset.csv + '.csv'; a.click();
+  }; });
+}
+/* Vertical bars, optionally stacked: items = [{label, sub?, parts:[{v, color, name}]}] */
+function bars(items, opts) {
+  const W = 560, H = opts.h || 220, padL = 40, padB = opts.sub ? 40 : 28, padT = 16;
+  const tot = (d) => d.parts.reduce((a, p) => a + p.v, 0);
+  const max = Math.max(1, ...items.map(tot));
+  const n = Math.max(1, items.length), bw = (W - padL - 8) / n, gap = 2;
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  let svg = svgOpen(W, H, opts.label);
+  // recessive grid: 3 lines
+  for (let i = 1; i <= 3; i++) { const v = max * i / 3, r = Math.round(v); svg += '<line class="gridline" x1="' + padL + '" x2="' + W + '" y1="' + y(v) + '" y2="' + y(v) + '"/>' +
+    '<text class="lbl" x="' + (padL - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + esc(opts.fmt ? opts.fmt(r) : r) + '</text>'; }
+  svg += '<line class="axis" x1="' + padL + '" x2="' + W + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '"/>';
+  items.forEach((d, i) => {
+    const x = padL + i * bw + bw * 0.2, w = Math.max(3, bw * 0.6);
+    let acc = 0;
+    d.parts.forEach((p) => {
+      if (!p.v) return;
+      const top = y(acc + p.v), bottom = y(acc) - (acc ? gap : 0);
+      svg += '<rect class="bar" x="' + x + '" y="' + top + '" width="' + w + '" height="' + Math.max(0, bottom - top) + '" fill="' + p.color +
+             '" data-tip="' + esc('<b>' + d.label + (d.sub ? ' ' + d.sub : '') + '</b><br>' + (p.name ? p.name + ': ' : '') + (opts.fmt ? opts.fmt(p.v) : p.v) +
+             (d.parts.length > 1 ? '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) : '') + (d.tip ? '<br>' + d.tip : '')) + '"/>';
+      acc += p.v;
+    });
+    if (tot(d) && (opts.values !== false) && n <= 16) svg += '<text class="val" x="' + (x + w / 2) + '" y="' + (y(tot(d)) - 4) + '" text-anchor="middle">' + esc(opts.fmt ? opts.fmt(tot(d)) : tot(d)) + '</text>';
+    if (n <= 24 || i % Math.ceil(n / 24) === 0) {
+      svg += '<text class="lbl" x="' + (x + w / 2) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + esc(d.label) + '</text>';
+      if (d.sub) svg += '<text class="lbl" x="' + (x + w / 2) + '" y="' + (H - padB + 26) + '" text-anchor="middle">' + esc(d.sub) + '</text>';
+    }
+  });
+  return svg + '</svg>';
+}
+/* Horizontal stacked bars: items = [{label, parts:[{v,color,name}], tip}] */
+function hbars(items, opts) {
+  const W = 560, rowH = 26, padL = opts.padL || 170, H = Math.max(60, items.length * rowH + 24);
+  const tot = (d) => d.parts.reduce((a, p) => a + p.v, 0);
+  const max = Math.max(1, ...items.map(tot));
+  const x = (v) => padL + (W - padL - 46) * v / max;
+  let svg = svgOpen(W, H, opts.label);
+  items.forEach((d, i) => {
+    const yy = 8 + i * rowH, h = rowH - 8;
+    svg += '<text class="lbl" x="' + (padL - 8) + '" y="' + (yy + h / 2 + 4) + '" text-anchor="end">' + esc(d.label.length > 26 ? d.label.slice(0, 25) + '…' : d.label) + '</text>';
+    let acc = 0;
+    d.parts.forEach((p) => {
+      if (!p.v) return;
+      svg += '<rect class="bar" x="' + (x(acc) + (acc ? 2 : 0)) + '" y="' + yy + '" width="' + Math.max(0, x(acc + p.v) - x(acc) - (acc ? 2 : 0)) + '" height="' + h + '" fill="' + p.color +
+             '" data-tip="' + esc('<b>' + d.label + '</b><br>' + p.name + ': ' + (opts.fmt ? opts.fmt(p.v) : p.v) + '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) + (d.tip ? '<br>' + d.tip : '')) + '"/>';
+      acc += p.v;
+    });
+    svg += '<text class="val" x="' + (x(tot(d)) + 6) + '" y="' + (yy + h / 2 + 4) + '">' + esc(opts.fmt ? opts.fmt(tot(d)) : tot(d)) + '</text>';
+  });
+  return svg + '</svg>';
+}
+
+// ---- charts -----------------------------------------------------------------
+function tiles() {
+  const { sess, tix } = S;
+  const sold = tix.filter((t) => t.status !== 'void');
+  const revenue = sold.reduce((a, t) => a + t.amount_usd, 0);
+  const pastS = sess.filter(past);
+  const seats = tix.filter((t) => (t.status === 'used' || t.status === 'booked') && S.bySess[t.session_id] && past(S.bySess[t.session_id]));
+  const attended = seats.filter((t) => t.status === 'used').length;
+  const byEmail = {}; TICKETS.filter((t) => t.status !== 'void').forEach((t) => { (byEmail[t.buyer_email] = byEmail[t.buyer_email] || []).push(t); });
+  const people = Object.keys(byEmail).length, repeat = Object.values(byEmail).filter((l) => l.length > 1).length;
+  const cap = pastS.reduce((a, s) => a + s.capacity, 0), filled = pastS.reduce((a, s) => a + s.booked, 0);
+  $('#tiles').innerHTML =
+    '<div class="tile"><b>' + sold.length + '</b><span>seats sold</span><small>' + tix.filter((t) => t.status === 'void').length + ' void/refunded</small></div>' +
+    '<div class="tile"><b>' + money(revenue) + '</b><span>revenue</span><small>' + (sold.length ? money(revenue / sold.length) + ' per seat' : '') + '</small></div>' +
+    '<div class="tile"><b>' + pct(filled, cap) + '</b><span>seats filled</span><small>' + pastS.length + ' classes that have run</small></div>' +
+    '<div class="tile"><b>' + pct(attended, seats.length) + '</b><span>attendance</span><small>' + (seats.length - attended) + ' no-show' + (seats.length - attended === 1 ? '' : 's') + '</small></div>' +
+    '<div class="tile"><b>' + pct(repeat, people) + '</b><span>repeat students</span><small>' + repeat + ' of ' + people + ' people, all time</small></div>';
+}
+
+function chartCourses() {
+  const { sess, tix, bySess } = S;
+  const groups = {};
+  tix.forEach((t) => {
+    const s = bySess[t.session_id]; const k = s ? s.course_name : '(seat bought, no date yet)';
+    const g = groups[k] = groups[k] || { used: 0, booked: 0, open: 0, void: 0, rev: 0 };
+    if (t.status === 'void') g.void++; else { g[t.status === 'issued' ? 'open' : t.status]++; g.rev += t.amount_usd; }
+  });
+  const items = Object.keys(groups).sort((a, b) => (groups[b].used + groups[b].booked + groups[b].open) - (groups[a].used + groups[a].booked + groups[a].open))
+    .map((k) => ({ label: k, tip: 'Revenue: ' + money(groups[k].rev), parts: [
+      { v: groups[k].used, color: COLORS[0], name: 'Attended' }, { v: groups[k].booked, color: COLORS[1], name: 'Booked (upcoming or no-show)' },
+      { v: groups[k].open, color: COLORS[2], name: 'Not yet booked' }, { v: groups[k].void, color: '#9aa0a6', name: 'Void / refunded' }] }));
+  const box = $('#chCourses');
+  box.innerHTML = '<h3>Tickets sold per course</h3><div class="sub">Every ticket in view, by the course it is on and what happened to it</div>' +
+    (items.length ? legend([[COLORS[0], 'Attended'], [COLORS[1], 'Booked'], [COLORS[2], 'Not yet booked'], ['#9aa0a6', 'Void / refunded']]) + hbars(items, { label: 'Tickets per course' }) : '<p class="meta">No tickets in view.</p>') +
+    tableView('t-courses', ['Course', 'Attended', 'Booked', 'Not booked', 'Void', 'Revenue'],
+      items.map((d) => [d.label, d.parts[0].v, d.parts[1].v, d.parts[2].v, d.parts[3].v, money(groups[d.label].rev)]));
+  wireTables(box);
+}
+
+function chartRevenue() {
+  const { tix } = S;
+  const m = {};
+  tix.filter((t) => t.status !== 'void' && t.amount_usd > 0).forEach((t) => {
+    const p = ctParts(t.issued_at), k = p.year + '-' + p.month; (m[k] = m[k] || { rev: 0, n: 0 }); m[k].rev += t.amount_usd; m[k].n++;
+  });
+  const keys = Object.keys(m).sort();
+  const lbl = (k) => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleString('en-US', { month: 'short' }) + (k.slice(5) === '01' || k === keys[0] ? ' ’' + k.slice(2, 4) : '');
+  const items = keys.map((k) => ({ label: lbl(k), tip: m[k].n + ' seat' + (m[k].n === 1 ? '' : 's'), parts: [{ v: Math.round(m[k].rev), color: COLORS[0] }] }));
+  const box = $('#chRevenue');
+  box.innerHTML = '<h3>Revenue by month</h3><div class="sub">Paid tickets by purchase month, refunds excluded</div>' +
+    (items.length ? bars(items, { label: 'Revenue by month', fmt: money }) : '<p class="meta">No sales in view.</p>') +
+    tableView('t-revenue', ['Month', 'Seats', 'Revenue'], keys.map((k) => [k, m[k].n, money(m[k].rev)]));
+  wireTables(box);
+}
+
+function chartTimeline() {
+  const { sess } = S;
+  const ordered = sess.slice().sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+  const items = ordered.map((s) => {
+    const tr = trackOf(s); const isPast = past(s);
+    const daysLeft = Math.ceil((new Date(s.starts_at) - Date.now()) / 86400000);
+    return { label: new Date(s.starts_at).toLocaleDateString('en-US', { timeZone: CT, month: 'numeric', day: 'numeric' }), sub: tr === 'other' ? ctParts(s.starts_at).weekday : tr,
+      tip: s.course_name + '<br>' + fmtDT(s.starts_at) + ' Central<br>' + s.booked + ' of ' + s.capacity + ' seats' + (s.held ? ' (+' + s.held + ' held)' : '') +
+           (isPast ? ' · ran' : ' · in ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's')),
+      parts: [{ v: Math.round(100 * s.booked / Math.max(1, s.capacity)), color: TRACK[tr], name: 'Filled' }] };
+  });
+  const box = $('#chTimeline');
+  box.innerHTML = '<h3>Session timeline</h3><div class="sub">Each date in view, how full it is (booked ÷ seats). Upcoming dates show their fill so far; hover for the course and seats.</div>' +
+    legend([[TRACK.Tue, 'Tuesday'], [TRACK.Thu, 'Thursday'], [TRACK.Sat, 'Saturday'], [TRACK.other, 'Other day']]) +
+    (items.length ? bars(items, { label: 'Fill by session', fmt: (v) => v + '%', h: 240, sub: true, values: items.length <= 24 }) : '<p class="meta">No sessions in view.</p>') +
+    tableView('t-timeline', ['Date', 'Course', 'Booked', 'Seats', 'Filled', 'Status'],
+      ordered.map((s) => [fmtDT(s.starts_at), s.course_name, s.booked, s.capacity, pct(s.booked, s.capacity), past(s) ? 'ran' : 'upcoming']));
+  wireTables(box);
+}
+
+function chartCurve() {
+  const { sess, tix } = S;
+  // For each session: cumulative seats booked vs days before class, from each ticket's booking stamp.
+  const W = 560, H = 230, padL = 36, padB = 30, padT = 12, maxDays = 60;
+  const x = (d) => padL + (W - padL - 10) * (1 - Math.min(maxDays, Math.max(0, d)) / maxDays);
+  const y = (f) => padT + (H - padT - padB) * (1 - f);
+  const lines = [];
+  sess.forEach((s) => {
+    const seats = tix.filter((t) => t.session_id === s.id && (t.status === 'booked' || t.status === 'used') && t.booked_at)
+      .map((t) => (new Date(s.starts_at) - new Date(t.booked_at)) / 86400000).sort((a, b) => b - a);
+    if (seats.length < 2) return;
+    const pts = seats.map((d, i) => [x(d), y((i + 1) / s.capacity)]);
+    lines.push({ s, pts, final: seats.length });
+  });
+  let svg = svgOpen(W, H, 'Booking curves');
+  [0.25, 0.5, 0.75, 1].forEach((f) => { svg += '<line class="gridline" x1="' + padL + '" x2="' + W + '" y1="' + y(f) + '" y2="' + y(f) + '"/><text class="lbl" x="' + (padL - 6) + '" y="' + (y(f) + 4) + '" text-anchor="end">' + Math.round(f * 100) + '%</text>'; });
+  svg += '<line class="axis" x1="' + padL + '" x2="' + W + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '"/>';
+  [60, 45, 30, 14, 7, 0].forEach((d) => { svg += '<text class="lbl" x="' + x(d) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + (d ? d + 'd' : 'class') + '</text>'; });
+  svg += '<text class="lbl" x="' + W + '" y="' + (H - 2) + '" text-anchor="end">days before class →</text>';
+  lines.forEach((l) => {
+    const up = !past(l.s);
+    const d = l.pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + (up ? '' : ' H' + x(0));
+    svg += '<path d="' + d + '" fill="none" stroke="' + (up ? TRACK[trackOf(l.s)] : '#b8bec4') + '" stroke-width="' + (up ? 2.2 : 1.4) + '" stroke-linejoin="round" stroke-linecap="round"' +
+      ' data-tip="' + esc('<b>' + l.s.course_name + '</b><br>' + fmtDT(l.s.starts_at) + '<br>' + l.final + ' of ' + l.s.capacity + ' seats' + (up ? ' so far' : '')) + '"/>';
+  });
+  const box = $('#chCurve');
+  box.innerHTML = '<h3>How bookings build up</h3><div class="sub">Seats booked (as % of capacity) against days before class. Grey: dates that have run. Colour: upcoming dates, by track — is this one on pace?</div>' +
+    (lines.length ? svg : '<p class="meta">Needs at least two bookings on a date to draw a curve.</p>') +
+    tableView('t-curve', ['Date', 'Course', 'Seats', 'Of', 'Booked 30+ d out', '7–30 d', 'Last 7 d'],
+      lines.map((l) => { const ds = tix.filter((t) => t.session_id === l.s.id && (t.status === 'booked' || t.status === 'used') && t.booked_at).map((t) => (new Date(l.s.starts_at) - new Date(t.booked_at)) / 86400000);
+        return [fmtDT(l.s.starts_at), l.s.course_name, l.final, l.s.capacity, ds.filter((d) => d >= 30).length, ds.filter((d) => d >= 7 && d < 30).length, ds.filter((d) => d < 7).length]; }));
+  wireTables(box);
+}
+
+function chartHeat() {
+  const { tix } = S;
+  const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  let max = 0;
+  tix.filter((t) => t.amount_usd > 0).forEach((t) => {
+    const p = ctParts(t.issued_at); const d = days.indexOf(p.weekday), h = (+p.hour) % 24;
+    if (d >= 0) { grid[d][h]++; max = Math.max(max, grid[d][h]); }
+  });
+  let html = '<div class="heat"><div></div>' + Array.from({ length: 24 }, (_, h) => '<div class="cl">' + (h % 3 === 0 ? ((h + 11) % 12 + 1) + (h < 12 ? 'a' : 'p') : '') + '</div>').join('');
+  grid.forEach((row, d) => {
+    html += '<div class="rl">' + days[d] + '</div>' + row.map((v, h) => {
+      const a = max ? 0.12 + 0.88 * v / max : 0;
+      return '<div class="cell" style="background:' + (v ? 'rgba(26,134,173,' + a.toFixed(2) + ')' : '') + '" data-tip="' + esc('<b>' + days[d] + ' ' + ((h + 11) % 12 + 1) + (h < 12 ? ' AM' : ' PM') + '</b><br>' + v + ' purchase' + (v === 1 ? '' : 's')) + '"></div>';
+    }).join('');
+  });
+  const box = $('#chHeat');
+  box.innerHTML = '<h3>When people buy</h3><div class="sub">Purchases by weekday and hour (Central). Darker = more. The best hour to post or send a broadcast is the one people already buy in.</div>' + html + '</div>' +
+    tableView('t-heat', ['Day', ...Array.from({ length: 24 }, (_, h) => h + ':00')], grid.map((row, d) => [days[d], ...row]));
+  wireTables(box);
+}
+
+function chartNoShow() {
+  const { sess, tix, bySess } = S;
+  const g = {};
+  tix.filter((t) => (t.status === 'used' || t.status === 'booked') && bySess[t.session_id] && past(bySess[t.session_id])).forEach((t) => {
+    const k = bySess[t.session_id].course_name; (g[k] = g[k] || { used: 0, no: 0 }); g[k][t.status === 'used' ? 'used' : 'no']++;
+  });
+  const items = Object.keys(g).sort().map((k) => ({ label: k, tip: g[k].used + ' attended, ' + g[k].no + ' did not', parts: [{ v: Math.round(100 * g[k].no / (g[k].used + g[k].no)), color: COLORS[4], name: 'No-show rate' }] }));
+  const box = $('#chNoShow');
+  box.innerHTML = '<h3>No-show rate by course</h3><div class="sub">Booked seats that never joined, as a share of seats on classes that have run</div>' +
+    (items.length ? hbars(items, { label: 'No-show rate', fmt: (v) => v + '%' }) : '<p class="meta">No classes have run in view.</p>') +
+    tableView('t-noshow', ['Course', 'Attended', 'No-shows', 'Rate'], Object.keys(g).sort().map((k) => [k, g[k].used, g[k].no, pct(g[k].no, g[k].used + g[k].no)]));
+  wireTables(box);
+}
+
+function chartLead() {
+  const { tix, bySess } = S;
+  const buckets = [['same day', 0, 1], ['1–3 d', 1, 4], ['4–7 d', 4, 8], ['1–2 wk', 8, 15], ['2–4 wk', 15, 29], ['1–2 mo', 29, 61], ['2 mo+', 61, 1e9]];
+  const counts = buckets.map(() => 0);
+  tix.filter((t) => (t.status === 'booked' || t.status === 'used') && t.booked_at && bySess[t.session_id]).forEach((t) => {
+    const d = (new Date(bySess[t.session_id].starts_at) - new Date(t.booked_at)) / 86400000;
+    const i = buckets.findIndex(([, lo, hi]) => d >= lo && d < hi); if (i >= 0) counts[i]++; else if (d < 0) counts[0]++;
+  });
+  const box = $('#chLead');
+  box.innerHTML = '<h3>How far ahead people book</h3><div class="sub">Days between booking a seat and the class it is on</div>' +
+    bars(buckets.map(([l], i) => ({ label: l, parts: [{ v: counts[i], color: COLORS[2] }] })), { label: 'Booking lead time' }) +
+    tableView('t-lead', ['Lead time', 'Seats'], buckets.map(([l], i) => [l, counts[i]]));
+  wireTables(box);
+}
+
+function chartRepeat() {
+  const byEmail = {};
+  TICKETS.filter((t) => t.status !== 'void').forEach((t) => { (byEmail[t.buyer_email] = byEmail[t.buyer_email] || []).push(t); });
+  const bySess = S.bySess;
+  const repeaters = Object.keys(byEmail).filter((e) => byEmail[e].length > 1).map((e) => {
+    const list = byEmail[e].slice().sort((a, b) => new Date(a.issued_at) - new Date(b.issued_at));
+    return { email: e, name: list.find((t) => t.buyer_name)?.buyer_name || '', n: list.length,
+      courses: [...new Set(list.map((t) => bySess[t.session_id] ? bySess[t.session_id].course_name : '(no date yet)'))],
+      first: list[0].issued_at, last: list[list.length - 1].issued_at, spent: list.reduce((a, t) => a + t.amount_usd, 0) };
+  }).sort((a, b) => b.n - a.n || b.spent - a.spent);
+  // Which course follows which: for people with 2+ dated tickets, the pair (first course -> next course)
+  const pairs = {};
+  Object.values(byEmail).forEach((list) => {
+    const dated = list.filter((t) => bySess[t.session_id]).sort((a, b) => new Date(bySess[a.session_id].starts_at) - new Date(bySess[b.session_id].starts_at));
+    for (let i = 1; i < dated.length; i++) {
+      const a = bySess[dated[i - 1].session_id].course_name, b = bySess[dated[i].session_id].course_name;
+      if (a !== b) { const k = a + ' → ' + b; pairs[k] = (pairs[k] || 0) + 1; }
+    }
+  });
+  const top = Object.keys(pairs).sort((a, b) => pairs[b] - pairs[a]).slice(0, 8);
+  const box = $('#chRepeat');
+  box.innerHTML = '<h3>Repeat students</h3><div class="sub">People holding more than one ticket (all time), and which course they took next</div>' +
+    (top.length ? legend([[COLORS[3], 'People who took the second course after the first']]) + hbars(top.map((k) => ({ label: k, parts: [{ v: pairs[k], color: COLORS[3], name: 'People' }] })), { label: 'Course sequences', padL: 300 }) : '') +
+    '<table><thead><tr><th>Student</th><th>Email</th><th class="n">Tickets</th><th>Courses</th><th>First</th><th>Latest</th><th class="n">Spent</th></tr></thead><tbody>' +
+    (repeaters.length ? repeaters.slice(0, 40).map((r) => '<tr><td>' + esc(r.name || '—') + '</td><td>' + esc(r.email) + '</td><td class="n">' + r.n + '</td><td>' + esc(r.courses.join(', ')) +
+      '</td><td>' + fmtD(r.first) + '</td><td>' + fmtD(r.last) + '</td><td class="n">' + money(r.spent) + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="meta">Nobody has bought a second ticket yet.</td></tr>') + '</tbody></table>' +
+    (repeaters.length > 40 ? '<p class="meta">Showing 40 of ' + repeaters.length + '.</p>' : '') +
+    tableView('t-repeat', ['Email', 'Name', 'Tickets', 'Courses', 'First', 'Latest', 'Spent'], repeaters.map((r) => [r.email, r.name, r.n, r.courses.join('; '), fmtD(r.first), fmtD(r.last), money(r.spent)]));
+  wireTables(box);
+}
+
+function chartDomains() {
+  const { tix } = S;
+  const PERSONAL = /^(gmail|yahoo|hotmail|outlook|live|icloud|aol|me|msn|comcast|att|sbcglobal|verizon|protonmail|proton)\./i;
+  const g = {}; let personal = 0;
+  tix.filter((t) => t.status !== 'void').forEach((t) => {
+    const dom = String(t.buyer_email).split('@')[1]?.toLowerCase() || '?';
+    if (PERSONAL.test(dom)) { personal++; return; }
+    (g[dom] = g[dom] || { n: 0, rev: 0, names: new Set() }); g[dom].n++; g[dom].rev += t.amount_usd; g[dom].names.add(t.buyer_email);
+  });
+  const top = Object.keys(g).sort((a, b) => g[b].n - g[a].n).slice(0, 12);
+  const box = $('#chDomains');
+  box.innerHTML = '<h3>Who is buying</h3><div class="sub">Seats by email domain — the utilities and firms sending engineers. Personal addresses (' + personal + ' seats) are grouped out.</div>' +
+    (top.length ? hbars(top.map((d) => ({ label: d, tip: g[d].names.size + ' different people · ' + money(g[d].rev), parts: [{ v: g[d].n, color: COLORS[0], name: 'Seats' }] })), { label: 'Seats by organisation' }) : '<p class="meta">No company addresses in view.</p>') +
+    tableView('t-domains', ['Domain', 'Seats', 'People', 'Revenue'], Object.keys(g).sort((a, b) => g[b].n - g[a].n).map((d) => [d, g[d].n, g[d].names.size, money(g[d].rev)]));
+  wireTables(box);
+}
+
+function chartWaitlist() {
+  const { sess, bySess } = S;
+  const sid = new Set(sess.map((s) => s.id));
+  const g = {};
+  WAITLIST.filter((w) => sid.has(w.session_id)).forEach((w) => {
+    const s = bySess[w.session_id]; const k = fmtDT(s.starts_at) + ' · ' + s.course_name;
+    (g[k] = g[k] || { waiting: 0, held: 0, booked: 0, expired: 0, removed: 0 }); g[k][w.status] = (g[k][w.status] || 0) + 1;
+  });
+  const keys = Object.keys(g);
+  const box = $('#chWaitlist');
+  box.innerHTML = '<h3>Waitlist demand</h3><div class="sub">Dates people waited for, and what came of it. Repeated waitlists on a track mean it wants a second section.</div>' +
+    (keys.length ? legend([[COLORS[3], 'Took the seat'], [COLORS[1], 'Holding an offer'], [COLORS[0], 'Still waiting'], ['#9aa0a6', 'Lapsed / left']]) +
+      hbars(keys.map((k) => ({ label: k, parts: [{ v: g[k].booked, color: COLORS[3], name: 'Took the seat' }, { v: g[k].held, color: COLORS[1], name: 'Holding an offer' },
+        { v: g[k].waiting, color: COLORS[0], name: 'Still waiting' }, { v: g[k].expired + g[k].removed, color: '#9aa0a6', name: 'Lapsed / left' }] })), { label: 'Waitlist by date', padL: 220 })
+      : '<p class="meta">No one has waited for a date in view.</p>') +
+    tableView('t-waitlist', ['Date', 'Took seat', 'Holding', 'Waiting', 'Lapsed'], keys.map((k) => [k, g[k].booked, g[k].held, g[k].waiting, g[k].expired + g[k].removed]));
+  wireTables(box);
+}
+
+function renderAll() {
+  scope();
+  tiles(); chartCourses(); chartRevenue(); chartTimeline(); chartCurve(); chartHeat(); chartNoShow(); chartLead(); chartRepeat(); chartDomains(); chartWaitlist();
+}
+
+async function load() {
+  $('#authMsg').textContent = 'Loading…';
+  try {
+    [SESSIONS, TICKETS, WAITLIST] = await Promise.all([api('/admin/sessions'), api('/admin/tickets'), api('/admin/waitlist')]);
+    const sel = $('#course'); const cur = sel.value; sel.innerHTML = '<option value="">All courses</option>';
+    [...new Set(SESSIONS.map((s) => s.course_name))].sort().forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    if (cur) sel.value = cur;
+    $('#authBox').hidden = true; $('#ui').hidden = false; $('#authMsg').textContent = '';
+    renderAll();
+  } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+}
+$('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} $('#tok').value = ''; load(); };
+$('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
+$('#reload').onclick = load;
+['range', 'course', 'hideTest'].forEach((id) => { $('#' + id).onchange = renderAll; });
+if (token()) load();
+</script>
+</body>
+</html>

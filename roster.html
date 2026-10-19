@@ -111,18 +111,38 @@
     border-radius: 4px; padding: 5px 14px; font-weight: 700; cursor: pointer;
   }
 
-  /* ---- class files by course ---- */
-  .course-files {
-    border: 1px solid #e4e6e8; border-left: 3px solid var(--blue); border-radius: 6px;
-    padding: 12px 14px; margin-bottom: 12px;
+  /* ---- class materials editor ---- */
+  .mat-rows {
+    display: grid; grid-template-columns: 170px 1fr 1.6fr 1.2fr 34px;
+    gap: 8px 10px; align-items: center;
   }
-  .course-files textarea {
-    width: 100%; margin: 8px 0; padding: 8px; font-family: inherit; font-size: 0.9rem;
-    border: 1.5px solid #c3c7cb; border-radius: 4px;
+  .mat-rows .mat-head {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #5f6368; font-weight: 700; padding-bottom: 2px; border-bottom: 1px solid #e4e6e8;
   }
-  .course-files textarea:focus { outline: 2px solid var(--blue-light); }
-  .course-files .warn { color: #c77414; font-weight: 600; }
-  .cf-msg { font-size: 0.88rem; }
+  .mat-rows input, .mat-rows select { width: 100%; min-width: 0; padding: 8px 10px; font-size: 0.9rem; }
+  .mat-rows select { font-weight: 600; color: var(--charcoal); }
+  .mat-rows input.bad { border-color: #b02a37; background: #fff6f6; }
+  .mat-del {
+    border: none; background: none; color: #9aa0a6; font-size: 1.3rem; line-height: 1;
+    cursor: pointer; padding: 4px; border-radius: 4px; justify-self: center;
+  }
+  .mat-del:hover { color: #b02a37; background: rgba(220,53,69,0.08); }
+  .mat-empty { grid-column: 1 / -1; color: #9aa0a6; font-size: 0.9rem; padding: 10px 0; }
+  .mat-add { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .mat-foot {
+    display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: center;
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid #e4e6e8;
+  }
+  .mat-who { font-size: 0.88rem; color: #5f6368; }
+  .mat-who b { color: #3c4043; }
+  .mat-warn { color: #c77414; font-weight: 600; }
+  @media (max-width: 900px) {
+    .mat-rows { grid-template-columns: 1fr 1fr 34px; }
+    .mat-rows .mat-head { display: none; }
+    .mat-rows input[data-f="url"] { grid-column: 1 / 3; }
+    .mat-rows input[data-f="note"] { grid-column: 1 / 3; }
+  }
 </style>
 </head>
 <body>
@@ -183,6 +203,8 @@
         <select id="sessSel"></select>
         <button class="btn btn-outline small" id="reloadBtn">Reload</button>
         <button class="btn btn-outline small" id="csvBtn">Export CSV</button>
+        <button class="btn btn-outline small" id="matsJump"
+                title="Add the presentation and reference links for this session">Class materials</button>
         <span id="seatInfo" style="color:#5f6368"></span>
       </div>
 
@@ -258,20 +280,6 @@
           <label for="eSub" title="Italic line printed under the course title on the certificate">Certificate subtitle</label>
           <input id="eSub" placeholder="Theory and application of…" style="flex:1;min-width:260px">
         </div>
-        <div class="flex" style="margin-top:10px; align-items:flex-start">
-          <label for="eMats" title="Files students on this session can download from their ticket page">Class files</label>
-          <textarea id="eMats" rows="3" spellcheck="false"
-                    placeholder="One per line:  Slide deck | https://drive.google.com/file/d/... | The full deck shown in class, with notes"
-                    style="flex:1;min-width:280px;font-family:inherit;font-size:0.9rem;padding:8px"></textarea>
-          <span class="meta" style="flex-basis:100%;font-size:0.8rem">Each line is
-            <b>Label | link | description</b>, separated by vertical bars. The description
-            is optional (one short line, shown under the link); a line with only a link
-            uses the link as its label. Label and description together are limited to
-            120 characters. Visible only to someone whose ticket is booked on this session
-            &mdash; on their ticket page and when they collect their PDH certificate. This
-            list is for <b>this date only</b>; to set the files for every date of a course
-            at once, use <b>Class files by course</b> below.</span>
-        </div>
         <div class="flex" style="margin-top:10px">
           <label for="eLink">Meeting link</label>
           <input id="eLink" placeholder="https://zoom.us/j/…" style="flex:1;min-width:280px">
@@ -284,18 +292,31 @@
         <p id="eMsg"></p>
       </div>
 
-      <div class="admin-box" id="courseFilesBox">
-        <h3 style="margin-bottom:6px">Class files by course</h3>
-        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
-          Slides, workbooks, recordings and other links for each course, one per line as
-          <b>Label | link | description</b> (the description is optional &mdash; one short
-          line shown under the link; label and description together fit in 120 characters).
-          A student with a seat on any date of the course sees them on their ticket page
-          and when they collect their PDH certificate. <b>Save</b> writes the list to every
-          session date of that course, past and future, and new dates you add later start
-          with it. To give one date different files, edit that session under
-          <b>Manage selected session</b>.</p>
-        <div id="courseFilesList"></div>
+      <div class="admin-box" id="matsBox">
+        <h3 style="margin-bottom:4px">Class materials
+          <span class="meta" id="matsFor" style="font-weight:400;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:14px">
+          The links a student gets with their ticket for this training: the
+          <b>presentation</b> shown in class, <b>reference material</b> to read alongside
+          it, a <b>recording</b> afterwards. Anyone whose ticket is booked on this date,
+          or was used to attend it, sees them under <i>My Ticket</i> whenever they look
+          their code up &mdash; and on the certificate page, the join page and the
+          class-time reminder email. Paste a share link (Drive, Dropbox, the site); the
+          title is what the student clicks and the note is one optional line under it.</p>
+        <div id="matsRows" class="mat-rows"></div>
+        <div class="mat-add">
+          <button class="btn btn-outline small" data-add="presentation">+ Presentation</button>
+          <button class="btn btn-outline small" data-add="reference">+ Reference material</button>
+          <button class="btn btn-outline small" data-add="recording">+ Recording</button>
+          <button class="btn btn-outline small" data-add="other">+ Other link</button>
+        </div>
+        <div class="mat-foot">
+          <button class="btn btn-primary small" id="matSave">Save for this date</button>
+          <button class="btn btn-outline small" id="matSaveAll"
+                  title="Write this same list onto every session date of this course, past and future">Save for all dates of this course</button>
+          <span class="mat-who" id="matWho"></span>
+        </div>
+        <p id="matMsg"></p>
       </div>
 
       <div class="admin-box" id="addBox">
@@ -365,7 +386,7 @@
         <p id="oCutMsg"></p>
         <p class="meta" style="margin-top:16px">Shortly before each class, every booked
           student is emailed a reminder with a <b>Join class</b> link (plus the class
-          files). The link checks them in for their PDH credit and opens the meeting, same
+          materials). The link checks them in for their PDH credit and opens the meeting, same
           as the button on the ticket page. The roster shows when each seat was reminded.
           Sessions without a meeting link skip the reminder and email you instead. 0 turns
           reminders off.</p>
@@ -521,7 +542,7 @@ function prefillWeeklyRange() {
 }
 function planWeeklySections(dow, hhmm, fromKey, toKey) {
   const taken = new Set(SESSIONS.map((s) => s.id));
-  const courseMats = {};                 // each course's class files, carried onto new sections
+  const courseMats = {};                 // each course's class materials, carried onto new sections
   courseGroups().forEach((g) => { courseMats[g.key] = courseMaterials(g); });
   const byWeek = {};
   SESSIONS.forEach((s) => {
@@ -803,60 +824,179 @@ function fillEditor() {
   $('#ePdh').value = s.pdh_explicit ? s.pdh_hours : '';
   $('#ePdh').placeholder = 'auto (' + ((s.duration_min || 90) / 60) + ')';
   $('#eSub').value = s.course_subtitle || '';
-  $('#eMats').value = matsText(s.materials);
+  fillMaterials(s);
 }
 
-/* A class file is "Label | https://... | description" per line; the last two parts
-   are optional. The ticket API stores only a label (120 characters) and a link per
-   file, so the description rides inside the label after an em dash — "Label — the
-   description" — and the student pages split it back out. Every line must carry a
-   full http(s) link; anything else is refused before it is saved, since a bad link
-   would be a dead button on a student's page. */
-const DESC_SEP = ' — ';
-const LABEL_MAX = 120;
-function parseMaterials(text) {
-  return text.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
-    const parts = line.split('|').map((p) => p.trim());
-    let label = '', url = '', desc = '';
-    const isUrl = (s) => /^https?:\/\/\S+$/i.test(s);
-    if (parts.length === 1) url = parts[0];
-    else if (parts.length === 2 && isUrl(parts[0]) && !isUrl(parts[1])) { url = parts[0]; desc = parts[1]; }
-    else if (parts.length === 2) { label = parts[0]; url = parts[1]; }
-    else { label = parts[0]; url = parts[1]; desc = parts.slice(2).join(' | ').trim(); }
-    if (!/^https?:\/\/\S+$/i.test(url)) {
-      throw new Error('Each class-file line needs a full link starting with http:// or ' +
-                      'https:// as its second part — check "' + line.slice(0, 60) + '".');
-    }
-    if (desc && !label) {
-      throw new Error('Give the link a label before adding a description: ' +
-                      '"Label | link | description" — check "' + line.slice(0, 60) + '".');
-    }
-    const packed = desc ? label + DESC_SEP + desc : label;
-    if (packed.length > LABEL_MAX) {
-      throw new Error('Label and description together are limited to ' + LABEL_MAX +
-                      ' characters (this one is ' + packed.length + ') — check "' +
-                      line.slice(0, 60) + '".');
-    }
-    return { label: packed, url: url };
+// ---- class materials editor ----------------------------------------------
+/* Each link a student gets with their ticket is {kind, label, url, note}. The kind
+   decides the heading it appears under on the student pages (presentation first);
+   the note is one optional line under the link. Rows saved before links had a kind
+   or a note come back from the server already normalized, so the editor only ever
+   sees this shape. */
+const MAT_KINDS = ['presentation', 'reference', 'recording', 'other'];
+const MAT_NAME = { presentation: 'Presentation', reference: 'Reference material',
+                   recording: 'Recording', other: 'Other link' };
+const MAT_HINT = { presentation: 'Slide deck shown in class', reference: 'Handout, paper or standard',
+                   recording: 'Class recording', other: 'Example data, worksheet…' };
+const normMaterial = (m) => ({
+  kind: MAT_KINDS.includes(m.kind) ? m.kind : 'other',
+  label: String(m.label || ''), url: String(m.url || ''), note: String(m.note || '') });
+/* Canonical form for comparing two lists (what the student would see). */
+const matsKey = (mats) => (mats || []).map(normMaterial)
+  .map((m) => [m.kind, m.label, m.url, m.note].join('|')).join('\n');
+
+let MAT_ROWS = [];        // the editor's working copy for the selected session
+let MAT_SID = null;       // which session those rows belong to
+
+function fillMaterials(s) {
+  // A reload of the same session keeps an edit in progress; a new session starts fresh.
+  const dirty = MAT_SID === s.id &&
+                matsKey(MAT_ROWS.filter((m) => m.url || m.label || m.note)) !== matsKey(s.materials);
+  if (!dirty) MAT_ROWS = (s.materials || []).map(normMaterial);
+  MAT_SID = s.id;
+  $('#matsFor').textContent = '— ' + s.course_name + ' · ' + fmt(s.starts_at);
+  const n = (s.materials || []).length;
+  $('#matsJump').textContent = 'Class materials' + (n ? ' (' + n + ')' : '');
+  renderMatRows();
+  renderMatWho(s);
+}
+$('#matsJump').onclick = () => {
+  $('#matsBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+function renderMatRows() {
+  const box = $('#matsRows');
+  box.innerHTML = '';
+  if (!MAT_ROWS.length) {
+    box.innerHTML = '<div class="mat-empty">No links yet for this date. Add the ' +
+      'presentation and any reference material with the buttons below.</div>';
+    return;
+  }
+  ['Type', 'Title (what the student clicks)', 'Link', 'Note (optional)', ''].forEach((h) => {
+    const d = document.createElement('div'); d.className = 'mat-head'; d.textContent = h;
+    box.appendChild(d);
+  });
+  MAT_ROWS.forEach((m, i) => {
+    const sel = document.createElement('select');
+    MAT_KINDS.forEach((k) => {
+      const o = document.createElement('option'); o.value = k; o.textContent = MAT_NAME[k];
+      sel.appendChild(o);
+    });
+    sel.value = m.kind;
+    sel.onchange = () => { m.kind = sel.value; title.placeholder = MAT_HINT[m.kind]; };
+    const title = document.createElement('input');
+    title.value = m.label; title.maxLength = 120; title.placeholder = MAT_HINT[m.kind];
+    title.dataset.f = 'label'; title.spellcheck = false;
+    title.oninput = () => { m.label = title.value; };
+    const url = document.createElement('input');
+    url.value = m.url; url.placeholder = 'https://drive.google.com/file/d/…';
+    url.dataset.f = 'url'; url.spellcheck = false; url.type = 'url';
+    url.oninput = () => { m.url = url.value; url.classList.remove('bad'); };
+    const note = document.createElement('input');
+    note.value = m.note; note.maxLength = 200; note.placeholder = 'One short line under the link';
+    note.dataset.f = 'note';
+    note.oninput = () => { m.note = note.value; };
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'mat-del'; del.innerHTML = '&times;';
+    del.title = 'Remove this link'; del.setAttribute('aria-label', 'Remove this link');
+    del.onclick = () => { MAT_ROWS.splice(i, 1); renderMatRows(); };
+    [sel, title, url, note, del].forEach((el) => box.appendChild(el));
   });
 }
-/* {label, url} -> {label, url, desc} with the description unpacked from the label. */
-function unpackMaterial(m) {
-  const l = String(m.label || '');
-  const i = l.indexOf(DESC_SEP);
-  return i === -1 ? { label: l, url: m.url, desc: '' }
-                  : { label: l.slice(0, i).trim(), url: m.url, desc: l.slice(i + DESC_SEP.length).trim() };
-}
-/* [{label, url}] -> the "Label | url | description" text shown in an editor. */
-const matsText = (mats) => (mats || []).map((m) => {
-  const u = unpackMaterial(m);
-  const lab = u.label && u.label !== u.url ? u.label : '';
-  return (lab ? lab + ' | ' : '') + u.url + (lab && u.desc ? ' | ' + u.desc : '');
-}).join('\n');
-/* Canonical form for comparing two file lists. */
-const matsKey = (mats) => (mats || []).map((m) => (m.label || '') + '|' + (m.url || '')).join('\n');
 
-// ---- class files by course ------------------------------------------------
+/* Who can see these links right now: every booked or used ticket on the date. */
+function renderMatWho(s) {
+  const mine = TICKETS.filter((t) => t.session_id === s.id);
+  const used = mine.filter((t) => t.status === 'used').length;
+  const booked = mine.filter((t) => t.status === 'booked').length;
+  const g = courseGroups().find((x) => x.key === normCourse(s.course_name));
+  const others = g ? g.sessions.filter((x) => x.id !== s.id) : [];
+  const differ = others.filter((x) => matsKey(x.materials) !== matsKey(s.materials)).length;
+  let html = used + booked
+    ? 'Visible to <b>' + (used + booked) + '</b> student' + (used + booked === 1 ? '' : 's') +
+      ' on this date (' + used + ' attended, ' + booked + ' booked)'
+    : 'No one holds a seat on this date yet';
+  if (others.length) {
+    html += ' · ' + others.length + ' other date' + (others.length === 1 ? '' : 's') + ' of ' +
+      esc(g.name) + (differ ? ' — <span class="mat-warn">' + differ + ' with different ' +
+                               'materials</span>' : ' — all the same');
+  }
+  $('#matWho').innerHTML = html;
+  $('#matSaveAll').hidden = !others.length;
+  if (others.length) $('#matSaveAll').textContent = 'Save for all ' + g.sessions.length +
+    ' dates of ' + g.name;
+}
+
+/* Validate the rows into what the API takes. Blank rows are dropped; every kept row
+   needs a full http(s) link, since a bad one is a dead button on a student's page. */
+function readMaterials() {
+  const out = [];
+  const inputs = [...$('#matsRows').querySelectorAll('input[data-f="url"]')];
+  MAT_ROWS.forEach((m, i) => {
+    const url = m.url.trim(), label = m.label.trim(), note = m.note.trim();
+    if (!url && !label && !note) return;
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      if (inputs[i]) { inputs[i].classList.add('bad'); inputs[i].focus(); }
+      throw new Error('Row ' + (i + 1) + (label ? ' ("' + label + '")' : '') +
+                      ' needs a full link starting with https:// or http://.');
+    }
+    // A presentation with no title reads better as "Presentation" than as a Drive URL.
+    out.push({ kind: m.kind, label: label || (m.kind === 'other' ? '' : MAT_NAME[m.kind]),
+               url: url, note: note });
+  });
+  return out;
+}
+
+async function saveMaterials(allDates) {
+  const msg = $('#matMsg');
+  const s = SESSIONS.find((x) => x.id === MAT_SID);
+  if (!s) return;
+  let mats;
+  try { mats = readMaterials(); }
+  catch (e) { msg.textContent = e.message; msg.className = 'err'; return; }
+  const g = courseGroups().find((x) => x.key === normCourse(s.course_name));
+  const targets = allDates && g ? g.sessions : [s];
+  const what = mats.length ? mats.length + ' link' + (mats.length === 1 ? '' : 's')
+                           : 'no links (this removes every class link)';
+  if (allDates && !confirm('Save ' + what + ' to all ' + targets.length + ' session date' +
+      (targets.length === 1 ? '' : 's') + ' of "' + g.name + '", past and future?')) return;
+  $('#matSave').disabled = $('#matSaveAll').disabled = true;
+  msg.textContent = 'Saving…'; msg.className = '';
+  let ok = 0; const failed = [];
+  for (const t of targets) {
+    try {
+      await api('/admin/sessions/' + t.id, { method: 'PATCH',
+        body: JSON.stringify({ materials: mats, notify: false }) });
+      ok++;
+    } catch (e) { failed.push(fmt(t.starts_at) + ' (' + e.message + ')'); }
+  }
+  $('#matSave').disabled = $('#matSaveAll').disabled = false;
+  MAT_SID = null;                        // the server's copy is the truth now
+  await loadSessions();
+  if (failed.length) {
+    msg.textContent = 'Saved to ' + ok + ' of ' + targets.length + ' dates — not saved on ' +
+                      failed.join(', ');
+    msg.className = 'err';
+  } else {
+    msg.textContent = targets.length === 1
+      ? 'Saved — students with a seat on ' + fmt(s.starts_at) + ' now see ' + what + '.'
+      : 'Saved to all ' + targets.length + ' dates of ' + g.name + '.';
+    msg.className = 'ok-msg';
+  }
+}
+
+document.querySelectorAll('#matsBox [data-add]').forEach((b) => {
+  b.onclick = () => {
+    MAT_ROWS.push({ kind: b.dataset.add, label: '', url: '', note: '' });
+    renderMatRows();
+    const urls = $('#matsRows').querySelectorAll('input[data-f="url"]');
+    if (urls.length) urls[urls.length - 1].focus();
+  };
+});
+$('#matSave').onclick = () => saveMaterials(false);
+$('#matSaveAll').onclick = () => saveMaterials(true);
+
+// ---- courses (every date sharing a name) ---------------------------------
 /* A "course" here is every session sharing a name (ignoring case and spacing), so
    the 12 dates of Symmetrical Components are one course with one file list. */
 const normCourse = (n) => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -870,76 +1010,12 @@ function courseGroups() {
   });
   return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
 }
-/* The files a course "has": whatever its newest date that lists any carries. */
+/* The materials a course "has": whatever its newest date that lists any carries.
+   New dates of the course start with them. */
 function courseMaterials(g) {
   const withFiles = g.sessions.find((s) => (s.materials || []).length);
-  return withFiles ? withFiles.materials : [];
+  return withFiles ? withFiles.materials.map(normMaterial) : [];
 }
-const courseMsgs = {};   // key -> {text, cls}; survives the re-render after a save
-
-function renderCourseFiles() {
-  const box = $('#courseFilesList');
-  const groups = courseGroups();
-  if (!groups.length) { box.innerHTML = '<p class="meta">No sessions yet.</p>'; return; }
-  const keep = {};   // an edit not yet saved survives the re-render
-  box.querySelectorAll('textarea[data-key]').forEach((ta) => {
-    if (ta.value !== ta.dataset.orig) keep[ta.dataset.key] = ta.value;
-  });
-  box.innerHTML = '';
-  groups.forEach((g) => {
-    const mats = courseMaterials(g);
-    const text = matsText(mats);
-    const n = g.sessions.length;
-    const differ = g.sessions.filter((s) => matsKey(s.materials) !== matsKey(mats)).length;
-    const upcoming = g.sessions.filter((s) => new Date(s.starts_at) > new Date()).length;
-    const msg = courseMsgs[g.key] || {};
-    const card = document.createElement('div');
-    card.className = 'course-files';
-    card.innerHTML =
-      '<div class="flex" style="justify-content:space-between"><b>' + esc(g.name) + '</b>' +
-      '<span class="meta">' + n + ' session date' + (n === 1 ? '' : 's') +
-      (upcoming ? ' · ' + upcoming + ' upcoming' : '') +
-      (differ ? ' · <span class="warn">' + differ + ' date' + (differ === 1 ? ' has' : 's have') +
-                ' different files</span>' : '') + '</span></div>' +
-      '<textarea rows="3" spellcheck="false" placeholder="One per line:  Slide deck | ' +
-      'https://drive.google.com/file/d/... | The full deck shown in class, with notes"></textarea>' +
-      '<div class="flex"><button class="btn btn-primary small">Save to all ' + n +
-      ' date' + (n === 1 ? '' : 's') + '</button>' +
-      '<span class="cf-msg ' + (msg.cls || '') + '">' + esc(msg.text || '') + '</span></div>';
-    const ta = card.querySelector('textarea');
-    ta.dataset.key = g.key; ta.dataset.orig = text;
-    ta.value = keep[g.key] != null ? keep[g.key] : text;
-    card.querySelector('button').onclick = () => saveCourseFiles(g, ta, card.querySelector('button'));
-    box.appendChild(card);
-  });
-}
-
-async function saveCourseFiles(g, ta, btn) {
-  const msgEl = btn.parentNode.querySelector('.cf-msg');
-  let mats;
-  try { mats = parseMaterials(ta.value); }
-  catch (e) { msgEl.textContent = e.message; msgEl.className = 'cf-msg err'; return; }
-  const n = g.sessions.length;
-  if (!confirm((mats.length ? 'Set these ' + mats.length + ' file link' + (mats.length === 1 ? '' : 's')
-                            : 'Remove every class file') +
-               ' on all ' + n + ' session date' + (n === 1 ? '' : 's') + ' of "' + g.name + '"?')) return;
-  btn.disabled = true; msgEl.textContent = 'Saving…'; msgEl.className = 'cf-msg';
-  let ok = 0; const failed = [];
-  for (const s of g.sessions) {
-    try {
-      await api('/admin/sessions/' + s.id, { method: 'PATCH',
-        body: JSON.stringify({ materials: mats, notify: false }) });
-      ok++;
-    } catch (e) { failed.push(fmt(s.starts_at) + ' (' + e.message + ')'); }
-  }
-  ta.value = matsText(mats); ta.dataset.orig = ta.value;
-  courseMsgs[g.key] = failed.length
-    ? { text: 'Saved to ' + ok + ' of ' + n + ' dates — not saved on ' + failed.join(', '), cls: 'err' }
-    : { text: 'Saved to all ' + n + ' date' + (n === 1 ? '' : 's') + ' of ' + g.name + '.', cls: 'ok-msg' };
-  btn.disabled = false;
-  await loadSessions();
-}
-
 async function loadSessions() {
   const sel = $('#sessSel');
   [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
@@ -954,7 +1030,7 @@ async function loadSessions() {
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
   renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
-  prefillWeeklyRange(); renderCourseFiles();
+  prefillWeeklyRange();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
@@ -1181,8 +1257,7 @@ $('#eSave').onclick = async () => {
       status: $('#eStatus').value,
       meeting_link: $('#eLink').value.trim() || null,
       pdh_hours: $('#ePdh').value.trim() === '' ? null : parseFloat($('#ePdh').value),
-      course_subtitle: $('#eSub').value.trim() || null,
-      materials: parseMaterials($('#eMats').value) })});
+      course_subtitle: $('#eSub').value.trim() || null })});
     let msg = 'Saved.';
     if (r.released) msg += ' ' + r.released + ' ticket(s) released back to their holders.';
     if (r.notified) msg += ' ' + r.notified + ' student(s) emailed about the change.';
@@ -1221,7 +1296,7 @@ $('#nCreate').onclick = async () => {
     if (!name || !starts) throw new Error('Course name and start date are required.');
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
                  + '-' + starts.slice(0, 10);
-    // A new date of an existing course starts with that course's class files and
+    // A new date of an existing course starts with that course's class materials and
     // certificate subtitle, so the course stays consistent without re-typing.
     const g = courseGroups().find((x) => x.key === normCourse(name));
     const mats = g ? courseMaterials(g) : [];
@@ -1233,7 +1308,7 @@ $('#nCreate').onclick = async () => {
       price_usd: parseFloat($('#nPrice').value) || 0,
       materials: mats, course_subtitle: sub })});
     $('#nMsg').textContent = 'Session added: ' + slug +
-      (mats.length ? ' — ' + mats.length + ' class file' + (mats.length === 1 ? '' : 's') +
+      (mats.length ? ' — ' + mats.length + ' class link' + (mats.length === 1 ? '' : 's') +
                      ' carried over from ' + g.name : '');
     $('#nMsg').className = 'ok-msg';
     await loadSessions();

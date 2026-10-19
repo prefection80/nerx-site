@@ -209,7 +209,7 @@
   .certbar button:hover{ background:#f5efdd; }
   .certbar .hint{ opacity:.85; }
 
-  /* ---------- class files for the course (screen only) ---------- */
+  /* ---------- class materials for the course (screen only) ---------- */
   .files{
     max-width:11in; margin:0 auto 22px auto; padding:14px 18px;
     background:#fdfbf4; border-left:4px solid #a67c2e; border-radius:4px;
@@ -219,6 +219,10 @@
   @media (max-width:1100px){ .files{ margin-left:12px; margin-right:12px; } }
   .files h2, .gate-files h2{
     font-family:Georgia,serif; font-size:18px; font-weight:normal; margin-bottom:6px;
+  }
+  .files .mat-kind, .gate-files .mat-kind{
+    font-family:Verdana,Arial,sans-serif; font-size:11px; font-weight:bold; letter-spacing:.06em;
+    text-transform:uppercase; color:#a67c2e; margin:10px 0 2px;
   }
   .files ul, .gate-files ul{ margin:0; padding-left:22px; }
   .files li, .gate-files li{ margin:6px 0; }
@@ -258,7 +262,7 @@
     margins None.</span>
 </div>
 
-<!-- Class files for the course this ticket attended (screen only; never printed) -->
+<!-- Class materials for the course this ticket attended (screen only; never printed) -->
 <div class="files" id="filesPanel" hidden></div>
 
 <div class="scale-wrap" id="sheetWrap" hidden>
@@ -457,7 +461,7 @@
 
   var gate = $('#gate'), gateBody = $('#gateBody'), gateTitle = $('#gateTitle');
 
-  /* Class files for the course this ticket is on. They come back with the ticket
+  /* Class materials for the course this ticket is on. They come back with the ticket
      lookup, and only for a ticket that holds (or held) a seat, so the server has
      already decided who may see them. They are shown with the certificate and in
      every waiting state, and never printed. */
@@ -468,23 +472,27 @@
     });
     COURSE = (t.session && t.session.course_name) || '';
   }
-  /* The roster packs an optional description into the label as "Label — text"
-     (the API stores only a label and a link per file); split it back out here. */
-  var DESC_SEP = ' — ';
-  function unpack(m) {
-    var l = String(m.label || ''), i = l.indexOf(DESC_SEP);
-    return i === -1 ? { label: l || m.url, desc: '' }
-                    : { label: l.slice(0, i).trim() || m.url, desc: l.slice(i + DESC_SEP.length).trim() };
-  }
+  /* Grouped by what each link is — the presentation first, then reference material,
+     recordings, anything else — with the optional note under the link. */
+  var MAT_ORDER = ['presentation', 'reference', 'recording', 'other'];
+  var MAT_HEADING = { presentation: 'Presentation', reference: 'Reference material',
+                      recording: 'Recording', other: 'Other files' };
   function filesHtml() {
     if (!MATS.length) return '';
-    return '<h2>Class files' + (COURSE ? ' &mdash; ' + esc(COURSE) : '') + '</h2><ul>' +
-      MATS.map(function (m) {
-        var u = unpack(m);
-        return '<li><a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' +
-               esc(u.label) + '</a>' +
-               (u.desc ? '<span class="desc">' + esc(u.desc) + '</span>' : '') + '</li>';
-      }).join('') + '</ul>' +
+    var html = '<h2>Class materials' + (COURSE ? ' &mdash; ' + esc(COURSE) : '') + '</h2>';
+    MAT_ORDER.forEach(function (k) {
+      var group = MATS.filter(function (m) {
+        return (MAT_ORDER.indexOf(m.kind) === -1 ? 'other' : m.kind) === k;
+      });
+      if (!group.length) return;
+      html += '<h3 class="mat-kind">' + MAT_HEADING[k] + '</h3><ul>' +
+        group.map(function (m) {
+          return '<li><a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' +
+                 esc(m.label || m.url) + '</a>' +
+                 (m.note ? '<span class="desc">' + esc(m.note) + '</span>' : '') + '</li>';
+        }).join('') + '</ul>';
+    });
+    return html +
       '<p class="note">Links open in a new tab. They are not part of the printed certificate.</p>';
   }
 

@@ -9,6 +9,8 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <style>
+  /* .btn sets display, which would otherwise beat the hidden attribute. */
+  [hidden] { display: none !important; }
   .admin-box {
     background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
     box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 26px; margin-bottom: 24px;
@@ -137,6 +139,39 @@
   .mat-who { font-size: 0.88rem; color: #5f6368; }
   .mat-who b { color: #3c4043; }
   .mat-warn { color: #c77414; font-weight: 600; }
+  /* ---- attendance, waitlist, courses, numbers, activity ---- */
+  .att-table td.dim { color: #9aa0a6; }
+  .att-table .by { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #5f6368; }
+  .att-table tr.off td { opacity: 0.55; }
+  .att-table input[type=checkbox] { width: 16px; height: 16px; }
+  .att-side { font-size: 0.88rem; color: #5f6368; margin-top: 10px; }
+  .att-side b { color: #3c4043; }
+  .st-waiting { background: rgba(47,144,176,0.15); color: var(--blue); }
+  .st-held    { background: rgba(199,116,20,0.18); color: #9a5a0f; }
+  .st-expired, .st-removed { background: #eceef0; color: #5f6368; }
+  .course-card {
+    border: 1px solid #e4e6e8; border-left: 3px solid var(--blue); border-radius: 6px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .course-card .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 14px;
+    margin: 10px 0;
+  }
+  .course-card .grid label { display: block; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #5f6368; margin-bottom: 4px; }
+  .course-card .grid input { width: 100%; padding: 8px 10px; font-size: 0.9rem; }
+  .course-card .wide { grid-column: 1 / -1; }
+  .num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; margin-top: 16px; }
+  .num-card h4 { font-size: 0.95rem; margin-bottom: 2px; }
+  .num-card .sub { font-size: 0.82rem; color: #5f6368; margin-bottom: 8px; }
+  .num-card svg { width: 100%; height: auto; display: block; }
+  .num-card .bar { fill: var(--blue); }
+  .num-card .bar.alt { fill: #c77414; }
+  .num-card .lbl { font-size: 11px; fill: #5f6368; }
+  .num-card .val { font-size: 11px; fill: #3c4043; font-weight: 700; }
+  .num-card .axis { stroke: #dfe2e5; stroke-width: 1; }
+  .act-kind { font-family: Consolas, monospace; font-size: 0.8rem; }
+  .act-detail { font-size: 0.8rem; color: #5f6368; max-width: 420px; word-break: break-word; }
   @media (max-width: 900px) {
     .mat-rows { grid-template-columns: 1fr 1fr 34px; }
     .mat-rows .mat-head { display: none; }
@@ -170,12 +205,20 @@
       <label for="tok">Admin token</label>
       <input id="tok" type="password" style="min-width:280px">
       <button class="btn btn-primary small" id="saveTok">Connect</button>
+      <label style="font-weight:400;font-size:0.88rem;color:#5f6368;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="tokRemember" style="width:auto"> Remember on this device</label>
       <span id="authMsg"></span>
     </div>
 
     <div id="adminUi" hidden>
 
       <div class="stats" id="statsRow"></div>
+
+      <details class="admin-box" id="numbersBox" style="padding:0">
+        <summary style="cursor:pointer;padding:18px 26px;font-weight:700;font-size:1.05rem">
+          Numbers over time <span class="meta" style="font-weight:400;font-size:0.85rem;margin-left:8px">revenue by month · how full each track runs · how far ahead people book</span></summary>
+        <div style="padding:0 26px 22px" id="numbersBody"></div>
+      </details>
 
       <div class="admin-box">
         <div class="move-banner" id="moveBanner">
@@ -203,6 +246,8 @@
         <select id="sessSel"></select>
         <button class="btn btn-outline small" id="reloadBtn">Reload</button>
         <button class="btn btn-outline small" id="csvBtn">Export CSV</button>
+        <button class="btn btn-outline small" id="certCsvBtn"
+                title="Every attendance with its certificate number, name as printed, course, date and PDH hours — what a licensing board asks a provider for">Certificate register</button>
         <button class="btn btn-outline small" id="matsJump"
                 title="Add the presentation and reference links for this session">Class materials</button>
         <span id="seatInfo" style="color:#5f6368"></span>
@@ -217,6 +262,63 @@
           <tbody id="rosterBody"></tbody>
         </table>
         <p id="rosterMsg"></p>
+      </div>
+
+      <div class="admin-box" id="afterBox">
+        <h3 style="margin-bottom:4px">Attendance &amp; after class
+          <span class="meta" id="afterFor" style="font-weight:400;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px" id="afterIntro"></p>
+
+        <div id="noShowWrap" hidden>
+          <h4 style="margin:6px 0 6px">No-shows <span class="meta" id="noShowCount" style="font-weight:400"></span></h4>
+          <p style="font-size:0.86rem;color:#5f6368;margin-bottom:8px">Booked, but never
+            joined. <b>Attended</b> checks them in anyway (they were there by another route);
+            <b>Release</b> frees their ticket to rebook and emails them to pick a new date.</p>
+          <table><thead><tr><th>Student</th><th>Email</th><th>Code</th><th>Actions</th></tr></thead>
+            <tbody id="noShowBody"></tbody></table>
+          <div class="flex" style="margin-top:10px">
+            <button class="btn btn-outline small" id="noShowReleaseAll">Release all no-shows &amp; email them</button>
+            <span id="noShowMsg" class="meta"></span>
+          </div>
+        </div>
+
+        <h4 style="margin:18px 0 6px">Mark attendance from the Zoom report</h4>
+        <p style="font-size:0.86rem;color:#5f6368;margin-bottom:8px">
+          In Zoom: <i>Reports &rarr; Usage &rarr; Participants &rarr; Export</i> gives a CSV of
+          everyone who was in the meeting. Drop it here (or paste its contents). Each
+          participant is matched to a ticket on this date by email, then by name; you confirm
+          the list before anyone is checked in.</p>
+        <div class="flex">
+          <input type="file" id="zoomFile" accept=".csv,text/csv" style="padding:6px">
+          <span class="meta">or</span>
+          <button class="btn btn-outline small" id="zoomPasteBtn">Paste the report</button>
+          <label class="meta" style="font-weight:400;margin-left:auto">Count as present if in the meeting at least
+            <input id="zoomMin" type="number" min="0" step="5" value="0" style="width:70px;padding:5px 8px"> min</label>
+        </div>
+        <textarea id="zoomPaste" hidden rows="6" spellcheck="false"
+                  placeholder="Paste the whole CSV here, header line included"
+                  style="width:100%;margin-top:8px;padding:8px;font-family:Consolas,monospace;font-size:0.82rem;border:1.5px solid #c3c7cb;border-radius:4px"></textarea>
+        <div id="zoomResult" style="margin-top:12px"></div>
+        <p id="zoomMsg"></p>
+      </div>
+
+      <div class="admin-box" id="waitBox">
+        <h3 style="margin-bottom:4px">Waitlist
+          <span class="meta" id="waitFor" style="font-weight:400;font-size:0.9rem"></span></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
+          People who wanted a seat on this date when it was full. When a seat frees &mdash;
+          someone reschedules away, you release or void a ticket, or you add capacity &mdash;
+          the first person in line is emailed and the seat is <b>held</b> for them for
+          <span id="waitHoldHrs">24</span> hours (it shows as held on the calendar and cannot be
+          taken by anyone else). If they do not book in time it passes to the next person.</p>
+        <table id="waitTable"><thead><tr><th>Person</th><th>Email</th><th>Ticket</th><th>Status</th>
+          <th>Joined</th><th>Hold until</th><th></th></tr></thead>
+          <tbody id="waitBody"></tbody></table>
+        <div class="flex" style="margin-top:10px">
+          <button class="btn btn-outline small" id="waitOffer"
+                  title="Offer any free seat to the next person waiting right now (this also happens on its own within a minute of a seat freeing)">Offer free seats now</button>
+          <span id="waitMsg" class="meta"></span>
+        </div>
       </div>
 
       <div class="admin-box">
@@ -283,6 +385,8 @@
         <div class="flex" style="margin-top:10px">
           <label for="eLink">Meeting link</label>
           <input id="eLink" placeholder="https://zoom.us/j/…" style="flex:1;min-width:280px">
+          <a id="eLinkOpen" class="btn btn-outline small" href="#" target="_blank" rel="noopener noreferrer"
+             title="Open the meeting link in a new tab (join as host)" hidden>Open &nearr;</a>
           <button class="btn btn-primary small" id="eSave">Save Session</button>
           <button class="btn btn-outline small" id="eClone"
                   title="Prefill the add-session form below with this session's details">Duplicate…</button>
@@ -290,6 +394,14 @@
                   title="Remove this session date (only when no seats are held)">Delete</button>
         </div>
         <p id="eMsg"></p>
+        <div class="flex" style="margin-top:14px;padding-top:12px;border-top:1px solid #e4e6e8">
+          <span class="meta">Send me a test of the email students on this date get:</span>
+          <button class="btn btn-outline tiny" data-test="reminder">Class-time reminder</button>
+          <button class="btn btn-outline tiny" data-test="followup">After-class certificate</button>
+          <button class="btn btn-outline tiny" data-test="booked">Booking confirmation</button>
+          <button class="btn btn-outline tiny" data-test="cancelled">Cancellation</button>
+          <span id="testMsg" class="meta"></span>
+        </div>
       </div>
 
       <div class="admin-box" id="matsBox">
@@ -317,6 +429,17 @@
           <span class="mat-who" id="matWho"></span>
         </div>
         <p id="matMsg"></p>
+      </div>
+
+      <div class="admin-box" id="coursesBox">
+        <h3 style="margin-bottom:4px">Courses</h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
+          Every session date sharing a name is one course. Set the certificate subtitle, PDH
+          hours, price, length, seats and meeting link here <b>once</b> and apply them to
+          every date &mdash; or only the upcoming ones. Renaming renames the dates too. Nobody
+          is emailed (the time and status are not touched). Class materials have their own
+          editor above.</p>
+        <div id="coursesList"></div>
       </div>
 
       <div class="admin-box" id="addBox">
@@ -397,6 +520,25 @@
           <button class="btn btn-primary small" id="oRemSave">Save Reminder</button>
         </div>
         <p id="oRemMsg"></p>
+        <p class="meta" style="margin-top:16px">After each class, everyone who attended is
+          emailed once: their certificate link and the class materials. 0 turns it off.</p>
+        <div class="flex">
+          <label for="oFup">Email attendees</label>
+          <input id="oFup" type="number" min="0" max="10080" step="5" style="width:90px">
+          <span class="meta">minutes after class ends</span>
+          <button class="btn btn-primary small" id="oFupSave">Save Follow-up</button>
+        </div>
+        <p id="oFupMsg"></p>
+        <p class="meta" style="margin-top:16px">A seat offered to someone on the waitlist is
+          held for them this long before it passes to the next person (never past the signup
+          cutoff).</p>
+        <div class="flex">
+          <label for="oHold">Hold a waitlist seat for</label>
+          <input id="oHold" type="number" min="1" max="168" step="1" style="width:90px">
+          <span class="meta">hours</span>
+          <button class="btn btn-primary small" id="oHoldSave">Save Hold</button>
+        </div>
+        <p id="oHoldMsg"></p>
       </div>
 
       <div class="admin-box">
@@ -439,6 +581,35 @@
           </div>
           <p id="subImportMsg"></p>
         </details>
+      </div>
+
+      <div class="admin-box" id="activityBox">
+        <h3 style="margin-bottom:4px">Recent activity</h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
+          Everything the system did, newest first &mdash; purchases, bookings, moves, check-ins,
+          certificates, reminders, waitlist offers. Filter by a student's email or name, a
+          ticket code, or a course.</p>
+        <div class="flex" style="margin-bottom:10px">
+          <input id="actQ" placeholder="student@company.com, a name, a code…" style="min-width:280px" autocomplete="off" spellcheck="false">
+          <select id="actKind" style="padding:9px 10px;border:1.5px solid #c3c7cb;border-radius:4px;font-family:inherit">
+            <option value="">All kinds</option>
+            <option value="issue">Purchases / issued</option>
+            <option value="book">Bookings</option>
+            <option value="rebook">Reschedules</option>
+            <option value="use">Check-ins (student)</option>
+            <option value="admin.">Admin actions</option>
+            <option value="cert">Certificates</option>
+            <option value="reminder">Reminders</option>
+            <option value="followup">Follow-ups</option>
+            <option value="waitlist">Waitlist</option>
+            <option value="void">Voids</option>
+          </select>
+          <button class="btn btn-primary small" id="actGo">Show</button>
+          <button class="btn btn-outline small" id="actMore">Show more</button>
+          <span id="actSummary" class="meta"></span>
+        </div>
+        <table><thead><tr><th>When</th><th>What</th><th>Who</th><th>Session</th><th>Details</th></tr></thead>
+          <tbody id="actBody"></tbody></table>
       </div>
     </div>
   </div>
@@ -619,10 +790,12 @@ function renderCalendar() {
         (s.status === 'cancelled' ? ' cancelled' : '') +
         (s.id === $('#sessSel').value ? ' sel' : '');
       const cnt = s.booked + '/' + s.capacity;
+      const taken = s.booked + (s.held || 0);
       chip.innerHTML = esc(s.course_name) +
         '<small>' + centralClock(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
-        ' · <span class="' + (s.booked >= s.capacity ? 'cnt-full' : '') + '">' +
-        cnt + ' booked</span>' + (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
+        ' · <span class="' + (taken >= s.capacity ? 'cnt-full' : '') + '">' +
+        cnt + ' booked</span>' + (s.held ? ' · ' + s.held + ' held' : '') +
+        (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
       chip.title = s.id;
       chip.onclick = () => MOVING ? moveTo(s) : selectSession(s.id);
       cell.appendChild(chip);
@@ -824,6 +997,7 @@ function fillEditor() {
   $('#ePdh').value = s.pdh_explicit ? s.pdh_hours : '';
   $('#ePdh').placeholder = 'auto (' + ((s.duration_min || 90) / 60) + ')';
   $('#eSub').value = s.course_subtitle || '';
+  syncLinkOpen();
   fillMaterials(s);
 }
 
@@ -1030,7 +1204,7 @@ async function loadSessions() {
   });
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
   renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
-  prefillWeeklyRange();
+  prefillWeeklyRange(); renderCourses(); renderNumbers();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
@@ -1058,7 +1232,10 @@ async function loadRoster() {
         esc(t.status) + '</span></td><td>' + fmt(t.booked_at) +
         (t.reminded_at ? '<br><span class="meta" title="Join-link reminder emailed">' +
                          'reminded ' + fmt(t.reminded_at) + '</span>' : '') +
-        '</td><td>' + fmt(t.used_at) + '</td><td>' + certCell(t) +
+        '</td><td>' + fmt(t.used_at) +
+        (t.followup_at ? '<br><span class="meta" title="Certificate + materials email sent">' +
+                         'emailed ' + fmt(t.followup_at) + '</span>' : '') +
+        '</td><td>' + certCell(t) +
         '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
       if (t.status === 'booked') {
@@ -1135,12 +1312,501 @@ async function loadRoster() {
       }
       body.appendChild(tr);
     });
+    ROSTER_ROWS = rows;
+    renderAfterClass(sid, rows);
+    loadWaitlist(sid);
   } catch (e) { body.innerHTML = '<tr><td colspan="8" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 
+// ---- attendance & after class --------------------------------------------
+let ROSTER_ROWS = [];
+let ZOOM_MATCH = null;      // the server's match result for the current report
+
+function sessionEnded(s) {
+  return s && Date.now() > new Date(s.starts_at).getTime() + (s.duration_min || 90) * 60000;
+}
+
+function renderAfterClass(sid, rows) {
+  const s = SESSIONS.find((x) => x.id === sid);
+  if (!s) return;
+  $('#afterFor').textContent = '— ' + s.course_name + ' · ' + fmt(s.starts_at);
+  const ended = sessionEnded(s);
+  const noShows = rows.filter((t) => t.status === 'booked');
+  const used = rows.filter((t) => t.status === 'used').length;
+  $('#afterIntro').innerHTML = ended
+    ? 'This class has run. <b>' + used + '</b> checked in' +
+      (noShows.length ? ', <b>' + noShows.length + '</b> booked but never joined.' : ', nobody missing.') +
+      ' Import the Zoom report below to check in anyone who joined by the meeting link directly.'
+    : 'This class has not run yet. Once it has, the no-shows appear here and you can import ' +
+      'the Zoom participant report to mark attendance in one go.';
+  $('#noShowWrap').hidden = !(ended && noShows.length);
+  $('#noShowCount').textContent = noShows.length ? '(' + noShows.length + ')' : '';
+  const body = $('#noShowBody');
+  body.innerHTML = '';
+  noShows.forEach((t) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
+      '</td><td class="mono">' + esc(t.code || t.code_hint) + '</td><td class="row-actions"></td>';
+    const act = tr.querySelector('.row-actions');
+    const att = document.createElement('button');
+    att.className = 'btn btn-primary tiny'; att.textContent = 'Attended';
+    att.onclick = () => api('/admin/tickets/' + t.ticket_id + '/use', { method: 'POST' })
+      .then(loadRoster).catch((e) => alert(e.message));
+    const rel = document.createElement('button');
+    rel.className = 'btn btn-outline tiny'; rel.textContent = 'Release & email';
+    rel.onclick = () => confirm('Release ' + t.buyer_email + '\u2019s ticket so they can rebook, ' +
+                                'and email them?') &&
+      api('/admin/tickets/' + t.ticket_id + '/release', { method: 'POST' })
+        .then(loadSessions).catch((e) => alert(e.message));
+    act.appendChild(att); act.appendChild(rel);
+    body.appendChild(tr);
+  });
+  $('#noShowReleaseAll').onclick = async () => {
+    if (!confirm('Release all ' + noShows.length + ' no-show ticket' + (noShows.length === 1 ? '' : 's') +
+                 ' so they can rebook, and email each of them?')) return;
+    const msg = $('#noShowMsg');
+    msg.textContent = 'Releasing…';
+    let ok = 0;
+    for (const t of noShows) {
+      try { await api('/admin/tickets/' + t.ticket_id + '/release', { method: 'POST' }); ok++; }
+      catch (e) { /* counted below */ }
+    }
+    msg.textContent = 'Released ' + ok + ' of ' + noShows.length + '.';
+    loadSessions();
+  };
+  // A new session: clear any report from the previous one.
+  if (ZOOM_MATCH && ZOOM_MATCH.sid !== sid) { ZOOM_MATCH = null; $('#zoomResult').innerHTML = ''; $('#zoomMsg').textContent = ''; }
+}
+
+/* RFC-4180-ish CSV: quoted fields, doubled quotes, CRLF. */
+function parseCsv(text) {
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((v) => v.trim() !== ''));
+}
+
+/* Zoom's participant export: a header row with a Name column (sometimes preceded by a
+   meeting-summary block that has its own header - skipped because it has a Topic
+   column), then one row per join. People who drop and rejoin appear more than once,
+   so minutes are summed per person. */
+function parseZoomReport(text) {
+  const rows = parseCsv(text);
+  let hi = -1, cols = null;
+  for (let i = 0; i < rows.length; i++) {
+    const h = rows[i].map((v) => v.trim().toLowerCase());
+    const nameIx = h.findIndex((v) => /name/.test(v));
+    if (nameIx === -1 || h.some((v) => v === 'topic' || v === 'meeting id')) continue;
+    cols = { name: nameIx,
+             email: h.findIndex((v) => /e-?mail/.test(v)),
+             mins: h.findIndex((v) => /duration|minutes/.test(v)) };
+    hi = i; break;
+  }
+  if (hi === -1) throw new Error('No participant table found — the file needs a header row with a ' +
+                                 '"Name" column (and usually "User Email" and "Duration (Minutes)").');
+  const people = {};
+  rows.slice(hi + 1).forEach((r) => {
+    const name = (r[cols.name] || '').trim();
+    const email = cols.email >= 0 ? (r[cols.email] || '').trim().toLowerCase() : '';
+    const mins = cols.mins >= 0 ? parseFloat(r[cols.mins]) || 0 : 0;
+    if (!name && !email) return;
+    const key = email || name.toLowerCase().replace(/\s+/g, ' ');
+    if (!people[key]) people[key] = { name, email, minutes: 0 };
+    if (!people[key].email && email) people[key].email = email;
+    people[key].minutes += mins;
+  });
+  return Object.values(people);
+}
+
+async function matchZoomReport(text) {
+  const msg = $('#zoomMsg'), sid = $('#sessSel').value;
+  let participants;
+  try { participants = parseZoomReport(text); }
+  catch (e) { msg.textContent = e.message; msg.className = 'err'; return; }
+  if (!participants.length) { msg.textContent = 'The report has no participants in it.'; msg.className = 'err'; return; }
+  msg.textContent = 'Matching ' + participants.length + ' participants…'; msg.className = '';
+  try {
+    const r = await api('/admin/sessions/' + sid + '/attendance/match', { method: 'POST',
+      body: JSON.stringify({ participants }) });
+    ZOOM_MATCH = { ...r, sid };
+    msg.textContent = '';
+    renderZoomMatches();
+  } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+}
+
+function renderZoomMatches() {
+  const m = ZOOM_MATCH, box = $('#zoomResult');
+  if (!m) { box.innerHTML = ''; return; }
+  const minMins = parseFloat($('#zoomMin').value) || 0;
+  const rows = m.matches;
+  let html = '<p class="meta" style="margin-bottom:8px"><b>' + rows.length + '</b> participant' +
+    (rows.length === 1 ? '' : 's') + ' matched to a ticket on this date' +
+    (m.unmatched.length ? ' · <b>' + m.unmatched.length + '</b> not matched' : '') +
+    (m.absent.length ? ' · <b>' + m.absent.length + '</b> on the roster but not in the report' : '') +
+    '. Class length ' + m.class_minutes + ' min.</p>';
+  if (rows.length) {
+    html += '<table class="att-table"><thead><tr><th></th><th>In the Zoom report</th><th>Minutes</th>' +
+      '<th>Ticket on this date</th><th>Matched by</th><th>Now</th></tr></thead><tbody>' +
+      rows.map((r, i) => {
+        const already = r.status === 'used';
+        const tooShort = r.minutes < minMins;
+        const on = !already && !tooShort;
+        return '<tr class="' + (on ? '' : 'off') + '"><td>' +
+          (already ? '' : '<input type="checkbox" data-i="' + i + '"' + (on ? ' checked' : '') + '>') +
+          '</td><td>' + esc(r.participant_name || '—') +
+          (r.participant_email ? '<br><span class="meta">' + esc(r.participant_email) + '</span>' : '') +
+          '</td><td' + (tooShort ? ' class="err"' : '') + '>' + Math.round(r.minutes) + '</td><td>' +
+          esc(r.buyer_name || '—') + '<br><span class="meta">' + esc(r.buyer_email) + ' · ' +
+          esc(r.code_hint) + '</span></td><td class="by">' + esc(r.matched_by) + '</td><td>' +
+          (already ? '<span class="status-pill st-used">used</span>'
+                   : '<span class="status-pill st-booked">booked</span>') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="flex" style="margin-top:12px"><button class="btn btn-primary small" id="zoomApply"></button>' +
+      '<span class="meta">Only ticked rows are checked in; already-used tickets are left as they are.</span></div>';
+  }
+  const side = [];
+  if (m.unmatched.length) side.push('<b>Not matched</b> (host, guests, or a name that fits nobody — or ' +
+    'more than one person): ' + m.unmatched.map((u) => esc(u.name || u.email) +
+    (u.reason === 'ambiguous' ? ' <i>(ambiguous)</i>' : '') + ' · ' + Math.round(u.minutes) + ' min').join('; '));
+  if (m.absent.length) side.push('<b>On the roster, not in the report:</b> ' +
+    m.absent.map((a) => esc(a.buyer_name || a.buyer_email) +
+      (a.status === 'used' ? ' (already checked in)' : '')).join(', '));
+  if (side.length) html += '<div class="att-side">' + side.join('<br>') + '</div>';
+  box.innerHTML = html;
+  const upd = () => {
+    const n = box.querySelectorAll('input[type=checkbox]:checked').length;
+    const b = $('#zoomApply'); if (b) { b.textContent = 'Check in ' + n + ' selected'; b.disabled = !n; }
+  };
+  box.querySelectorAll('input[type=checkbox]').forEach((c) => { c.onchange = upd; });
+  upd();
+  if ($('#zoomApply')) $('#zoomApply').onclick = async () => {
+    const ids = [...box.querySelectorAll('input[type=checkbox]:checked')]
+      .map((c) => rows[+c.dataset.i].ticket_id);
+    const msg = $('#zoomMsg');
+    try {
+      const r = await api('/admin/sessions/' + m.sid + '/checkin', { method: 'POST',
+        body: JSON.stringify({ ticket_ids: ids, via: 'zoom' }) });
+      // Re-match so the table shows them as used, then report what was done.
+      const text = $('#zoomPaste').value;
+      ZOOM_MATCH = null;
+      await loadRoster();
+      if (text.trim()) await matchZoomReport(text);
+      msg.textContent = 'Checked in ' + r.checked_in + ' student' + (r.checked_in === 1 ? '' : 's') +
+        (r.skipped ? ' (' + r.skipped + ' already used or not on this date)' : '') + '.';
+      msg.className = 'ok-msg';
+    } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+  };
+}
+$('#zoomMin').oninput = renderZoomMatches;
+$('#zoomFile').onchange = () => {
+  const f = $('#zoomFile').files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { $('#zoomPaste').value = rd.result; matchZoomReport(rd.result); };
+  rd.readAsText(f);
+  $('#zoomFile').value = '';
+};
+$('#zoomPasteBtn').onclick = () => {
+  const ta = $('#zoomPaste');
+  ta.hidden = !ta.hidden;
+  if (!ta.hidden) ta.focus();
+};
+let _zoomTimer = null;
+$('#zoomPaste').oninput = () => {
+  clearTimeout(_zoomTimer);
+  _zoomTimer = setTimeout(() => { if ($('#zoomPaste').value.trim()) matchZoomReport($('#zoomPaste').value); }, 600);
+};
+
+// ---- waitlist -------------------------------------------------------------
+async function loadWaitlist(sid) {
+  const s = SESSIONS.find((x) => x.id === sid);
+  if (!s) return;
+  $('#waitFor').textContent = '— ' + s.course_name + ' · ' + fmt(s.starts_at);
+  const body = $('#waitBody');
+  try {
+    const rows = await api('/admin/waitlist?session_id=' + encodeURIComponent(sid));
+    const live = rows.filter((e) => e.status === 'waiting' || e.status === 'held');
+    const past = rows.filter((e) => e.status !== 'waiting' && e.status !== 'held');
+    body.innerHTML = '';
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7" class="meta">Nobody is waiting on this date' +
+        (s.seats_left > 0 ? ' — it has ' + s.seats_left + ' open seat' + (s.seats_left === 1 ? '' : 's') + '.' : '.') + '</td></tr>';
+    }
+    [...live, ...past].forEach((e) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (esc(e.name) || '—') + '</td><td>' + esc(e.email) + '</td><td>' +
+        (e.has_code ? 'has a ticket' : '<span class="meta">will buy</span>') +
+        '</td><td><span class="status-pill st-' + esc(e.status) + '">' + esc(e.status) + '</span></td><td>' +
+        fmt(e.created_at) + '</td><td>' + (e.status === 'held' ? fmt(e.hold_until) : '—') +
+        '</td><td class="row-actions"></td>';
+      if (e.status === 'waiting' || e.status === 'held') {
+        const rm = document.createElement('button');
+        rm.className = 'btn btn-outline tiny'; rm.textContent = 'Remove';
+        rm.onclick = () => confirm('Remove ' + e.email + ' from the waitlist?' +
+            (e.status === 'held' ? '\n\nThe seat held for them goes to the next person.' : '')) &&
+          api('/admin/waitlist/' + e.id, { method: 'DELETE' }).then(loadSessions).catch((x) => alert(x.message));
+        tr.querySelector('.row-actions').appendChild(rm);
+      }
+      body.appendChild(tr);
+    });
+    $('#waitOffer').hidden = !live.some((e) => e.status === 'waiting');
+    const waiting = live.filter((e) => e.status === 'waiting').length, held = live.length - waiting;
+    $('#waitMsg').textContent = live.length
+      ? waiting + ' waiting' + (held ? ', ' + held + ' holding an offered seat' : '')
+      : '';
+  } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + esc(e.message) + '</td></tr>'; }
+}
+$('#waitOffer').onclick = async () => {
+  try {
+    const r = await api('/admin/sessions/' + $('#sessSel').value + '/waitlist/offer', { method: 'POST' });
+    $('#waitMsg').textContent = 'Offered ' + r.offered + ' seat' + (r.offered === 1 ? '' : 's') + ' and emailed.';
+    loadSessions();
+  } catch (e) { alert(e.message); }
+};
+
+// ---- courses --------------------------------------------------------------
+function renderCourses() {
+  const box = $('#coursesList');
+  const groups = courseGroups();
+  if (!groups.length) { box.innerHTML = '<p class="meta">No sessions yet.</p>'; return; }
+  box.innerHTML = '';
+  groups.forEach((g) => {
+    const latest = g.sessions[0];                      // newest date carries the current settings
+    const upcoming = g.sessions.filter((x) => new Date(x.starts_at) > new Date()).length;
+    const mats = courseMaterials(g).length;
+    const card = document.createElement('div');
+    card.className = 'course-card';
+    card.innerHTML =
+      '<div class="flex" style="justify-content:space-between"><b style="font-size:1.05rem">' + esc(g.name) + '</b>' +
+      '<span class="meta">' + g.sessions.length + ' date' + (g.sessions.length === 1 ? '' : 's') +
+      (upcoming ? ' · ' + upcoming + ' upcoming' : ' · none upcoming') + ' · ' + mats + ' class link' + (mats === 1 ? '' : 's') + '</span></div>' +
+      '<div class="grid">' +
+      '<div class="wide"><label>Course name</label><input data-f="new_name" value="' + esc(g.name) + '"></div>' +
+      '<div class="wide"><label>Certificate subtitle</label><input data-f="course_subtitle" placeholder="Theory and application of…" value="' + esc(latest.course_subtitle || '') + '"></div>' +
+      '<div><label>PDH awarded</label><input data-f="pdh_hours" type="number" min="0" step="0.1" placeholder="auto from length" value="' + (latest.pdh_explicit ? latest.pdh_hours : '') + '"></div>' +
+      '<div><label>Price $</label><input data-f="price_usd" type="number" min="0" step="0.01" value="' + Number(latest.price_usd).toFixed(2) + '"></div>' +
+      '<div><label>Length (min)</label><input data-f="duration_min" type="number" min="15" step="5" value="' + (latest.duration_min || 90) + '"></div>' +
+      '<div><label>Seats</label><input data-f="capacity" type="number" min="1" value="' + latest.capacity + '"></div>' +
+      '<div class="wide"><label>Meeting link</label><input data-f="meeting_link" placeholder="https://zoom.us/j/…" value="' + esc(latest.meeting_link || '') + '"></div>' +
+      '</div><div class="flex">' +
+      '<button class="btn btn-primary small" data-scope="all">Apply to all ' + g.sessions.length + ' dates</button>' +
+      (upcoming && upcoming < g.sessions.length ? '<button class="btn btn-outline small" data-scope="upcoming">Apply to ' + upcoming + ' upcoming only</button>' : '') +
+      '<button class="btn btn-outline small" data-mats>Edit class materials &rarr;</button>' +
+      '<span class="cf-msg meta"></span></div>';
+    // Only what you changed is applied, so fixing the subtitle never also resets
+    // every date's seats or price to the newest date's values.
+    const inputs = [...card.querySelectorAll('input[data-f]')];
+    inputs.forEach((i) => { i.dataset.orig = i.value.trim(); });
+    const read = (f) => card.querySelector('input[data-f="' + f + '"]').value.trim();
+    const changed = (f) => read(f) !== card.querySelector('input[data-f="' + f + '"]').dataset.orig;
+    const LABELS = { new_name: 'name', course_subtitle: 'certificate subtitle', pdh_hours: 'PDH',
+                     price_usd: 'price', duration_min: 'length', capacity: 'seats', meeting_link: 'meeting link' };
+    card.querySelectorAll('button[data-scope]').forEach((b) => {
+      b.onclick = async () => {
+        const msg = card.querySelector('.cf-msg');
+        const body = { course_name: g.name, scope: b.dataset.scope };
+        const fields = [];
+        if (changed('new_name') && read('new_name')) { body.new_name = read('new_name'); fields.push('new_name'); }
+        if (changed('course_subtitle')) { body.course_subtitle = read('course_subtitle'); fields.push('course_subtitle'); }
+        if (changed('pdh_hours')) {
+          if (read('pdh_hours') === '') body.clear_pdh = true; else body.pdh_hours = parseFloat(read('pdh_hours'));
+          fields.push('pdh_hours');
+        }
+        if (changed('price_usd')) { body.price_usd = parseFloat(read('price_usd')); fields.push('price_usd'); }
+        if (changed('duration_min')) { body.duration_min = parseInt(read('duration_min'), 10); fields.push('duration_min'); }
+        if (changed('capacity')) { body.capacity = parseInt(read('capacity'), 10); fields.push('capacity'); }
+        if (changed('meeting_link')) { body.meeting_link = read('meeting_link') || null; fields.push('meeting_link'); }
+        if (!fields.length) { msg.textContent = 'Nothing changed.'; msg.className = 'cf-msg'; return; }
+        if (('price_usd' in body && !(body.price_usd >= 0)) || ('duration_min' in body && !(body.duration_min >= 15)) ||
+            ('capacity' in body && !(body.capacity >= 1))) {
+          msg.textContent = 'Check the price, length and seats.'; msg.className = 'cf-msg err'; return;
+        }
+        const n = b.dataset.scope === 'all' ? g.sessions.length : upcoming;
+        if (!confirm('Apply the new ' + fields.map((f) => LABELS[f]).join(', ') + ' to ' + n + ' date' +
+                     (n === 1 ? '' : 's') + ' of "' + g.name + '"?' +
+                     (body.new_name ? '\n\nThe course will be renamed to "' + body.new_name + '".' : ''))) return;
+        b.disabled = true; msg.textContent = 'Saving…'; msg.className = 'cf-msg';
+        try {
+          const r = await api('/admin/courses', { method: 'PATCH', body: JSON.stringify(body) });
+          msg.textContent = 'Updated ' + r.updated + ' date' + (r.updated === 1 ? '' : 's') + '.'; msg.className = 'cf-msg ok-msg';
+          await loadSessions();
+        } catch (e) { msg.textContent = e.message; msg.className = 'cf-msg err'; b.disabled = false; }
+      };
+    });
+    card.querySelector('button[data-mats]').onclick = () => {
+      selectSession(latest.id);
+      $('#matsBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    box.appendChild(card);
+  });
+}
+
+// ---- numbers over time ----------------------------------------------------
+/* Small bar charts drawn as inline SVG from the ticket and session lists already
+   loaded - no library, nothing to fetch. */
+function barChart(items, opts) {
+  const W = 360, H = 170, padL = 36, padB = 34, padT = 14;
+  const max = Math.max(1, ...items.map((d) => d.v));
+  const bw = (W - padL - 6) / Math.max(1, items.length);
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.label) + '">';
+  svg += '<line class="axis" x1="' + padL + '" y1="' + (H - padB) + '" x2="' + W + '" y2="' + (H - padB) + '"/>';
+  items.forEach((d, i) => {
+    const x = padL + i * bw + bw * 0.15, w = bw * 0.7, top = y(d.v);
+    svg += '<rect class="bar' + (d.alt ? ' alt' : '') + '" x="' + x + '" y="' + top + '" width="' + w +
+           '" height="' + (H - padB - top) + '" rx="2"><title>' + esc(d.title || d.label + ': ' + d.v) + '</title></rect>';
+    if (d.v) svg += '<text class="val" x="' + (x + w / 2) + '" y="' + (top - 3) + '" text-anchor="middle">' +
+                    esc(opts.fmt ? opts.fmt(d.v) : d.v) + '</text>';
+    svg += '<text class="lbl" x="' + (x + w / 2) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + esc(d.label) + '</text>';
+    if (d.sub) svg += '<text class="lbl" x="' + (x + w / 2) + '" y="' + (H - padB + 26) + '" text-anchor="middle">' + esc(d.sub) + '</text>';
+  });
+  return svg + '</svg>';
+}
+
+function renderNumbers() {
+  const box = $('#numbersBody');
+  if (!TICKETS.length) { box.innerHTML = '<p class="meta">No tickets yet.</p>'; return; }
+  const ct = (iso) => centralParts(iso);
+  const monthKey = (iso) => { const p = ct(iso); return p.year + '-' + p.month; };
+  const monthLbl = (k) => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleString('en-US', { month: 'short' }) +
+                          (k.slice(5) === '01' || k === firstKey ? ' \u2019' + k.slice(2, 4) : '');
+  // Revenue by month (refunds and other voids excluded), last 12 months with sales.
+  const rev = {};
+  TICKETS.filter((t) => t.status !== 'void' && t.amount_usd > 0).forEach((t) => {
+    const k = monthKey(t.issued_at); rev[k] = (rev[k] || 0) + t.amount_usd;
+  });
+  const keys = Object.keys(rev).sort().slice(-12);
+  const firstKey = keys[0];
+  const revItems = keys.map((k) => ({ label: monthLbl(k), v: Math.round(rev[k]), title: k + ': $' + rev[k].toFixed(0) }));
+  // Fill rate by track, past sessions only (what actually ran).
+  const past = SESSIONS.filter((s) => s.status !== 'cancelled' && new Date(s.starts_at) < new Date());
+  const tracks = {};
+  past.forEach((s) => {
+    const d = ct(s.starts_at).weekday;
+    (tracks[d] = tracks[d] || { booked: 0, cap: 0, n: 0 });
+    tracks[d].booked += s.booked; tracks[d].cap += s.capacity; tracks[d].n++;
+  });
+  const order = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const fillItems = order.filter((d) => tracks[d]).map((d) => ({
+    label: d, sub: tracks[d].n + ' class' + (tracks[d].n === 1 ? '' : 'es'),
+    v: Math.round(100 * tracks[d].booked / Math.max(1, tracks[d].cap)),
+    title: d + ': ' + tracks[d].booked + ' of ' + tracks[d].cap + ' seats over ' + tracks[d].n + ' classes' }));
+  // How far ahead people book: days between booking and class, for booked/used tickets.
+  const bySess = {}; SESSIONS.forEach((s) => { bySess[s.id] = s; });
+  const buckets = [['same day', 0, 1], ['1–3 d', 1, 4], ['4–7 d', 4, 8], ['1–2 wk', 8, 15], ['2–4 wk', 15, 29], ['1 mo+', 29, 1e9]];
+  const lead = buckets.map(([label]) => ({ label, v: 0 }));
+  TICKETS.filter((t) => (t.status === 'booked' || t.status === 'used') && t.booked_at && bySess[t.session_id]).forEach((t) => {
+    const days = (new Date(bySess[t.session_id].starts_at) - new Date(t.booked_at)) / 86400000;
+    const i = buckets.findIndex(([, lo, hi]) => days >= lo && days < hi);
+    if (i >= 0) lead[i].v++; else if (days < 0) lead[0].v++;
+  });
+  // Bookings by week over the last 12 weeks, for the trend.
+  const wk = {}; const now = Date.now();
+  TICKETS.filter((t) => t.booked_at).forEach((t) => {
+    const w = Math.floor((now - new Date(t.booked_at)) / (7 * 86400000));
+    if (w >= 0 && w < 12) wk[w] = (wk[w] || 0) + 1;
+  });
+  const wkItems = []; for (let w = 11; w >= 0; w--) wkItems.push({ label: w === 0 ? 'this wk' : '-' + w, v: wk[w] || 0, alt: w === 0 });
+  box.innerHTML = '<div class="num-grid">' +
+    '<div class="num-card"><h4>Revenue by month</h4><div class="sub">Non-void tickets by purchase month, $</div>' +
+      (revItems.length ? barChart(revItems, { label: 'Revenue by month', fmt: (v) => '$' + v }) : '<p class="meta">No sales yet.</p>') + '</div>' +
+    '<div class="num-card"><h4>How full each track runs</h4><div class="sub">Seats booked ÷ seats offered, classes that have run</div>' +
+      (fillItems.length ? barChart(fillItems, { label: 'Fill rate by weekday', fmt: (v) => v + '%' }) : '<p class="meta">No class has run yet.</p>') + '</div>' +
+    '<div class="num-card"><h4>How far ahead people book</h4><div class="sub">Days between booking a seat and the class</div>' +
+      barChart(lead, { label: 'Booking lead time' }) + '</div>' +
+    '<div class="num-card"><h4>Bookings per week</h4><div class="sub">Seats booked in each of the last 12 weeks</div>' +
+      barChart(wkItems, { label: 'Bookings per week' }) + '</div>' +
+    '</div>';
+}
+
+// ---- activity log ---------------------------------------------------------
+let ACT_LIMIT = 50;
+const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled', use: 'joined class',
+  'admin.use': 'checked in', 'admin.move': 'moved', 'admin.release': 'released', 'admin.void': 'voided',
+  'admin.recode': 'new code', 'admin.issue': 'issued by admin', 'cert.issue': 'certificate printed',
+  'cert.admin': 'certificate changed', reminder: 'reminder emailed', followup: 'follow-up emailed',
+  'waitlist.join': 'joined waitlist', 'waitlist.offer': 'seat offered', 'waitlist.booked': 'took held seat',
+  'waitlist.expired': 'hold expired', 'waitlist.removed': 'left waitlist', void: 'voided',
+  'admin.session_create': 'session added', 'admin.session_patch': 'session edited',
+  'admin.course_patch': 'course edited', 'admin.test_email': 'test email', subscribe: 'joined mailing list' };
+async function loadActivity() {
+  const body = $('#actBody');
+  body.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
+  try {
+    const q = new URLSearchParams({ limit: ACT_LIMIT });
+    if ($('#actQ').value.trim()) q.set('q', $('#actQ').value.trim());
+    if ($('#actKind').value) q.set('kind', $('#actKind').value);
+    const rows = await api('/admin/events?' + q.toString());
+    body.innerHTML = rows.length ? '' : '<tr><td colspan="5" class="meta">Nothing matches.</td></tr>';
+    rows.forEach((e) => {
+      const d = { ...e.detail }; delete d.session;
+      const detail = Object.keys(d).map((k) => k + ': ' + (typeof d[k] === 'object' ? JSON.stringify(d[k]) : d[k])).join(' · ');
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td class="meta" style="white-space:nowrap">' + fmt(e.at) + '</td><td>' +
+        esc(ACT_WORDS[e.kind] || e.kind) + '<br><span class="act-kind meta">' + esc(e.kind) + '</span></td><td>' +
+        (e.email ? esc(e.name || '') + (e.name ? '<br>' : '') + '<span class="meta">' + esc(e.email) +
+                   (e.code_hint ? ' · ' + esc(e.code_hint) : '') + '</span>' : '<span class="meta">—</span>') +
+        '</td><td>' + (e.course ? esc(e.course) + '<br><span class="meta">' + fmt(e.starts_at) + '</span>'
+                                : e.session_id ? '<span class="meta">' + esc(e.session_id) + '</span>' : '') +
+        '</td><td class="act-detail">' + esc(detail) + '</td>';
+      body.appendChild(tr);
+    });
+    $('#actSummary').textContent = rows.length + ' shown' + (rows.length >= ACT_LIMIT ? ' — Show more for older' : '');
+  } catch (e) { body.innerHTML = '<tr><td colspan="5" class="err">' + esc(e.message) + '</td></tr>'; }
+}
+$('#actGo').onclick = () => { ACT_LIMIT = 50; loadActivity(); };
+$('#actMore').onclick = () => { ACT_LIMIT = Math.min(500, ACT_LIMIT + 100); loadActivity(); };
+$('#actQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#actGo').click(); });
+$('#actKind').onchange = () => $('#actGo').click();
+
+// ---- test emails / meeting link / certificate register --------------------
+document.querySelectorAll('[data-test]').forEach((b) => {
+  b.onclick = async () => {
+    const msg = $('#testMsg');
+    msg.textContent = 'Sending…'; msg.className = 'meta';
+    try {
+      const r = await api('/admin/sessions/' + $('#sessSel').value + '/test-email', { method: 'POST',
+        body: JSON.stringify({ kind: b.dataset.test }) });
+      msg.textContent = 'Sent to ' + r.to + ': "' + r.subject + '"'; msg.className = 'ok-msg';
+    } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+  };
+});
+function syncLinkOpen() {
+  const v = $('#eLink').value.trim();
+  const a = $('#eLinkOpen');
+  a.hidden = !/^https?:\/\//i.test(v);
+  a.href = a.hidden ? '#' : v;
+}
+$('#eLink').oninput = syncLinkOpen;
+$('#certCsvBtn').onclick = async () => {
+  const text = await api('/admin/certificates.csv');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = 'nerx-certificate-register.csv';
+  a.click();
+};
+
 // ---- wiring ---------------------------------------------------------------
 $('#saveTok').onclick = async () => {
-  try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {}
+  const tok = $('#tok').value.trim();
+  try { sessionStorage.setItem('nerx_admin_token', tok); } catch (e) {}
+  // "Remember on this device" keeps the token in localStorage so a new tab connects
+  // itself; unticking it on a connect forgets it.
+  try {
+    if ($('#tokRemember').checked) localStorage.setItem('nerx_admin_token_keep', tok);
+    else localStorage.removeItem('nerx_admin_token_keep');
+  } catch (e) {}
   $('#authMsg').textContent = '…';
   try {
     await api('/admin/sessions');
@@ -1148,6 +1814,7 @@ $('#saveTok').onclick = async () => {
     loadSessions();
     loadSubscribers();
     loadOpenPrice();
+    loadActivity();
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
 };
 
@@ -1157,8 +1824,32 @@ async function loadOpenPrice() {
     $('#oPrice').value = Number(r.open_ticket_price_usd).toFixed(2);
     $('#oCut').value = r.signup_cutoff_hours;
     if (r.reminder_minutes != null) $('#oRem').value = r.reminder_minutes;
+    if (r.followup_minutes != null) $('#oFup').value = r.followup_minutes;
+    if (r.waitlist_hold_hours != null) { $('#oHold').value = r.waitlist_hold_hours; $('#waitHoldHrs').textContent = r.waitlist_hold_hours; }
   } catch (e) { /* leave blank */ }
 }
+$('#oFupSave').onclick = async () => {
+  try {
+    const v = parseInt($('#oFup').value, 10);
+    if (!(v >= 0)) throw new Error('Enter a whole number of minutes (0 or more).');
+    const r = await api('/admin/settings', {method: 'PATCH', body: JSON.stringify({followup_minutes: v})});
+    $('#oFup').value = r.followup_minutes;
+    $('#oFupMsg').textContent = r.followup_minutes === 0
+      ? 'Saved — the after-class email is off.'
+      : 'Saved — attendees get their certificate link and class materials ' + r.followup_minutes + ' minute(s) after class ends.';
+    $('#oFupMsg').className = 'ok-msg';
+  } catch (e) { $('#oFupMsg').textContent = e.message; $('#oFupMsg').className = 'err'; }
+};
+$('#oHoldSave').onclick = async () => {
+  try {
+    const v = parseInt($('#oHold').value, 10);
+    if (!(v >= 1)) throw new Error('Enter a whole number of hours (1 or more).');
+    const r = await api('/admin/settings', {method: 'PATCH', body: JSON.stringify({waitlist_hold_hours: v})});
+    $('#oHold').value = r.waitlist_hold_hours; $('#waitHoldHrs').textContent = r.waitlist_hold_hours;
+    $('#oHoldMsg').textContent = 'Saved — an offered seat is held for ' + r.waitlist_hold_hours + ' hour(s).';
+    $('#oHoldMsg').className = 'ok-msg';
+  } catch (e) { $('#oHoldMsg').textContent = e.message; $('#oHoldMsg').className = 'err'; }
+};
 $('#oRemSave').onclick = async () => {
   try {
     const v = parseInt($('#oRem').value, 10);
@@ -1388,7 +2079,10 @@ setInterval(async () => {
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 
-if (sessionStorage.getItem('nerx_admin_token')) $('#saveTok').click();
+// A remembered token (this device) or the one from this tab connects on load.
+let _keep = null; try { _keep = localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
+if (_keep) { $('#tok').value = _keep; $('#tokRemember').checked = true; $('#saveTok').click(); }
+else if (sessionStorage.getItem('nerx_admin_token')) { $('#tok').value = sessionStorage.getItem('nerx_admin_token'); $('#saveTok').click(); }
 </script>
 
 </body>

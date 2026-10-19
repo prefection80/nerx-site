@@ -159,6 +159,12 @@
     padding: 6px 10px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem;
   }
   .buy-card .qty-row .meta { flex: 1; min-width: 180px; font-size: 0.78rem; }
+  .wl-field { margin-top: 10px; }
+  .wl-field label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+  .wl-field input {
+    width: 100%; padding: 9px 11px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem;
+  }
+  .wl-field input:focus { outline: 2px solid var(--blue-light); }
   .recip-row { display: flex; gap: 6px; margin-top: 6px; }
   .recip-row input {
     flex: 1; min-width: 0; padding: 7px 9px; border: 1.5px solid #c3c7cb;
@@ -448,6 +454,32 @@
   </div>
 </div>
 
+<div class="buy-overlay" id="wlOverlay" role="dialog" aria-modal="true" aria-label="Join the waitlist">
+  <div class="buy-card">
+    <button class="close-x" id="wlClose" aria-label="Close">&times;</button>
+    <h3 id="wlTitle">This session is full</h3>
+    <div class="meta" id="wlWhen"></div>
+    <p class="meta" style="margin-top:10px">Join the waitlist and we will email you the moment a
+      seat opens. The seat is then <b>held for you for <span class="wl-hold-hrs">24</span> hours</b>
+      &mdash; come back to this page within that window and book it. Or pick another date on the
+      calendar with seats open.</p>
+    <form id="wlForm" novalidate>
+      <div class="wl-field"><label for="wlEmail">Email</label>
+        <input id="wlEmail" type="email" autocomplete="email" placeholder="you@company.com" required></div>
+      <div class="wl-field"><label for="wlName">Name <span class="meta" style="font-weight:400">(optional)</span></label>
+        <input id="wlName" autocomplete="name" placeholder="Jane Smith"></div>
+      <div class="wl-field"><label for="wlCode">Ticket code <span class="meta" style="font-weight:400">(optional &mdash; if you already hold one)</span></label>
+        <input id="wlCode" placeholder="NERX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button type="submit" class="btn btn-primary small" id="wlJoin">Join the waitlist</button>
+        <span class="meta" id="wlMsg" aria-live="polite"></span>
+      </div>
+    </form>
+    <p class="note">If you leave a ticket code, the held seat is booked when you enter that code
+      here and click the date. Otherwise, click the date and buy the seat as usual.</p>
+  </div>
+</div>
+
 <button class="cart-fab" id="cartFab" aria-label="Open training cart">
   Cart <span class="n" id="cartN">0</span>
 </button>
@@ -584,7 +616,8 @@ function renderCalendar() {
                   (full ? ' full' : '') + (locked ? ' locked' : '');
       const booked = (s.booked !== undefined) ? s.booked + '/' + s.capacity + ' booked'
                                               : s.seats_left + ' seats left';
-      const lockNote = locked ? (s.started ? ' · class has run' : ' · signups closed') : '';
+      const lockNote = locked ? (s.started ? ' · class has run' : ' · signups closed')
+                              : (s.seats_left <= 0 ? ' · click to join the waitlist' : '');
       html += '<button type="button" class="' + cls + '" data-sid="' + s.id +
         '" title="' + describe(s).replace(/"/g, '&quot;') + ' · ' + booked + lockNote +
         '">' + (locked ? '<i class="lock">&#128274;</i> ' : '') + s.course_name +
@@ -613,11 +646,11 @@ function renderCalendar() {
         return;
       }
       if (!TICKET) {
-        if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
+        if (s.seats_left <= 0) { openWaitlistModal(s); return; }
         openBuyModal(s); return;
       }
       if (!bookingMode) { alert(describe(s) + '\n' + s.seats_left + ' seats left · $' + s.price_usd.toFixed(0)); return; }
-      if (s.seats_left <= 0) { alert('That session is full - pick another date.'); return; }
+      if (s.seats_left <= 0) { openWaitlistModal(s, TICKET.code); return; }
       const moving = TICKET.session && TICKET.session.id !== s.id;
       const q = moving
         ? 'Move your ticket?\n\nFROM: ' + describe(TICKET.session) +
@@ -884,6 +917,45 @@ function deactivateModal(overlay) {
   if (overlay._onKey) { overlay.removeEventListener('keydown', overlay._onKey); overlay._onKey = null; }
   if (overlay._prevFocus && overlay._prevFocus.focus) overlay._prevFocus.focus();
 }
+
+// ---------------- waitlist (a full session) ----------------
+let WL_SESSION = null;
+function closeWaitlistModal() { deactivateModal($('#wlOverlay')); }
+$('#wlClose').onclick = closeWaitlistModal;
+$('#wlOverlay').addEventListener('click', (e) => { if (e.target === $('#wlOverlay')) closeWaitlistModal(); });
+function openWaitlistModal(s, code) {
+  WL_SESSION = s;
+  $('#wlTitle').textContent = s.course_name + ' — this date is full';
+  $('#wlWhen').textContent = sessionDates(s);
+  $('#wlCode').value = code || '';
+  $('#wlMsg').textContent = ''; $('#wlMsg').className = 'meta';
+  $('#wlJoin').disabled = false; $('#wlJoin').textContent = 'Join the waitlist';
+  activateModal($('#wlOverlay'), closeWaitlistModal);
+  $('#wlEmail').focus();
+}
+$('#wlForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const email = $('#wlEmail').value.trim(), msg = $('#wlMsg');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    msg.textContent = 'Enter the email address we should notify.'; msg.className = 'err'; $('#wlEmail').focus(); return;
+  }
+  $('#wlJoin').disabled = true; msg.textContent = 'Adding you…'; msg.className = 'meta';
+  try {
+    const r = await api('/waitlist', { session_id: WL_SESSION.id, email,
+      name: $('#wlName').value.trim() || null, code: $('#wlCode').value.trim() || null });
+    document.querySelectorAll('.wl-hold-hrs').forEach((n) => { n.textContent = r.hold_hours; });
+    msg.innerHTML = (r.already ? 'You are already on this waitlist' : 'You are on the waitlist') +
+      ' — <b>number ' + r.position + ' in line</b>. We will email ' + esc(email) + ' when a seat opens.';
+    msg.className = 'ok-msg';
+    $('#wlJoin').textContent = 'Done';
+  } catch (err) {
+    msg.textContent = err.message; msg.className = 'err'; $('#wlJoin').disabled = false;
+  }
+};
+// The hold window is a roster setting; show the real number.
+fetch(API + '/config').then((r) => r.json()).then((cfg) => {
+  if (cfg.waitlist_hold_hours) document.querySelectorAll('.wl-hold-hrs').forEach((n) => { n.textContent = cfg.waitlist_hold_hours; });
+}).catch(() => {});
 
 function closeBuyModal() { deactivateModal($('#buyOverlay')); }
 $('#buyClose').onclick = closeBuyModal;

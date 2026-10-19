@@ -1,29 +1,33 @@
 name: browser tests
 
-# A change to the site's pages is tested against the ticket server's test suite:
-# the server repo's browser tests boot the real API and drive these pages.
+# A change to the site's pages is tested by the ticket server's browser suite, which
+# boots the real API and drives these pages. That repo is private, so this workflow
+# asks it to run (repository_dispatch) rather than checking it out from here.
+#
+# One-time setup: in this repo, Settings > Secrets and variables > Actions, add a
+# secret named TICKETS_DISPATCH_TOKEN holding a fine-grained personal access token
+# for prefection80/nerx-tickets with "Contents: read and write" permission.
 on:
   push:
     branches: [main]
     paths: ["*.html", "styles.css"]
-  pull_request:
   workflow_dispatch:
 
 jobs:
-  e2e:
+  trigger:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { path: nerx-site }
-      - uses: actions/checkout@v4
-        with:
-          repository: prefection80/nerx-tickets
-          path: nerx-tickets
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.13" }
-      - run: pip install -r nerx-tickets/requirements.txt -r nerx-tickets/requirements-dev.txt
-      - run: python -m playwright install --with-deps chromium
-      - run: python -m pytest tests/e2e -q
-        working-directory: nerx-tickets
+      - name: Ask nerx-tickets to run its browser suite against this commit
         env:
-          NERX_SITE_DIR: ${{ github.workspace }}/nerx-site
+          TOKEN: ${{ secrets.TICKETS_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::TICKETS_DISPATCH_TOKEN is not set - the ticket server's suite was not triggered. See the comment at the top of this workflow."
+            exit 0
+          fi
+          curl -sS -f -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/prefection80/nerx-tickets/dispatches \
+            -d '{"event_type":"site-changed","client_payload":{"site_ref":"${{ github.sha }}"}}'
+          echo "Triggered. Results: https://github.com/prefection80/nerx-tickets/actions"

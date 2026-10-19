@@ -296,7 +296,7 @@
         <p id="rosterMsg"></p>
       </div>
 
-      <!-- The selected class's own forum thread: questions students post before,
+      <!-- The selected class's own forum thread: topics and questions students post before,
            during and after class, newest first, with anything of theirs awaiting
            approval. Refreshed with the roster. -->
       <div class="admin-box" id="classThreadBox">
@@ -304,7 +304,7 @@
           <span class="meta" id="ctFor" style="font-weight:400;font-size:0.9rem"></span></h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px" id="ctIntro">
           Each class date gets its own thread on the forum, opened when the first seat is booked;
-          booked students with forum accounts are subscribed. Questions during class show here.</p>
+          booked students with forum accounts are subscribed. Posts during class show here.</p>
         <div class="flex" id="ctBar"></div>
         <div id="ctPosts" style="margin-top:10px"></div>
       </div>
@@ -376,12 +376,12 @@
           <a class="btn btn-outline tiny" id="forumOpenLink" href="https://forum.nerxpower.com/" target="_blank" rel="noopener" style="margin-left:10px">Open the forum &nearr;</a></h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
           Posts from new accounts wait here until you approve them (two approvals and the
-          account posts freely; students never wait). Below that, questions nobody has
+          account posts freely; students never wait). Below that, topics nobody has
           answered yet.</p>
         <h4 style="margin:6px 0 6px">Waiting for approval <span class="meta" id="forumHeldCount" style="font-weight:400"></span></h4>
         <div id="forumHeld"></div>
-        <h4 style="margin:18px 0 6px">Unanswered questions <span class="meta" id="forumOpenCount" style="font-weight:400"></span></h4>
-        <table><thead><tr><th>Question</th><th>Board</th><th>Asked by</th><th>Replies</th><th></th></tr></thead>
+        <h4 style="margin:18px 0 6px">Topics with no reply <span class="meta" id="forumOpenCount" style="font-weight:400"></span></h4>
+        <table><thead><tr><th>Topic</th><th>Board</th><th>Started by</th><th>Replies</th><th></th></tr></thead>
           <tbody id="forumOpen"></tbody></table>
         <p id="forumMsg"></p>
       </div>
@@ -1787,7 +1787,7 @@ async function loadClassThread(sid) {
     '<span class="meta"><b>' + r.replies + '</b> repl' + (r.replies === 1 ? 'y' : 'ies') + ' · <b>' + r.subscribers + '</b> subscribed' +
     (r.held ? ' · <span class="mat-warn">' + r.held + ' awaiting approval</span>' : '') +
     (r.pinned ? ' · pinned' : '') + (r.locked ? ' · locked' : '') + '</span>';
-  if (!r.latest.length) { posts.innerHTML = '<p class="meta">No questions yet.</p>'; return; }
+  if (!r.latest.length) { posts.innerHTML = '<p class="meta">No posts yet.</p>'; return; }
   posts.innerHTML = r.latest.map((p) =>
     '<div class="course-card" style="padding:8px 12px;margin-bottom:6px' + (p.status === 'held' ? ';border-left:3px solid #d6771a' : '') + '">' +
     '<div class="flex" style="justify-content:space-between"><b>' + esc(p.author) + (p.instructor ? ' <span class="meta">(you)</span>' : '') + '</b>' +
@@ -1809,7 +1809,7 @@ async function loadForum() {
     q.held.forEach((h) => {
       const card = document.createElement('div');
       card.className = 'course-card';
-      card.innerHTML = '<div class="flex" style="justify-content:space-between"><b>' + (h.is_opening ? 'New question: ' : 'Reply on: ') +
+      card.innerHTML = '<div class="flex" style="justify-content:space-between"><b>' + (h.is_opening ? 'New topic: ' : 'Reply on: ') +
         '<a href="' + esc(h.url) + '" target="_blank" rel="noopener">' + esc(h.title) + '</a></b>' +
         '<span class="meta">' + esc(h.author) + ' &lt;' + esc(h.author_email) + '&gt; · ' + fmt(new Date(h.created_at * 1000).toISOString()) +
         ' · <span class="mat-warn">' + esc({ new_account: 'new account', links: 'contains links', reported: 'reported' }[h.reason] || h.reason) + '</span></span></div>' +
@@ -1832,7 +1832,7 @@ async function loadForum() {
       }; });
       held.appendChild(card);
     });
-    open.innerHTML = q.unanswered.length ? '' : '<tr><td colspan="5" class="meta">Every question has an answer.</td></tr>';
+    open.innerHTML = q.unanswered.length ? '' : '<tr><td colspan="5" class="meta">Every topic has a reply.</td></tr>';
     q.unanswered.forEach((t) => {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td><a href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.title) + '</a>' +
@@ -2016,7 +2016,7 @@ const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled
   'admin.session_create': 'session added', 'admin.session_patch': 'session edited',
   'admin.course_patch': 'course edited', 'admin.test_email': 'test email', subscribe: 'joined mailing list',
   'backup.sent': 'backup emailed', 'backup.download': 'backup downloaded', 'admin.set_backup': 'backup schedule changed',
-  'forum.verified': 'forum account verified', 'forum.thread': 'forum question', 'forum.reply': 'forum reply',
+  'forum.verified': 'forum account verified', 'forum.thread': 'forum topic', 'forum.reply': 'forum reply',
   'forum.approve': 'forum post approved', 'forum.mod': 'forum moderation', 'forum.mod_user': 'forum account action' };
 async function loadActivity() {
   const body = $('#actBody');
@@ -2464,7 +2464,7 @@ setInterval(async () => {
     [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
     if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
     renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
-    // questions arriving during class show up without a reload
+    // posts arriving during class show up without a reload
     if (!$('[data-panel="today"]').hidden && sel.value) loadClassThread(sel.value);
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);

@@ -214,6 +214,7 @@
     </a>
     <nav aria-label="Main navigation"><ul>
       <li><a href="ticket.html">Ticket Page</a></li>
+      <li><a href="https://forum.nerxpower.com/" target="_blank" rel="noopener">Forum</a></li>
       <li><a href="#" id="signOut" hidden title="Forget the admin token in this browser (including a remembered one)">Sign out</a></li>
     </ul></nav>
   </div>
@@ -352,6 +353,22 @@
                   title="Offer any free seat to the next person waiting right now (this also happens on its own within a minute of a seat freeing)">Offer free seats now</button>
           <span id="waitMsg" class="meta"></span>
         </div>
+
+      <div class="admin-box" id="forumBox">
+        <h3 style="margin-bottom:4px">Forum
+          <span class="meta" id="forumStats" style="font-weight:400;font-size:0.9rem"></span>
+          <a class="btn btn-outline tiny" id="forumOpenLink" href="https://forum.nerxpower.com/" target="_blank" rel="noopener" style="margin-left:10px">Open the forum &nearr;</a></h3>
+        <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
+          Posts from new accounts wait here until you approve them (two approvals and the
+          account posts freely; students never wait). Below that, questions nobody has
+          answered yet.</p>
+        <h4 style="margin:6px 0 6px">Waiting for approval <span class="meta" id="forumHeldCount" style="font-weight:400"></span></h4>
+        <div id="forumHeld"></div>
+        <h4 style="margin:18px 0 6px">Unanswered questions <span class="meta" id="forumOpenCount" style="font-weight:400"></span></h4>
+        <table><thead><tr><th>Question</th><th>Board</th><th>Asked by</th><th>Replies</th><th></th></tr></thead>
+          <tbody id="forumOpen"></tbody></table>
+        <p id="forumMsg"></p>
+      </div>
       </div>
       </section>
 
@@ -1418,7 +1435,7 @@ async function loadRoster() {
 // ---- attendance & after class --------------------------------------------
 let ROSTER_ROWS = [];
 let ZOOM_MATCH = null;      // the server's match result for the current report
-const BADGE = { noShows: 0, waiting: 0 };
+const BADGE = { noShows: 0, waiting: 0, forum: 0 };
 
 function sessionEnded(s) {
   return s && Date.now() > new Date(s.starts_at).getTime() + (s.duration_min || 90) * 60000;
@@ -1681,6 +1698,62 @@ $('#waitOffer').onclick = async () => {
   } catch (e) { alert(e.message); }
 };
 
+// ---- forum moderation ------------------------------------------------------
+// The forum is served by the ticket API: on its own hostname in production, under
+// /forum when the roster is pointed at a local API.
+const FORUM = _isLocalApi(API) ? API + '/forum' : 'https://forum.nerxpower.com';
+const forumApi = (path, opts = {}) => fetch(FORUM + path, { ...opts,
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...tokenHdr(), ...(opts.headers || {}) } })
+  .then(async (r) => { if (!r.ok) throw new Error('Forum request failed (' + r.status + ')'); return r.json(); });
+async function loadForum() {
+  const held = $('#forumHeld'), open = $('#forumOpen');
+  $('#forumOpenLink').href = FORUM + '/';
+  try {
+    const q = await forumApi('/mod/queue');
+    $('#forumStats').textContent = '— ' + q.members + ' member' + (q.members === 1 ? '' : 's') + ' · ' + q.threads + ' thread' + (q.threads === 1 ? '' : 's');
+    $('#forumHeldCount').textContent = q.held.length ? '(' + q.held.length + ')' : '';
+    $('#forumOpenCount').textContent = q.unanswered.length ? '(' + q.unanswered.length + ')' : '';
+    BADGE.forum = q.held.length; updateTabBadges(BADGE.noShows, BADGE.waiting);
+    held.innerHTML = q.held.length ? '' : '<p class="meta">Nothing waiting.</p>';
+    q.held.forEach((h) => {
+      const card = document.createElement('div');
+      card.className = 'course-card';
+      card.innerHTML = '<div class="flex" style="justify-content:space-between"><b>' + (h.is_opening ? 'New question: ' : 'Reply on: ') +
+        '<a href="' + esc(h.url) + '" target="_blank" rel="noopener">' + esc(h.title) + '</a></b>' +
+        '<span class="meta">' + esc(h.author) + ' &lt;' + esc(h.author_email) + '&gt; · ' + fmt(new Date(h.created_at * 1000).toISOString()) +
+        ' · <span class="mat-warn">' + esc({ new_account: 'new account', links: 'contains links', reported: 'reported' }[h.reason] || h.reason) + '</span></span></div>' +
+        '<p style="white-space:pre-wrap;font-size:0.9rem;margin:8px 0;max-height:160px;overflow:auto">' + esc(h.body) + '</p>' +
+        '<div class="flex"><button class="btn btn-primary tiny" data-act="approve">Approve</button>' +
+        '<button class="btn btn-outline tiny" data-act="delete">Delete</button>' +
+        '<button class="btn btn-outline tiny" data-act="ban">Ban this account</button><span class="cf-msg meta"></span></div>';
+      card.querySelectorAll('button[data-act]').forEach((b) => { b.onclick = async () => {
+        const msg = card.querySelector('.cf-msg');
+        try {
+          if (b.dataset.act === 'ban') {
+            if (!confirm('Ban ' + h.author_email + '? All their posts are hidden and they cannot sign in.')) return;
+            await forumApi('/mod/user/' + h.author_id + '/ban', { method: 'POST', body: '{}' });
+          } else {
+            if (b.dataset.act === 'delete' && !confirm('Delete this post?')) return;
+            await forumApi('/mod/post/' + h.post_id + '/' + b.dataset.act, { method: 'POST', body: '{}' });
+          }
+          loadForum();
+        } catch (e) { msg.textContent = e.message; msg.className = 'cf-msg err'; }
+      }; });
+      held.appendChild(card);
+    });
+    open.innerHTML = q.unanswered.length ? '' : '<tr><td colspan="5" class="meta">Every question has an answer.</td></tr>';
+    q.unanswered.forEach((t) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><a href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.title) + '</a>' +
+        (t.instructor_replied ? ' <span class="meta">(you replied)</span>' : '') + '</td><td class="meta">' + esc(t.board) +
+        '</td><td>' + esc(t.author) + '</td><td>' + t.replies + '</td><td class="meta">' + fmt(new Date(t.created_at * 1000).toISOString()) + '</td>';
+      open.appendChild(tr);
+    });
+  } catch (e) {
+    held.innerHTML = '<p class="meta">' + esc(e.message) + ' — is forum.nerxpower.com up?</p>';
+  }
+}
+
 // ---- courses --------------------------------------------------------------
 function renderCourses() {
   const box = $('#coursesList');
@@ -1851,7 +1924,9 @@ const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled
   'waitlist.expired': 'hold expired', 'waitlist.removed': 'left waitlist', void: 'voided',
   'admin.session_create': 'session added', 'admin.session_patch': 'session edited',
   'admin.course_patch': 'course edited', 'admin.test_email': 'test email', subscribe: 'joined mailing list',
-  'backup.sent': 'backup emailed', 'backup.download': 'backup downloaded', 'admin.set_backup': 'backup schedule changed' };
+  'backup.sent': 'backup emailed', 'backup.download': 'backup downloaded', 'admin.set_backup': 'backup schedule changed',
+  'forum.verified': 'forum account verified', 'forum.thread': 'forum question', 'forum.reply': 'forum reply',
+  'forum.approve': 'forum post approved', 'forum.mod': 'forum moderation', 'forum.mod_user': 'forum account action' };
 async function loadActivity() {
   const body = $('#actBody');
   body.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
@@ -1903,9 +1978,9 @@ function revealBox(sel) {
 /* Badge counts on the Today tab: no-shows to deal with and people waiting. */
 function updateTabBadges(noShows, waiting) {
   const b = document.querySelector('#tabs .tab[data-tab="today"]');
-  const n = (noShows || 0) + (waiting || 0);
+  const n = (noShows || 0) + (waiting || 0) + (BADGE.forum || 0);
   b.innerHTML = 'Today' + (n ? '<span class="n" title="' + (noShows || 0) + ' no-show' + (noShows === 1 ? '' : 's') +
-                                 ', ' + (waiting || 0) + ' waiting">' + n + '</span>' : '');
+                                 ', ' + (waiting || 0) + ' waiting, ' + (BADGE.forum || 0) + ' forum post' + (BADGE.forum === 1 ? '' : 's') + ' to approve">' + n + '</span>' : '');
 }
 (function () {
   let t = (location.hash || '').slice(1);
@@ -1959,6 +2034,7 @@ $('#saveTok').onclick = async () => {
     loadSessions();
     loadSubscribers();
     loadOpenPrice();
+    loadForum();
     if (!$('[data-panel="reports"]').hidden) loadActivity();
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
 };

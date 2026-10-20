@@ -383,6 +383,9 @@
         <h4 style="margin:18px 0 6px">Topics with no reply <span class="meta" id="forumOpenCount" style="font-weight:400"></span></h4>
         <table><thead><tr><th>Topic</th><th>Board</th><th>Started by</th><th>Replies</th><th></th></tr></thead>
           <tbody id="forumOpen"></tbody></table>
+        <h4 style="margin:18px 0 6px">Recent moderation <span class="meta" style="font-weight:400">(every approve, hide, lock, move, delete, ban - who and why)</span></h4>
+        <table><thead><tr><th>When</th><th>Action</th><th>What</th><th>By</th><th>Reason</th></tr></thead>
+          <tbody id="forumActions"></tbody></table>
         <p id="forumMsg"></p>
       </div>
       </div>
@@ -1831,6 +1834,15 @@ async function loadForum() {
         } catch (e) { msg.textContent = e.message; msg.className = 'cf-msg err'; }
       }; });
       held.appendChild(card);
+    });
+    const acts = $('#forumActions');
+    acts.innerHTML = (q.actions || []).length ? '' : '<tr><td colspan="5" class="meta">Nothing yet.</td></tr>';
+    (q.actions || []).forEach((a) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td class="meta">' + fmt(new Date(a.at * 1000).toISOString()) + '</td><td>' + esc(a.action) + '</td><td>' +
+        (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.target || a.url) + '</a>' : esc(a.target || '')) +
+        '</td><td>' + esc(a.by) + '</td><td class="meta">' + esc(a.reason || '') + '</td>';
+      acts.appendChild(tr);
     });
     open.innerHTML = q.unanswered.length ? '' : '<tr><td colspan="5" class="meta">Every topic has a reply.</td></tr>';
     q.unanswered.forEach((t) => {

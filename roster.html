@@ -1123,7 +1123,7 @@ async function showForumPerson(email) {
     box.innerHTML = '<b>Forum:</b> <span class="meta">' + esc(email) + ' has not registered on the forum.</span>';
     return;
   }
-  const role = { instructor: 'Instructor', student: 'Student', member: 'Member' }[r.role] || r.role;
+  const role = { instructor: 'Instructor', moderator: 'Moderator', student: 'Student', member: 'Member' }[r.role] || r.role;
   const flags = [];
   if (r.banned) flags.push('<span class="status-pill st-void">banned</span>');
   if (r.held) flags.push('<span class="status-pill st-issued">' + r.held + ' awaiting approval</span>');
@@ -1137,7 +1137,19 @@ async function showForumPerson(email) {
     ' · <b>' + r.topics + '</b> topic' + (r.topics === 1 ? '' : 's') + ' · <b>' + r.comments + '</b> comment' +
     (r.comments === 1 ? '' : 's') + (r.accepted_answers ? ' · <b>' + r.accepted_answers + '</b> accepted answer' +
     (r.accepted_answers === 1 ? '' : 's') : '') + (flags.length ? ' ' + flags.join(' ') : '') +
+    (r.role !== 'instructor' && !r.banned ? ' <button class="btn btn-outline tiny" id="forumModBtn">' +
+      (r.role === 'moderator' ? 'Stand down as moderator' : 'Make a moderator') + '</button> <span class="cf-msg meta" id="forumModMsg"></span>' : '') +
     (topics ? '<ul class="meta" style="margin:6px 0 0 18px">' + topics + '</ul>' : '');
+  const btn = $('#forumModBtn');
+  if (btn) btn.onclick = async () => {
+    const make = r.role !== 'moderator';
+    if (!confirm(make ? 'Make ' + r.name + ' a moderator? They can approve, hide, lock, move and ban, and see the queue and the log - not upload files or post rich HTML.'
+                      : 'Stand ' + r.name + ' down as a moderator?')) return;
+    try {
+      await forumApi('/mod/user/' + r.id + '/' + (make ? 'moderator' : 'unmoderator'), { method: 'POST', body: '{}' });
+      FORUM_PERSON_FOR = ''; showForumPerson(email);
+    } catch (e) { $('#forumModMsg').textContent = e.message; }
+  };
 }
 
 $('#findBtn').onclick = () => { FIND_Q = $('#findQ').value; renderTicketSearch(); };

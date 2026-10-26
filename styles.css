@@ -451,6 +451,92 @@ section { padding: 76px 0; }
 .course-row p { font-size: 0.92rem; color: #5f6368; }
 .custom-note { margin-top: 24px; color: #5f6368; max-width: 840px; }
 .training-cta { margin-top: 36px; text-align: center; }
+
+/* ---------- Home-page training calendar (inside .schedule) ---------- */
+.home-cal { margin: 4px 0 26px; }
+.home-cal-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px 18px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.home-cal .cal-nav { display: flex; align-items: center; gap: 10px; }
+.home-cal .cal-nav h4 {
+  font-size: 1.1rem; font-weight: 800; min-width: 170px; text-align: center; margin: 0;
+}
+.home-cal .cal-nav button {
+  border: 1.5px solid #c3c7cb; background: var(--white); color: var(--charcoal);
+  border-radius: 4px; padding: 5px 13px; font-size: 1rem; font-weight: 700;
+  cursor: pointer; font-family: inherit; line-height: 1.2;
+}
+.home-cal .cal-nav button:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.home-cal .cal-nav button:disabled { opacity: 0.35; cursor: default; }
+.home-cal-link { font-size: 0.88rem; font-weight: 700; white-space: nowrap; }
+.home-cal .cal-legend {
+  display: flex; gap: 8px 18px; flex-wrap: wrap; margin: 0 0 12px;
+  font-size: 0.82rem; color: #5f6368;
+}
+.home-cal .cal-legend i {
+  display: inline-block; width: 11px; height: 11px; border-radius: 3px;
+  margin-right: 6px; vertical-align: -1px; background: var(--d, #6c757d);
+}
+/* one colour per weekday; chips and legend swatches share it */
+.home-cal .day-sun { --d: #6d4ba8; --dbg: rgba(109,75,168,0.13); }
+.home-cal .day-mon { --d: #5f6368; --dbg: rgba(95,99,104,0.13); }
+.home-cal .day-tue { --d: #2f90b0; --dbg: rgba(47,144,176,0.14); }
+.home-cal .day-wed { --d: #b5307a; --dbg: rgba(181,48,122,0.12); }
+.home-cal .day-thu { --d: #1e7e34; --dbg: rgba(40,167,69,0.13); }
+.home-cal .day-fri { --d: #8a4f1d; --dbg: rgba(138,79,29,0.13); }
+.home-cal .day-sat { --d: #c77414; --dbg: rgba(199,116,20,0.14); }
+.home-cal .cal-scroll { overflow-x: auto; }
+.home-cal .cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); min-width: 700px;
+  border: 1px solid #dfe2e5; border-radius: 6px; overflow: hidden; background: var(--white);
+}
+.home-cal .cal-head {
+  background: var(--charcoal); color: var(--grey-light); text-align: center;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 7px 0;
+}
+.home-cal .cal-day {
+  min-height: 74px; border-top: 1px solid #eceef0; border-left: 1px solid #eceef0;
+  padding: 4px 5px 6px; font-size: 0.78rem; color: #9aa0a6; min-width: 0;
+}
+.home-cal .cal-day:nth-child(7n + 1) { border-left: 0; }
+.home-cal .cal-day.other { background: #fafbfc; }
+.home-cal .cal-day .dnum { font-weight: 600; }
+.home-cal .cal-day.today .dnum {
+  color: var(--white); background: var(--blue); border-radius: 999px;
+  display: inline-block; min-width: 20px; text-align: center; padding: 1px 4px;
+}
+.home-cal .cal-chip {
+  display: block; margin-top: 4px; padding: 4px 6px 4px 7px; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 600; line-height: 1.25; color: var(--charcoal);
+  background: var(--dbg, rgba(108,117,125,0.13)); border-left: 3px solid var(--d, #6c757d);
+  text-decoration: none; overflow-wrap: anywhere;
+}
+.home-cal .cal-chip small { display: block; font-weight: 400; color: #5f6368; }
+.home-cal .cal-chip .warn { color: #b02a37; font-weight: 700; }
+.home-cal .cal-chip:hover, .home-cal .cal-chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
+.home-cal .cal-chip.full, .home-cal .cal-chip.locked { opacity: 0.55; }
+.home-cal .cal-list {
+  display: none; list-style: none; margin: 0; padding: 0;
+  border: 1px solid #dfe2e5; border-radius: 6px; background: var(--white);
+}
+.home-cal .cal-list li {
+  display: grid; grid-template-columns: 86px 1fr; gap: 8px;
+  padding: 9px 10px; border-top: 1px solid #eceef0;
+}
+.home-cal .cal-list li:first-child { border-top: 0; }
+.home-cal .cal-list li.empty { display: block; color: #5f6368; font-size: 0.9rem; padding: 14px 12px; }
+.home-cal .cal-list .ld { font-size: 0.8rem; font-weight: 700; color: var(--charcoal); padding-top: 5px; }
+.home-cal .cal-list .cal-chip { margin-top: 0; font-size: 0.8rem; padding: 6px 8px 6px 9px; }
+.home-cal .cal-list .cal-chip + .cal-chip { margin-top: 6px; }
+.home-cal-foot { font-size: 0.82rem; color: #5f6368; margin-top: 10px; }
+.home-cal .err { color: #b02a37; font-size: 0.9rem; margin-top: 8px; }
+@media (max-width: 700px) {
+  .home-cal .cal-scroll { display: none; }
+  .home-cal .cal-list { display: block; }
+  .home-cal .cal-nav h4 { min-width: 0; }
+}
 .signup {
   margin: 40px auto 0; max-width: 560px; text-align: center;
   background: var(--charcoal-2); color: var(--white);

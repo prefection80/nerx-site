@@ -1218,7 +1218,20 @@ $('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) rend
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lookupBtn').click(); });
 
 loadCutoff();
-refreshSessions().catch((e) => {
+refreshSessions().then(() => {
+  // Arriving from the home-page calendar (ticket.html?session=<id>): jump to that
+  // session's month and open it exactly as a click on its chip would — buy modal,
+  // waitlist, or the signups-closed notice, all decided by the same handler.
+  const sid = new URLSearchParams(location.search).get('session');
+  const s = sid && SESSIONS.find((x) => x.id === sid);
+  if (!s) return;
+  const p = ctParts(s.starts_at);
+  calMonth = { y: +p.year, m: +p.month - 1 };
+  renderCalendar();
+  $('#calendarSection').scrollIntoView({ behavior: 'smooth' });
+  const chip = [...document.querySelectorAll('#calGrid .cal-chip')].find((c) => c.dataset.sid === sid);
+  if (chip) setTimeout(() => chip.click(), 450);
+}).catch((e) => {
   $('#calErr').hidden = false;
   $('#calErr').textContent = 'Could not load the schedule (' + e.message +
     '). Email douglas.millner@nerxpower.com to register.';

@@ -1,4 +1,18 @@
 <!DOCTYPE html>
+<!--
+  services/misoperation-investigations.html — "Protection System Misoperation Investigations" service detail page.
+
+  One of nine service pages that share one template (only the <head> metadata, the
+  article text, the deliverables list and the related-services chips differ). There is
+  no build step, so a change to the shared parts (nav, footer, CTA band) has to be made in
+  every file; styles come from ../styles.css (.page-hero, .service-body, .deliverables,
+  .related, .chip, .cta-band).
+
+  PAGE MAP
+    topbar · header/nav (relative links back to ../index.html#...) · page hero with
+    breadcrumb · article + deliverables aside · related-service chips · CTA band ·
+    footer · a small video-autoplay script (only matters on the training page).
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -19,6 +33,7 @@
 
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Contact strip (same as the home page). -->
 <div class="topbar">
   <div class="container">
     <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
@@ -27,6 +42,8 @@
   </div>
 </div>
 
+<!-- Header/nav. NOTE: the nav here lacks the Forum link that index.html, toolkits.html,
+     ticket.html and 404.html carry — see the review notes. -->
 <header>
   <div class="nav">
     <a class="brand" href="../index.html" aria-label="NERX Power Consultants home">
@@ -47,6 +64,7 @@
 
 <main id="main">
 
+<!-- Page hero: breadcrumb back to the services grid, and the page title. -->
 <div class="page-hero">
   <div class="container">
     <a class="breadcrumb" href="../index.html#services">&larr; All Services</a>
@@ -54,6 +72,8 @@
   </div>
 </div>
 
+<!-- Body: the article (left) and the "Typical Scope & Deliverables" box (right); they stack on
+     narrow screens (styles.css, 820 px rule). -->
 <section>
   <div class="container">
     <div class="service-body">
@@ -73,6 +93,7 @@
       </aside>
     </div>
 
+        <!-- Links to related service pages (plain chips). -->
     <div class="related">
       <h2>Related Services</h2>
       <a class="chip" href="protective-relaying.html">Protective Relaying &amp; Testing</a>
@@ -81,6 +102,7 @@
   </div>
 </section>
 
+<!-- Call-to-action band: email is the contact channel. -->
 <div class="cta-band">
   <div class="container">
     <h2>Have a project to discuss?</h2>
@@ -98,6 +120,8 @@
   </div>
 </footer>
 
+<!-- Video autoplay respecting the OS reduced-motion setting. Copied to every service page;
+     only the training page has a video, so on the others it finds nothing to do. -->
 <script>
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.querySelectorAll('video[autoplay]').forEach(function (v) {

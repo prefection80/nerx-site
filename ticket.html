@@ -1,16 +1,76 @@
 <!DOCTYPE html>
+<!--
+  ticket.html — the public training calendar, booking, payment and ticket page.
+
+  WHAT IT IS
+    The one page a student uses for everything about a seat:
+      - the live calendar of sessions (one chip per session, colour by weekday),
+      - buying a seat on a date (PayPal, in a modal), or several seats for a team,
+      - joining the waitlist when a date is full,
+      - looking up a TICKET CODE (NERX-XXXX-XXXX-XXXX, emailed after payment) to book or
+        reschedule it, open the class's forum thread, get the class materials, the
+        "Join Training" meeting link, and after class the PDH certificate
+        (PDH = professional development hour),
+      - a cart modal to collect seats across sessions (shared with cart.html).
+    index.html's calendar links here as ticket.html?session=<id>, which opens that
+    session's flow straight away.
+
+  THE RULES THE PAGE ENFORCES (the server is the authority on all of them)
+    - Signups close N hours before a session (N comes from /config; shown as the
+      .cutoff-hrs numbers). Such sessions arrive with bookable:false and draw locked.
+    - A ticket holds one session at a time; rescheduling is allowed until one hour
+      before the session (the server says so with can_rebook).
+    - Prices and seat counts are whatever the server sends; this page only displays them.
+
+  TALKS TO (tickets.nerxpower.com; the FastAPI ticket server, private repo nerx-tickets)
+    GET  /sessions            the open sessions (polled every 10 s for live seat counts)
+    GET  /config              signup_cutoff_hours, waitlist_hold_hours, open_ticket_price_usd,
+                              paypal_client_id
+    POST /tickets/lookup      {code} -> status, session, cert, materials, link_available ...
+    POST /tickets/book        {code, session_id} -> book or move the ticket
+    POST /tickets/link        {code} -> the meeting link (only near class time)
+    POST /purchase/register   a multi-seat purchase, before PayPal opens
+    POST /cart/register       a cart order, before PayPal opens
+    POST /waitlist            {session_id, email, name?, code?}
+    plus https://www.paypal.com/sdk/js (loaded on first checkout).
+    Payments are matched to tickets by PayPal's custom_id, which the ticket server's
+    webhook reads: "<session_id>" for one seat, "<session_id>|<qty>|<reg_id>" for a
+    multi-seat purchase, "cart|<reg_id>" for a cart order.
+
+  BROWSER STORAGE
+    localStorage.nerx_cart           the cart (array of {sid?, name?, email?}; {} = open seat)
+    localStorage.nerx_tickets_api    dev-only API override (?api=http://localhost:...; only a
+                                     localhost value is ever honoured)
+    sessionStorage.nerx_cert_code    hands the ticket code to certificate.html (never the URL)
+
+  PAGE MAP
+    <head>: frame guard, styles.css + page styles (calendar, buy modal, cart, buy box)
+    topbar / header (nav kept in sync with index.html) / page hero
+    section 1  intro, the cutoff rule, "buy now, schedule later"
+    section 2  the ticket-code box (#code, #lookupBtn, #result) and certificate notes
+    section 3  #calendarSection: legend, cutoff note, month arrows, the grid
+    section 4  "How buying works" (.buy-box)
+    three modals: #buyOverlay (buy), #wlOverlay (waitlist), #cartOverlay (cart), and the
+    floating #cartFab button
+    one script, sectioned: helpers · calendar · ticket lookup · PayPal buy · modal helpers ·
+    waitlist · cart · wiring and boot (including the ?session= deep link)
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Training Tickets — NERX Power Consultants</title>
 <meta name="description" content="Buy a NERX training module for $150, then use your ticket code to pick your session dates on the training calendar.">
+<!-- "js" hook for CSS, and a frame guard: this page takes payments, so it refuses to be
+     embedded in another site's frame (it breaks out to the top window). -->
 <script>document.documentElement.classList.add('js');
   if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) {} }</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="canonical" href="https://www.nerxpower.com/ticket.html">
 <link rel="stylesheet" href="styles.css">
+<!-- Page styles on top of styles.css: the ticket box and status pills, materials lists,
+     then the banners below — calendar, buy modal, cart, the "how buying works" box. -->
 <style>
   .ticket-box {
     background: var(--white);
@@ -219,6 +279,7 @@
 
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Contact strip and header, same as the home page. -->
 <div class="topbar">
   <div class="container">
     <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
@@ -249,6 +310,7 @@
 
 <main id="main">
 
+<!-- Page hero with a breadcrumb back to the training section. -->
 <div class="page-hero">
   <div class="container">
     <a class="breadcrumb" href="index.html#training">&larr; Training</a>
@@ -256,6 +318,9 @@
   </div>
 </div>
 
+<!-- Section 1: what the calendar is. #trackList is rewritten from the live sessions; the
+     .cutoff-hrs numbers are rewritten from /config (and the whole .cutoff-rule sentences are
+     hidden if the server has the cutoff switched off). -->
 <section>
   <div class="container">
     <div class="section-head">
@@ -291,6 +356,7 @@
   </div>
 </section>
 
+<!-- Section 2: the ticket-code box. renderTicket() writes the lookup result into #result. -->
 <section style="padding-top:0">
   <div class="container">
     <div class="section-head">
@@ -344,6 +410,8 @@
   </div>
 </section>
 
+<!-- Section 3: the calendar. #pickBanner appears in booking/reschedule mode; #cutoffNote is
+     filled from /config; the month grid is drawn into #calGrid by renderCalendar(). -->
 <section style="padding-top:0" id="calendarSection">
   <div class="container">
     <div class="pick-banner" id="pickBanner">
@@ -370,6 +438,7 @@
   </div>
 </section>
 
+<!-- Section 4: the written "how buying works" steps and the free-seat offer. -->
 <section style="padding-top:0">
   <div class="container">
     <div class="section-head">
@@ -417,6 +486,9 @@
   </div>
 </section>
 
+<!-- Buy modal: opened by clicking a session chip with no ticket entered. Seat count, optional
+     per-seat attendee rows (shown for 2+ seats), the price line, the PayPal buttons, and an
+     "Add to Cart" alternative. -->
 <div class="buy-overlay" id="buyOverlay" role="dialog" aria-modal="true" aria-label="Buy this session">
   <div class="buy-card">
     <button class="close-x" id="buyClose" aria-label="Close">&times;</button>
@@ -458,6 +530,8 @@
   </div>
 </div>
 
+<!-- Waitlist modal: opened by clicking a FULL session. The hold window (.wl-hold-hrs) comes
+     from /config. -->
 <div class="buy-overlay" id="wlOverlay" role="dialog" aria-modal="true" aria-label="Join the waitlist">
   <div class="buy-card">
     <button class="close-x" id="wlClose" aria-label="Close">&times;</button>
@@ -484,10 +558,12 @@
   </div>
 </div>
 
+<!-- Floating cart button (shows the seat count; hidden when the cart is empty). -->
 <button class="cart-fab" id="cartFab" aria-label="Open training cart">
   Cart <span class="n" id="cartN">0</span>
 </button>
 
+<!-- Cart modal: the same cart as cart.html, in a smaller form, with its own PayPal buttons. -->
 <div class="buy-overlay" id="cartOverlay" role="dialog" aria-modal="true" aria-label="Your training cart">
   <div class="buy-card" style="max-width:540px">
     <button class="close-x" id="cartClose" aria-label="Close">&times;</button>
@@ -526,6 +602,7 @@
   </div>
 </footer>
 
+<!-- The page script. Sections are marked with // ---------------- lines. -->
 <script>
 // Storage helpers that no-op if storage is unavailable (private mode / disabled).
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -542,6 +619,8 @@ const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g,
   (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// All times are shown in US Central. ctParts() splits a server timestamp into Central-zone
+// parts; ctKey/ctTime/ctDay give the calendar date, clock time and weekday of a session.
 const CT = 'America/Chicago';
 function ctParts(iso) {
   return new Intl.DateTimeFormat('en-US', {
@@ -553,6 +632,8 @@ const ctKey = (iso) => { const p = ctParts(iso); return p.year + '-' + p.month +
 const ctTime = (iso) => { const p = ctParts(iso); return p.hour + ':' + p.minute + ' ' + p.dayPeriod; };
 const ctDay = (iso) => { const p = ctParts(iso); return p.weekday; };
 
+// "Tracks" colour the chips by weekday. Only Tue/Thu/Sat have their own colour; any other
+// weekday is "other" (grey) — see the review notes, the schedule now also has Sun/Wed slots.
 function trackOf(s) {
   const d = ctDay(s.starts_at);
   return d === 'Tue' ? 'tue' : d === 'Thu' ? 'thu' : d === 'Sat' ? 'sat' : 'other';
@@ -561,6 +642,7 @@ function trackName(s) {
   return { tue: 'Tuesday', thu: 'Thursday', sat: 'Saturday',
            other: ctDay(s.starts_at) }[trackOf(s)];
 }
+// Human-readable "when" strings used all over the page.
 function sessionDates(s) {
   const p = ctParts(s.starts_at);
   return p.weekday + ' ' + new Date(s.starts_at).toLocaleDateString('en-US',
@@ -571,8 +653,13 @@ function describe(s) {
   return s.course_name + ' — ' + sessionDates(s);
 }
 
+// Page state. SESSIONS = open sessions from the server; TICKET = the looked-up ticket (null
+// when none); bookingMode = a lookup is waiting for the user to click a session; calMonth =
+// the month on screen; CUTOFF_HOURS = the signup cutoff from /config.
 let SESSIONS = [], TICKET = null, bookingMode = false, calMonth = null, CUTOFF_HOURS = null;
 
+// GET when no body is given, otherwise POST JSON; a non-2xx answer becomes an Error carrying
+// the server's "detail" text (shown to the user).
 async function api(path, body) {
   const r = await fetch(API + path, body === undefined ? {} :
     { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -583,6 +670,13 @@ async function api(path, body) {
 }
 
 // ---------------- calendar (same renderer as the admin roster page) ----------------
+// Draw the month in #calGrid: 6 rows x 7 days, each session a chip whose look says full /
+// locked / mine (the ticket's current booking). Clicking a chip does one of:
+//   - locked        a notice that signups are closed (or the class has run)
+//   - no ticket     open the buy modal (or the waitlist if full)
+//   - ticket, not in booking mode   just show the session details
+//   - booking mode  confirm, then POST /tickets/book and redraw everything
+// Also used, unchanged, by the admin roster page.
 function renderCalendar() {
   const grid = $('#calGrid');
   if (!SESSIONS.length) { $('#calTitle').textContent = 'No sessions'; grid.innerHTML = ''; return; }
@@ -676,6 +770,7 @@ function renderCalendar() {
 $('#calPrev').onclick = () => { calMonth.m--; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y--; } renderCalendar(); };
 $('#calNext').onclick = () => { calMonth.m++; if (calMonth.m > 11) { calMonth.m = 0; calMonth.y++; } renderCalendar(); };
 
+// Re-fetch the sessions and redraw. Called on load, every 10 s, and after a payment.
 async function refreshSessions() {
   SESSIONS = (await api('/sessions')).filter((s) => s.status === 'open');
   renderCalendar();
@@ -810,6 +905,12 @@ function enterBookingMode(msg) {
   $('#calendarSection').scrollIntoView({ behavior: 'smooth' });
 }
 
+// Look up a ticket code and write the result card into #result. The four statuses:
+//   void    cancelled (refund / expiry)
+//   used    attended — join button (if live), forum thread, materials, certificate
+//   booked  has a session — join button near class time, thread, reschedule, materials
+//   issued  not booked yet — enter booking mode so the next chip click books it
+// Buttons inside the card are wired up after the HTML is written.
 async function renderTicket(code) {
   const box = $('#result');
   box.innerHTML = '<p class="ok-msg">Looking up…</p>';
@@ -888,6 +989,8 @@ async function renderTicket(code) {
 }
 
 // ---------------- buy-at-booking (PayPal Smart Buttons) ----------------
+// Load PayPal's SDK once with the client id from /config. Resolves to null (not an error)
+// when there is no id or the script fails to load; callers then show the email fallback.
 let sdkPromise = null;
 function loadPayPalSdk() {
   if (sdkPromise) return sdkPromise;
@@ -977,6 +1080,11 @@ function closeBuyModal() { deactivateModal($('#buyOverlay')); }
 $('#buyClose').onclick = closeBuyModal;
 $('#buyOverlay').addEventListener('click', (e) => { if (e.target === $('#buyOverlay')) closeBuyModal(); });
 
+// Fill and open the buy modal for one session, then render PayPal buttons for it.
+//   qty 1   custom_id is the session id; the amount is the session price
+//   qty 2+  attendee rows must be complete; the purchase is registered first
+//           (/purchase/register) and custom_id carries "<session>|<qty>|<reg_id>"
+// See the review notes on where the amount comes from.
 async function openBuyModal(s) {
   $('#buyTitle').textContent = s.course_name;
   $('#buyWhen').textContent = sessionDates(s);
@@ -1088,6 +1196,8 @@ async function openBuyModal(s) {
 }
 
 // ---------------- cart ----------------
+// The cart, shared with cart.html through localStorage. OPEN_PRICE is the open-seat price,
+// replaced by the server's value once /config answers.
 let CART = [], OPEN_PRICE = 150;
 try { CART = JSON.parse(lsGet('nerx_cart') || '[]'); } catch (e) { CART = []; }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1106,6 +1216,8 @@ function updateCartFab() {
 }
 const sessionById = (id) => SESSIONS.find((x) => x.id === id);
 
+// Draw the cart modal's lines (one per seat, with attendee fields that save as you type),
+// dropping any dated seat whose session is no longer open.
 function renderCartLines() {
   const wrap = $('#cartLines');
   wrap.innerHTML = '';
@@ -1141,6 +1253,8 @@ function renderCartLines() {
       (CART.length > 1 ? 's' : '') + ')' : '';
 }
 
+// Open the cart modal and render PayPal buttons for the whole cart. The server prices the
+// order (/cart/register) and ITS total is what PayPal charges.
 async function openCart() {
   $('#cartSuccess').hidden = true;
   $('#cartErr').hidden = true;
@@ -1214,6 +1328,7 @@ $('#cartOverlay').addEventListener('click', (e) => {
 });
 updateCartFab();
 
+// Wiring: the lookup box (Enter submits), then boot — load the cutoff and the sessions.
 $('#lookupBtn').onclick = () => { const c = $('#code').value.trim(); if (c) renderTicket(c); };
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lookupBtn').click(); });
 

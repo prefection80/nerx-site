@@ -1,10 +1,54 @@
 <!DOCTYPE html>
+<!--
+  index.html — the nerxpower.com home page.
+
+  WHAT IT IS
+    A single static page (no build step, no framework) for NERX Power Consultants LLC:
+    hero, services, about, the training section, and contact. It is served by Render as a
+    static site from the GitHub repo prefection80/nerx-site; a push to main goes live in
+    about a minute.
+
+  WHAT IT TALKS TO
+    tickets.nerxpower.com  (the FastAPI "ticket server" in the private nerx-tickets repo)
+      GET  /sessions             the open training sessions — drawn as the live calendar
+      GET  /subscribe/challenge  an Ohm's-law puzzle used as the mailing-list bot check
+      POST /subscribe            join the mailing list (email + puzzle answer)
+    Every other link on the page is plain navigation (ticket.html, cart.html, the forum,
+    the toolkits, the services/ pages).
+
+  BROWSER STORAGE
+    localStorage.nerx_cart          the training cart, shared with ticket.html / cart.html
+    localStorage.nerx_tickets_api   optional dev override of the API base URL (set by
+                                    ticket.html?api=http://localhost:... — see there)
+
+  PAGE MAP (in order)
+    <head>            meta, favicons, styles.css, Open Graph tags, schema.org JSON-LD
+    .topbar / header  contact strip and the main nav (keep the nav in sync across pages)
+    #top (hero)       headline + an animated one-line-diagram SVG
+    #services         eight service cards linking to services/*.html
+    .strip            four "stat" tiles (the 15+ counts up when scrolled into view)
+    #about            company story + the three principles (#approach)
+    #training         NERX-PFSA pitch, the live calendar, the course list, buy buttons,
+                      and the mailing-list signup with its circuit puzzle
+    #contact          email / location / hours cards
+    footer
+    Scripts, in order: live calendar · mailing-list signup · reveal/counter/video
+    animations · floating cart button.
+
+  CONVENTIONS
+    .reveal elements fade in when scrolled into view; the <html class="js"> hook (set in
+    <head>) is what lets CSS hide them first, so with JavaScript off everything is visible.
+    All times are US Central; the ticket server returns ISO timestamps with offsets and
+    every page formats them with Intl in the America/Chicago zone.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NERX Power Consultants — Powering Energy Solutions</title>
 <meta name="description" content="NERX Power Consultants LLC — power system analysis, protective relaying, arc flash studies, and NERC compliance consulting. Houston, TX.">
+<!-- Marks the document as JavaScript-capable before any CSS applies, so styles that hide
+     .reveal elements (for the fade-in) only ever apply when the script that reveals them runs. -->
 <script>document.documentElement.classList.add('js');</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" href="favicon.png">
@@ -18,6 +62,7 @@
 <meta property="og:url" content="https://www.nerxpower.com/">
 <meta property="og:image" content="https://www.nerxpower.com/nerx-logo.png">
 <meta name="twitter:card" content="summary">
+<!-- Structured data for search engines (schema.org). Not shown to visitors. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -40,8 +85,10 @@
 </head>
 <body>
 
+<!-- Keyboard users can jump past the header; the link is visually hidden until focused. -->
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- ===== Contact strip above the header ===== -->
 <div class="topbar">
   <div class="container">
     <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
@@ -50,6 +97,8 @@
   </div>
 </div>
 
+<!-- ===== Header and main navigation. The same nav is hand-copied into every other page:
+     keep the links in sync when editing (Services, Training, Forum, Toolkits, About, Our Approach, Contact). ===== -->
 <header>
   <div class="nav">
     <a class="brand" href="#top" aria-label="NERX Power Consultants home">
@@ -71,6 +120,10 @@
 
 <main id="main">
 
+<!-- ===== Hero: headline, lede, two call-to-action buttons, and a decorative one-line diagram.
+     The SVG is a small substation: a top bus, breakers, two transformers, a generator and loads;
+     the .ol-flow paths carry the animated "power flow" dashes (styles.css). aria-hidden keeps it
+     out of screen readers. ===== -->
 <section class="hero" id="top">
   <div class="hero-figure" aria-hidden="true">
     <svg viewBox="0 0 440 520" xmlns="http://www.w3.org/2000/svg">
@@ -130,6 +183,8 @@
   </div>
 </section>
 
+<!-- Decorative wave between the hero and services: three copies of one path, offset and
+     animated sideways (.wave-move in styles.css). The second divider lower down reuses the idea. -->
 <div class="wave-divider" aria-hidden="true">
   <svg viewBox="0 0 1200 40" preserveAspectRatio="none">
     <defs>
@@ -143,6 +198,7 @@
   </svg>
 </div>
 
+<!-- ===== Services: eight cards, each linking to its own page under services/. ===== -->
 <section id="services">
   <div class="container">
     <div class="section-head reveal">
@@ -214,6 +270,8 @@
   </div>
 </section>
 
+<!-- ===== Stat strip. The first number counts up from 0 to data-target when it scrolls into
+     view (script at the bottom of the page); the other three are plain text. ===== -->
 <div class="strip">
   <div class="container">
     <div class="stat"><b><span class="count" data-target="15">15</span>+</b><span>Years of Power System Experience</span></div>
@@ -223,6 +281,8 @@
   </div>
 </div>
 
+<!-- ===== About: the company story and the three principles (the nav's "Our Approach" link
+     points at #approach, which is the principles list inside this section). ===== -->
 <section class="about" id="about">
   <div class="container">
     <div class="section-head reveal">
@@ -251,6 +311,9 @@
   </div>
 </section>
 
+<!-- ===== Training. In order: the NERX-PFSA pitch with a looping power-flow video, the live
+     course calendar (filled by the first script below from the ticket server), the written
+     course sequence, the buy / cart / manage buttons, and the mailing-list signup. ===== -->
 <section id="training" class="training">
   <div class="container">
     <div class="section-head reveal">
@@ -260,6 +323,8 @@
          delivers practical training by practicing engineers — tailored to your system, your
          relay settings, and your actual event records, on-site or virtual.</p>
     </div>
+    <!-- NERX-PFSA (the in-house fault-analysis web app) pitch: animated phasor diagram,
+         description, launch button, and a screenshot-framed video. -->
     <div class="toolkit reveal">
       <div class="toolkit-row">
       <svg class="phasor" viewBox="0 0 140 140" aria-hidden="true">
@@ -301,6 +366,8 @@
         </div>
       </div>
     </div>
+    <!-- The course sequence box. The intro text lists the weekly time slots in prose and is
+         hand-maintained; the calendar legend just below it is generated from the live data. -->
     <div class="schedule reveal">
       <div class="schedule-head">
         <h3>Live Online Series — 2026 Course Sequence</h3>
@@ -333,6 +400,8 @@
         <p class="err" id="hcErr" hidden></p>
       </div>
 
+      <!-- One row per course in teaching order. The "Weeks of ..." labels are typed by hand and
+           are not read from the ticket server; the calendar above is the live source of dates. -->
       <div class="course-row">
         <div class="dates">Weeks of Aug 11 &amp; Aug 18</div>
         <div>
@@ -420,6 +489,7 @@
         </div>
       </div>
     </div>
+    <!-- Two notes: a free-seat offer for returning students, and custom (on-site) training. -->
     <p class="custom-note reveal"><b>Attended the second Symmetrical Components course last
        year?</b> The Fault Analysis module is free for you — the browser toolkit we now teach
        with is what we'd hoped to showcase then.
@@ -430,12 +500,17 @@
        and electrical safety / NFPA 70E — delivered on-site or virtually, using your own
        one-lines, relay settings, and event records. If none of the scheduled tracks fit,
        we'll work around you — we just ask for flexibility so people can be grouped together.</p>
+    <!-- The four buy / manage buttons. "Buy a Session" and "Manage My Ticket" both go to ticket.html;
+         "Buy Seats — Schedule Later" goes to the cart, which sells open seats to be booked later. -->
     <div class="training-cta reveal">
       <a class="btn btn-primary" href="ticket.html">Buy a Session — Pick Your Date</a>
       <a class="btn btn-outline" href="cart.html">Buy Seats — Schedule Later</a>
       <a class="btn btn-outline" href="ticket.html">Manage My Ticket &amp; PDH</a>
       <a class="btn btn-outline" href="services/power-engineering-training.html">Course Details</a>
     </div>
+    <!-- Mailing-list signup. To join, a visitor solves a small Ohm's-law circuit drawn by the
+         second script below (the "challenge"), which replaces a CAPTCHA. The hidden "website"
+         field is a honeypot: humans never see it, bots fill it in, and the server rejects those. -->
     <div class="signup reveal" id="signup">
       <h3>Get training updates</h3>
       <p>New course dates, the live Fall series, and hands-on NERX-PFSA sessions —
@@ -475,10 +550,13 @@
   </div>
 </section>
 
+<!-- SCRIPT 1 of 4: the live training calendar. -->
 <script>
 /* Home-page training calendar. Read-only view of the open sessions on
    tickets.nerxpower.com; every chip links to ticket.html, which owns booking. */
 (function () {
+  // Fixed on purpose: the public calendar always reads the live schedule. (The signup script
+  // below honours a localStorage override for local development; this one does not.)
   var API = 'https://tickets.nerxpower.com';
   var grid = document.getElementById('hcGrid'), list = document.getElementById('hcList'),
       title = document.getElementById('hcTitle'), legend = document.getElementById('hcLegend'),
@@ -487,6 +565,8 @@
       box = document.getElementById('homeCal');
   if (!grid) return;
 
+  // Every date shown is a CALENDAR date in US Central, however the server stamps it. `ct()`
+  // splits an ISO timestamp into Central-zone parts (year, month, day, weekday, hour...).
   var CT = 'America/Chicago';
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var PLURAL = { Sun: 'Sundays', Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays',
@@ -499,13 +579,18 @@
   function ct(iso) {
     return fmt.formatToParts(new Date(iso)).reduce(function (a, p) { a[p.type] = p.value; return a; }, {});
   }
+  // Dates are keyed as 'YYYY-MM-DD' strings so they sort and compare as plain text.
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function key(y, m, d) { return y + '-' + pad(m) + '-' + pad(d); }   // m is 1-12
+  // HTML-escape anything from the server before it goes into innerHTML.
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
   }
 
+  // S = the sessions we will draw, each wrapped with its Central-zone calendar key, weekday,
+  // clock time, and minutes-since-midnight (for sorting the legend). cur/lo/hi = the month
+  // being shown and the first/last month that has any session (the arrows stop there).
   var S = [];                    // [{s, k, day, time, mins}] sorted by start
   var cur = null, lo = null, hi = null, todayKey;
   var now = new Date();
@@ -516,6 +601,9 @@
   function ym(k) { return k.slice(0, 7); }
   function cmpYM(a, b) { return a.y !== b.y ? a.y - b.y : a.m - b.m; }
 
+  // One session as a clickable chip. Clicking goes to ticket.html?session=<id>, which jumps to
+  // that session and opens its booking (or waitlist / closed) flow — this page never books.
+  // Visual state: 'Ran' (past), 'Signups closed' (inside the 24-hour cutoff), 'Full', or seats left.
   function chip(e) {
     var s = e.s;
     var locked = s.bookable === false, full = s.seats_left <= 0;
@@ -531,6 +619,9 @@
            state + '</span></small></a>';
   }
 
+  // Draw the current month: a 7-column grid (desktop) and the same month as a day list
+  // (phones; CSS decides which one is visible). Past days stay in the grid, greyed, so the
+  // weekly rhythm is visible; the phone list starts from today.
   function render() {
     var y = cur.y, m = cur.m;                                  // m is 1-12
     title.textContent = MONTHS[m - 1] + ' ' + y;
@@ -570,9 +661,12 @@
                               ' &mdash; use the arrows to browse other months.</li>';
   }
 
+  // Month arrows. render() disables them at the first/last month that has sessions.
   prev.onclick = function () { if (--cur.m < 1) { cur.m = 12; cur.y--; } render(); };
   next.onclick = function () { if (++cur.m > 12) { cur.m = 1; cur.y++; } render(); };
 
+  // The legend ("Sundays · 5:00 PM & 7:00 PM" ...) is read off the sessions themselves, so
+  // adding a new weekly slot in the roster updates it without editing this page.
   function buildLegend() {
     var byWeekday = {};
     S.forEach(function (e) {
@@ -588,6 +682,8 @@
     if (parts.length) { legend.innerHTML = parts.join(''); legend.hidden = false; }
   }
 
+  // If the API is unreachable, hide the empty grid and show one sentence with the fallback
+  // routes (the ticket page, or email) instead of a blank box.
   function fail(msg) {
     box.setAttribute('aria-busy', 'false');
     title.textContent = 'Calendar unavailable';
@@ -598,6 +694,8 @@
     err.hidden = false;
   }
 
+  // Load, filter to open sessions from this month onward, sort by start, and show the month
+  // of the next upcoming session.
   fetch(API + '/sessions')
     .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function (rows) {
@@ -628,8 +726,11 @@
 })();
 </script>
 
+<!-- SCRIPT 2 of 4: the mailing-list signup form and its Ohm's-law bot check. -->
 <script>
 (function () {
+  // The mailing-list form. Nothing here runs until the signup box scrolls into view (or the
+  // email field is focused), so the puzzle is only fetched for visitors who get that far.
   var API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
   var form = document.getElementById('signupForm');
   if (!form) return;
@@ -641,11 +742,18 @@
   var prompt = document.getElementById('ohmPrompt');
   var ansInput = document.getElementById('ohmInput');
   var unitEl = document.getElementById('ohmUnit');
+  // A loose email shape check; the server does the real validation.
   var RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   var challenge = null, loaded = false;
 
+  // `challenge` is the puzzle the server handed out ({id, values, prompt, answer_unit, ...});
+  // its id is sent back with the answer. `loaded` stops the first fetch happening twice.
   // ---- themed circuit schematic (SVG) ----
+  // NOTE: not an escaper despite the name — it only stringifies. The values it wraps are the
+  // numbers the server generated for the puzzle, so this is safe, but see the review notes.
   function esc(s) { return String(s); }
+  // Draws the puzzle: a battery and a resistor in a loop, with V, R and I labelled. The one
+  // the visitor must find is null in `values` and is drawn as a highlighted "?".
   function circuitSVG(values, solveFor) {
     // Two-line label: symbol on top, value (or highlighted "?") below.
     function label(x, sym, key, unit) {
@@ -683,8 +791,11 @@
     '</svg>';
   }
 
+  // Status line under the form; cls is 'ok' or 'err' for colour.
   function setMsg(t, cls) { msg.textContent = t; msg.className = 'signup-msg' + (cls ? ' ' + cls : ''); }
 
+  // Fetch a fresh puzzle and draw it. Called on first view, on "new", after a wrong answer,
+  // and after a successful signup (so the form is ready for a second person).
   function loadChallenge() {
     prompt.textContent = 'Loading a quick check…';
     diagram.innerHTML = '';
@@ -713,6 +824,8 @@
     setMsg(''); loadChallenge(); ansInput.focus();
   });
 
+  // Submit: validate locally, then POST email + puzzle answer + the honeypot value. A 400 means
+  // a wrong or expired answer — show the server's message and hand out a new puzzle.
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var v = email.value.trim();
@@ -742,6 +855,7 @@
 })();
 </script>
 
+<!-- Second decorative wave (same construction as the first; separate path id). -->
 <div class="wave-divider" aria-hidden="true">
   <svg viewBox="0 0 1200 40" preserveAspectRatio="none">
     <defs>
@@ -755,6 +869,7 @@
   </svg>
 </div>
 
+<!-- ===== Contact: three cards (email, location, hours). No form — email is the channel. ===== -->
 <section id="contact">
   <div class="container">
     <div class="section-head reveal">
@@ -798,13 +913,19 @@
   </div>
 </footer>
 
+<!-- SCRIPT 3 of 4: the small animations — staggered card fade-in, the scroll-reveal observer,
+     video autoplay (respecting the user's reduced-motion setting), and the counting stat. -->
 <script>
+  // Stagger the service cards' fade-in: each card in a row of four waits 70 ms more than the
+  // one before it.
   document.querySelectorAll('.services-grid').forEach((grid) => {
     grid.querySelectorAll('.card.reveal').forEach((el, i) => {
       el.style.transitionDelay = (i % 4) * 70 + 'ms';
     });
   });
 
+  // Scroll reveal: when 12% of a .reveal element is visible, add .visible (the CSS fades it
+  // in) and stop watching it.
   const obs = new IntersectionObserver((entries) => {
     entries.forEach((e) => {
       if (e.isIntersecting) {
@@ -815,6 +936,8 @@
   }, { threshold: 0.12 });
   document.querySelectorAll('.reveal').forEach((el) => obs.observe(el));
 
+  // The training video autoplays unless the visitor has asked their OS for reduced motion.
+  // play() returns a promise that rejects if the browser blocks autoplay; that is fine.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.querySelectorAll('video[autoplay]').forEach((v) => {
       v.removeAttribute('autoplay');
@@ -827,6 +950,7 @@
     });
   }
 
+  // The "15+" stat counts up over 1.2 s (ease-out) the first time it is 60% visible.
   const counter = document.querySelector('.count');
   if (counter && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const target = +counter.dataset.target;
@@ -849,8 +973,11 @@
 <button class="cart-fab" id="cartFab" aria-label="Open training cart">
   Cart <span class="n" id="cartN">0</span>
 </button>
+<!-- SCRIPT 4 of 4: the floating cart button. -->
 <script>
 (function () {
+  // Read the shared cart (written by ticket.html / cart.html) and show a floating "Cart n"
+  // button, but only while the training section is on screen and only if the cart is not empty.
   var fab = document.getElementById('cartFab');
   var training = document.getElementById('training');
   if (!fab) return;

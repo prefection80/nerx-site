@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<!--
+  broadcast.html — send one email to the whole training mailing list (instructor only).
+
+  WHAT IT IS
+    A compose form for the list people join on the home page. Subject + plain-text body;
+    {name} in either is replaced per recipient by the server. Step 1 sends a test to one
+    address; step 2 sends to every ACTIVE subscriber (the server adds the footer and the
+    one-click unsubscribe link, and delivers in the background).
+
+  ACCESS
+    The admin token is typed into the top box and kept in sessionStorage for this tab only
+    (closing the tab forgets it). A 401 from the server brings the token box back.
+
+  TALKS TO (tickets.nerxpower.com, all with "Authorization: Bearer <token>")
+    GET  /admin/subscribers           to count the active subscribers
+    POST /admin/broadcast             {subject, body[, test_to]} — with test_to it sends
+                                      only the test; without it, to everyone
+
+  PAGE MAP
+    short admin nav · token box · the admin UI (count, compose, test, send-all) · script.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8,6 +29,7 @@
 <script>document.documentElement.classList.add('js');</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
+<!-- Page-only styles on top of styles.css. -->
 <style>
   .admin-box {
     background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
@@ -56,6 +78,7 @@
 
 <section>
   <div class="container">
+        <!-- Token box. Hidden once a token works; shown again on any 401. -->
     <div class="admin-box flex" id="authBox">
       <label for="tok" style="margin:0">Admin token</label>
       <input id="tok" type="password" style="max-width:280px">
@@ -63,6 +86,7 @@
       <span id="authMsg"></span>
     </div>
 
+        <!-- Everything below needs a working token. -->
     <div id="adminUi" hidden>
       <div class="admin-box">
         <p style="margin:0">Sending to <b id="subCount">…</b> active subscriber(s) on the
@@ -92,6 +116,7 @@
         <p id="testMsg"></p>
       </div>
 
+            <!-- The real send. Confirmed with a browser dialog; the button text carries the live count. -->
       <div class="admin-box" style="border-top-color:#b02a37">
         <h3 style="margin-bottom:12px">2. Send to everyone</h3>
         <p class="hint" style="margin-bottom:12px">This emails the whole active list and
@@ -104,6 +129,7 @@
 </section>
 </main>
 
+<!-- Page logic: API base, token header, count, compose validation, the two send buttons. -->
 <script>
 // Only honor an ?api= override that points at localhost. A public/prod page must
 // never let a crafted link repoint requests (and the admin token) at another origin.
@@ -114,8 +140,11 @@ try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', 
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
+// Every request carries the token from this tab's sessionStorage.
 const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
 
+// fetch wrapper: JSON in/out, a 401 drops back to the token box, any other error surfaces
+// the server's "detail" text.
 async function api(path, opts = {}) {
   const r = await fetch(API + path, { ...opts,
     headers: { 'Content-Type': 'application/json', ...tokenHdr(), ...(opts.headers || {}) } });
@@ -126,6 +155,7 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// How many will receive a send-all; shown in the intro line and on the red button.
 let ACTIVE = 0;
 async function loadCount() {
   const rows = await api('/admin/subscribers');
@@ -134,6 +164,7 @@ async function loadCount() {
   $('#sendAll').textContent = 'Send to all ' + ACTIVE + ' subscriber' + (ACTIVE === 1 ? '' : 's');
 }
 
+// The {subject, body} to send; throws a user-facing message when either is empty.
 function payload() {
   const subject = $('#subj').value.trim();
   const body = $('#msgBody').value.trim();
@@ -142,6 +173,7 @@ function payload() {
   return { subject, body };
 }
 
+// "Connect": store the token for this tab and prove it by loading the subscriber count.
 $('#saveTok').onclick = async () => {
   try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {}
   $('#authMsg').textContent = '…';
@@ -151,6 +183,7 @@ $('#saveTok').onclick = async () => {
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
 };
 
+// Step 1: the same payload plus test_to — the server sends only that one email.
 $('#sendTest').onclick = async () => {
   const to = $('#testTo').value.trim();
   $('#testMsg').textContent = '';
@@ -166,6 +199,7 @@ $('#sendTest').onclick = async () => {
   finally { $('#sendTest').disabled = false; }
 };
 
+// Step 2: send to everyone, after a confirm(). The server answers with queued/total.
 $('#sendAll').onclick = async () => {
   $('#sendMsg').textContent = '';
   try {
@@ -180,6 +214,7 @@ $('#sendAll').onclick = async () => {
   finally { $('#sendAll').disabled = false; }
 };
 
+// Returning to the page in the same tab: reconnect automatically.
 if (sessionStorage.getItem('nerx_admin_token')) $('#saveTok').click();
 </script>
 

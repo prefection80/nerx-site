@@ -1,4 +1,23 @@
 <!DOCTYPE html>
+<!--
+  services/power-engineering-training.html — "Power Engineering Training" service detail page.
+
+  One of nine service pages that share one template (only the <head> metadata, the
+  article text, the deliverables list and the related-services chips differ). There is
+  no build step, so a change to the shared parts (nav, footer, CTA band) has to be made in
+  every file; styles come from ../styles.css (.page-hero, .service-body, .deliverables,
+  .related, .chip, .cta-band).
+
+  PAGE MAP
+    topbar · header/nav (relative links back to ../index.html#...) · page hero with
+    breadcrumb · article + deliverables aside · related-service chips · CTA band ·
+    footer · a small video-autoplay script (only matters on the training page).
+
+  THIS PAGE IS THE LONG ONE
+    Besides the standard template it repeats the home page's NERX-PFSA panel, the written
+    2026 course sequence (#buy-section — the same hand-typed list as index.html; keep the
+    two in step), the buy buttons, and the floating cart button.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -19,6 +38,7 @@
 
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Contact strip (same as the home page). -->
 <div class="topbar">
   <div class="container">
     <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
@@ -27,6 +47,8 @@
   </div>
 </div>
 
+<!-- Header/nav. NOTE: the nav here lacks the Forum link that index.html, toolkits.html,
+     ticket.html and 404.html carry — see the review notes. -->
 <header>
   <div class="nav">
     <a class="brand" href="../index.html" aria-label="NERX Power Consultants home">
@@ -47,6 +69,7 @@
 
 <main id="main">
 
+<!-- Page hero: breadcrumb back to the services grid, and the page title. -->
 <div class="page-hero">
   <div class="container">
     <a class="breadcrumb" href="../index.html#services">&larr; All Services</a>
@@ -54,6 +77,8 @@
   </div>
 </div>
 
+<!-- Body: the article (left) and the "Typical Scope & Deliverables" box (right); they stack on
+     narrow screens (styles.css, 820 px rule). -->
 <section>
   <div class="container">
     <div class="service-body">
@@ -76,6 +101,7 @@
         </ul>
       </aside>
     </div>
+        <!-- NERX-PFSA panel: a copy of the home page's (phasor animation, text, launch button, video). -->
     <div class="toolkit">
       <div class="toolkit-row">
       <svg class="phasor" viewBox="0 0 140 140" aria-hidden="true">
@@ -117,6 +143,9 @@
         </div>
       </div>
     </div>
+        <!-- The 2026 course sequence, hand-typed (dates are NOT read from the ticket server; the live
+             calendar on index.html / ticket.html is the source of truth). #buy-section is also what the
+             floating cart button watches to decide when to show. -->
     <div class="schedule" id="buy-section">
       <div class="schedule-head">
         <h3>Live Online Series — 2026 Course Sequence</h3>
@@ -193,6 +222,7 @@
         </div>
       </div>
     </div>
+        <!-- Links to related service pages (plain chips). -->
     <div class="related">
       <h2>Related Services</h2>
       <a class="chip" href="protective-relaying.html">Protective Relaying &amp; Testing</a>
@@ -201,6 +231,7 @@
   </div>
 </section>
 
+<!-- Call-to-action band: email is the contact channel. -->
 <div class="cta-band">
   <div class="container">
     <h2>Have a project to discuss?</h2>
@@ -218,6 +249,8 @@
   </div>
 </footer>
 
+<!-- Video autoplay respecting the OS reduced-motion setting. Copied to every service page;
+     only the training page has a video, so on the others it finds nothing to do. -->
 <script>
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.querySelectorAll('video[autoplay]').forEach(function (v) {
@@ -233,6 +266,7 @@
 </script>
 
 <!-- floating cart button: shows what's in the training cart while the buy section is in view -->
+<!-- Floating cart button (same script as index.html, with ../ paths). -->
 <button class="cart-fab" id="cartFab" aria-label="Open training cart">
   Cart <span class="n" id="cartN">0</span>
 </button>

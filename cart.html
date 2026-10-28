@@ -1,4 +1,41 @@
 <!DOCTYPE html>
+<!--
+  cart.html — the training cart / checkout page.
+
+  WHAT IT IS
+    Where a visitor pays for one or more SEATS in one PayPal checkout. A seat is either
+    "dated" (tied to a session chosen on ticket.html) or "open" (no date yet — the holder
+    books any session later with the ticket code). Each seat can be for the purchaser or
+    for a named attendee, who then gets their own ticket code by email.
+
+  HOW A PURCHASE WORKS
+    1. The cart lives in localStorage.nerx_cart (written by ticket.html's "Add to Cart" and
+       by the "+ Add a seat" button here) as an array of {sid?, name?, email?}; {} is an
+       open seat.
+    2. On checkout the page POSTs the cart to the ticket server (/cart/register), which
+       prices it and returns a registration id and the total. The PRICE SHOWN ON THE PAGE
+       IS FOR DISPLAY ONLY; the server's total is what PayPal charges.
+    3. PayPal's JavaScript SDK renders the buttons; the order carries custom_id
+       "cart|<reg_id>" so the ticket server's PayPal webhook can match the payment to the
+       registration, issue the ticket codes, book the dated seats, and send the emails.
+    4. On approval the page captures the payment, empties the cart, and shows a note.
+
+  TEST MODE
+    cart.html?test=1 shows a box where the instructor pastes the admin token; with it the
+    server prices every seat at $1 so a real PayPal payment can be tested end to end.
+    Without a valid token the server ignores the flag, so the public can never get $1 seats.
+
+  TALKS TO (tickets.nerxpower.com)
+    GET  /sessions        open sessions (to price dated seats and show their details)
+    GET  /config          paypal_client_id, open_ticket_price_usd
+    POST /cart/register   price + register the cart before PayPal opens
+    and loads https://www.paypal.com/sdk/js at checkout time.
+
+  PAGE MAP
+    header (short nav) · page hero · test-mode box (hidden unless ?test=1) · the seat list
+    with per-seat attendee fields · order summary + PayPal buttons · "How this order works"
+    · one script block with all the logic (helpers, cart state, render, PayPal, boot).
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8,6 +45,7 @@
 <script>document.documentElement.classList.add('js');</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
+<!-- Page-only styles; everything else comes from styles.css. -->
 <style>
   .order-box {
     background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
@@ -55,6 +93,7 @@
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Deliberately short nav on the checkout page (not the full site nav). -->
 <header>
   <div class="nav">
     <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
@@ -78,6 +117,7 @@
 <section>
   <div class="container">
 
+        <!-- Test mode box: hidden unless the URL has ?test=1 (see the file header). -->
     <div class="order-box" id="testBox" hidden style="border-top-color:#c77414">
       <h3 style="margin-bottom:6px">🔧 Test mode</h3>
       <p class="meta">Paste your admin token to price this order at <b>$1 per seat</b>
@@ -91,6 +131,7 @@
       <p class="ok-msg" id="testMsg" hidden></p>
     </div>
 
+        <!-- The seats. #orderLines is filled by renderOrder(); #emptyNote shows when the cart is empty. -->
     <div class="order-box">
       <h3 style="margin-bottom:6px">Seats in this order</h3>
       <p class="meta">Each line is one seat, for you or a named attendee. Every seat gets
@@ -109,6 +150,8 @@
       <p class="err" id="loadErr" hidden></p>
     </div>
 
+        <!-- Order summary + PayPal. #ppButtons is where the PayPal SDK draws its buttons; #ppFallback
+             is shown if the SDK cannot load or the payment errors (email Doug for an invoice). -->
     <div class="order-box" id="summaryBox" hidden>
       <h3 style="margin-bottom:10px">Order summary</h3>
       <table class="summary-table" id="summaryTable"></table>
@@ -123,6 +166,7 @@
       <p class="ok-msg" id="paySuccess" hidden></p>
     </div>
 
+        <!-- Static explanation for the buyer. Keep the one-hour reschedule rule here in step with ticket.html. -->
     <div class="order-box">
       <h3 style="margin-bottom:10px">How this order works</h3>
       <ul class="info-list">
@@ -153,7 +197,9 @@
 </section>
 </main>
 
+<!-- The page logic. Same helper conventions as ticket.html (lsGet/lsSet, API, $, ctParts). -->
 <script>
+// localStorage wrappers that never throw (private mode, blocked storage).
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 // Only honor an ?api= override that points at localhost (dev). A public page must
@@ -164,16 +210,19 @@ const _qApi = new URLSearchParams(location.search).get('api');
 if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
 const _stApi = lsGet('nerx_tickets_api');
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+// Shorthands. CT = every time shown is US Central, whatever the visitor's zone.
 const $ = (s) => document.querySelector(s);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CT = 'America/Chicago';
 
+// Split an ISO timestamp from the server into Central-zone parts (weekday, month, day, ...).
 function ctParts(iso) {
   return new Intl.DateTimeFormat('en-US', {
     timeZone: CT, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true,
   }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
 }
+// "Sun Nov 1, 2026 at 5:00 PM Central (90 min)"
 function sessionWhen(s) {
   const p = ctParts(s.starts_at);
   return p.weekday + ' ' + p.month + ' ' + p.day + ', ' + p.year + ' at ' +
@@ -181,6 +230,8 @@ function sessionWhen(s) {
     (s.duration_min || 90) + ' min)';
 }
 
+// GET when no body is given, otherwise POST JSON. A non-2xx answer becomes an Error whose
+// message is the server's "detail" (shown to the user as-is).
 async function api(path, body, extraHeaders) {
   const r = await fetch(API + path, body === undefined ? {} :
     { method: 'POST',
@@ -191,6 +242,8 @@ async function api(path, body, extraHeaders) {
   return data;
 }
 
+// State. SESSIONS = open sessions from the server; CART = the seats (persisted); OPEN_PRICE =
+// the open-seat price, replaced by the server's value once /config loads.
 let SESSIONS = [], CART = [], OPEN_PRICE = 150;
 const TEST_MODE = new URLSearchParams(location.search).get('test') === '1';
 let TEST_TOKEN = '';                                // set when admin token applied
@@ -199,9 +252,13 @@ const saveCart = () => lsSet('nerx_cart', JSON.stringify(CART));
 const sessionById = (id) => SESSIONS.find((x) => x.id === id);
 const isOpen = (l) => !l.sid;                       // no session = open seat
 const testOn = () => TEST_MODE && !!TEST_TOKEN;
+// Display price of one seat: $1 in test mode, the open-seat price, or the session's price.
 const priceOf = (l) => testOn() ? 1
   : (isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd);
 
+// Draw one block per seat with its attendee fields. Also prunes dated seats whose session
+// is no longer open (e.g. the instructor cancelled it). Typing in the fields saves straight
+// back to the cart, so a reload keeps them. Returns the display total (currently unused).
 function renderOrder() {
   const wrap = $('#orderLines');
   wrap.innerHTML = '';
@@ -261,6 +318,8 @@ function renderOrder() {
   return total;
 }
 
+// The summary table: one row per session (× seats), one row for open seats, then the total.
+// Expects renderOrder() to have run first so every dated seat's session exists.
 function renderSummary() {
   const tbl = $('#summaryTable');
   if (testOn()) {   // $1-per-seat test order
@@ -294,6 +353,8 @@ function renderSummary() {
     (CART.length > 1 ? 's' : '') + ')</td><td>$' + total.toFixed(2) + ' USD</td></tr>';
 }
 
+// Load PayPal's SDK once, with the client id from /config. Resolves to null (not an error)
+// if there is no client id or the script fails, which switches on the email fallback.
 let sdkPromise = null;
 function loadPayPalSdk() {
   if (sdkPromise) return sdkPromise;
@@ -311,6 +372,11 @@ function loadPayPalSdk() {
   return sdkPromise;
 }
 
+// (Re)draw the PayPal buttons for the current cart. Called after every cart change.
+//   onClick     refuse to open PayPal while any seat has a half-filled attendee
+//   createOrder register the cart with the ticket server and let IT set the amount
+//   onApprove   capture, then clear the cart — the server finishes the order from the webhook
+//   onError     show the email-an-invoice fallback
 async function setupCheckout() {
   $('#ppButtons').innerHTML = '';
   if (!CART.length) return;
@@ -367,6 +433,7 @@ async function setupCheckout() {
   }).render('#ppButtons');
 }
 
+// "+ Add a seat (choose the date later)": an open seat is an empty object.
 $('#addOpenBtn').onclick = () => {
   CART.push({});                       // {} = an open seat (no session)
   saveCart();
@@ -375,6 +442,7 @@ $('#addOpenBtn').onclick = () => {
     $('#orderLines').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
+// Boot: load sessions and config together, wire the test-mode box if asked for, then draw.
 (async () => {
   try {
     const [sess, cfg] = await Promise.all([api('/sessions'), api('/config').catch(() => ({}))]);

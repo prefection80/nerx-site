@@ -1,20 +1,86 @@
 <!DOCTYPE html>
+<!--
+  analytics.html : Training Analytics (instructor-only dashboard)
+
+  WHAT IT IS
+  The admin's charts page for the live training business. It pulls every session (class date),
+  ticket and waitlist entry from the ticket server and draws them as SVG charts in the browser:
+  seats sold, revenue by month, how full each date ran, how bookings build up before a class,
+  when people buy, no-shows, booking lead time, repeat students, buying organizations (by email
+  domain), waitlist demand, and two forum boxes. Only the forum numbers are computed on the
+  server; every other chart is derived right here from the raw lists, so a filter change redraws
+  without another network call.
+
+  WHO USES IT
+  Doug only. The HTML itself is public (robots: noindex, nofollow) but every data call needs the
+  admin token, so without a working token the page shows nothing but the Connect box.
+
+  BACKEND (the ticket server, API = https://tickets.nerxpower.com, FastAPI)
+  The site and the API are on different hosts, so these are cross-origin calls: the server must
+  name this site in its CORS (Cross-Origin Resource Sharing) headers or the browser blocks them.
+    GET /admin/sessions              every class date: id, course_name, starts_at, duration_min,
+                                     capacity, booked, held, price_usd, status
+    GET /admin/tickets               every ticket: session_id (null until placed on a date),
+                                     status issued | booked | used | void, amount_usd, issued_at,
+                                     booked_at, buyer_email, buyer_name
+    GET /admin/waitlist              every waitlist row: session_id, status (this page knows
+                                     waiting | held | booked | expired | removed)
+    GET /admin/forum/stats?weeks=26  forum summary: members, questions, weekly[], boards[], held
+  All four send "Authorization: Bearer <admin token>". A 401 or 429 wipes the stored token and
+  brings the Connect box back.
+
+  BROWSER STORAGE
+    sessionStorage nerx_admin_token       the token typed on this page (gone when the tab closes)
+    localStorage   nerx_admin_token_keep  the "remember on this computer" copy that roster.html
+                                          saves; this page reads and clears it but never writes it
+    localStorage   nerx_tickets_api       optional local-development API override, shared with the
+                                          other pages (set with ?api=http://localhost:PORT); only a
+                                          localhost value is ever honored
+
+  PAGE MAP (in order)
+    head inline script     marks html.js and breaks out of any framing (clickjacking guard)
+    style block            page-local CSS: palette, admin boxes, filter bar, tiles, SVG chart
+                           parts, tables, tooltip, heatmap, narrow-screen tweak
+    header / nav           brand plus links to Roster and the public Ticket Page
+    #authBox               the Connect box (token field + button + status message)
+    #ui                    hidden until connected: filter bar, five KPI tiles, chart grid of
+                           twelve boxes (each filled by one chart function below)
+    #tip                   the one floating tooltip shared by every chart
+    main script block      API base + helpers; api(); tooltip; data + scope(); SVG drawing
+                           helpers (bars, hbars, tableView); one function per chart;
+                           renderAll(); chartForum(); load(); event wiring; auto-connect
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Analytics — NERX Training Admin</title>
 <meta name="robots" content="noindex, nofollow">
+<!-- Head script: runs before the page paints. Marks the document as script-enabled and refuses to be framed. -->
 <script>
+  // styles.css keys its reveal animations off html.js; this page has no .reveal elements, so it is
+  // just the shared boilerplate every page carries.
   document.documentElement.classList.add('js');
+  // Frame-buster: if some other site embeds this page in an iframe, jump the top window to us.
+  // If that is blocked (a cross-origin frame will not let us set its location), blank the page
+  // rather than let the admin screen render inside someone else's frame (clickjacking guard).
   if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }
 </script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
+<!-- Page-local styles. The site-wide color variables (blue, charcoal, white, grey-light) come from styles.css. -->
 <style>
+  /* ---- page tokens ---------------------------------------------------------
+     [hidden] wins over every display rule, so the script can show/hide any box
+     with .hidden = true/false. CVD = color-vision deficiency: neighbors in the
+     palette stay distinguishable to color-blind readers.
+     Note: --c1 to --c5 are not referenced by any rule below; the charts take
+     their colors from the COLORS array in the script, which repeats the same
+     five values. --ink / --muted / --grid are the ones the chart rules use. */
   [hidden] { display: none !important; }
   /* Chart colours: a validated categorical set (CVD-safe adjacent pairs) close to the brand. */
   :root { --c1: #1a86ad; --c2: #d6771a; --c3: #6b4fd1; --c4: #2e9b5f; --c5: #b03a5b; --ink: #3c4043; --muted: #5f6368; --grid: #e4e6e8; }
+  /* ---- admin boxes, inputs, buttons, small text ---------------------------- */
   .admin-box {
     background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
     box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 22px 26px; margin-bottom: 22px;
@@ -26,12 +92,24 @@
   .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .err { color: #b02a37; font-weight: 600; }
   .meta { color: var(--muted); font-size: 0.88rem; }
+  /* ---- filter bar: meant to stay in view while the charts scroll ------------
+     (styles.css makes the site header sticky at top: 0 with z-index 100 as
+     well, so this bar ends up behind the header once the page scrolls; see
+     the review notes.) */
   .filters { position: sticky; top: 0; z-index: 5; }
+  /* ---- KPI tiles: dark cards with one big number each ----------------------- */
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
   .tile { background: var(--charcoal); color: var(--grey-light); border-radius: 6px; padding: 16px 20px; border-left: 3px solid var(--blue); }
   .tile b { display: block; color: var(--white); font-size: 1.6rem; line-height: 1.2; }
   .tile span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
   .tile small { display: block; color: #9aa0a6; font-size: 0.78rem; margin-top: 4px; text-transform: none; letter-spacing: 0; }
+  /* ---- chart grid and the SVG parts the script emits -------------------------
+     Two columns when the screen is wide enough; a box can span both with an
+     inline grid-column. The SVGs are drawn with a fixed 560-unit viewBox and
+     scale to the box width. .bar / .lbl / .val / .axis / .gridline are the
+     class names bars() and hbars() write; rx on a rect rounds its corners.
+     (.hit is not emitted by the current script; only the .bar:hover half of
+     that rule is live.) */
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 22px; }
   .chart h3 { font-size: 1.05rem; margin: 0 0 2px; }
   .chart .sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
@@ -43,6 +121,9 @@
   .chart .gridline { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 3; }
   .chart .hit { fill: transparent; cursor: default; }
   .chart .hit:hover + .bar, .chart .bar:hover { filter: brightness(1.12); }
+  /* ---- legend, "Show data" footer and the data tables ----------------------
+     Every chart also exists as a plain table (hidden until "Show data") so the
+     numbers can be read and exported; .n right-aligns numeric columns. */
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink); margin: 6px 0 2px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
   .chart-foot { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
@@ -50,22 +131,30 @@
   .chart th, .chart td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
   .chart th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .chart td.n, .chart th.n { text-align: right; }
+  /* ---- shared tooltip: one fixed box the script moves with the pointer -------
+     pointer-events: none so it never steals the hover from the bar under it. */
   .tip {
     position: fixed; pointer-events: none; z-index: 20; background: var(--charcoal); color: #fff;
     font-size: 0.8rem; padding: 6px 9px; border-radius: 4px; max-width: 280px; line-height: 1.35;
     box-shadow: 0 2px 10px rgba(0,0,0,.25);
   }
   .tip b { color: #fff; }
+  /* ---- purchase heatmap: a CSS grid, 7 weekday rows x 24 hour columns ---------
+     First column (48px) holds the day labels (.rl); the top row holds the hour
+     labels (.cl). The script sets each .cell's background alpha by count. */
   .heat { display: grid; grid-template-columns: 48px repeat(24, 1fr); gap: 2px; font-size: 0.7rem; color: var(--muted); }
   .heat .cell { aspect-ratio: 1; border-radius: 2px; background: #eef2f5; }
   .heat .rl { align-self: center; }
   .heat .cl { text-align: center; }
+  /* ---- pill badge (no element on this page carries class="pill"; unused rule) ---- */
   .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: rgba(47,144,176,0.15); color: var(--blue); }
+  /* ---- narrow screens: one chart column, smaller heatmap text --------------- */
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .heat { font-size: 0.6rem; } }
 </style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+<!-- Site header: brand (links home) plus the two pages the instructor moves between from here. -->
 <header>
   <div class="nav">
     <a class="brand" href="index.html" aria-label="NERX Power Consultants home"><img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo"></a>
@@ -75,10 +164,13 @@
     </ul></nav>
   </div>
 </header>
+<!-- Page body: title band, then one section holding the Connect box and the dashboard. -->
 <main id="main">
 <div class="page-hero"><div class="container"><h1>Training Analytics</h1></div></div>
 <section><div class="container">
 
+  <!-- Connect box: the only thing visible until a token works. The script hides it on success
+       and shows it again (with the message in #authMsg) when the server answers 401/429. -->
   <div class="admin-box flex" id="authBox">
     <label for="tok">Admin token</label>
     <input id="tok" type="password" style="min-width:280px">
@@ -86,7 +178,11 @@
     <span id="authMsg" class="meta"></span>
   </div>
 
+  <!-- Dashboard: hidden until the data has loaded. Everything below is filled in by the script. -->
   <div id="ui" hidden>
+    <!-- Filter bar: period, course and the test-date switch. Any change redraws every chart from
+         the data already in memory (no refetch); Reload asks the server again. #scope reports
+         how many sessions and tickets the current filters leave in view. -->
     <div class="admin-box flex filters">
       <label for="range">Period</label>
       <select id="range">
@@ -103,8 +199,12 @@
       <button class="btn btn-outline small" id="reload">Reload</button>
     </div>
 
+    <!-- KPI tiles: seats sold, revenue, seats filled, attendance, repeat students (tiles() below). -->
     <div class="tiles" id="tiles"></div>
 
+    <!-- Chart grid: one empty box per chart, in display order. Each chartXxx() function below
+         finds its box by id and replaces its contents. The two full-width boxes carry an inline
+         grid-column so they span both columns. -->
     <div class="grid2">
       <div class="admin-box chart" id="chCourses"></div>
       <div class="admin-box chart" id="chRevenue"></div>
@@ -124,27 +224,56 @@
   </div>
 </div></section>
 </main>
+<!-- Tooltip: a single floating box reused by every chart; the mousemove handler below fills and places it. -->
 <div class="tip" id="tip" hidden></div>
 
+<!-- Main script: everything the page does, in this order: API base and helpers, api(), the tooltip,
+     data + scope(), SVG drawing helpers, one function per chart, renderAll(), chartForum(), load(),
+     event wiring, auto-connect. -->
 <script>
+// ---- API base ----------------------------------------------------------------
+// Normally the production ticket server. For local development, ?api=http://localhost:PORT on
+// the URL is remembered in localStorage and used instead, but ONLY when it points at localhost:
+// a crafted link must never be able to send the admin token to a stranger's server.
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
 try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+
+// ---- helpers -------------------------------------------------------------------
+// $ = first element matching a CSS selector. esc() HTML-escapes a value so server data can be
+// put into markup or an attribute without being read as HTML.
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// CT here is Central Time (America/Chicago), not a current transformer. Classes are scheduled in
+// Central, so every date, weekday and hour on this page is shown in Central no matter where the
+// viewer's computer is set. money() rounds to whole dollars; pct() shows a dash when there is
+// nothing to divide by.
 const CT = 'America/Chicago';
 const money = (v) => '$' + Math.round(v).toLocaleString('en-US');
 const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+// fmtD = "Oct 14, 2026"; fmtDT = "Oct 14, 6:00 PM" (no year). ctParts() breaks a timestamp into
+// its Central year/month/day/weekday/hour so charts can bucket by month, weekday or hour.
 const fmtD = (iso) => new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' });
 const fmtDT = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: CT, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const ctParts = (iso) => new Intl.DateTimeFormat('en-US', { timeZone: CT, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: 'numeric', hour12: false })
   .formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
+// The admin token: the one typed on this page (session storage) or, failing that, the one
+// roster.html saved with "remember on this computer". Storage access can throw in private
+// windows, hence the try/catch.
 const token = () => { try { return sessionStorage.getItem('nerx_admin_token') || localStorage.getItem('nerx_admin_token_keep'); } catch (e) { return null; } };
+// Chart palette (the same five values as --c1..--c5 in the <style> block) and the color for each
+// weekday "track": classes run on Tuesday, Thursday and Saturday tracks; any other weekday is
+// drawn as "other".
 const COLORS = ['#1a86ad', '#d6771a', '#6b4fd1', '#2e9b5f', '#b03a5b'];
 const TRACK = { Tue: COLORS[0], Thu: COLORS[3], Sat: COLORS[1], other: COLORS[2] };
 
+// ---- api() ----------------------------------------------------------------------
+// One GET against the ticket server with the admin token. A 401 (token rejected) or 429 (the
+// server's rate limit on failed attempts) throws the admin out: both stored copies of the token
+// are wiped and the Connect box comes back, so a stale token cannot keep hitting the server.
+// Any other non-2xx status is reported with its code.
 async function api(path) {
   const r = await fetch(API + path, { headers: { Authorization: 'Bearer ' + (token() || '') } });
   if (r.status === 401 || r.status === 429) {
@@ -157,6 +286,10 @@ async function api(path) {
 }
 
 // ---- tooltip --------------------------------------------------------------
+// One tooltip for every chart. Any element with a data-tip attribute shows it while the pointer
+// is over it; moving off hides it. The attribute holds a little HTML (<b>, <br>) that the chart
+// builders attribute-escaped on the way out, so here it is read back and rendered as HTML. The
+// box sits above-left of the pointer and is kept inside the window.
 const tip = $('#tip');
 document.addEventListener('mousemove', (e) => {
   const t = e.target.closest('[data-tip]');
@@ -167,9 +300,18 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // ---- data -----------------------------------------------------------------
+// The raw lists exactly as the server returned them, and S: the slice of them the filter bar
+// currently selects. Every chart reads S, except the "all time" repeat-student numbers (which
+// read TICKETS directly) and the forum boxes (their own endpoint).
 let SESSIONS = [], TICKETS = [], WAITLIST = [];
 const S = {};   // scoped (filtered) data
 
+// Apply the filter bar to the raw lists and store the result in S (and the "N sessions, M tickets
+// in view" line). A session is in view when it is not cancelled, is not a test date (if hiding
+// them), matches the course filter, and starts on or after the period start; the period has no
+// upper bound, so upcoming dates are always in view. "Test" means priced at $1 or less, or a
+// course literally named "test". bySess is an id -> session lookup over ALL sessions (not just
+// those in view) so a ticket can always find its date.
 function scope() {
   const days = $('#range').value, course = $('#course').value, hideTest = $('#hideTest').checked;
   const since = days === 'all' ? 0 : Date.now() - (+days) * 86400000;
@@ -185,18 +327,31 @@ function scope() {
   $('#scope').textContent = sess.length + ' session' + (sess.length === 1 ? '' : 's') + ' · ' + tix.length + ' ticket' + (tix.length === 1 ? '' : 's') + ' in view';
 }
 
+// Which weekday track a session is on (by its Central weekday), and whether it has already run:
+// start plus duration (90 minutes when the server gives none) is behind us.
 function trackOf(s) { const d = ctParts(s.starts_at).weekday; return TRACK[d] ? d : 'other'; }
 const past = (s) => new Date(s.starts_at).getTime() + (s.duration_min || 90) * 60000 < Date.now();
 
 // ---- drawing helpers --------------------------------------------------------
+// The charts are SVG (scalable vector graphics) built as strings and dropped in with innerHTML.
+// Every SVG is drawn in a fixed 560-unit-wide coordinate system and scales to its box, so all
+// the pad/width numbers below are in those units, not pixels. svgOpen() starts one with an
+// accessible label; legend() is the row of color swatches above a chart.
 function svgOpen(W, H, label) { return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(label) + '">'; }
 function legend(items) { return '<div class="legend">' + items.map(([c, l]) => '<span><i style="background:' + c + '"></i>' + esc(l) + '</span>').join('') + '</div>'; }
+// The "Show data" / "Download CSV" footer plus a hidden table of the same numbers, so every chart
+// can be read as text and exported (CSV = comma-separated values, opens in Excel). The first
+// column is text, the rest are right-aligned numbers. Every cell is escaped.
 function tableView(id, head, rows) {
   return '<div class="chart-foot"><button class="btn btn-outline tiny" data-toggle="' + id + '">Show data</button>' +
     '<button class="btn btn-outline tiny" data-csv="' + id + '">Download CSV</button></div>' +
     '<div id="' + id + '" hidden><table><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' +
     rows.map((r) => '<tr>' + r.map((v, i) => '<td' + (i ? ' class="n"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
 }
+// Hook up the footer buttons tableView() emitted inside one chart box. Called after every
+// innerHTML replacement because the old buttons are gone with the old markup. The CSV is built
+// from the rendered table's text, so what downloads is exactly what the table shows; quotes are
+// doubled per the CSV rule.
 function wireTables(box) {
   box.querySelectorAll('[data-toggle]').forEach((b) => { b.onclick = () => { const t = $('#' + b.dataset.toggle); t.hidden = !t.hidden; b.textContent = t.hidden ? 'Show data' : 'Hide data'; }; });
   box.querySelectorAll('[data-csv]').forEach((b) => { b.onclick = () => {
@@ -206,6 +361,11 @@ function wireTables(box) {
   }; });
 }
 /* Vertical bars, optionally stacked: items = [{label, sub?, parts:[{v, color, name}]}] */
+// opts: label (aria), h (height), sub (room for a second x-axis line), fmt (value formatter,
+// e.g. money or "%"), values:false (suppress the number over each bar). The y scale runs from 0
+// to the tallest stack (never less than 1, so an all-zero chart still draws axes). Stacked
+// segments are separated by a 2-unit gap. Numbers over bars appear only with 16 bars or fewer,
+// and x labels are thinned past 24 bars so they cannot overlap.
 function bars(items, opts) {
   const W = 560, H = opts.h || 220, padL = 40, padB = opts.sub ? 40 : 28, padT = 16;
   const tot = (d) => d.parts.reduce((a, p) => a + p.v, 0);
@@ -217,6 +377,9 @@ function bars(items, opts) {
   for (let i = 1; i <= 3; i++) { const v = max * i / 3, r = Math.round(v); svg += '<line class="gridline" x1="' + padL + '" x2="' + W + '" y1="' + y(v) + '" y2="' + y(v) + '"/>' +
     '<text class="lbl" x="' + (padL - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + esc(opts.fmt ? opts.fmt(r) : r) + '</text>'; }
   svg += '<line class="axis" x1="' + padL + '" x2="' + W + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '"/>';
+  // Each bar takes 60% of its slot (20% margin each side, never thinner than 3 units). Segments
+  // stack bottom-up via acc; the tooltip on each segment names the segment, the stack total and
+  // any per-item tip.
   items.forEach((d, i) => {
     const x = padL + i * bw + bw * 0.2, w = Math.max(3, bw * 0.6);
     let acc = 0;
@@ -237,6 +400,9 @@ function bars(items, opts) {
   return svg + '</svg>';
 }
 /* Horizontal stacked bars: items = [{label, parts:[{v,color,name}], tip}] */
+// One 26-unit row per item, so the SVG grows with the list. opts.padL widens the label column
+// (default 170 units). Labels over 26 characters are cut to 25 plus an ellipsis regardless of
+// padL; the full label is in the tooltip. The stack total is printed just past the bar's end.
 function hbars(items, opts) {
   const W = 560, rowH = 26, padL = opts.padL || 170, H = Math.max(60, items.length * rowH + 24);
   const tot = (d) => d.parts.reduce((a, p) => a + p.v, 0);
@@ -259,6 +425,15 @@ function hbars(items, opts) {
 }
 
 // ---- charts -----------------------------------------------------------------
+// Each function below owns one box: it derives its numbers from S (or TICKETS for all-time
+// figures), builds the heading, subtitle, legend, SVG and data table as one HTML string, swaps
+// it into the box, then wires the footer buttons.
+
+// The five KPI tiles. "Seats sold" and "revenue" are every non-void ticket in view (so a $0
+// comp seat counts as sold and lowers the per-seat average). "Seats filled" and "attendance"
+// look only at classes that have run; a ticket still "booked" on a class that has run is a
+// no-show, so a class whose attendance has not been marked yet reads as all no-shows.
+// "Repeat students" deliberately ignores the filters: all tickets, all time, test ones included.
 function tiles() {
   const { sess, tix } = S;
   const sold = tix.filter((t) => t.status !== 'void');
@@ -266,6 +441,7 @@ function tiles() {
   const pastS = sess.filter(past);
   const seats = tix.filter((t) => (t.status === 'used' || t.status === 'booked') && S.bySess[t.session_id] && past(S.bySess[t.session_id]));
   const attended = seats.filter((t) => t.status === 'used').length;
+  // All-time people count for the "repeat students" tile (same grouping as chartRepeat()).
   const byEmail = {}; TICKETS.filter((t) => t.status !== 'void').forEach((t) => { (byEmail[t.buyer_email] = byEmail[t.buyer_email] || []).push(t); });
   const people = Object.keys(byEmail).length, repeat = Object.values(byEmail).filter((l) => l.length > 1).length;
   const cap = pastS.reduce((a, s) => a + s.capacity, 0), filled = pastS.reduce((a, s) => a + s.booked, 0);
@@ -277,9 +453,16 @@ function tiles() {
     '<div class="tile"><b>' + pct(repeat, people) + '</b><span>repeat students</span><small>' + repeat + ' of ' + people + ' people, all time</small></div>';
 }
 
+// Stacked horizontal bar per course: what became of each ticket in view (attended / booked /
+// not yet placed on a date / void). A ticket with no session yet cannot name a course, so it
+// lands in "(seat bought, no date yet)". Server status "issued" is shown as "open" ("Not yet
+// booked"). Revenue per course (non-void only) rides along in the tooltip and table. Sorted by
+// live seats, most first.
 function chartCourses() {
   const { sess, tix, bySess } = S;
   const groups = {};
+  // Count by status. A status other than issued / booked / used / void would land in a key the
+  // bars never read (its revenue would still be added), so the four known values are assumed.
   tix.forEach((t) => {
     const s = bySess[t.session_id]; const k = s ? s.course_name : '(seat bought, no date yet)';
     const g = groups[k] = groups[k] || { used: 0, booked: 0, open: 0, void: 0, rev: 0 };
@@ -297,6 +480,9 @@ function chartCourses() {
   wireTables(box);
 }
 
+// Revenue by PURCHASE month (issued_at, Central), paid tickets only: void tickets and $0 seats
+// are left out. Month keys are "YYYY-MM" so a plain text sort is chronological. The two-digit
+// year is printed only on January bars and on the first bar, to keep the axis uncluttered.
 function chartRevenue() {
   const { tix } = S;
   const m = {};
@@ -313,6 +499,11 @@ function chartRevenue() {
   wireTables(box);
 }
 
+// One bar per class date in view, in date order, full grid width. Height = booked / capacity in
+// percent (the server's own booked count; held seats are mentioned in the tooltip but not drawn),
+// colored by weekday track so a weak track is visible at a glance. Upcoming dates say how many
+// days remain. The values:items.length<=24 switch is further limited by bars() itself, which
+// prints numbers only up to 16 bars.
 function chartTimeline() {
   const { sess } = S;
   const ordered = sess.slice().sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
@@ -333,6 +524,12 @@ function chartTimeline() {
   wireTables(box);
 }
 
+// Booking curves: a hand-drawn line chart (bars() does not fit this shape). x = days before
+// class, 60 at the left edge to class day at the right, so a line climbing toward the right is a
+// date filling up; anything booked more than 60 days out is pinned to the left edge. y = share
+// of capacity. Dates that have run are grey and extended flat to class day (their final fill);
+// upcoming dates are colored by track so one that is behind pace stands out. The time basis is
+// booked_at (when the seat was placed on the date), not the purchase time.
 function chartCurve() {
   const { sess, tix } = S;
   // For each session: cumulative seats booked vs days before class, from each ticket's booking stamp.
@@ -340,6 +537,8 @@ function chartCurve() {
   const x = (d) => padL + (W - padL - 10) * (1 - Math.min(maxDays, Math.max(0, d)) / maxDays);
   const y = (f) => padT + (H - padT - padB) * (1 - f);
   const lines = [];
+  // Per session: lead time (days before class) of every live seat, earliest booking first, so the
+  // i-th point is "i+1 seats by this many days out". One booking is not a curve, so skip it.
   sess.forEach((s) => {
     const seats = tix.filter((t) => t.session_id === s.id && (t.status === 'booked' || t.status === 'used') && t.booked_at)
       .map((t) => (new Date(s.starts_at) - new Date(t.booked_at)) / 86400000).sort((a, b) => b - a);
@@ -347,11 +546,14 @@ function chartCurve() {
     const pts = seats.map((d, i) => [x(d), y((i + 1) / s.capacity)]);
     lines.push({ s, pts, final: seats.length });
   });
+  // Axes: quarter gridlines on y; fixed day marks on x (60, 45, 30, 14, 7, class day).
   let svg = svgOpen(W, H, 'Booking curves');
   [0.25, 0.5, 0.75, 1].forEach((f) => { svg += '<line class="gridline" x1="' + padL + '" x2="' + W + '" y1="' + y(f) + '" y2="' + y(f) + '"/><text class="lbl" x="' + (padL - 6) + '" y="' + (y(f) + 4) + '" text-anchor="end">' + Math.round(f * 100) + '%</text>'; });
   svg += '<line class="axis" x1="' + padL + '" x2="' + W + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '"/>';
   [60, 45, 30, 14, 7, 0].forEach((d) => { svg += '<text class="lbl" x="' + x(d) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + (d ? d + 'd' : 'class') + '</text>'; });
   svg += '<text class="lbl" x="' + W + '" y="' + (H - 2) + '" text-anchor="end">days before class →</text>';
+  // One <path> per session. "H x(0)" draws a past date's line flat out to class day; an upcoming
+  // date stops at its latest booking.
   lines.forEach((l) => {
     const up = !past(l.s);
     const d = l.pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + (up ? '' : ' H' + x(0));
@@ -361,12 +563,17 @@ function chartCurve() {
   const box = $('#chCurve');
   box.innerHTML = '<h3>How bookings build up</h3><div class="sub">Seats booked (as % of capacity) against days before class. Grey: dates that have run. Colour: upcoming dates, by track — is this one on pace?</div>' +
     (lines.length ? svg : '<p class="meta">Needs at least two bookings on a date to draw a curve.</p>') +
+    // The table re-derives each date's lead times (same filter as above) and buckets them.
     tableView('t-curve', ['Date', 'Course', 'Seats', 'Of', 'Booked 30+ d out', '7–30 d', 'Last 7 d'],
       lines.map((l) => { const ds = tix.filter((t) => t.session_id === l.s.id && (t.status === 'booked' || t.status === 'used') && t.booked_at).map((t) => (new Date(l.s.starts_at) - new Date(t.booked_at)) / 86400000);
         return [fmtDT(l.s.starts_at), l.s.course_name, l.final, l.s.capacity, ds.filter((d) => d >= 30).length, ds.filter((d) => d >= 7 && d < 30).length, ds.filter((d) => d < 7).length]; }));
   wireTables(box);
 }
 
+// When people buy: a 7 x 24 grid of paid purchase timestamps (Central weekday and hour),
+// including later-voided ones since the purchase still happened. Drawn as CSS grid cells, not
+// SVG; a cell's blue alpha scales with its count (floor 0.12 so a single purchase is visible).
+// The "% 24" guards an Intl quirk where midnight can come back as hour "24" instead of "0".
 function chartHeat() {
   const { tix } = S;
   const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
@@ -376,6 +583,8 @@ function chartHeat() {
     const p = ctParts(t.issued_at); const d = days.indexOf(p.weekday), h = (+p.hour) % 24;
     if (d >= 0) { grid[d][h]++; max = Math.max(max, grid[d][h]); }
   });
+  // Header row: an hour label every third column ("12a", "3a", ... "9p"); (h + 11) % 12 + 1 turns
+  // 0..23 into 12, 1..11, 12, 1..11.
   let html = '<div class="heat"><div></div>' + Array.from({ length: 24 }, (_, h) => '<div class="cl">' + (h % 3 === 0 ? ((h + 11) % 12 + 1) + (h < 12 ? 'a' : 'p') : '') + '</div>').join('');
   grid.forEach((row, d) => {
     html += '<div class="rl">' + days[d] + '</div>' + row.map((v, h) => {
@@ -389,6 +598,8 @@ function chartHeat() {
   wireTables(box);
 }
 
+// No-show rate per course over classes that have run. Same rule as the attendance tile: on a
+// past class a "used" ticket was checked in, a "booked" one never was. Courses sorted by name.
 function chartNoShow() {
   const { sess, tix, bySess } = S;
   const g = {};
@@ -403,6 +614,9 @@ function chartNoShow() {
   wireTables(box);
 }
 
+// How far ahead people book: days between placing the seat on a date (booked_at) and the class,
+// bucketed. Each bucket is [lo, hi): "1–3 d" is 1 <= days < 4, and so on. A seat placed after
+// the class had already started (negative days) is counted as "same day".
 function chartLead() {
   const { tix, bySess } = S;
   const buckets = [['same day', 0, 1], ['1–3 d', 1, 4], ['4–7 d', 4, 8], ['1–2 wk', 8, 15], ['2–4 wk', 15, 29], ['1–2 mo', 29, 61], ['2 mo+', 61, 1e9]];
@@ -418,6 +632,9 @@ function chartLead() {
   wireTables(box);
 }
 
+// Repeat students: ALL time and unfiltered (TICKETS, not S), because a second purchase a year
+// later is the point. People are keyed by buyer_email exactly as stored. Sorted by ticket count,
+// then by spend. A visible table shows the top 40; the hidden "Show data" table has everyone.
 function chartRepeat() {
   const byEmail = {};
   TICKETS.filter((t) => t.status !== 'void').forEach((t) => { (byEmail[t.buyer_email] = byEmail[t.buyer_email] || []).push(t); });
@@ -429,6 +646,8 @@ function chartRepeat() {
       first: list[0].issued_at, last: list[list.length - 1].issued_at, spent: list.reduce((a, t) => a + t.amount_usd, 0) };
   }).sort((a, b) => b.n - a.n || b.spent - a.spent);
   // Which course follows which: for people with 2+ dated tickets, the pair (first course -> next course)
+  // Ordered by class date, not purchase date, and only counted when the course changes (a retake
+  // of the same course is not a "next course"). Top 8 pairs are drawn.
   const pairs = {};
   Object.values(byEmail).forEach((list) => {
     const dated = list.filter((t) => bySess[t.session_id]).sort((a, b) => new Date(bySess[a.session_id].starts_at) - new Date(bySess[b.session_id].starts_at));
@@ -450,6 +669,9 @@ function chartRepeat() {
   wireTables(box);
 }
 
+// Who is buying: non-void seats in view grouped by the buyer's email domain, as a stand-in for
+// the employer. Known personal/webmail domains are counted and set aside (the count is quoted
+// in the subtitle) so the bars show organizations. Top 12 drawn; the table lists every domain.
 function chartDomains() {
   const { tix } = S;
   const PERSONAL = /^(gmail|yahoo|hotmail|outlook|live|icloud|aol|me|msn|comcast|att|sbcglobal|verizon|protonmail|proton)\./i;
@@ -467,6 +689,9 @@ function chartDomains() {
   wireTables(box);
 }
 
+// Waitlist demand: for each class date in view, how its waitlist entries ended up (took the seat
+// / holding an offer / still waiting / expired or removed). Rows appear in the order the server
+// returned the waitlist, not by date. "expired" and "removed" are merged into "Lapsed / left".
 function chartWaitlist() {
   const { sess, bySess } = S;
   const sid = new Set(sess.map((s) => s.id));
@@ -486,6 +711,10 @@ function chartWaitlist() {
   wireTables(box);
 }
 
+// Re-scope and redraw everything, in display order. Wired to every filter control, so a change
+// never touches the network. The forum boxes do not depend on the filters but are redrawn too
+// (cheap, and it keeps one code path). There is no per-chart error guard: if one chart throws,
+// the ones after it are not drawn.
 function renderAll() {
   scope();
   tiles(); chartCourses(); chartRevenue(); chartTimeline(); chartCurve(); chartHeat(); chartNoShow(); chartLead(); chartRepeat(); chartDomains(); chartWaitlist();
@@ -496,17 +725,28 @@ function renderAll() {
    Two boxes from /admin/forum/stats: activity per week (member topics and
    replies, with how many different people posted) and topics by board with how
    they fared. These ignore the course/range filters - the forum is one place. */
+// FORUM_STATS is the raw /admin/forum/stats response, or null when that call failed (the forum
+// may be down while the ticket server is fine, so the rest of the page must not depend on it).
 let FORUM_STATS = null;
+// Fills the two forum boxes. Expects f.members {total, students, new_30d, posted_30d},
+// f.questions {total, answered, open, replied_within_24h}, f.held (posts awaiting approval),
+// f.weeks, f.weekly[] {week, questions, replies, active_members} and
+// f.boards[] {board, questions, answered, open, replies, replied_24h}.
 function chartForum() {
   const f = FORUM_STATS, wbox = $('#chForumWeekly'), bbox = $('#chForumBoards');
   if (!f) { wbox.innerHTML = '<h3>Forum activity</h3><p class="meta">Forum numbers unavailable.</p>'; bbox.innerHTML = ''; return; }
   const q = f.questions, m = f.members;
+  // Local pct: identical to the global pct() above (shadows it inside this function).
   const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+  // Three forum tiles ahead of the weekly chart, reusing the KPI tile styling.
   const head = '<div class="tiles" style="margin:0 0 12px">' +
     '<div class="tile"><b>' + m.total + '</b><span>members</span><small>' + m.students + ' students · ' + m.new_30d + ' joined in 30 days</small></div>' +
     '<div class="tile"><b>' + m.posted_30d + '</b><span>posted in 30 days</span><small>' + (f.held ? f.held + ' post' + (f.held === 1 ? '' : 's') + ' awaiting approval' : 'nothing awaiting approval') + '</small></div>' +
     '<div class="tile"><b>' + pct(q.replied_within_24h, q.total) + '</b><span>topics replied to within a day</span><small>' + q.answered + ' of ' + q.total + ' answered · ' + q.open + ' with no reply</small></div>' +
     '</div>';
+  // Weekly bars: topics stacked under replies. w.week is a plain "YYYY-MM-DD"; appending
+  // "T12:00:00" parses it as local NOON, so the label can never slip to the previous day the way
+  // a bare date (parsed as UTC midnight) would for viewers west of Greenwich.
   const items = f.weekly.map((w) => ({ label: new Date(w.week + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
     tip: w.active_members + ' member' + (w.active_members === 1 ? '' : 's') + ' posted',
     parts: [{ v: w.questions, color: COLORS[0], name: 'Topics' }, { v: w.replies, color: COLORS[1], name: 'Replies' }] }));
@@ -514,6 +754,9 @@ function chartForum() {
     (items.length ? legend([[COLORS[0], 'Topics'], [COLORS[1], 'Replies']]) + bars(items, { label: 'Forum activity per week' }) : '<p class="meta">No posts yet.</p>') +
     tableView('t-forum-weekly', ['Week of', 'Topics', 'Replies', 'People posting'], f.weekly.map((w) => [w.week, w.questions, w.replies, w.active_members]));
   wireTables(wbox);
+  // Boards: each board's topics split three ways: answered, discussed but not marked answered
+  // (= total minus answered minus unanswered), and no reply at all. Boards with no topics are
+  // left off the chart but stay in the table.
   const bitems = f.boards.filter((b) => b.questions).map((b) => ({ label: b.board, tip: b.replies + ' repl' + (b.replies === 1 ? 'y' : 'ies') + ' · ' + pct(b.replied_24h, b.questions) + ' replied to within a day',
     parts: [{ v: b.answered, color: COLORS[3], name: 'Answered (marked, or the instructor replied)' }, { v: b.questions - b.answered - b.open, color: COLORS[2], name: 'Discussed, not marked answered' },
             { v: b.open, color: COLORS[4], name: 'No reply yet' }] }));
@@ -524,11 +767,19 @@ function chartForum() {
   wireTables(bbox);
 }
 
+// ---- load: Connect and Reload ------------------------------------------------
+// Fetch the three ticket-server lists together (all must succeed), then the forum stats on their
+// own (optional: a forum outage leaves FORUM_STATS null and the page still works). Rebuild the
+// course dropdown from every session's course name, keeping the current choice if it still
+// exists, then reveal the dashboard and draw. Any error (including a rejected token) is written
+// into the Connect box message.
 async function load() {
   $('#authMsg').textContent = 'Loading…';
   try {
     [SESSIONS, TICKETS, WAITLIST] = await Promise.all([api('/admin/sessions'), api('/admin/tickets'), api('/admin/waitlist')]);
     try { FORUM_STATS = await api('/admin/forum/stats?weeks=26'); } catch (e) { FORUM_STATS = null; }
+    // Course dropdown: every distinct course name across ALL sessions (cancelled and test dates
+    // included), alphabetical.
     const sel = $('#course'); const cur = sel.value; sel.innerHTML = '<option value="">All courses</option>';
     [...new Set(SESSIONS.map((s) => s.course_name))].sort().forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (cur) sel.value = cur;
@@ -536,6 +787,13 @@ async function load() {
     renderAll();
   } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
 }
+
+// ---- wiring --------------------------------------------------------------------
+// Connect: store the typed token for this tab (it is validated by the first request, which
+// clears it again if the server says no), blank the field so the token is not left on screen,
+// and load. Enter in the field is the same as clicking Connect. Reload refetches; a filter
+// change only redraws. If a token is already stored (this tab, or remembered by roster.html),
+// connect without asking.
 $('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} $('#tok').value = ''; load(); };
 $('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
 $('#reload').onclick = load;

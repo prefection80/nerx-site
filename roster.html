@@ -1,10 +1,83 @@
 <!DOCTYPE html>
+<!--
+  roster.html - the instructor's admin page for NERX training (private; noindex).
+
+  WHO USES IT: Doug only. It needs the admin token for the ticket server. Students never
+  see this page; their page is ticket.html.
+
+  WHAT IT DOES: one page with everything needed to run the classes - a calendar of session
+  dates, the roster for one selected session (check in, move, release, void, re-issue a
+  code, manage PDH certificates), attendance from a Zoom participant report, the waitlist,
+  the class's forum thread and the forum moderation queue, the session editor and the
+  "course" editor (every date sharing a name), the class-materials links students get,
+  a weekly-section generator, manual ticket issue, a ticket search, the training mailing
+  list, server settings (prices, cutoffs, reminder/follow-up timing, waitlist hold, class
+  record details, weekly backup email) and two reports (small bar charts + the activity log).
+  PDH = Professional Development Hour, the continuing-education credit on the certificate.
+
+  BACKENDS (both are the same FastAPI app; the forum answers on its own hostname):
+    API   = https://tickets.nerxpower.com  (or a localhost override, see the script header)
+    FORUM = https://forum.nerxpower.com    (API + '/forum' when API is local)
+  Every call carries "Authorization: Bearer <admin token>". The page is served from
+  nerxpower.com, so these are cross-origin requests and rely on the server's CORS
+  (Cross-Origin Resource Sharing) headers allowing this origin and the Authorization header.
+  Ticket-server endpoints used (all under /admin):
+    GET  /admin/sessions, GET /admin/tickets          - the two lists everything renders from
+    GET  /admin/sessions/{id}/roster
+    POST /admin/sessions, PATCH /admin/sessions/{id} (fields or {materials}), DELETE /admin/sessions/{id}
+    POST /admin/sessions/{id}/test-email, .../attendance/match, .../checkin, .../waitlist/offer
+    GET  /admin/waitlist?session_id=, DELETE /admin/waitlist/{id}
+    POST /admin/tickets (issue), POST /admin/tickets/{id}/{move|void|use|release|recode|certificate}
+    GET  /admin/export.csv, GET /admin/certificates.csv, GET /admin/subscribers.csv, GET /admin/backup.zip
+    GET/PATCH /admin/settings, POST /admin/backup/send
+    GET  /admin/subscribers, POST /admin/subscribers/import
+    GET  /admin/events?limit&q&kind                    - the activity log
+    GET  /admin/course-duplicates, POST /admin/course-duplicates/fold, PATCH /admin/courses
+    GET  /admin/forum/person?email=
+  Forum endpoints used (under FORUM, same token):
+    GET  /mod/queue, GET /mod/session/{id}, POST /mod/session/{id}/thread
+    POST /mod/post/{id}/{approve|delete}, POST /mod/user/{id}/{ban|moderator|unmoderator}
+
+  BROWSER STORAGE:
+    sessionStorage nerx_admin_token      - the token for this tab (what every request sends)
+    localStorage   nerx_admin_token_keep - the token when "Remember on this device" is ticked
+    localStorage   nerx_tickets_api      - localhost-only API override (shared with ticket.html)
+    localStorage   nerx_roster_tab       - the last tab opened
+  URL parameters: ?api= (localhost only), ?find=<email> opens the People tab with a search,
+  #today|#sessions|#people|#settings|#reports picks the tab.
+
+  PAGE MAP (in order):
+    head    inline frame-busting script; a style block with the page's own CSS (styles.css is
+            the site-wide sheet)
+    header  nav: Ticket Page, Forum, Sign out
+    main    #authBox (token login) / #connecting (shown while a stored token is checked)
+            #adminUi - hidden until the token is accepted:
+              #statsRow       five stat tiles
+              calendar box    month grid of sessions; also the target picker in "move" mode
+              session bar     #sessSel dropdown, Reload, Export CSV, Certificate register, Class materials
+              #tabs           Today | Sessions | People | Settings | Reports
+              panel today     roster, class thread, attendance & after class (no-shows, Zoom import), waitlist, forum moderation
+              panel sessions  session editor + test emails, class materials, courses, add a session, weekly generator
+              panel people    unassigned tickets, find tickets, manually issue, mailing list
+              panel settings  prices/cutoff/reminder/follow-up/hold, class record details, weekly backup
+              panel reports   numbers over time (SVG bar charts), recent activity
+    script  one main block, in this order: API base + helpers (api, esc, fmt) - state - Central-time
+            helpers - weekly generator planner - calendar - move/assign - stats + unassigned -
+            ticket search + forum person - session editor - class materials - courses helpers -
+            loadSessions / loadRoster - attendance (Zoom CSV) - waitlist - forum moderation -
+            course duplicates + course cards - numbers charts - activity log - tabs - test emails,
+            meeting link, certificate register - login wiring - settings handlers - backup -
+            mailing list - session save/clone/delete/add - weekly generator button - 15 s
+            background refresh - sign out and auto-connect.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roster — NERX Training Admin</title>
 <meta name="robots" content="noindex, nofollow">
+<!-- Head script: marks the page as JS-capable for styles.css and refuses to run framed.
+     A static host cannot send an X-Frame-Options header, so this is the only defense. -->
 <script>
   document.documentElement.classList.add('js');
   // The admin page must never render inside another site's frame (clickjacking).
@@ -12,7 +85,10 @@
 </script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
+<!-- Page-local styles. The color variables used here (blue, blue-light, charcoal, white,
+     grey-light) are defined in styles.css. -->
 <style>
+  /* ---- base: boxes, inputs, buttons, tables, status pills, messages ---- */
   /* .btn sets display, which would otherwise beat the hidden attribute. */
   [hidden] { display: none !important; }
   .admin-box {
@@ -34,6 +110,7 @@
     display: inline-block; padding: 2px 10px; border-radius: 999px;
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
   }
+  /* Ticket status pills: the class is "st-" + the ticket's status string from the server. */
   .st-issued { background: rgba(47,144,176,0.15); color: var(--blue); }
   .st-booked { background: rgba(40,167,69,0.15); color: #1e7e34; }
   .st-used   { background: var(--charcoal); color: var(--white); }
@@ -64,6 +141,7 @@
   .cal-nav button:hover { border-color: var(--blue); color: var(--blue); }
   .cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 12px; font-size: 0.82rem; }
   .cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  /* Legend swatches; the same four colors are the .track-* chip borders below. */
   .lg-tue { background: #2f90b0; } .lg-thu { background: #1e7e34; }
   .lg-sat { background: #c77414; } .lg-other { background: #6c757d; }
   .cal-scroll { overflow-x: auto; }
@@ -96,6 +174,7 @@
     border: none; cursor: pointer; color: var(--charcoal); font-family: inherit;
   }
   .cal-chip small { display: block; font-weight: 400; color: #5f6368; }
+  /* Chip color by weekday "track" (trackOf() in the script): Tue / Thu / Sat / anything else. */
   .track-tue { background: rgba(47,144,176,0.14); border-left: 3px solid #2f90b0; }
   .track-thu { background: rgba(40,167,69,0.13); border-left: 3px solid #1e7e34; }
   .track-sat { background: rgba(199,116,20,0.14); border-left: 3px solid #c77414; }
@@ -160,6 +239,7 @@
     background: #c77414; color: #fff; font-size: 0.72rem; line-height: 18px; text-align: center;
   }
   .tabs .tab-link { margin-left: auto; padding: 10px 6px; font-weight: 600; font-size: 0.9rem; color: var(--blue); }
+  /* Already covered by the global [hidden] rule at the top of this block; kept as-is. */
   .tab-panel[hidden] { display: none; }
 
   /* ---- attendance, waitlist, courses, numbers, activity ---- */
@@ -196,6 +276,7 @@
   .num-card .axis { stroke: #dfe2e5; stroke-width: 1; }
   .act-kind { font-family: Consolas, monospace; font-size: 0.8rem; }
   .act-detail { font-size: 0.8rem; color: #5f6368; max-width: 420px; word-break: break-word; }
+  /* ---- narrow screens: the materials editor collapses to two columns ---- */
   @media (max-width: 900px) {
     .mat-rows { grid-template-columns: 1fr 1fr 34px; }
     .mat-rows .mat-head { display: none; }
@@ -207,6 +288,8 @@
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Site header: logo, link back to the public ticket page, the forum, and Sign out
+     (hidden until a token is accepted). -->
 <header>
   <div class="nav">
     <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
@@ -225,8 +308,11 @@
   <div class="container"><h1>Training Roster — Admin</h1></div>
 </div>
 
+<!-- The whole page body is one <section>: the login row, then #adminUi. -->
 <section>
   <div class="container">
+    <!-- Token login. "Connect" stores the token (this tab, and this device if ticked) and
+         tests it with GET /admin/sessions. -->
     <div class="admin-box flex" id="authBox">
       <label for="tok">Admin token</label>
       <input id="tok" type="password" style="min-width:280px">
@@ -239,10 +325,15 @@
          login row does not flash on screen and vanish once the server answers. -->
     <div class="admin-box" id="connecting" hidden style="color:#5f6368">Connecting to the ticket server&hellip;</div>
 
+    <!-- Everything below is hidden until the token is accepted (see #saveTok in the script). -->
     <div id="adminUi" hidden>
+      <!-- Stats strip: five tiles filled by renderStats() from the ticket and session lists. -->
       <div class="stats" id="statsRow"></div>
 
+      <!-- Calendar box: month grid of sessions (renderCalendar). Clicking a chip selects that
+           session everywhere; in "move" mode the chip is the destination instead. -->
       <div class="admin-box">
+        <!-- Orange banner shown only while a ticket is being moved/assigned (startMove). -->
         <div class="move-banner" id="moveBanner">
           <span id="moveLabel"></span>
           <button id="moveCancel">Cancel move</button>
@@ -263,6 +354,9 @@
         <div class="cal-scroll"><div class="cal-grid" id="calGrid"></div></div>
       </div>
 
+      <!-- Session bar: #sessSel is THE selected session. The roster, editor, materials,
+           attendance, waitlist and class thread all follow it. The two CSV buttons download
+           server-built files; "Class materials" jumps to the editor on the Sessions tab. -->
       <div class="admin-box flex">
         <label for="sessSel">Session</label>
         <select id="sessSel"></select>
@@ -275,6 +369,8 @@
         <span id="seatInfo" style="color:#5f6368"></span>
       </div>
 
+      <!-- Tab strip. data-tab matches a panel's data-panel below; showTab() switches them and
+           remembers the choice (localStorage + URL hash). The Today tab gets a count badge. -->
       <nav class="tabs" id="tabs" aria-label="Roster sections">
         <button class="tab" data-tab="today">Today</button>
         <button class="tab" data-tab="sessions">Sessions</button>
@@ -284,7 +380,11 @@
         <a class="tab-link" href="analytics.html">Analytics &rarr;</a>
       </nav>
 
+      <!-- ===== TAB: Today - the selected session's roster and everything that happens around
+           one class date (thread, attendance, waitlist) plus the forum moderation queue. ===== -->
       <section class="tab-panel" data-panel="today" hidden>
+      <!-- Roster table for the selected session (loadRoster). One row per ticket with its
+           action buttons: Check In, Move, New Code, Withhold/Allow Cert, Cert Name, Release, Void. -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Roster</h3>
         <p class="roster-summary" id="rosterSummary"></p>
@@ -309,6 +409,9 @@
         <div id="ctPosts" style="margin-top:10px"></div>
       </div>
 
+      <!-- Attendance & after class (renderAfterClass): once the class has run, the no-shows
+           list, then the Zoom participant-report import (drop a CSV or paste it) that matches
+           people to tickets and checks them in, and a link to the printable record sheet. -->
       <div class="admin-box" id="afterBox">
         <h3 style="margin-bottom:4px">Attendance &amp; after class
           <span class="meta" id="afterFor" style="font-weight:400;font-size:0.9rem"></span></h3>
@@ -352,6 +455,8 @@
         </div>
       </div>
 
+      <!-- Waitlist for the selected session (loadWaitlist). NOTE: this box's closing </div> is
+           after the Forum box below, so the Forum box is nested inside it - see the review. -->
       <div class="admin-box" id="waitBox">
         <h3 style="margin-bottom:4px">Waitlist
           <span class="meta" id="waitFor" style="font-weight:400;font-size:0.9rem"></span></h3>
@@ -370,6 +475,9 @@
           <span id="waitMsg" class="meta"></span>
         </div>
 
+      <!-- Forum moderation (loadForum, from GET /mod/queue): posts held for approval with
+           Approve / Delete / Ban, topics nobody answered, and the moderation log. Loaded once
+           at connect and after each moderation action; not part of the 15 s refresh. -->
       <div class="admin-box" id="forumBox">
         <h3 style="margin-bottom:4px">Forum
           <span class="meta" id="forumStats" style="font-weight:400;font-size:0.9rem"></span>
@@ -391,7 +499,12 @@
       </div>
       </section>
 
+      <!-- ===== TAB: Sessions - edit the selected date, its class materials, the course as a
+           whole, add a date, generate weekly sections. ===== -->
       <section class="tab-panel" data-panel="sessions" hidden>
+      <!-- Session editor (fillEditor / #eSave -> PATCH /admin/sessions/{id}). Times are typed
+           and shown in Central; the server treats the naive datetime-local value as Central.
+           The bottom row sends a test copy of each student email to the admin. -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Manage selected session</h3>
         <div class="flex" style="margin-bottom:10px">
@@ -442,6 +555,8 @@
         </div>
       </div>
 
+      <!-- Class materials editor (fillMaterials / renderMatRows / saveMaterials): the links
+           students get with a ticket on this date. Rows live in MAT_ROWS until saved. -->
       <div class="admin-box" id="matsBox">
         <h3 style="margin-bottom:4px">Class materials
           <span class="meta" id="matsFor" style="font-weight:400;font-size:0.9rem"></span></h3>
@@ -469,6 +584,9 @@
         <p id="matMsg"></p>
       </div>
 
+      <!-- Courses (renderCourses -> PATCH /admin/courses): one card per course name, edits apply
+           to all or only upcoming dates. #dupCourses above the list offers to merge two
+           spellings of one course (loadCourseDuplicates). -->
       <div class="admin-box" id="coursesBox">
         <h3 style="margin-bottom:4px">Courses</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:12px">
@@ -481,6 +599,8 @@
         <div id="coursesList"></div>
       </div>
 
+      <!-- Add a session (#nCreate -> POST /admin/sessions). Prefilled by a calendar "+" click
+           (prefillAdd) or by "Duplicate..." in the editor (#eClone). -->
       <div class="admin-box" id="addBox">
         <h3 style="margin-bottom:12px">Add a new session date</h3>
         <div class="flex">
@@ -494,6 +614,8 @@
         <p id="nMsg"></p>
       </div>
 
+      <!-- Weekly section generator (planWeeklySections / #wkGen): adds one extra time slot per
+           training week in the date range, copying that week's course. -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Weekly section generator</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
@@ -525,7 +647,10 @@
       </div>
       </section>
 
+      <!-- ===== TAB: People - tickets not on a date, ticket search, manual issue, mailing list. ===== -->
       <section class="tab-panel" data-panel="people" hidden>
+      <!-- Unassigned tickets (renderUnassigned): status "issued" = paid/issued but no date yet.
+           Assign starts move mode; the destination is picked on the calendar. -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Unassigned tickets <span id="unCount"
             style="font-weight:400;color:#5f6368;font-size:0.9rem"></span></h3>
@@ -539,6 +664,8 @@
         </table>
       </div>
 
+      <!-- Find tickets (renderTicketSearch): a local filter over the TICKETS list already in
+           memory, so it needs no request. ?find=<email> in the URL opens the page here. -->
       <div class="admin-box" id="findBox">
         <h3 style="margin-bottom:12px">Find tickets by email</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
@@ -563,6 +690,8 @@
         <div id="findForum" hidden style="margin-top:12px;font-size:0.9rem"></div>
       </div>
 
+      <!-- Manually issue tickets (#mIssue -> POST /admin/tickets): codes are emailed and land in
+           Unassigned until placed on a date. -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Manually issue a ticket</h3>
         <div class="flex">
@@ -576,6 +705,8 @@
         <p id="mMsg"></p>
       </div>
 
+      <!-- Mailing list (loadSubscribers): website signups, CSV export, link to broadcast.html,
+           and a paste-to-import box (the server does the parsing). -->
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Training mailing list <span id="subCount"
             style="font-weight:400;color:#5f6368;font-size:0.9rem"></span></h3>
@@ -606,6 +737,8 @@
       </div>
       </section>
 
+      <!-- ===== TAB: Settings - one box; every Save button PATCHes /admin/settings with just its
+           own field(s). Values are filled by loadOpenPrice() at connect. ===== -->
       <section class="tab-panel" data-panel="settings" hidden>
       <div class="admin-box">
         <h3 style="margin-bottom:12px">Open ticket price</h3>
@@ -661,6 +794,7 @@
           <button class="btn btn-primary small" id="oHoldSave">Save Hold</button>
         </div>
         <p id="oHoldMsg"></p>
+        <!-- Class record details: instructor line and state provider numbers printed on record.html. -->
         <h4 style="margin:22px 0 6px">Class record sheet</h4>
         <p class="meta">Printed on every class record (and available to a board on request):
           who taught it, and the provider / sponsor numbers for the states you are
@@ -676,6 +810,9 @@
           <button class="btn btn-primary small" id="oRecSave">Save Record Details</button>
         </div>
         <p id="oRecMsg"></p>
+        <!-- Weekly backup: schedule (fillBackup / #bkSave), send now (POST /admin/backup/send),
+             download (GET /admin/backup.zip). Weekday values here are 0 = Monday (the server's
+             numbering), unlike the weekly generator above where 0 = Sunday. -->
         <h4 style="margin:22px 0 6px">Weekly backup email</h4>
         <p class="meta">Once a week the <b>whole ticket database</b> &mdash; every ticket with its
           code and payment, every session, the certificate register, the waitlist, the mailing
@@ -706,13 +843,18 @@
       </div>
       </section>
 
+      <!-- ===== TAB: Reports - charts drawn from the lists in memory, and the server's event log. ===== -->
       <section class="tab-panel" data-panel="reports" hidden>
+      <!-- Numbers over time (renderNumbers): four inline-SVG bar charts, no library. -->
       <div class="admin-box" id="numbersBox">
         <h3 style="margin-bottom:4px">Numbers over time</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:6px">Revenue by month · how full each track runs · how far ahead people book · bookings per week. <a href="analytics.html">Open the full analytics page &rarr;</a></p>
         <div id="numbersBody"></div>
       </div>
 
+      <!-- Recent activity (loadActivity -> GET /admin/events): filter by text and kind; "Show
+           more" raises the limit in steps of 100 up to 500. The kind values are server prefixes
+           ("admin." matches every admin.* kind). -->
       <div class="admin-box" id="activityBox">
         <h3 style="margin-bottom:4px">Recent activity</h3>
         <p style="font-size:0.88rem;color:#5f6368;margin-bottom:10px">
@@ -747,7 +889,9 @@
 </section>
 </main>
 
+<!-- Main script: all of the page's behavior, in the order listed in the file header. -->
 <script>
+// ---- API base, shared helpers ------------------------------------------------
 // Only honor an ?api= override that points at localhost. A public/prod page must
 // never let a crafted link repoint requests (and the admin token) at another origin.
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
@@ -756,15 +900,24 @@ const _qApi = new URLSearchParams(location.search).get('api');
 try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+// $ = one-element lookup; used for every fixed id on the page.
 const $ = (s) => document.querySelector(s);
+// The token is read from sessionStorage on EVERY request, never cached in a variable, so a
+// sign-out (or a 401 wipe in api()) takes effect at once. Before login this yields
+// "Bearer null", which the server refuses with 401.
 const tokenHdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('nerx_admin_token') });
 // Escape any server/buyer-controlled string before putting it in innerHTML. Buyer
 // names/emails come from attendee fields typed at checkout, so an un-escaped value
 // like <img onerror=...> would run in this authenticated admin page. Never remove.
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g,
   (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Every date/time on this page is shown in Central (America/Chicago), whatever the browser's
+// zone, because the classes are scheduled in Central. Empty input shows as a dash.
 const fmt = (iso) => iso ? new Date(iso).toLocaleString([], {timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';
 
+// The one way to talk to the ticket server. Adds the JSON header and the token; returns the
+// parsed JSON (or plain text for the .csv routes); throws an Error whose message is the
+// server's "detail" so callers can show it to the admin as-is.
 async function api(path, opts = {}) {
   const r = await fetch(API + path, {
     ...opts,
@@ -783,55 +936,72 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// ---- page state --------------------------------------------------------------
+// SESSIONS and TICKETS are the two server lists everything renders from; loadSessions() and
+// the 15 s background refresh replace them wholesale. Nothing else is cached.
 let SESSIONS = [];
 let TICKETS = [];        // all tickets, for stats + unassigned panel
 let MOVING = null;       // {ticket_id, label, from} while picking a destination on the calendar
 let calMonth = null;     // {y, m} currently displayed
 
 // ---- Central-time helpers -------------------------------------------------
+// Server times are ISO strings (UTC). These helpers break one down into Central wall-clock
+// pieces so the calendar, editor and labels never depend on the browser's time zone.
 function centralParts(iso) {
   return new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
   }).formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
 }
+// Value for a <input type="datetime-local"> (YYYY-MM-DDTHH:MM) in Central. Some browsers
+// report midnight as hour "24" with hour12:false, which the input would reject.
 function centralLocalValue(iso) {
   const p = centralParts(iso);
   return p.year + '-' + p.month + '-' + p.day + 'T' +
          (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
 }
+// 'YYYY-MM-DD' of the Central calendar day - the key the calendar groups sessions by.
 function centralDateKey(iso) {
   const p = centralParts(iso);
   return p.year + '-' + p.month + '-' + p.day;
 }
+// Short clock time for chips and prompts, e.g. "7:00 PM".
 function centralClock(iso) {
   return new Date(iso).toLocaleTimeString([], {
     timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' });
 }
+// Which colored "track" a session belongs to (the regular Tue / Thu / Sat slots); drives the
+// chip class and the legend. Same rule as ticket.html.
 function trackOf(s) {
   const wd = centralParts(s.starts_at).weekday;
   return wd === 'Tue' ? 'tue' : wd === 'Thu' ? 'thu' : wd === 'Sat' ? 'sat' : 'other';
 }
 
 // ---- weekly section generator ---------------------------------------------
+// Weekday numbering here is JavaScript's: 0 = Sunday ... 6 = Saturday (matches #wkDow).
 const DOW_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DOW_NAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const _DOW_IDX = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6};
 
+// 24-hour form so two sessions at the same wall-clock time compare equal as strings.
 function centralClockKey(iso) {     // 'HH:MM' (24h) in Central
   const p = centralParts(iso);
   return (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
 }
+// Done in UTC on purpose: date-only math in local time can slip an hour across a DST change.
 function _addDaysKey(key, n) {       // shift a 'YYYY-MM-DD' by n days
   const d = new Date(key + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
+// For the confirm() preview and the result message only.
 function _prettyTime(hhmm) {          // '19:00' -> '7:00 PM'
   const [h, m] = hhmm.split(':').map(Number);
   return (((h + 11) % 12) + 1) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
 }
 // 'YYYY-MM-DD' of weekday `dow` (0=Sun) in the same Mon..Sun week as this Central date
+// A "training week" runs Monday to Sunday, so a Sunday belongs to the week before it, not
+// the one starting the next day. The result is the key sessions are grouped by in the planner.
 function _weekTargetDate(iso, dow) {
   const p = centralParts(iso);
   const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
@@ -848,6 +1018,10 @@ function prefillWeeklyRange() {
   if (!$('#wkFrom').value) $('#wkFrom').value = keys[0];
   if (!$('#wkTo').value)   $('#wkTo').value = _addDaysKey(keys[keys.length - 1], 6);
 }
+// Builds the list of sessions the generator WOULD add, without calling the server, so the
+// admin can confirm the exact dates first. Per Mon..Sun week in range: skip it if that
+// day+time already exists or if only $1 "test" sessions run that week; otherwise copy the
+// week's most common course (its earliest date is the template) onto the new slot.
 function planWeeklySections(dow, hhmm, fromKey, toKey) {
   const taken = new Set(SESSIONS.map((s) => s.id));
   const courseMats = {};                 // each course's class materials, carried onto new sections
@@ -873,10 +1047,13 @@ function planWeeklySections(dow, hhmm, fromKey, toKey) {
     const course = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
     const rep = real.filter((s) => s.course_name === course)
                     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
+    // Session ids are slugs like "course-name-2026-03-10"; a generated section is the template's
+    // id plus "-thu", stripping any day suffix the template itself got from an earlier run.
     let id = rep.id.replace(/-(sun|mon|tue|wed|thu|fri|sat)$/i, '') + '-' + DOW_ABBR[dow];
     if (taken.has(id)) id += '-' + target.slice(5);       // disambiguate the rare id collision
     if (taken.has(id)) return;
     taken.add(id);
+    // starts_at has no zone: the server reads a naive value as Central (same as the editor).
     plan.push({ id, date: target, course_name: rep.course_name, starts_at: target + 'T' + hhmm,
                 duration_wks: rep.duration_wks || 1, duration_min: rep.duration_min || 90,
                 capacity: rep.capacity || 20, price_usd: rep.price_usd || 0,
@@ -888,7 +1065,12 @@ function planWeeklySections(dow, hhmm, fromKey, toKey) {
 }
 
 // ---- calendar -------------------------------------------------------------
+// Draws one month as a 7 x 6 grid (always 42 cells, so the box never changes height). Each
+// session is a chip on its Central date; the selected session gets a dark outline; a "+" in
+// every cell prefills the add form. Rebuilt from scratch on every data refresh and month
+// change. This is a hand-kept copy of ticket.html's renderer, not shared code.
 function renderCalendar() {
+  // First render: open on the month of the next upcoming session (or today if none).
   if (!calMonth) {
     const first = SESSIONS.find((s) => new Date(s.starts_at) > new Date()) || SESSIONS[0];
     const base = first ? new Date(first.starts_at) : new Date();
@@ -907,6 +1089,9 @@ function renderCalendar() {
     const h = document.createElement('div');
     h.className = 'cal-head'; h.textContent = d; grid.appendChild(h);
   });
+  // Back up to the Sunday on or before the 1st so the grid starts on a full week. The cells
+  // are plain calendar dates built in the browser's local zone, and the key is read back from
+  // the same local fields, so it lines up with the Central date keys without any conversion.
   const start = new Date(y, m, 1);
   start.setDate(1 - start.getDay());
   for (let i = 0; i < 42; i++) {
@@ -926,6 +1111,7 @@ function renderCalendar() {
       chip.className = 'cal-chip track-' + trackOf(s) +
         (s.status === 'cancelled' ? ' cancelled' : '') +
         (s.id === $('#sessSel').value ? ' sel' : '');
+      // "Full" counts seats held for waitlisted people too, since nobody else can take those.
       const cnt = s.booked + '/' + s.capacity;
       const taken = s.booked + (s.held || 0);
       chip.innerHTML = esc(s.course_name) +
@@ -934,15 +1120,19 @@ function renderCalendar() {
         cnt + ' booked</span>' + (s.held ? ' · ' + s.held + ' held' : '') +
         (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
       chip.title = s.id;
+      // One chip, two jobs: pick the destination while a ticket is being moved, else select.
       chip.onclick = () => MOVING ? moveTo(s) : selectSession(s.id);
       cell.appendChild(chip);
     });
     grid.appendChild(cell);
   }
 }
+// Month arrows; the year rolls over with the month.
 $('#calPrev').onclick = () => { calMonth.m--; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y--; } renderCalendar(); };
 $('#calNext').onclick = () => { calMonth.m++; if (calMonth.m > 11) { calMonth.m = 0; calMonth.y++; } renderCalendar(); };
 
+// The "+" in a calendar cell: put that date (at 11:00) in the add form and scroll to it. The
+// add form is on the Sessions tab, so this only scrolls usefully when that tab is open.
 function prefillAdd(dateKey) {
   $('#nStarts').value = dateKey + 'T11:00';
   $('#nMsg').textContent = 'Date set to ' + dateKey + ' 11:00 AM Central — adjust and fill in the rest.';
@@ -951,12 +1141,16 @@ function prefillAdd(dateKey) {
   $('#nName').focus();
 }
 
+// Make `sid` the selected session everywhere: dropdown, editor, roster (which cascades to
+// attendance, waitlist and class thread) and the calendar outline.
 function selectSession(sid) {
   $('#sessSel').value = sid;
   fillEditor(); loadRoster(); renderCalendar();
 }
 
 // ---- move / assign --------------------------------------------------------
+// "Move" (a booked ticket) and "Assign" (an unassigned one) are the same flow: remember the
+// ticket in MOVING, show the orange banner, and let the next calendar chip click finish it.
 function startMove(t) {
   MOVING = { ticket_id: t.ticket_id, from: t.session_id || null,
              label: (t.buyer_name || t.buyer_email) + ' (' + (t.code || t.code_hint) + ')' };
@@ -967,8 +1161,11 @@ function startMove(t) {
 }
 function endMove() { MOVING = null; $('#moveBanner').classList.remove('on'); }
 $('#moveCancel').onclick = endMove;
+// Escape anywhere on the page cancels a move (harmless when none is in progress).
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') endMove(); });
 
+// Destination chosen. A full session asks before overbooking (force: true); otherwise the
+// admin confirms the new date, and the server emails the student (notify: true).
 async function moveTo(s) {
   if (s.id === MOVING.from) { alert('That ticket is already on this session.'); return; }
   const when = centralParts(s.starts_at);
@@ -991,6 +1188,8 @@ async function moveTo(s) {
 }
 
 // ---- stats + unassigned ---------------------------------------------------
+// The five tiles at the top. "Revenue" sums every non-void ticket's amount; "next session"
+// takes the first open future session in the server's list order.
 function renderStats() {
   const live = TICKETS.filter((t) => t.status !== 'void');
   const revenue = live.reduce((a, t) => a + t.amount_usd, 0);
@@ -1007,6 +1206,8 @@ function renderStats() {
       '</b><span>next session</span></div>';
 }
 
+// People tab, "Unassigned tickets": status "issued" means paid or issued but on no date.
+// Assign starts move mode; Void goes straight to the server after a confirm.
 function renderUnassigned() {
   const rows = TICKETS.filter((t) => t.status === 'issued');
   $('#unCount').textContent = rows.length ? '· ' + rows.length + ' waiting' : '';
@@ -1038,6 +1239,8 @@ function renderUnassigned() {
 /* A local search over TICKETS (every ticket the API knows), so it costs no request
    and stays current with the background refresh. Matches on email, name or code. */
 let FIND_Q = '';
+// FIND_Q is the query as submitted (Find button / Enter), not the live input value, so the
+// 15 s refresh re-renders the same search rather than whatever is half-typed in the box.
 function renderTicketSearch() {
   const q = FIND_Q.trim().toLowerCase();
   const table = $('#findTable'), body = $('#findBody'), sum = $('#findSummary');
@@ -1054,6 +1257,8 @@ function renderTicketSearch() {
     return;
   }
   const n = (st) => rows.filter((r) => r.status === st).length;
+  // The forum box only makes sense for one person, so it shows when every hit shares an
+  // address (or the query itself is an address).
   const emails = new Set(rows.map((r) => String(r.buyer_email || '').toLowerCase()));
   showForumPerson(emails.size === 1 ? [...emails][0] : (q.includes('@') ? q : ''));
   sum.innerHTML = '<b>' + rows.length + '</b> ticket' + (rows.length === 1 ? '' : 's') +
@@ -1077,6 +1282,8 @@ function renderTicketSearch() {
       '</span></td><td>' + sessCell + '</td><td>$' + Number(t.amount_usd || 0).toFixed(2) +
       '</td><td>' + fmt(t.issued_at) + '</td><td class="row-actions"></td>';
     const actions = tr.querySelector('.row-actions');
+    // Buttons are built as DOM nodes (not HTML strings) so their handlers can close over `t`
+    // without putting ticket data into attributes. Which ones appear depends on the status.
     const add = (label, cls, title, fn) => {
       const b = document.createElement('button');
       b.className = 'btn ' + cls + ' tiny'; b.textContent = label; b.title = title; b.onclick = fn;
@@ -1110,6 +1317,8 @@ function renderTicketSearch() {
 /* The person's forum side, from /admin/forum/person: who they are there, how much
    they post, whether anything of theirs is waiting for approval. */
 let FORUM_PERSON_FOR = '';
+// FORUM_PERSON_FOR remembers who is shown so the 15 s refresh (which re-runs the search) does
+// not re-fetch the same person, and so a slow answer for an old search is dropped.
 async function showForumPerson(email) {
   const box = $('#findForum');
   if (!email) { box.hidden = true; box.innerHTML = ''; FORUM_PERSON_FOR = ''; return; }
@@ -1141,6 +1350,8 @@ async function showForumPerson(email) {
     (r.role !== 'instructor' && !r.banned ? ' <button class="btn btn-outline tiny" id="forumModBtn">' +
       (r.role === 'moderator' ? 'Stand down as moderator' : 'Make a moderator') + '</button> <span class="cf-msg meta" id="forumModMsg"></span>' : '') +
     (topics ? '<ul class="meta" style="margin:6px 0 0 18px">' + topics + '</ul>' : '');
+  // Promote / demote a moderator from here; the forum call uses the same admin token.
+  // Clearing FORUM_PERSON_FOR forces a re-fetch so the new role shows.
   const btn = $('#forumModBtn');
   if (btn) btn.onclick = async () => {
     const make = r.role !== 'moderator';
@@ -1153,6 +1364,7 @@ async function showForumPerson(email) {
   };
 }
 
+// Search wiring: Find or Enter submits; Clear empties the query and hides the table.
 $('#findBtn').onclick = () => { FIND_Q = $('#findQ').value; renderTicketSearch(); };
 $('#findQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#findBtn').click(); });
 $('#findClear').onclick = () => { $('#findQ').value = ''; FIND_Q = ''; renderTicketSearch(); };
@@ -1168,6 +1380,8 @@ function certCell(t) {
 }
 
 // ---- session editor / dropdown -------------------------------------------
+// Copy the selected session into the "Manage selected session" form. Runs on every selection
+// change and after every loadSessions(), so an unsaved edit in this form is overwritten then.
 function fillEditor() {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
@@ -1207,6 +1421,8 @@ const matsKey = (mats) => (mats || []).map(normMaterial)
 let MAT_ROWS = [];        // the editor's working copy for the selected session
 let MAT_SID = null;       // which session those rows belong to
 
+// Load a session's links into the editor. Called from fillEditor, so it also runs after every
+// save elsewhere on the page; the dirty check below is what keeps a half-typed row alive then.
 function fillMaterials(s) {
   // A reload of the same session keeps an edit in progress; a new session starts fresh.
   const dirty = MAT_SID === s.id &&
@@ -1221,6 +1437,9 @@ function fillMaterials(s) {
 }
 $('#matsJump').onclick = () => revealBox('#matsBox');
 
+// Draw MAT_ROWS as a grid of inputs. Each input writes straight back into its row object on
+// input, so MAT_ROWS is always current and nothing has to be read back from the DOM except
+// which URL field to flag as bad. Removing a row re-renders everything (indices shift).
 function renderMatRows() {
   const box = $('#matsRows');
   box.innerHTML = '';
@@ -1240,6 +1459,8 @@ function renderMatRows() {
       sel.appendChild(o);
     });
     sel.value = m.kind;
+    // `title` is declared on the next line; that is fine because this handler only runs on a
+    // later user change, after the whole row has been built.
     sel.onchange = () => { m.kind = sel.value; title.placeholder = MAT_HINT[m.kind]; };
     const title = document.createElement('input');
     title.value = m.label; title.maxLength = 120; title.placeholder = MAT_HINT[m.kind];
@@ -1304,6 +1525,9 @@ function readMaterials() {
   return out;
 }
 
+// Save the rows to this date (PATCH /admin/sessions/{id} with just {materials}) or, with
+// allDates, to every date of the course one request at a time - there is no bulk route, so a
+// partial failure is reported per date. notify: false keeps the server from emailing anyone.
 async function saveMaterials(allDates) {
   const msg = $('#matMsg');
   const s = SESSIONS.find((x) => x.id === MAT_SID);
@@ -1342,6 +1566,7 @@ async function saveMaterials(allDates) {
   }
 }
 
+// "+ Presentation" etc.: add an empty row of that kind and put the cursor in its link field.
 document.querySelectorAll('#matsBox [data-add]').forEach((b) => {
   b.onclick = () => {
     MAT_ROWS.push({ kind: b.dataset.add, label: '', url: '', note: '' });
@@ -1357,6 +1582,9 @@ $('#matSaveAll').onclick = () => saveMaterials(true);
 /* A "course" here is every session sharing a name (ignoring case and spacing), so
    the 12 dates of Symmetrical Components are one course with one file list. */
 const normCourse = (n) => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
+// Group SESSIONS by normalized name. Recomputed on every call (cheap; a few dozen sessions)
+// rather than cached, so it can never be stale after a refresh. Display name = the newest
+// date's spelling; groups sorted by name.
 function courseGroups() {
   const groups = {};
   SESSIONS.slice().sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at)).forEach((s) => {
@@ -1373,6 +1601,11 @@ function courseMaterials(g) {
   const withFiles = g.sessions.find((s) => (s.materials || []).length);
   return withFiles ? withFiles.materials.map(normMaterial) : [];
 }
+// ---- the full refresh --------------------------------------------------------
+// Re-fetch both lists and redraw everything, then reload the selected session's roster.
+// This is what every save/void/move calls afterwards, so the whole page agrees with the
+// server. (The 15 s background timer is a lighter version that skips the editor and roster.)
+// Errors are not caught here; callers that want a message chain .catch themselves.
 async function loadSessions() {
   const sel = $('#sessSel');
   [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
@@ -1388,10 +1621,14 @@ async function loadSessions() {
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
   renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
   prefillWeeklyRange(); renderCourses(); loadCourseDuplicates();
+  // The charts are only redrawn when visible; showTab() draws them when the tab opens.
   if (!$('[data-panel="reports"]').hidden) renderNumbers();
   if (SESSIONS.length) { fillEditor(); loadRoster(); }
 }
 
+// Fetch and draw the selected session's roster, then hand the rows to the attendance box
+// and kick off the waitlist and class-thread loads for the same session. Each row button
+// re-fetches afterwards - some only this roster (loadRoster), some everything (loadSessions).
 async function loadRoster() {
   const sid = $('#sessSel').value;
   const body = $('#rosterBody');
@@ -1424,6 +1661,8 @@ async function loadRoster() {
         '</td><td>' + certCell(t) +
         '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
+      // Action buttons by status. "booked" = seat held, not yet attended; "used" = attended;
+      // "void" = cancelled (only the row is shown, no buttons).
       if (t.status === 'booked') {
         const useBtn = document.createElement('button');
         useBtn.className = 'btn btn-primary tiny'; useBtn.textContent = 'Check In';
@@ -1449,6 +1688,8 @@ async function loadRoster() {
             .catch((e) => alert(e.message));
         actions.appendChild(codeBtn);
       }
+      // Certificate controls: one route (POST .../certificate) takes either {blocked} to
+      // withhold/allow or {name} to correct the printed name.
       if (t.status === 'used' || t.cert_name || t.cert_blocked) {
         const certBtn = document.createElement('button');
         certBtn.className = 'btn btn-outline tiny';
@@ -1498,6 +1739,7 @@ async function loadRoster() {
       }
       body.appendChild(tr);
     });
+    // ROSTER_ROWS is kept but nothing reads it (see the review).
     ROSTER_ROWS = rows;
     renderAfterClass(sid, rows);
     loadWaitlist(sid);
@@ -1506,14 +1748,22 @@ async function loadRoster() {
 }
 
 // ---- attendance & after class --------------------------------------------
+// These `let`s sit below loadRoster, which assigns ROSTER_ROWS; that works because loadRoster
+// only runs after the whole script has been evaluated.
 let ROSTER_ROWS = [];
 let ZOOM_MATCH = null;      // the server's match result for the current report
+// Counts behind the number badge on the Today tab. noShows/waiting are for the SELECTED
+// session; forum is the whole moderation queue.
 const BADGE = { noShows: 0, waiting: 0, forum: 0 };
 
+// "Ended" = start + length has passed on the admin's clock; decides whether no-shows show.
 function sessionEnded(s) {
   return s && Date.now() > new Date(s.starts_at).getTime() + (s.duration_min || 90) * 60000;
 }
 
+// Fill the "Attendance & after class" box from the roster rows just loaded. Before the class
+// it is only an explanation; after, the still-"booked" tickets are the no-shows, each with
+// Attended (check in anyway) and Release (free the ticket + email). No server call here.
 function renderAfterClass(sid, rows) {
   const s = SESSIONS.find((x) => x.id === sid);
   if (!s) return;
@@ -1551,6 +1801,8 @@ function renderAfterClass(sid, rows) {
     act.appendChild(att); act.appendChild(rel);
     body.appendChild(tr);
   });
+  // Re-bound on every render so it releases THIS session's current no-shows, one request each
+  // (no bulk route); a failure is just not counted.
   $('#noShowReleaseAll').onclick = async () => {
     if (!confirm('Release all ' + noShows.length + ' no-show ticket' + (noShows.length === 1 ? '' : 's') +
                  ' so they can rebook, and email each of them?')) return;
@@ -1569,6 +1821,8 @@ function renderAfterClass(sid, rows) {
 }
 
 /* RFC-4180-ish CSV: quoted fields, doubled quotes, CRLF. */
+// A hand-written parser because a naive split(',') breaks on names like "Smith, John" that
+// Zoom quotes. CSV = comma-separated values. Blank lines are dropped.
 function parseCsv(text) {
   const rows = []; let row = [], field = '', q = false;
   for (let i = 0; i < text.length; i++) {
@@ -1591,6 +1845,8 @@ function parseCsv(text) {
    meeting-summary block that has its own header - skipped because it has a Topic
    column), then one row per join. People who drop and rejoin appear more than once,
    so minutes are summed per person. */
+// Columns are found by name (Name / Email / Duration), not position, because Zoom's export
+// layout varies by account and version. Returns [{name, email, minutes}], one per person.
 function parseZoomReport(text) {
   const rows = parseCsv(text);
   let hi = -1, cols = null;
@@ -1619,6 +1875,9 @@ function parseZoomReport(text) {
   return Object.values(people);
 }
 
+// Parse locally, then let the SERVER match participants to this session's tickets (by email,
+// then name) - it has the full ticket data. Nothing is checked in yet; the result is kept in
+// ZOOM_MATCH with the session it was matched for, and drawn by renderZoomMatches().
 async function matchZoomReport(text) {
   const msg = $('#zoomMsg'), sid = $('#sessSel').value;
   let participants;
@@ -1635,6 +1894,9 @@ async function matchZoomReport(text) {
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
 }
 
+// Draw the match table with a checkbox per not-yet-used ticket. The "at least N minutes"
+// threshold is applied here, in the browser, so changing it just redraws - no new request.
+// Rows under the threshold and already-used tickets start unticked / have no box.
 function renderZoomMatches() {
   const m = ZOOM_MATCH, box = $('#zoomResult');
   if (!m) { box.innerHTML = ''; return; }
@@ -1674,12 +1936,14 @@ function renderZoomMatches() {
       (a.status === 'used' ? ' (already checked in)' : '')).join(', '));
   if (side.length) html += '<div class="att-side">' + side.join('<br>') + '</div>';
   box.innerHTML = html;
+  // The Check In button's label follows the tick count and is disabled at zero.
   const upd = () => {
     const n = box.querySelectorAll('input[type=checkbox]:checked').length;
     const b = $('#zoomApply'); if (b) { b.textContent = 'Check in ' + n + ' selected'; b.disabled = !n; }
   };
   box.querySelectorAll('input[type=checkbox]').forEach((c) => { c.onchange = upd; });
   upd();
+  // Posts to the session the match was made FOR (m.sid), not the current dropdown value.
   if ($('#zoomApply')) $('#zoomApply').onclick = async () => {
     const ids = [...box.querySelectorAll('input[type=checkbox]:checked')]
       .map((c) => rows[+c.dataset.i].ticket_id);
@@ -1704,6 +1968,8 @@ function renderZoomMatches() {
   };
 }
 $('#zoomMin').oninput = renderZoomMatches;
+// A chosen file is read in the browser and ALSO copied into the paste box, so the re-match
+// after check-in has the text. Clearing the input lets the same file be chosen again.
 $('#zoomFile').onchange = () => {
   const f = $('#zoomFile').files[0];
   if (!f) return;
@@ -1717,6 +1983,7 @@ $('#zoomPasteBtn').onclick = () => {
   ta.hidden = !ta.hidden;
   if (!ta.hidden) ta.focus();
 };
+// Pasted text is matched 600 ms after typing stops, so a long paste is sent once, not per key.
 let _zoomTimer = null;
 $('#zoomPaste').oninput = () => {
   clearTimeout(_zoomTimer);
@@ -1724,6 +1991,8 @@ $('#zoomPaste').oninput = () => {
 };
 
 // ---- waitlist -------------------------------------------------------------
+// The selected session's waitlist, live entries (waiting / held) first, then expired and
+// removed ones for history. Only live entries get a Remove button. Also feeds the Today badge.
 async function loadWaitlist(sid) {
   const s = SESSIONS.find((x) => x.id === sid);
   if (!s) return;
@@ -1763,6 +2032,8 @@ async function loadWaitlist(sid) {
       : '';
   } catch (e) { body.innerHTML = '<tr><td colspan="7" class="err">' + esc(e.message) + '</td></tr>'; }
 }
+// Manual nudge: the server offers any free seat to the next waiting person now (it also does
+// this on its own timer). Button is hidden unless someone is actually waiting.
 $('#waitOffer').onclick = async () => {
   try {
     const r = await api('/admin/sessions/' + $('#sessSel').value + '/waitlist/offer', { method: 'POST' });
@@ -1775,10 +2046,15 @@ $('#waitOffer').onclick = async () => {
 // The forum is served by the ticket API: on its own hostname in production, under
 // /forum when the roster is pointed at a local API.
 const FORUM = _isLocalApi(API) ? API + '/forum' : 'https://forum.nerxpower.com';
+// Forum twin of api(): same admin token, but a plain status-code error (no "detail"), and a
+// 401 here does NOT sign the page out the way api() does. Forum timestamps are Unix seconds,
+// so callers wrap them as new Date(x * 1000) before fmt().
 const forumApi = (path, opts = {}) => fetch(FORUM + path, { ...opts,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...tokenHdr(), ...(opts.headers || {}) } })
   .then(async (r) => { if (!r.ok) throw new Error('Forum request failed (' + r.status + ')'); return r.json(); });
 /* The selected class's forum thread (GET /mod/session/<id> on the forum). */
+// CT_FOR guards against a slow answer for a previously selected session overwriting the
+// current one. Also re-run by the 15 s timer while the Today tab is open.
 let CT_FOR = '';
 async function loadClassThread(sid) {
   const bar = $('#ctBar'), posts = $('#ctPosts');
@@ -1789,6 +2065,7 @@ async function loadClassThread(sid) {
   try { r = await forumApi('/mod/session/' + encodeURIComponent(sid)); }
   catch (e) { bar.innerHTML = '<span class="meta">' + esc(e.message) + '</span>'; posts.innerHTML = ''; return; }
   if (CT_FOR !== sid) return;
+  // No thread yet: offer to create it now instead of waiting for the first booking.
   if (!r.exists) {
     bar.innerHTML = '<span class="meta">No thread yet — it opens by itself at the first booking.</span>' +
       '<button class="btn btn-outline small" id="ctCreate">Open it now</button><span class="meta" id="ctMsg"></span>';
@@ -1812,6 +2089,9 @@ async function loadClassThread(sid) {
     '<p style="white-space:pre-wrap;font-size:0.9rem;margin:6px 0 0;max-height:120px;overflow:auto">' + esc(p.body) + '</p></div>').join('');
 }
 
+// The moderation box: one GET /mod/queue returns member/thread totals, held posts, the recent
+// moderation log and unanswered topics. Approve / Delete / Ban act and then reload the queue.
+// Called at connect and after an action only - a reload of the page refreshes it otherwise.
 async function loadForum() {
   const held = $('#forumHeld'), open = $('#forumOpen');
   $('#forumOpenLink').href = FORUM + '/';
@@ -1833,6 +2113,8 @@ async function loadForum() {
         '<div class="flex"><button class="btn btn-primary tiny" data-act="approve">Approve</button>' +
         '<button class="btn btn-outline tiny" data-act="delete">Delete</button>' +
         '<button class="btn btn-outline tiny" data-act="ban">Ban this account</button><span class="cf-msg meta"></span></div>';
+      // Ban is an account action (/mod/user/...); approve and delete are post actions
+      // (/mod/post/<id>/<act>) - the button's data-act is the route's last segment.
       card.querySelectorAll('button[data-act]').forEach((b) => { b.onclick = async () => {
         const msg = card.querySelector('.cf-msg');
         try {
@@ -1879,6 +2161,7 @@ async function loadCourseDuplicates() {
   const box = $('#dupCourses');
   if (!box) return;
   let groups = [];
+  // A failure here just leaves the box as it was - the warning is advisory.
   try { groups = await api('/admin/course-duplicates'); } catch (e) { return; }
   box.innerHTML = '';
   if (!groups || !groups.length) return;
@@ -1899,6 +2182,8 @@ async function loadCourseDuplicates() {
       '<button class="btn btn-primary small dup-fold">Fold the other' + (many ? 's' : '') + ' in</button>' +
       '<span class="cf-msg meta"></span></div>';
     const msg = card.querySelector('.cf-msg');
+    // One fold request per spelling being retired; the button stays disabled on success
+    // because loadSessions() redraws the whole box anyway.
     card.querySelector('.dup-fold').addEventListener('click', async (ev) => {
       const keep = card.querySelector('.dup-keep').value;
       const others = g.variants.map((v) => v.name).filter((n) => n !== keep);
@@ -1918,6 +2203,9 @@ async function loadCourseDuplicates() {
   });
 }
 
+// One editable card per course. The fields start from the NEWEST date's values; on Apply only
+// the fields that differ from that starting value are sent (see the note inside), to all dates
+// or only upcoming ones. Rebuilt by every loadSessions(), which discards unsaved typing.
 function renderCourses() {
   const box = $('#coursesList');
   const groups = courseGroups();
@@ -1975,6 +2263,7 @@ function renderCourses() {
         if (changed('capacity')) { body.capacity = parseInt(read('capacity'), 10); fields.push('capacity'); }
         if (changed('meeting_link')) { body.meeting_link = read('meeting_link') || null; fields.push('meeting_link'); }
         if (!fields.length) { msg.textContent = 'Nothing changed.'; msg.className = 'cf-msg'; return; }
+        // !(x >= n) rather than x < n so a blank field (NaN) is caught too.
         if (('price_usd' in body && !(body.price_usd >= 0)) || ('duration_min' in body && !(body.duration_min >= 15)) ||
             ('capacity' in body && !(body.capacity >= 1))) {
           msg.textContent = 'Check the price, length and seats.'; msg.className = 'cf-msg err'; return;
@@ -1991,6 +2280,7 @@ function renderCourses() {
         } catch (e) { msg.textContent = e.message; msg.className = 'cf-msg err'; b.disabled = false; }
       };
     });
+    // "Edit class materials": select the course's newest date and jump to the materials box.
     card.querySelector('button[data-mats]').onclick = () => {
       selectSession(latest.id);
       revealBox('#matsBox');
@@ -2002,6 +2292,8 @@ function renderCourses() {
 // ---- numbers over time ----------------------------------------------------
 /* Small bar charts drawn as inline SVG from the ticket and session lists already
    loaded - no library, nothing to fetch. */
+// items = [{label, v, sub?, alt?, title?}]; opts.fmt formats the value above each bar. Returns
+// an SVG string. Scales to the largest value (min 1 so an all-zero chart still draws).
 function barChart(items, opts) {
   const W = 360, H = 170, padL = 36, padB = 34, padT = 14;
   const max = Math.max(1, ...items.map((d) => d.v));
@@ -2021,11 +2313,15 @@ function barChart(items, opts) {
   return svg + '</svg>';
 }
 
+// Four charts from TICKETS and SESSIONS in memory. Redrawn whenever the Reports tab opens and
+// after a loadSessions() while it is open.
 function renderNumbers() {
   const box = $('#numbersBody');
   if (!TICKETS.length) { box.innerHTML = '<p class="meta">No tickets yet.</p>'; return; }
   const ct = (iso) => centralParts(iso);
   const monthKey = (iso) => { const p = ct(iso); return p.year + '-' + p.month; };
+  // The year is printed only on January and on the first bar, to keep labels short.
+  // (`firstKey` is declared a few lines down; monthLbl is not called until after that.)
   const monthLbl = (k) => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleString('en-US', { month: 'short' }) +
                           (k.slice(5) === '01' || k === firstKey ? ' \u2019' + k.slice(2, 4) : '');
   // Revenue by month (refunds and other voids excluded), last 12 months with sales.
@@ -2033,6 +2329,7 @@ function renderNumbers() {
   TICKETS.filter((t) => t.status !== 'void' && t.amount_usd > 0).forEach((t) => {
     const k = monthKey(t.issued_at); rev[k] = (rev[k] || 0) + t.amount_usd;
   });
+  // Only months WITH sales become bars, so a month with none is skipped, not shown as zero.
   const keys = Object.keys(rev).sort().slice(-12);
   const firstKey = keys[0];
   const revItems = keys.map((k) => ({ label: monthLbl(k), v: Math.round(rev[k]), title: k + ': $' + rev[k].toFixed(0) }));
@@ -2056,6 +2353,7 @@ function renderNumbers() {
   TICKETS.filter((t) => (t.status === 'booked' || t.status === 'used') && t.booked_at && bySess[t.session_id]).forEach((t) => {
     const days = (new Date(bySess[t.session_id].starts_at) - new Date(t.booked_at)) / 86400000;
     const i = buckets.findIndex(([, lo, hi]) => days >= lo && days < hi);
+    // A booking made after the class started (e.g. assigned afterwards) counts as "same day".
     if (i >= 0) lead[i].v++; else if (days < 0) lead[0].v++;
   });
   // Bookings by week over the last 12 weeks, for the trend.
@@ -2079,6 +2377,7 @@ function renderNumbers() {
 
 // ---- activity log ---------------------------------------------------------
 let ACT_LIMIT = 50;
+// Plain-English label for each event kind the server logs; an unknown kind shows as itself.
 const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled', use: 'joined class',
   'admin.use': 'checked in', 'admin.move': 'moved', 'admin.release': 'released', 'admin.void': 'voided',
   'admin.recode': 'new code', 'admin.issue': 'issued by admin', 'cert.issue': 'certificate printed',
@@ -2090,6 +2389,8 @@ const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled
   'backup.sent': 'backup emailed', 'backup.download': 'backup downloaded', 'admin.set_backup': 'backup schedule changed',
   'forum.verified': 'forum account verified', 'forum.thread': 'forum topic', 'forum.reply': 'forum reply',
   'forum.approve': 'forum post approved', 'forum.mod': 'forum moderation', 'forum.mod_user': 'forum account action' };
+// Fetch the newest ACT_LIMIT events matching the text/kind filters (the server filters). The
+// detail column prints every key of e.detail except "session", which the Session column covers.
 async function loadActivity() {
   const body = $('#actBody');
   body.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
@@ -2115,6 +2416,7 @@ async function loadActivity() {
     $('#actSummary').textContent = rows.length + ' shown' + (rows.length >= ACT_LIMIT ? ' — Show more for older' : '');
   } catch (e) { body.innerHTML = '<tr><td colspan="5" class="err">' + esc(e.message) + '</td></tr>'; }
 }
+// Show resets to 50 rows; Show more re-queries with a larger limit (there is no paging cursor).
 $('#actGo').onclick = () => { ACT_LIMIT = 50; loadActivity(); };
 $('#actMore').onclick = () => { ACT_LIMIT = Math.min(500, ACT_LIMIT + 100); loadActivity(); };
 $('#actQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#actGo').click(); });
@@ -2122,12 +2424,17 @@ $('#actKind').onchange = () => $('#actGo').click();
 
 // ---- tabs -------------------------------------------------------------------
 const TABS = ['today', 'sessions', 'people', 'settings', 'reports'];
+// Switch panels, remember the choice (localStorage and the URL hash, via replaceState so Back
+// is not polluted), and do the Reports tab's lazy work. `push === false` means "came from the
+// URL, do not rewrite it". Note: this runs once at page load BEFORE login (see the IIFE below).
 function showTab(name, push) {
   if (!TABS.includes(name)) name = 'today';
   document.querySelectorAll('#tabs .tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
   try { localStorage.setItem('nerx_roster_tab', name); } catch (e) {}
   if (push !== false) history.replaceState(null, '', '#' + name);
+  // Charts are redrawn each visit; the activity log is fetched only the first time (empty
+  // table). This is not gated on being logged in - see the review about the Reports tab.
   if (name === 'reports') { renderNumbers(); if (!$('#actBody').children.length) loadActivity(); }
 }
 document.querySelectorAll('#tabs .tab').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
@@ -2139,12 +2446,17 @@ function revealBox(sel) {
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 /* Badge counts on the Today tab: no-shows to deal with and people waiting. */
+// Takes the two per-session counts as arguments and reads the forum count from BADGE; the
+// callers always pass BADGE.noShows / BADGE.waiting, so BADGE is the single source.
 function updateTabBadges(noShows, waiting) {
   const b = document.querySelector('#tabs .tab[data-tab="today"]');
   const n = (noShows || 0) + (waiting || 0) + (BADGE.forum || 0);
   b.innerHTML = 'Today' + (n ? '<span class="n" title="' + (noShows || 0) + ' no-show' + (noShows === 1 ? '' : 's') +
                                  ', ' + (waiting || 0) + ' waiting, ' + (BADGE.forum || 0) + ' forum post' + (BADGE.forum === 1 ? '' : 's') + ' to approve">' + n + '</span>' : '');
 }
+// Pick the starting tab at load: ?find=<email> wins (People tab with the search prefilled;
+// the search itself runs once loadSessions() has the tickets), then the URL hash, then the
+// last tab used, then Today. Runs before login, so the panel is ready when #adminUi appears.
 (function () {
   let t = (location.hash || '').slice(1);
   const find = new URLSearchParams(location.search).get('find');
@@ -2152,9 +2464,12 @@ function updateTabBadges(noShows, waiting) {
   if (!TABS.includes(t)) { try { t = localStorage.getItem('nerx_roster_tab') || 'today'; } catch (e) { t = 'today'; } }
   showTab(t, false);
 })();
+// Back/forward or an edited hash switches tabs without rewriting the URL again.
 window.addEventListener('hashchange', () => { const t = location.hash.slice(1); if (TABS.includes(t)) showTab(t, false); });
 
 // ---- test emails / meeting link / certificate register --------------------
+// The four "Send me a test" buttons: the server renders that email kind for the selected
+// session and sends it to the admin address, replying with who it went to and the subject.
 document.querySelectorAll('[data-test]').forEach((b) => {
   b.onclick = async () => {
     const msg = $('#testMsg');
@@ -2166,6 +2481,7 @@ document.querySelectorAll('[data-test]').forEach((b) => {
     } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
   };
 });
+// Show the "Open" link beside the meeting-link field only when the field holds a real URL.
 function syncLinkOpen() {
   const v = $('#eLink').value.trim();
   const a = $('#eLinkOpen');
@@ -2173,6 +2489,8 @@ function syncLinkOpen() {
   a.href = a.hidden ? '#' : v;
 }
 $('#eLink').oninput = syncLinkOpen;
+// CSV downloads: the server builds the file; the browser gets it as text (api() returns text
+// for non-JSON) and a temporary blob link triggers the save. No error message if it fails.
 $('#certCsvBtn').onclick = async () => {
   const text = await api('/admin/certificates.csv');
   const a = document.createElement('a');
@@ -2182,6 +2500,9 @@ $('#certCsvBtn').onclick = async () => {
 };
 
 // ---- wiring ---------------------------------------------------------------
+// Connect: store the token, prove it with GET /admin/sessions, then reveal the admin UI and
+// start every initial load. Also triggered programmatically at page load by the auto-connect
+// block at the bottom of this script.
 $('#saveTok').onclick = async () => {
   const tok = $('#tok').value.trim();
   try { sessionStorage.setItem('nerx_admin_token', tok); } catch (e) {}
@@ -2196,6 +2517,7 @@ $('#saveTok').onclick = async () => {
     await api('/admin/sessions');
     $('#authBox').hidden = true; $('#connecting').hidden = true; $('#adminUi').hidden = false; $('#signOut').hidden = false;
     $('#tok').value = '';                     // the token lives in storage, not in the field
+    // Initial loads run in parallel; each handles its own errors.
     loadSessions();
     loadSubscribers();
     loadOpenPrice();
@@ -2207,6 +2529,9 @@ $('#saveTok').onclick = async () => {
   }
 };
 
+// ---- settings ------------------------------------------------------------------
+// Despite the name, one GET /admin/settings fills EVERY field on the Settings tab, not just
+// the open-ticket price. Fields the server does not return are left alone.
 async function loadOpenPrice() {
   try {
     const r = await api('/admin/settings');
@@ -2220,6 +2545,8 @@ async function loadOpenPrice() {
     if (r.provider_numbers != null) $('#oProv').value = r.provider_numbers;
   } catch (e) { /* leave blank */ }
 }
+// Each Save below PATCHes only its own field(s) and writes the server's echoed value back
+// into the input, so what is shown is always what the server stored.
 $('#oRecSave').onclick = async () => {
   try {
     const r = await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({
@@ -2229,6 +2556,7 @@ $('#oRecSave').onclick = async () => {
   } catch (e) { $('#oRecMsg').textContent = e.message; $('#oRecMsg').className = 'err'; }
 };
 // ---- weekly backup email ----
+// Fill the hour dropdown (0-23 shown as 12 AM ... 11 PM) once at load.
 (function () {
   const sel = $('#bkHour');
   for (let h = 0; h < 24; h++) {
@@ -2237,6 +2565,8 @@ $('#oRecSave').onclick = async () => {
     sel.appendChild(o);
   }
 })();
+// Copy the backup schedule from a settings reply into the form. Skipped entirely if the server
+// predates the backup feature (no backup_enabled key).
 function fillBackup(r) {
   if (r.backup_enabled == null) return;
   $('#bkOn').checked = !!r.backup_enabled;
@@ -2263,6 +2593,8 @@ $('#bkSave').onclick = async () => {
     msg.className = 'ok-msg';
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
 };
+// "Send a backup now": the server builds the ZIP and emails it; "accepted" false means the
+// email provider refused it. Reloads settings afterwards so "Last sent" updates.
 $('#bkSend').onclick = async () => {
   const msg = $('#bkMsg');
   $('#bkSend').disabled = true; msg.textContent = 'Building and sending…'; msg.className = 'meta';
@@ -2275,6 +2607,9 @@ $('#bkSend').onclick = async () => {
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
   finally { $('#bkSend').disabled = false; }
 };
+// Direct download of the ZIP. Uses raw fetch, not api(), because the body is binary (api()
+// would read it as text); so a 401 here shows "Download failed (401)" rather than signing out.
+// The filename comes from the server's Content-Disposition header when present.
 $('#bkDownload').onclick = async () => {
   const msg = $('#bkMsg');
   try {
@@ -2288,6 +2623,8 @@ $('#bkDownload').onclick = async () => {
     msg.textContent = 'Downloaded ' + Math.round(blob.size / 1024) + ' KB.'; msg.className = 'ok-msg';
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
 };
+// The five timing/price saves below follow one pattern: parse, reject NaN/out-of-range with a
+// plain message, PATCH the one field, echo the stored value, say what it now means.
 $('#oFupSave').onclick = async () => {
   try {
     const v = parseInt($('#oFup').value, 10);
@@ -2334,6 +2671,7 @@ $('#oCutSave').onclick = async () => {
       ? 'Saved — sessions stay bookable until they start.'
       : 'Saved — signups now close ' + r.signup_cutoff_hours + ' hour(s) before class.';
     $('#oCutMsg').className = 'ok-msg';
+    // The cutoff changes which sessions the server reports as bookable, so refresh the lists.
     loadSessions();
   } catch (e) { $('#oCutMsg').textContent = e.message; $('#oCutMsg').className = 'err'; }
 };
@@ -2350,6 +2688,8 @@ $('#oSave').onclick = async () => {
   } catch (e) { $('#oMsg').textContent = e.message; $('#oMsg').className = 'err'; }
 };
 
+// ---- mailing list --------------------------------------------------------------
+// The subscriber table; status pills reuse the ticket colors (active = green, else red).
 async function loadSubscribers() {
   const body = $('#subBody');
   body.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
@@ -2370,6 +2710,8 @@ async function loadSubscribers() {
   } catch (e) { body.innerHTML = '<tr><td colspan="4" class="err">' + esc(e.message) + '</td></tr>'; }
 }
 $('#subReload').onclick = loadSubscribers;
+// Paste-to-import: the raw text goes to the server, which extracts addresses, skips
+// duplicates and leaves opted-out people opted out. The reply counts each outcome.
 $('#subImportBtn').onclick = async () => {
   const text = $('#subImport').value.trim();
   const msg = $('#subImportMsg');
@@ -2394,7 +2736,13 @@ $('#subCsv').onclick = async () => {
   a.download = 'nerx-subscribers.csv';
   a.click();
 };
+// ---- session save / clone / delete / add --------------------------------------
+// Changing the dropdown does the same three things as selectSession() (it cannot call it
+// because the value is already set). The `&&` null-guard is unique to this line.
 $('#sessSel') && ($('#sessSel').onchange = () => { fillEditor(); loadRoster(); renderCalendar(); });
+// Save Session: every editor field is sent, even unchanged ones (unlike the course cards). A
+// blank PDH means "derive from length" (null); the server may release seats or email students
+// when the time or status changes, and says how many.
 $('#eSave').onclick = async () => {
   try {
     const name = $('#eName').value.trim();
@@ -2416,6 +2764,8 @@ $('#eSave').onclick = async () => {
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };
+// "Duplicate...": copy name, length, seats and price into the add form (not the meeting link,
+// subtitle or PDH - the add form has no fields for them) and jump there.
 $('#eClone').onclick = () => {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
@@ -2428,6 +2778,7 @@ $('#eClone').onclick = () => {
   revealBox('#addBox');
   $('#nStarts').focus();
 };
+// Delete: the server refuses while any seat is held, so this is safe to offer on every session.
 $('#eDelete').onclick = async () => {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
@@ -2440,6 +2791,8 @@ $('#eDelete').onclick = async () => {
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };
+// Add Session. The id is made HERE, not by the server: a slug of the name plus the date, e.g.
+// "symmetrical-components-2026-03-10". The same course twice on one date would collide.
 $('#nCreate').onclick = async () => {
   try {
     const name = $('#nName').value.trim();
@@ -2466,6 +2819,8 @@ $('#nCreate').onclick = async () => {
     selectSession(slug);
   } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
 };
+// Weekly generator button: plan locally, show every date in a confirm(), then POST the sections
+// one at a time (no bulk route). A failed one is counted, not retried.
 $('#wkGen').onclick = async () => {
   const msg = $('#wkMsg');
   try {
@@ -2504,6 +2859,8 @@ $('#wkGen').onclick = async () => {
   } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
   finally { $('#wkGen').disabled = false; }
 };
+// Reload = the full refresh (sessions, tickets, roster); it does not reload the forum,
+// subscribers or settings, which have their own loads.
 $('#reloadBtn').onclick = loadSessions;
 $('#csvBtn').onclick = async () => {
   const text = await api('/admin/export.csv');
@@ -2512,6 +2869,8 @@ $('#csvBtn').onclick = async () => {
   a.download = 'nerx-tickets.csv';
   a.click();
 };
+// Manual issue: the server creates and emails the codes. The reply is either a `codes` list
+// or a single `code`; both shapes are handled.
 $('#mIssue').onclick = async () => {
   try {
     const n = parseInt($('#mCount').value, 10) || 1;
@@ -2529,6 +2888,9 @@ $('#mIssue').onclick = async () => {
 
 // Background refresh: keep calendar counts / stats / rosters current without
 // touching the editor form fields the admin may be typing in.
+// Every 15 s while logged in and not mid-move. It repeats the fetch half of loadSessions()
+// but deliberately skips fillEditor / renderCourses / loadRoster (they would clobber typing);
+// a 401 inside api() still signs the page out from here.
 setInterval(async () => {
   if ($('#adminUi').hidden || MOVING) return;
   try {
@@ -2541,6 +2903,8 @@ setInterval(async () => {
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 
+// ---- sign out / auto-connect -------------------------------------------------
+// Sign out forgets both copies of the token and reloads, which lands on the login row.
 $('#signOut').onclick = (e) => {
   e.preventDefault();
   try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (x) {}
@@ -2549,6 +2913,9 @@ $('#signOut').onclick = (e) => {
 // A remembered token (this device) or the one from this tab connects on its own. The token box is hidden before the server is
 // asked (that call can take a few seconds on a cold server) and comes back only if
 // the token is refused - otherwise the login row would sit on screen and then vanish.
+// The remembered (device) token wins over the tab's; the checkbox is set to match so that
+// clicking Connect re-saves it the same way. Reuses the Connect handler rather than a second
+// login path.
 let _keep = null; try { _keep = localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
 const _sess = sessionStorage.getItem('nerx_admin_token');
 if (_keep || _sess) {

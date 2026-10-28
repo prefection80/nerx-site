@@ -1,12 +1,60 @@
 <!DOCTYPE html>
+<!--
+  certificate.html — the attendee's PDH certificate.
+  PDH = professional development hour, the continuing-education unit most US state
+  engineering boards count. Some boards call the same unit a CEU (continuing education
+  unit); this sheet always prints "PDH".
+
+  Who uses it: a person who attended a live class and wants to print or save their
+  certificate. They arrive from ticket.html (its openCertificate() stores the ticket code
+  in sessionStorage and navigates here in the same tab) or from a link that carries
+  ?code=NERX-XXXX-XXXX-XXXX. There is no login: the ticket code is the credential, and
+  the ticket server decides whether a certificate has been earned. The sheet is laid out
+  as one landscape US Letter page (11 in x 8.5 in). Bulk roster printing for the
+  instructor is a different page (roster.html), not this one.
+
+  Backend (the ticket server, https://tickets.nerxpower.com, FastAPI; JSON over POST):
+    POST /tickets/lookup       {code}        -> status, code_hint, session{course_name},
+                                                cert{available, name, reason}, materials[]
+    POST /tickets/certificate  {code, name?} -> name, course_name, course_subtitle,
+                                                pdh_hours, completed_on, cert_no
+  The page is served from nerxpower.com and the API lives on another host, so every
+  call is a cross-origin request: the server must send CORS (cross-origin resource
+  sharing) headers or the browser discards the response. No cookies are involved.
+
+  Browser storage:
+    sessionStorage nerx_cert_code    the ticket code for this tab (set by ticket.html or
+                                     from ?code=; cleared by "Look up a different ticket")
+    localStorage   nerx_tickets_api  dev-only API base override, honored only when it
+                                     points at localhost (same key as the other pages)
+
+  Page map, in order:
+    script 1     frame-buster (refuses to run inside another site's iframe)
+    style block  color tokens, reset, [unused .toolbar], certificate sheet + frames,
+                 certificate text block, bottom row (date | seal | signature), print
+                 rules, app shell (.appbar / .gate / .certbar), class-materials panel,
+                 the scale wrapper for narrow screens
+    .appbar      brand + link back to ticket.html
+    #gate        step 1: status / ticket-code form / name form (filled by the script)
+    #certbar     step 2: Print and "different ticket" buttons (hidden until issued)
+    #filesPanel  class materials for the course (screen only, never printed)
+    #sheetWrap   the 11 x 8.5 in certificate: frames, corners, text, seal, signature
+    script 2     page logic: API helper, code intake, materials list, the gate screens
+                 (askForCode / askForName / locked), fitSheet, render, issue, lookup
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Your PDH Certificate — NERX Power Consultants</title>
 <meta name="robots" content="noindex">
+<!-- Frame-buster: if another site embeds this page in an iframe, break out to the top window
+     so the certificate (and the ticket-code form) cannot be shown inside someone else's page. -->
 <script>if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) {} }</script>
+<!-- Page styles. Screen-only chrome (app bar, gate, buttons, materials) is hidden in print;
+     the certificate sheet itself is sized in inches so it prints 1:1 on landscape Letter. -->
 <style>
+  /* ---------- color tokens (the certificate palette) ---------- */
   :root{
     --ink:#1b2a41;          /* deep engraver's navy */
     --ink-soft:#3d4f66;
@@ -16,11 +64,15 @@
     --rule:#8a7647;
   }
 
+  /* ---------- reset + page background ---------- */
+  /* The dark gray body makes the parchment sheet read as a sheet of paper on screen. */
   *{ box-sizing:border-box; margin:0; padding:0; }
 
   html,body{ background:#4a4f57; font-family:Georgia,'Times New Roman',serif; }
 
   /* ---------- Screen control bar (never prints) ---------- */
+  /* Not used: no element on this page has class "toolbar". The live control bar is
+     .certbar (app shell section below), which repeats these rules almost exactly. */
   .toolbar{
     max-width:11in; margin:0 auto; padding:14px 18px;
     display:flex; flex-wrap:wrap; gap:14px; align-items:center;
@@ -35,6 +87,7 @@
   .toolbar label{ display:flex; gap:5px; align-items:center; cursor:pointer; }
 
   /* ---------- Certificate sheet: exactly 11 x 8.5 in ---------- */
+  /* Everything inside the sheet is positioned in inches, so the print matches the screen. */
   .sheet{
     width:11in; height:8.5in; margin:0 auto 40px auto;
     background:var(--parchment);
@@ -43,6 +96,7 @@
     color:var(--ink);
   }
 
+  /* ---------- engraved frame: three nested borders + four corner ornaments ---------- */
   /* Engraved double border */
   .frame-outer{
     position:absolute; inset:0.28in;
@@ -57,6 +111,8 @@
     border:1px solid var(--ink);
   }
   /* corner ornaments */
+  /* One SVG is drawn for the top-left corner; the other three are the same drawing
+     mirrored with transforms, so all four corners stay identical. */
   .corner{ position:absolute; width:0.52in; height:0.52in; }
   .corner svg{ width:100%; height:100%; display:block; }
   .c-tl{ top:0.30in; left:0.30in; }
@@ -64,6 +120,9 @@
   .c-bl{ bottom:0.30in; left:0.30in; transform:scaleY(-1); }
   .c-br{ bottom:0.30in; right:0.30in; transform:scale(-1,-1); }
 
+  /* ---------- certificate text block, top to bottom ---------- */
+  /* .content is a vertical flex column inside the frame; .bottom (further down) uses
+     margin-top:auto to sit on the bottom edge whatever the text above it takes up. */
   .content{
     position:absolute; inset:0.62in;
     display:flex; flex-direction:column; align-items:center; text-align:center;
@@ -136,6 +195,7 @@
     font-size:13pt; padding-bottom:3px; min-height:0.32in;
     display:flex; align-items:flex-end; justify-content:center;
   }
+  /* .sig-script is not used on this page (the signature is the SVG drawing below). */
   .sig-script{ font-style:italic; font-size:16pt; }
   .signature{ height:0.52in; width:auto; display:block; margin:0 auto -3px auto; overflow:visible; }
   .sig-caption{
@@ -157,6 +217,9 @@
   }
 
   /* ---------- print ---------- */
+  /* Landscape Letter with no printer margin, so the sheet's own 0.28 in frame inset is the
+     only margin. The page-break rules only matter with several .sheet elements on one page;
+     this page renders exactly one. */
   @page{ size:11in 8.5in; margin:0; }
   @media print{
     html,body{ background:#fff; }
@@ -167,6 +230,8 @@
 
 
   /* ---------- app shell (screen only) ---------- */
+  /* .appbar = brand line at the top; .gate = the parchment card that holds the status text
+     and the two forms (ticket code, name); .certbar = Print / different-ticket buttons. */
   .appbar{
     max-width:11in; margin:0 auto; padding:16px 18px 0 18px;
     font-family:Verdana,Arial,sans-serif; color:#e8e8e8; font-size:13px;
@@ -198,6 +263,7 @@
   .gate .ok{ color:#2f6b42; font-size:13px; margin-top:10px; }
   .gate .locked{ background:#f3eedd; border-left:3px solid #a67c2e;
     padding:10px 14px; margin-bottom:14px; }
+  /* Control bar shown above the finished certificate. Near-copy of .toolbar above. */
   .certbar{
     max-width:11in; margin:0 auto; padding:14px 18px;
     display:flex; flex-wrap:wrap; gap:14px; align-items:center;
@@ -211,6 +277,9 @@
   .certbar .hint{ opacity:.85; }
 
   /* ---------- class materials for the course (screen only) ---------- */
+  /* Two homes for the same list: .files is the stand-alone panel above the certificate,
+     .gate-files is the same list appended inside the gate card while the certificate is
+     not (yet) available. Both are filled from filesHtml() in the script. */
   .files{
     max-width:11in; margin:0 auto 22px auto; padding:14px 18px;
     background:#fdfbf4; border-left:4px solid #a67c2e; border-radius:4px;
@@ -231,9 +300,16 @@
   .files .desc, .gate-files .desc{ display:block; font-size:12.5px; color:#3d4f66; }
   .files .note, .gate-files .note{ font-size:12.5px; color:#3d4f66; margin-top:8px; }
   .gate-files{ margin-top:18px; padding-top:14px; border-top:1px solid #e3dbc3; }
+  /* The script shows/hides blocks with the "hidden" attribute. .certbar and .files set
+     display:flex / block, which would beat the browser's default hidden rule, so hidden
+     is re-asserted here with !important. */
   [hidden]{ display:none !important; }
 
+  /* ---------- scale wrapper for narrow screens ---------- */
   /* the 11in sheet is scaled down to fit narrow screens (screen only) */
+  /* fitSheet() in the script sets the transform/width/height inline; print undoes the
+     transform so the sheet always prints full size. overflow-x:hidden stops the unscaled
+     sheet from producing a sideways scrollbar during the moment before fitSheet runs. */
   .scale-wrap{ transform-origin:top left; }
   @media screen{ html,body{ overflow-x:hidden; } }
   @media print{
@@ -244,18 +320,23 @@
 </head>
 <body>
 
+<!-- App bar: brand plus the way back to the ticket page (screen only) -->
 <div class="appbar">
   <span class="brand">NERX Power Consultants</span> &nbsp;·&nbsp;
   <a href="ticket.html">&larr; My Ticket</a>
 </div>
 
 <!-- Step 1: identify the ticket / collect the attendee's name -->
+<!-- The script replaces #gateBody with one of: "Checking your ticket", the ticket-code form,
+     the name form, the "not available yet" notice, or an error. #gateTitle changes with it. -->
 <div class="gate" id="gate">
   <h1 id="gateTitle">Your PDH Certificate</h1>
   <div id="gateBody"><p class="note">Checking your ticket&hellip;</p></div>
 </div>
 
 <!-- Step 2: the certificate itself -->
+<!-- Control bar above the finished certificate. Print uses the browser's own dialog; the hint
+     tells the reader which dialog settings match the @page rule in the styles. -->
 <div class="certbar" id="certbar" hidden>
   <button id="printBtn">&#128424;&nbsp; Print / Save as PDF</button>
   <button id="againBtn" class="ghost">Look up a different ticket</button>
@@ -266,9 +347,13 @@
 <!-- Class materials for the course this ticket attended (screen only; never printed) -->
 <div class="files" id="filesPanel" hidden></div>
 
+<!-- The certificate sheet. #sheetWrap is the scaling wrapper fitSheet() resizes on narrow
+     screens; .sheet is the fixed 11 x 8.5 in page. Hidden until the server issues a certificate.
+     Every id starting with "f" (fName, fCourse, ...) is a field render() fills from the response. -->
 <div class="scale-wrap" id="sheetWrap" hidden>
 <div class="sheet">
 
+  <!-- three nested border rectangles (navy / gold / navy), positioned by inset -->
   <div class="frame-outer"></div>
   <div class="frame-gold"></div>
   <div class="frame-inner"></div>
@@ -295,12 +380,15 @@
     <circle cx="8" cy="8" r="2.4" fill="#a67c2e"/>
   </svg></div>
 
+  <!-- Certificate text, top to bottom: provider, title, attendee, course, hours, then the
+       bottom row and the footer note. Static wording lives here; only the f* spans change. -->
   <div class="content">
 
     <div class="provider">NERX&nbsp;Power&nbsp;Consultants&nbsp;LLC</div>
     <div class="provider-sub">Protective Relaying &nbsp;·&nbsp; Power System Protection &nbsp;·&nbsp; NERC Compliance &nbsp;·&nbsp; Houston, Texas</div>
 
     <div class="cert-title">Certificate of Completion</div>
+    <!-- decorative rule under the title: two lines with a small diamond in the gap -->
     <svg class="cert-title-rule" viewBox="0 0 320 14" xmlns="http://www.w3.org/2000/svg">
       <line x1="0" y1="7" x2="130" y2="7" stroke="#a67c2e" stroke-width="1"/>
       <line x1="190" y1="7" x2="320" y2="7" stroke="#a67c2e" stroke-width="1"/>
@@ -317,6 +405,8 @@
     <div class="course" id="fCourse"></div>
     <div class="course-sub" id="fSub"></div>
 
+    <!-- Hours awarded. The unit-abbr / unit-full spans are hooks for swapping the unit
+         wording (PDH vs CEU); nothing on the page reads them today, so it always says PDH. -->
     <div class="hours-line">
       and is hereby awarded
       <span class="hours-num" id="fHours"></span>
@@ -325,6 +415,8 @@
       of technical instruction
     </div>
 
+    <!-- Bottom row, pinned to the frame's lower edge: completion date | brand seal with the
+         certificate number | instructor signature -->
     <div class="bottom">
       <div class="sig-block">
         <div class="sig-line"><span id="fDate"></span></div>
@@ -334,6 +426,7 @@
       <div class="seal-block">
         <!-- NERX brand seal: scalloped rosette with ribbon tails -->
         <svg viewBox="0 0 200 246" xmlns="http://www.w3.org/2000/svg">
+          <!-- invisible arcs the ring text follows (top half and bottom half of a circle) -->
           <defs>
             <path id="ringTop" d="M 100,100 m -74,0 a 74,74 0 1,1 148,0"/>
             <path id="ringBot" d="M 100,100 m -74,0 a 74,74 0 1,0 148,0"/>
@@ -389,6 +482,8 @@
         <div class="cert-no">CERTIFICATE NO. <span id="fCertNo"></span></div>
       </div>
 
+      <!-- Signature block. The signature is vector artwork baked into the page (one long
+           path for the lettering, one for the underline), so no image file is loaded. -->
       <div class="sig-block">
         <div class="sig-line">
           <!-- Hand-drawn cursive signature: Douglas Millner, P.E. -->
@@ -401,6 +496,7 @@
       </div>
     </div>
 
+    <!-- Footer: provider address and the licensing-board disclaimer (fixed text) -->
     <div class="footer-note">
       NERX Power Consultants LLC &nbsp;·&nbsp; 4111B Purdue St, Houston, TX 77005 &nbsp;·&nbsp; Retain this certificate for your professional licensure records. Acceptance of <span class="unit-abbr">PDH</span> credit is subject to the requirements of the attendee's state licensing board.
     </div>
@@ -409,6 +505,8 @@
 </div>
 </div>
 
+<!-- Page logic. Flow: lookup() -> (askForCode | askForName | locked notice) -> issue() -> render().
+     Everything is inside one function so no names leak onto window. -->
 <script>
 /* NERX PDH certificate page.
    The ticket code is the credential: the server decides whether a certificate has
@@ -417,10 +515,16 @@
 (function () {
   'use strict';
 
+  // Storage helpers. Despite the "ls" prefix these use sessionStorage (per tab, gone
+  // when the tab closes) so a ticket code does not outlive the visit. The try/catch is
+  // for browsers that block storage (private mode, strict settings): the page must
+  // still work, it just will not remember the code.
   var lsGet = function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   var lsSet = function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} };
   // Only a localhost ?api= override is honored (dev); never let a link repoint
   // requests at another origin.
+  // The override is written to localStorage (not sessionStorage) so a developer sets it
+  // once per browser; it is re-checked against localhost on every load before use.
   var isLocalApi = function (u) {
     try { var h = new URL(u).hostname;
       return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; }
@@ -431,6 +535,9 @@
   var stApi = null; try { stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
   var API = (stApi && isLocalApi(stApi)) ? stApi : 'https://tickets.nerxpower.com';
 
+  // $ = shorthand for one DOM lookup. esc = HTML-escape a server string before it is put
+  // into innerHTML; every value that came from the server or the user goes through it,
+  // because a ticket status, course name or error text is not trusted markup.
   var $ = function (s) { return document.querySelector(s); };
   var esc = function (v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -438,6 +545,12 @@
     });
   };
 
+  // One POST helper for both endpoints. The body is JSON; the server's error text comes
+  // back as {detail: "..."} (FastAPI's convention), so a non-2xx response is turned into
+  // an Error whose message can be shown to the reader as-is. A response that is not JSON
+  // at all (proxy error page) falls back to a generic "Request failed (status)". No
+  // cookies or tokens are sent: the ticket code in the body is the whole credential, so
+  // CSRF (cross-site request forgery) does not apply here.
   function api(path, body) {
     return fetch(API + path, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -452,6 +565,8 @@
 
   /* A code may arrive from the ticket page (sessionStorage) or in a link. A code in
      the URL is stashed and stripped so it does not linger in the address bar. */
+  // A ?code= in the link wins over whatever the tab remembered. replaceState rewrites the
+  // address bar to the bare path (this also drops ?api=, which was already saved above).
   var code = lsGet('nerx_cert_code') || '';
   var urlCode = qs.get('code');
   if (urlCode) {
@@ -460,13 +575,18 @@
     history.replaceState(null, '', location.pathname);
   }
 
+  // The gate card and its two changing parts (title + body).
   var gate = $('#gate'), gateBody = $('#gateBody'), gateTitle = $('#gateTitle');
 
   /* Class materials for the course this ticket is on. They come back with the ticket
      lookup, and only for a ticket that holds (or held) a seat, so the server has
      already decided who may see them. They are shown with the certificate and in
      every waiting state, and never printed. */
+  // MATS = the materials list from the last lookup; COURSE = that session's course name
+  // for the list heading. Both are page-level so filesHtml() can be called from any screen.
   var MATS = [], COURSE = '';
+  // Keep only entries with a real http(s) URL: a malformed or "javascript:" link from a
+  // bad record must never become a clickable href.
   function setFiles(t) {
     MATS = (Array.isArray(t.materials) ? t.materials : []).filter(function (m) {
       return m && /^https?:\/\//i.test(m.url || '');
@@ -478,6 +598,10 @@
   var MAT_ORDER = ['presentation', 'reference', 'recording', 'other'];
   var MAT_HEADING = { presentation: 'Presentation', reference: 'Reference material',
                       recording: 'Recording', other: 'Other files' };
+  // Builds the materials list markup (heading, one group per kind, note). An unknown
+  // "kind" from the server is filed under "Other files" rather than dropped. Links open
+  // in a new tab with rel=noopener so the linked site cannot reach back into this page.
+  // Returns '' when there is nothing to show so callers can test the result.
   function filesHtml() {
     if (!MATS.length) return '';
     var html = '<h2>Class materials' + (COURSE ? ' &mdash; ' + esc(COURSE) : '') + '</h2>';
@@ -497,6 +621,10 @@
       '<p class="note">Links open in a new tab. They are not part of the printed certificate.</p>';
   }
 
+  // Puts the gate card on screen with the given body (and the materials list under it when
+  // there is one) and hides everything that belongs to the certificate view. Every
+  // non-certificate screen goes through here, so "gate shown" and "sheet hidden" are
+  // always toggled together. render() is the mirror image.
   function show(html, title) {
     if (title) gateTitle.textContent = title;
     gateBody.innerHTML = html +
@@ -507,6 +635,9 @@
     $('#filesPanel').hidden = true;
   }
 
+  // Screen: ask for the ticket code. `msg` is an error from the previous attempt (e.g.
+  // "Ticket not found") shown above the form; the field is pre-filled with the last code
+  // so a typo can be corrected rather than retyped. Continue and Enter both run lookup().
   function askForCode(msg) {
     MATS = []; COURSE = '';          // a new code means a new ticket's files
     show((msg ? '<p class="err">' + esc(msg) + '</p>' : '') +
@@ -529,6 +660,11 @@
     });
   }
 
+  // Screen: first-time name entry. Reached only when the server says the certificate is
+  // available but no name is on file yet. The name is sent once with the issue request and
+  // the server keeps it, so later visits skip this screen (lookup() sees cert.name). The
+  // 2-character minimum is the only client-side check; the server has the final say.
+  // `existing` is always null today (kept for pre-filling if a correction flow is added).
   function askForName(existing) {
     show('<p>Your attendance is confirmed. Enter your name exactly as it should be ' +
       'printed on the certificate &mdash; include your credentials if you want them ' +
@@ -558,6 +694,10 @@
 
   /* The sheet is a fixed 11in x 8.5in page. On a narrow screen it is scaled down to
      fit rather than scrolled sideways; printing always uses the full-size sheet. */
+  // Runs after render() and on every window resize. CSS transforms do not change layout
+  // size, so the wrapper's height is set by hand to the scaled height or the page would
+  // keep a blank area the size of the unscaled sheet below it. When the window is wide
+  // enough (k == 1) all inline styles are cleared so the CSS rules alone apply.
   function fitSheet() {
     var wrap = $('#sheetWrap');
     if (wrap.hidden) return;
@@ -575,6 +715,11 @@
     }
   }
 
+  // Fills the sheet from the /tickets/certificate response and switches to the certificate
+  // view (the mirror of show()). textContent is used, not innerHTML, so the server's strings
+  // are printed literally and need no escaping. The subtitle row is collapsed when the
+  // course has none so it does not leave a gap. The document title is set so "Save as PDF"
+  // proposes a file name with the attendee and course in it.
   function render(c) {
     $('#fName').textContent = c.name;
     $('#fCourse').textContent = c.course_name;
@@ -595,6 +740,11 @@
     window.scrollTo(0, 0);
   }
 
+  // Asks the server to issue (or re-issue) the certificate. `name` is sent only on the
+  // first issue; afterwards the server already has it and the body is just the code.
+  // Error display depends on where we came from: if the name form is on screen (#nameErr
+  // exists) the message goes under the field so the typed name is kept; otherwise the
+  // gate is replaced with the message and a way back to the code form.
   function issue(name) {
     var body = { code: code };
     if (name) body.name = name;
@@ -607,6 +757,12 @@
     });
   }
 
+  // Entry point, run on load and after every code entry. One round trip to
+  // /tickets/lookup decides the screen: no code -> code form; server says available ->
+  // issue at once if a name is on file, else the name form; not available -> the locked
+  // notice with the server's reason (class not finished, ticket unused, withheld...);
+  // lookup failed (unknown code, network) -> back to the code form with the error.
+  // MATS is cleared first so a failed lookup cannot show the previous ticket's files.
   function lookup() {
     if (!code) { askForCode(''); return; }
     MATS = []; COURSE = '';
@@ -631,10 +787,13 @@
     }).catch(function (e) { askForCode(e.message); });
   }
 
+  // Certificate-bar buttons and the resize hook. "Look up a different ticket" also forgets
+  // the stored code so the next visitor on a shared machine does not inherit it.
   $('#printBtn').onclick = function () { window.print(); };
   $('#againBtn').onclick = function () { code = ''; lsSet('nerx_cert_code', ''); askForCode(''); };
   window.addEventListener('resize', fitSheet);
 
+  // Start: check whatever code we have (or show the code form).
   lookup();
 }());
 </script>

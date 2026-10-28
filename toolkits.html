@@ -1,10 +1,55 @@
 <!DOCTYPE html>
+<!--
+  toolkits.html - public catalog of NERX's free, browser-based power-engineering tools.
+
+  WHO USES IT: any visitor (engineers, students, prospects). It is reached from the "Toolkits"
+  item in the main nav on every page. Nothing here needs a login.
+
+  WHAT IT DOES: it is a static list of links. Each card is one tool; clicking it opens that tool
+  in a new tab. The tools themselves live under toolkits/ (one self-contained HTML file each) or,
+  for the two hosted apps, on other hosts (pfas.nerxpower.com and www.nerxpower.com/power-simulator).
+
+  BACKEND CALLS: none. This page does not talk to the ticket server (tickets.nerxpower.com) or
+  to the forum (forum.nerxpower.com is only a nav link). No fetch(), no forms.
+
+  BROWSER STORAGE: none. No cookies, localStorage or sessionStorage.
+
+  LINK CONVENTION: every tool link has target="_blank" (new tab) and rel="noopener", which stops
+  the opened page from reaching back into this one through window.opener.
+
+  ACRONYMS USED IN THE CARD TEXT:
+    CT  = current transformer (the sensor a relay measures current through)
+    TCC = time-current curve (the log-log plot relay coordination is done on)
+    CTI = coordination time interval (the required time margin between a primary relay
+          and the backup relay behind it)
+
+  PAGE MAP (in document order):
+    head         meta/SEO tags, favicons, shared styles.css, then a page-local style block
+                 (styles only this page uses: cards, chips, the library grid).
+    script       one line: adds class "js" to the html element (see the note at the tag).
+    .topbar      contact strip (same on every page).
+    header       logo + main nav (same on every page; keep in sync with index.html).
+    .page-hero   breadcrumb + page title.
+    section      the whole page body, in this order:
+      1. intro paragraph
+      2. FEATURED card - the Power System Fault Analysis app (pfas.nerxpower.com)
+      3. Sequence Components Toolkit card (SVG illustration + description)
+      4. .sc-section  - six "Symmetrical Components" session toolkits (toolkits/sc/01..06)
+      5. .lib-section - the Toolkit Library: a hidden SVG that defines shared arrowheads,
+                        then seven categories A..G, each a grid of cards with a small
+                        decorative SVG thumbnail
+      6. closing "more on the way / email Doug" paragraph
+    footer       logo + copyright (same on every page).
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Educational Toolkits — NERX Power Consultants</title>
 <meta name="description" content="Free interactive power-engineering toolkits from NERX Power Consultants — including a Sequence Components Toolkit for visualizing symmetrical components, phasors, and unbalanced faults.">
+<!-- Only script on the page. Marks <html> with class "js" so styles.css can run its ".reveal"
+     fade-in only when JavaScript is on (without JS the content must stay visible). This page has
+     no .reveal elements, so the class does nothing here; it is kept so every page's <head> matches. -->
 <script>document.documentElement.classList.add('js');</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" href="favicon.png">
@@ -14,7 +59,10 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Educational Toolkits — NERX Power Consultants">
 <meta property="og:description" content="Free interactive power-engineering toolkits, including a Sequence Components Toolkit for visualizing symmetrical components and unbalanced faults.">
+<!-- Page-local styles. Site-wide layout (topbar, nav, hero, buttons, footer) and the brand color
+     variables used below as var(...) for blue, charcoal and white all come from styles.css, linked above. -->
 <style>
+  /* ---- intro text + the plain toolkit card (.tk-card; used by the Sequence Components card) ---- */
   .tk-intro { max-width: 62ch; font-size: 1.06rem; color: #414851; }
   .tk-card { background: var(--white); color: var(--charcoal); border: 1px solid #e0e5eb;
     border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(33,35,39,.06); margin-top: 26px; }
@@ -26,6 +74,7 @@
   .toolkit-body .kicker { color: var(--blue); }
   .toolkit-body h2 { font-size: 1.5rem; margin: 4px 0 12px; }
   .toolkit-body p { color: #414851; max-width: 68ch; }
+  /* ---- feature chips, the launch-button row, and the Phase A/B/C color legend under the SVG ---- */
   .chips { list-style: none; padding: 0; margin: 18px 0 24px; display: flex; flex-wrap: wrap; gap: 8px; }
   .chips li { font-size: 0.85rem; background: #eef3f5; color: #2c4a53; border: 1px solid #d6e2e6;
     border-radius: 999px; padding: 6px 13px; font-weight: 500; }
@@ -35,6 +84,7 @@
     color: #5f6368; flex-wrap: wrap; }
   .tk-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .tk-legend i { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
+  /* ---- Symmetrical Components session toolkits (.sc-*): a grid of text-only link cards ---- */
   .sc-section { border-top: 1px solid #e0e5eb; margin-top: 40px; padding-top: 34px; }
   .sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; margin-top: 24px; }
   .sc-tk { display: flex; flex-direction: column; background: var(--white); color: var(--charcoal);
@@ -79,6 +129,7 @@
   .lib-body p { font-size: .89rem; color: #5a6b7b; line-height: 1.5; margin: 0 0 12px; flex: 1; }
   .lib-go { font-weight: 600; color: var(--blue); font-size: .88rem; }
   .lib-tk:hover .lib-go { text-decoration: underline; }
+  /* small "HOSTED" tag on a library card whose link leaves the toolkits/ folder (used once) */
   .lib-ext { display: inline-block; margin-left: 8px; font-family: "IBM Plex Mono", Consolas, monospace;
     font-size: .68rem; font-weight: 600; letter-spacing: .03em; color: #6b7278;
     border: 1px solid #d6dde2; border-radius: 4px; padding: 1px 5px; vertical-align: 1px; }
@@ -86,8 +137,10 @@
 </head>
 <body>
 
+<!-- Keyboard/screen-reader shortcut past the header; styled in styles.css to show only on focus -->
 <a class="skip-link" href="#main">Skip to content</a>
 
+<!-- Contact strip: identical on every page -->
 <div class="topbar">
   <div class="container">
     <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
@@ -96,6 +149,8 @@
   </div>
 </div>
 
+<!-- Site header: logo + main nav. Same markup on every page; links point back into index.html's
+     anchors. aria-current="page" marks this page's own item for assistive tech. -->
 <header>
   <div class="nav">
     <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
@@ -118,6 +173,7 @@
 
 <main id="main">
 
+<!-- Title band: breadcrumb back to home + the page H1 -->
 <div class="page-hero">
   <div class="container">
     <a class="breadcrumb" href="index.html">&larr; Home</a>
@@ -125,18 +181,25 @@
   </div>
 </div>
 
+<!-- ======================= PAGE BODY: one <section> holds everything below the hero ======================= -->
 <section>
   <div class="container">
+    <!-- 1. Intro paragraph -->
     <p class="tk-intro">Free, interactive tools built by a practicing protection engineer to make the
       hard-to-picture parts of power systems tangible. They run entirely in your browser — nothing to
       install, nothing to sign up for.</p>
 
+    <!-- 2. FEATURED card: the Power System Fault Analysis app. It is NOT in toolkits/; it is a separate
+         React app hosted at pfas.nerxpower.com with its own Python server, so (unlike the rest of this
+         page) it needs that server to be up. The screenshot is a static JPEG with width/height set so
+         the layout does not jump while it loads; loading="eager" because it is above the fold. -->
     <article class="tk-card featured">
       <div class="toolkit-figure">
         <img class="shot" src="toolkits/assets/pfas-features.jpg" width="1500" height="1327" loading="eager"
           alt="Power System Fault Analysis app: an interactive one-line diagram of a dual-source plant with buses, machines, transformers, relays and CTs; a time-current coordination plot with CTI grading; and a phasor diagram.">
       </div>
       <div class="toolkit-body">
+        <!-- Badge, title, lead paragraph, then a two-column list of the app's study types -->
         <span class="feat-badge">Featured · Flagship application</span>
         <h2>Power System Fault Analysis &amp; Protection</h2>
         <p class="feat-lead">A full browser-based studies workbench for protection engineers and students. Build a
@@ -176,6 +239,7 @@
             file format.</li>
         </ul>
 
+        <!-- Launch button for the hosted app (external host, new tab) -->
         <div class="toolkit-cta">
           <a class="btn btn-primary" href="https://pfas.nerxpower.com" target="_blank" rel="noopener">Launch the application &rarr;</a>
           <span class="note">Opens in a new tab · free to use · best on desktop</span>
@@ -183,6 +247,12 @@
       </div>
     </article>
 
+    <!-- 3. Sequence Components Toolkit card (toolkits/sequence-components-toolkit.html).
+         The figure is a hand-drawn, static SVG of Fortescue's theorem: one unbalanced set of three
+         phasors = a positive-sequence set + a negative-sequence set + a zero-sequence set. Phase
+         colors are blue A / orange B / green C, matched by the legend under it. The three <marker>
+         defs (ahA/ahB/ahC) are the arrowheads, one per color; role="img" + aria-label make the
+         whole drawing one described image for screen readers. -->
     <article class="tk-card">
       <div class="toolkit-figure">
         <svg viewBox="0 0 900 300" role="img" xmlns="http://www.w3.org/2000/svg"
@@ -246,6 +316,7 @@
             <text x="800" y="250">Zero</text>
           </g>
         </svg>
+        <!-- Color key for the drawing above; the inline backgrounds must match the stroke colors in the SVG -->
         <div class="tk-legend">
           <span><i style="background:#1a7690"></i> Phase A</span>
           <span><i style="background:#d98a3d"></i> Phase B</span>
@@ -253,6 +324,7 @@
         </div>
       </div>
 
+      <!-- Description, feature chips, and the launch button (opens the local toolkit in a new tab) -->
       <div class="toolkit-body">
         <div class="kicker">Interactive tool</div>
         <h2>Sequence Components Toolkit</h2>
@@ -280,6 +352,10 @@
       </div>
     </article>
 
+    <!-- 4. Symmetrical Components session toolkits: the six interactive figures from the live
+         "Symmetrical Components - Part 1" class, each its own page under toolkits/sc/. Each card is a
+         single <a> (number, title, blurb, "Open" label). The kicker/h2 carry inline styles because the
+         matching rules in the <style> block are scoped to .toolkit-body and do not reach here. -->
     <div class="sc-section">
       <div class="kicker" style="color:var(--blue)">Training session · interactive figures</div>
       <h2 style="font-size:1.5rem; margin:4px 0 12px; color:var(--charcoal)">Symmetrical Components — Session Toolkits</h2>
@@ -335,6 +411,11 @@
         Components — Part&nbsp;1 session; more toolkits will be added as further sessions are built.</p>
     </div>
 
+    <!-- 5. TOOLKIT LIBRARY: every remaining tool, grouped into seven categories (A..G below).
+         Each category is a .lib-cat (heading + one-line subtitle + .lib-grid). Each card is one <a>
+         holding a small decorative SVG thumbnail (aria-hidden: the title says what it is) and a title,
+         blurb and "Open" label. Thumbnails are drawn by hand in a 160x90 box and share one palette:
+         blue #1a7690, orange #d98a3d, green #4f9e83, gray axes #cfd7dd / #7c8994. -->
     <div class="lib-section">
       <div class="kicker" style="color:var(--blue)">The full collection</div>
       <h2 style="font-size:1.5rem; margin:4px 0 12px; color:var(--charcoal)">Toolkit Library</h2>
@@ -343,6 +424,10 @@
         your browser and opens in a new tab. Best on a desktop or tablet.</p>
 
       <!-- shared arrowhead markers -->
+      <!-- A zero-size SVG that only holds <defs>. The thumbnails below reference these arrowheads by
+           id (marker-end="url(#lba)" etc.: a=blue, o=orange, g=green, c=charcoal) instead of each
+           defining its own. That works because they are all in this one document; a card copied to
+           another page without this block would lose its arrowheads silently. -->
       <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
         <marker id="lba" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#1a7690"/></marker>
         <marker id="lbo" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#d98a3d"/></marker>
@@ -905,6 +990,7 @@
       </div>
     </div>
 
+    <!-- 6. Closing call for suggestions (plain mailto link) -->
     <p class="tk-intro" style="margin-top:34px">More toolkits are on the way. Have one you'd find useful,
       or spotted something to improve? <a href="mailto:douglas.millner@nerxpower.com">Email Doug Millner</a>.</p>
   </div>
@@ -912,6 +998,7 @@
 
 </main>
 
+<!-- Footer: identical on every page -->
 <footer>
   <div class="container">
     <img src="nerx-logo-transparent.png" alt="NERX Power Consultants">

@@ -1,12 +1,38 @@
 <!DOCTYPE html>
+<!--
+  record.html — the printable Class Record for one training session (instructor only).
+
+  WHAT IT IS
+    A one-sheet, letter-size record of a class: course details, learning objectives,
+    materials, and the attendance table with minutes and certificate numbers. It is the
+    document behind the PDH certificates (PDH = professional development hour), kept for
+    audits. Opened from the roster's Attendance box as record.html?session=<id>; "Print /
+    Save as PDF" uses the browser's print dialog (the dark bar is hidden when printing).
+
+  ACCESS
+    Needs the admin token. It is read from sessionStorage (entered here, kept for the tab)
+    or from localStorage.nerx_admin_token_keep (the roster's "remember on this computer"
+    choice). Without one the bar shows a token box. The small script in <head> refuses to
+    run inside another site's frame.
+
+  TALKS TO (tickets.nerxpower.com)
+    GET /admin/sessions/{id}/record   with "Authorization: Bearer <token>"
+
+  PAGE MAP
+    .bar (controls) · .sheet (the printable page, hidden until the record loads) · script.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Class Record — NERX Training Admin</title>
 <meta name="robots" content="noindex, nofollow">
+<!-- Frame guard: if this admin page is embedded by another site, break out of the frame
+     (or blank the page if that is blocked). Same guard as the other admin pages. -->
 <script>if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Self-contained styles (this page does not use styles.css): a serif "document" look, and
+     a print block that hides the control bar and removes the on-screen paper shadow. -->
 <style>
   :root { --ink: #1b2a41; --muted: #5f6368; --rule: #c9cdd2; --accent: #2f90b0; }
   * { box-sizing: border-box; }
@@ -55,12 +81,14 @@
 </style>
 </head>
 <body>
+<!-- Control bar: back link, status text, the token box (shown only when needed), print. -->
 <div class="bar">
   <a href="roster.html#today">&larr; Roster</a>
   <span id="status">Loading the class record…</span>
   <span id="auth" hidden><input id="tok" type="password" placeholder="Admin token"> <button id="go">Load</button></span>
   <button id="print">Print / Save as PDF</button>
 </div>
+<!-- The printable sheet. Every element with an id is filled by render() below. -->
 <div class="sheet" id="sheet" hidden>
   <div class="head">
     <img src="nerx-logo.png" alt="NERX Power Consultants">
@@ -90,19 +118,25 @@
   <div class="foot"><span id="prov"></span><span id="gen"></span></div>
 </div>
 
+<!-- Page logic: resolve the API base, read the token, fetch the record, render it. -->
 <script>
+// API base: the live ticket server, unless a ?api=http://localhost:... override was saved
+// for development. Only localhost overrides are honoured, so a crafted link cannot send the
+// admin token somewhere else.
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
 try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
+// HTML-escape server strings before they go into innerHTML; the fmt* helpers print Central time.
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CT = 'America/Chicago';
 const fmtDT = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: CT, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 const fmtT = (iso) => iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: CT, hour: 'numeric', minute: '2-digit' }) : '—';
 const fmtD = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
+// The admin token: this tab's sessionStorage first, then the roster's remembered copy.
 function token() {
   let t = null;
   try { t = sessionStorage.getItem('nerx_admin_token') || localStorage.getItem('nerx_admin_token_keep'); } catch (e) {}
@@ -110,6 +144,7 @@ function token() {
 }
 const sid = new URLSearchParams(location.search).get('session');
 
+// Fetch the record. A 401 means the token was wrong — show the box again rather than failing.
 async function load() {
   const t = token();
   if (!sid) { $('#status').innerHTML = '<span class="err">No session given. Open this page from the roster’s Attendance box.</span>'; return; }
@@ -125,6 +160,8 @@ async function load() {
   } catch (e) { $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; }
 }
 
+// Fill the sheet from the server's record: {session, instructor, counts, attendees,
+// provider_numbers, generated_at}. Objectives arrive as one string with one line per item.
 function render(d) {
   const s = d.session;
   document.title = 'Class Record — ' + s.course_name + ' — ' + fmtD(s.starts_at);
@@ -165,6 +202,7 @@ function render(d) {
   $('#gen').textContent = 'Generated ' + fmtDT(d.generated_at) + ' Central';
   $('#sheet').hidden = false;
 }
+// Token box: store for this tab only, then load. Enter in the box submits.
 $('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} load(); };
 $('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
 $('#print').onclick = () => window.print();

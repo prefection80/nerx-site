@@ -388,12 +388,13 @@
     <div class="course-sub" id="fSub"></div>
 
     <!-- Hours awarded. The unit-abbr / unit-full spans are hooks for swapping the unit
-         wording (PDH vs CEU); nothing on the page reads them today, so it always says PDH. -->
+         wording (PDH vs CEU); render() only switches unit-full between "Hour" and "Hours"
+         to match the number, so the sheet always says PDH. -->
     <div class="hours-line">
       and is hereby awarded
       <span class="hours-num" id="fHours"></span>
       <b><span class="unit-abbr">PDH</span></b>
-      (<span class="unit-full">Professional Development Hours</span>)
+      (<span class="unit-full" id="fUnitFull">Professional Development Hours</span>)
       of technical instruction
     </div>
 
@@ -728,6 +729,8 @@
     sub.textContent = c.course_subtitle || '';
     sub.style.display = c.course_subtitle ? '' : 'none';
     $('#fHours').textContent = c.pdh_hours;
+    // "1 PDH (Professional Development Hour)" - plural only when it is not exactly one.
+    $('#fUnitFull').textContent = 'Professional Development Hour' + (Number(c.pdh_hours) === 1 ? '' : 's');
     $('#fDate').textContent = c.completed_on;
     $('#fCertNo').textContent = c.cert_no;
     document.title = 'PDH Certificate — ' + c.name + ' — ' + c.course_name;

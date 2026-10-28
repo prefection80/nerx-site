@@ -195,12 +195,17 @@
 
     <!-- 2. FEATURED card: the Power System Fault Analysis app. It is NOT in toolkits/; it is a separate
          React app hosted at pfas.nerxpower.com with its own Python server, so (unlike the rest of this
-         page) it needs that server to be up. The screenshot is a static JPEG with width/height set so
-         the layout does not jump while it loads; loading="eager" because it is above the fold. -->
+         page) it needs that server to be up. The screenshot is served as WebP (80 KB) with the JPEG
+         (257 KB) as the fallback for browsers without WebP and as the og:image above; width/height
+         are set so the layout does not jump while it loads; loading="eager" because it is above
+         the fold. Both files are in toolkits/assets/. -->
     <article class="tk-card featured">
       <div class="toolkit-figure">
-        <img class="shot" src="toolkits/assets/pfas-features.jpg" width="1500" height="1327" loading="eager"
-          alt="Power System Fault Analysis app: an interactive one-line diagram of a dual-source plant with buses, machines, transformers, relays and CTs; a time-current coordination plot with CTI grading; and a phasor diagram.">
+        <picture>
+          <source srcset="toolkits/assets/pfas-features.webp" type="image/webp">
+          <img class="shot" src="toolkits/assets/pfas-features.jpg" width="1500" height="1327" loading="eager"
+            alt="Power System Fault Analysis app: an interactive one-line diagram of a dual-source plant with buses, machines, transformers, relays and CTs; a time-current coordination plot with CTI grading; and a phasor diagram.">
+        </picture>
       </div>
       <div class="toolkit-body">
         <!-- Badge, title, lead paragraph, then a two-column list of the app's study types -->

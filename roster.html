@@ -314,7 +314,7 @@
          tests it with GET /admin/sessions. -->
     <div class="admin-box flex" id="authBox">
       <label for="tok">Admin token</label>
-      <input id="tok" type="password" style="min-width:280px">
+      <input id="tok" type="password" autocomplete="off" style="min-width:280px">
       <button class="btn btn-primary small" id="saveTok">Connect</button>
       <label style="font-weight:400;font-size:0.88rem;color:#5f6368;display:flex;align-items:center;gap:6px">
         <input type="checkbox" id="tokRemember" style="width:auto"> Remember on this device</label>
@@ -527,7 +527,7 @@
         </div>
         <div class="flex" style="margin-top:10px">
           <label for="ePdh" title="Credit printed on the attendee's certificate. Leave blank to use the class length.">PDH awarded</label>
-          <input id="ePdh" type="number" min="0" step="0.25" placeholder="auto" style="width:90px">
+          <input id="ePdh" type="number" min="0" step="0.1" placeholder="auto" style="width:90px">
           <label for="eSub" title="Italic line printed under the course title on the certificate">Certificate subtitle</label>
           <input id="eSub" placeholder="Theory and application of…" style="flex:1;min-width:260px">
         </div>
@@ -1154,6 +1154,25 @@ function selectSession(sid) {
   fillEditor(); loadRoster(); renderCalendar();
 }
 
+// ---- the two row actions every ticket list offers ------------------------------
+// Void and New Code appear in the unassigned list, the ticket search and the roster. Each
+// list passes the refresh it needs afterwards: loadSessions (the ticket moves between lists)
+// or loadRoster (only this session's rows change). Server errors land in an alert().
+function voidTicket(t, after) {
+  const who = (t.code || t.code_hint ? 'ticket ' + (t.code || t.code_hint) + ' for ' : 'ticket for ') + t.buyer_email;
+  if (!confirm('Void ' + who + '?')) return;
+  api('/admin/tickets/' + t.ticket_id + '/void', { method: 'POST', body: JSON.stringify({ reason: 'admin' }) })
+    .then(after).catch((e) => alert(e.message));
+}
+const NEW_CODE_TITLE = 'Re-issue this ticket’s code: the old code stops working, ' +
+                       'the new one is shown to you and emailed to the student';
+function recodeTicket(t, after) {
+  if (!confirm('Re-issue the code for ' + t.buyer_email + '? Their current code will stop working.')) return;
+  api('/admin/tickets/' + t.ticket_id + '/recode', { method: 'POST' })
+    .then((r) => { alert('New code for ' + t.buyer_email + ':\n\n' + r.code + '\n\n(Also emailed to the student.)'); after(); })
+    .catch((e) => alert(e.message));
+}
+
 // ---- move / assign --------------------------------------------------------
 // "Move" (a booked ticket) and "Assign" (an unassigned one) are the same flow: remember the
 // ticket in MOVING, show the orange banner, and let the next calendar chip click finish it.
@@ -1191,8 +1210,7 @@ async function moveTo(s) {
     await api('/admin/tickets/' + MOVING.ticket_id + '/move', { method: 'POST',
       body: JSON.stringify({ session_id: s.id, force: force, notify: true }) });
     endMove();
-    await loadSessions();
-    selectSession(s.id);
+    await loadSessions(s.id);   // land on the destination session
   } catch (e) { alert(e.message); }
 }
 
@@ -1235,10 +1253,7 @@ function renderUnassigned() {
     actions.appendChild(assign);
     const voidBtn = document.createElement('button');
     voidBtn.className = 'btn btn-outline tiny'; voidBtn.textContent = 'Void';
-    voidBtn.onclick = () => confirm('Void ticket for ' + t.buyer_email + '?') &&
-      api('/admin/tickets/' + t.ticket_id + '/void',
-          {method: 'POST', body: JSON.stringify({reason: 'admin'})})
-        .then(loadSessions).catch((e) => alert(e.message));
+    voidBtn.onclick = () => voidTicket(t, loadSessions);
     actions.appendChild(voidBtn);
     body.appendChild(tr);
   });
@@ -1307,18 +1322,8 @@ function renderTicketSearch() {
     if (t.status === 'booked' && s) add('Move', 'btn-outline', 'Move this student to a different session date',
       () => startMove({ ...t, session_id: s.id }));
     if (t.status !== 'void') {
-      add('New Code', 'btn-outline', 'Re-issue this ticket’s code: the old code stops working, ' +
-        'the new one is shown to you and emailed to the student', () =>
-        confirm('Re-issue the code for ' + t.buyer_email + '? Their current code will stop working.') &&
-        api('/admin/tickets/' + t.ticket_id + '/recode', {method: 'POST'})
-          .then((r) => { alert('New code for ' + t.buyer_email + ':\n\n' + r.code +
-                               '\n\n(Also emailed to the student.)'); loadSessions(); })
-          .catch((e) => alert(e.message)));
-      add('Void', 'btn-outline', 'Cancel this ticket', () =>
-        confirm('Void ticket ' + (t.code || t.code_hint) + ' for ' + t.buyer_email + '?') &&
-        api('/admin/tickets/' + t.ticket_id + '/void',
-            {method: 'POST', body: JSON.stringify({reason: 'admin'})})
-          .then(loadSessions).catch((e) => alert(e.message)));
+      add('New Code', 'btn-outline', NEW_CODE_TITLE, () => recodeTicket(t, loadSessions));
+      add('Void', 'btn-outline', 'Cancel this ticket', () => voidTicket(t, loadSessions));
     }
     body.appendChild(tr);
   });
@@ -1611,24 +1616,35 @@ function courseMaterials(g) {
   return withFiles ? withFiles.materials.map(normMaterial) : [];
 }
 // ---- the full refresh --------------------------------------------------------
-// Re-fetch both lists and redraw everything, then reload the selected session's roster.
-// This is what every save/void/move calls afterwards, so the whole page agrees with the
-// server. (The 15 s background timer is a lighter version that skips the editor and roster.)
-// Errors are not caught here; callers that want a message chain .catch themselves.
-async function loadSessions() {
+// The part both refreshes share: re-fetch both lists, keep the dropdown's selection (read
+// AFTER the fetch so a chip click made meanwhile isn't lost), and redraw the views that
+// never clobber typing. With rebuildDropdown the option list is rebuilt from the new data.
+async function refreshLists(rebuildDropdown) {
   const sel = $('#sessSel');
   [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
-  const prev = sel.value;   // read after the fetch so a chip click made meanwhile isn't lost
-  sel.innerHTML = '';
-  SESSIONS.forEach((s) => {
-    const o = document.createElement('option');
-    o.value = s.id;
-    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) + ' — $' + Number(s.price_usd || 0).toFixed(0) +
-                    ' · ' + (s.duration_min || 90) + 'min (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
-    sel.appendChild(o);
-  });
+  const prev = sel.value;
+  if (rebuildDropdown) {
+    sel.innerHTML = '';
+    SESSIONS.forEach((s) => {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.course_name + ' — ' + fmt(s.starts_at) + ' — $' + Number(s.price_usd || 0).toFixed(0) +
+                      ' · ' + (s.duration_min || 90) + 'min (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
+      sel.appendChild(o);
+    });
+  }
   if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
   renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
+}
+// Re-fetch both lists and redraw everything, then reload the selected session's roster.
+// This is what every save/void/move calls afterwards, so the whole page agrees with the
+// server. Pass `selectId` to land on a particular session (a just-added or just-moved-to
+// date) in the same pass, instead of loading the old selection's roster and then the new one.
+// (The 15 s background timer is the lighter refreshLists() alone: no editor, no roster.)
+// Errors are not caught here; callers that want a message chain .catch themselves.
+async function loadSessions(selectId) {
+  await refreshLists(true);
+  if (selectId && SESSIONS.some((s) => s.id === selectId)) { $('#sessSel').value = selectId; renderCalendar(); }
   prefillWeeklyRange(); renderCourses(); loadCourseDuplicates();
   // The charts are only redrawn when visible; showTab() draws them when the tab opens.
   if (!$('[data-panel="reports"]').hidden) renderNumbers();
@@ -1687,14 +1703,8 @@ async function loadRoster() {
       if (t.status !== 'void') {
         const codeBtn = document.createElement('button');
         codeBtn.className = 'btn btn-outline tiny'; codeBtn.textContent = 'New Code';
-        codeBtn.title = 'Re-issue this ticket’s code: the old code stops working, ' +
-                        'the new one is shown to you and emailed to the student';
-        codeBtn.onclick = () => confirm('Re-issue the code for ' + t.buyer_email +
-            '? Their current code will stop working.') &&
-          api('/admin/tickets/' + t.ticket_id + '/recode', {method: 'POST'})
-            .then((r) => { alert('New code for ' + t.buyer_email + ':\n\n' + r.code +
-                                 '\n\n(Also emailed to the student.)'); loadRoster(); })
-            .catch((e) => alert(e.message));
+        codeBtn.title = NEW_CODE_TITLE;
+        codeBtn.onclick = () => recodeTicket(t, loadRoster);
         actions.appendChild(codeBtn);
       }
       // Certificate controls: one route (POST .../certificate) takes either {blocked} to
@@ -1740,10 +1750,7 @@ async function loadRoster() {
       if (t.status !== 'void') {
         const voidBtn = document.createElement('button');
         voidBtn.className = 'btn btn-outline tiny'; voidBtn.textContent = 'Void';
-        voidBtn.onclick = () => confirm('Void ticket for ' + t.buyer_email + '?') &&
-          api('/admin/tickets/' + t.ticket_id + '/void',
-              {method: 'POST', body: JSON.stringify({reason: 'admin'})})
-            .then(loadRoster).catch((e) => alert(e.message));
+        voidBtn.onclick = () => voidTicket(t, loadRoster);
         actions.appendChild(voidBtn);
       }
       body.appendChild(tr);
@@ -2779,8 +2786,9 @@ $('#eSave').onclick = async () => {
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };
-// "Duplicate...": copy name, length, seats and price into the add form (not the meeting link,
-// subtitle or PDH - the add form has no fields for them) and jump there.
+// "Duplicate...": copy name, length, seats and price into the add form and jump there. The
+// add form has no fields for the meeting link, subtitle or materials; Add Session carries the
+// course's own over (see #nCreate), so the clone ends up with them too. PDH stays "auto".
 $('#eClone').onclick = () => {
   const s = SESSIONS.find((x) => x.id === $('#sessSel').value);
   if (!s) return;
@@ -2816,23 +2824,27 @@ $('#nCreate').onclick = async () => {
     if (!name || !starts) throw new Error('Course name and start date are required.');
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
                  + '-' + starts.slice(0, 10) + '-' + starts.slice(11, 16).replace(':', '');
-    // A new date of an existing course starts with that course's class materials and
-    // certificate subtitle, so the course stays consistent without re-typing.
+    // A new date of an existing course starts with that course's class materials, certificate
+    // subtitle and meeting link (its newest date's, as the weekly generator does), so the
+    // course stays consistent without re-typing - and the new date is not left with no link,
+    // which would skip the join-link reminder. All three are editable afterwards.
     const g = courseGroups().find((x) => x.key === normCourse(name));
     const mats = g ? courseMaterials(g) : [];
     const sub = g ? ((g.sessions.find((s) => s.course_subtitle) || {}).course_subtitle || null) : null;
+    const link = g ? ((g.sessions.find((s) => s.meeting_link) || {}).meeting_link || null) : null;
     await api('/admin/sessions', {method: 'POST', body: JSON.stringify({
       id: slug, course_name: name, starts_at: starts,
       duration_min: parseInt($('#nMins').value, 10) || 90,
       capacity: parseInt($('#nCap').value, 10) || 20,
       price_usd: parseFloat($('#nPrice').value) || 0,
-      materials: mats, course_subtitle: sub })});
+      meeting_link: link, materials: mats, course_subtitle: sub })});
+    const carried = [];
+    if (mats.length) carried.push(mats.length + ' class link' + (mats.length === 1 ? '' : 's'));
+    if (link) carried.push('the meeting link');
     $('#nMsg').textContent = 'Session added: ' + slug +
-      (mats.length ? ' — ' + mats.length + ' class link' + (mats.length === 1 ? '' : 's') +
-                     ' carried over from ' + g.name : '');
+      (carried.length ? ' — ' + carried.join(' and ') + ' carried over from ' + g.name : '');
     $('#nMsg').className = 'ok-msg';
-    await loadSessions();
-    selectSession(slug);
+    await loadSessions(slug);   // land on the new date
   } catch (e) { $('#nMsg').textContent = e.message; $('#nMsg').className = 'err'; }
 };
 // Weekly generator button: plan locally, show every date in a confirm(), then POST the sections
@@ -2916,19 +2928,17 @@ $('#mIssue').onclick = async () => {
 
 // Background refresh: keep calendar counts / stats / rosters current without
 // touching the editor form fields the admin may be typing in.
-// Every 15 s while logged in and not mid-move. It repeats the fetch half of loadSessions()
-// but deliberately skips fillEditor / renderCourses / loadRoster (they would clobber typing);
-// a 401 inside api() still signs the page out from here.
+// Every 15 s while logged in and not mid-move: refreshLists() without the dropdown rebuild,
+// and deliberately none of fillEditor / renderCourses / loadRoster (they would clobber
+// typing); a 401 inside api() still signs the page out from here.
 setInterval(async () => {
   if ($('#adminUi').hidden || MOVING) return;
   try {
-    const sel = $('#sessSel'); const prev = sel.value;
-    [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
-    if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
-    renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
+    await refreshLists(false);
     // posts arriving during class, and new forum posts to approve, show up without a reload
     if (!$('[data-panel="today"]').hidden) {
-      if (sel.value) loadClassThread(sel.value);
+      const sid = $('#sessSel').value;
+      if (sid) loadClassThread(sid);
       loadForum();
     }
   } catch (e) { /* transient network errors are fine */ }

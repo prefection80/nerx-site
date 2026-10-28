@@ -4,8 +4,8 @@
 
   Because it can be served at any depth (e.g. /services/typo.html), every link and asset
   here uses an ABSOLUTE path from the site root (/styles.css, /#services), unlike the other
-  pages which use relative paths. It is a styled dead end: the standard header/nav, a big
-  "// 404" in the hero style, one line of copy, and a button home. No scripts beyond the
+  pages which use relative paths. It is a styled dead end: the standard contact strip and
+  header/nav, a big "// 404" in the hero style, one line of copy, and a button home. No scripts beyond the
   one-line "js" class hook.
 -->
 <html lang="en">
@@ -41,6 +41,15 @@
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+
+<!-- Contact strip, the same one every public page carries (styles.css .topbar). -->
+<div class="topbar">
+  <div class="container">
+    <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
+    <span><strong>Location:</strong> Houston, TX</span>
+    <span><strong>Hours:</strong> 8:00 am – 6:00 pm Central</span>
+  </div>
+</div>
 
 <header>
   <div class="nav">

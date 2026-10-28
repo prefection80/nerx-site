@@ -96,7 +96,8 @@
      (styles.css makes the site header sticky at top: 0 with z-index 100 as
      well, so this bar ends up behind the header once the page scrolls; see
      the review notes.) */
-  .filters { position: sticky; top: 0; z-index: 5; }
+  /* Sticks just under the site header (which is itself sticky at top:0, z-index 100 in styles.css). */
+  .filters { position: sticky; top: var(--header-h, 74px); z-index: 101; }
   /* ---- KPI tiles: dark cards with one big number each ----------------------- */
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
   .tile { background: var(--charcoal); color: var(--grey-light); border-radius: 6px; padding: 16px 20px; border-left: 3px solid var(--blue); }
@@ -237,7 +238,12 @@
 // a crafted link must never be able to send the admin token to a stranger's server.
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+try {
+  if (_qApi === 'clear' || _qApi === '') localStorage.removeItem('nerx_tickets_api');
+  else if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi);
+} catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 
@@ -256,7 +262,9 @@ const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
 // fmtD = "Oct 14, 2026"; fmtDT = "Oct 14, 6:00 PM" (no year). ctParts() breaks a timestamp into
 // its Central year/month/day/weekday/hour so charts can bucket by month, weekday or hour.
 const fmtD = (iso) => new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' });
-const fmtDT = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: CT, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+// The year is shown when the chosen range spans more than 12 months ("Last 2 years", "All time").
+const fmtDT = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: CT, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  ...(S.since && Date.now() - S.since > 366 * 86400000 ? { year: 'numeric' } : {}) });
 const ctParts = (iso) => new Intl.DateTimeFormat('en-US', { timeZone: CT, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: 'numeric', hour12: false })
   .formatToParts(new Date(iso)).reduce((a, p) => (a[p.type] = p.value, a), {});
 // The admin token: the one typed on this page (session storage) or, failing that, the one
@@ -276,10 +284,11 @@ const TRACK = { Tue: COLORS[0], Thu: COLORS[3], Sat: COLORS[1], other: COLORS[2]
 // Any other non-2xx status is reported with its code.
 async function api(path) {
   const r = await fetch(API + path, { headers: { Authorization: 'Bearer ' + (token() || '') } });
-  if (r.status === 401 || r.status === 429) {
+  if (r.status === 429) throw new Error('The server is busy (rate limit) — try again in a minute.');
+  if (r.status === 401) {
     try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (e) {}
     $('#ui').hidden = true; $('#authBox').hidden = false;
-    throw new Error(r.status === 429 ? 'Too many failed attempts — wait a minute.' : 'Unauthorized — check the token.');
+    throw new Error('Unauthorized — check the token.');
   }
   if (!r.ok) throw new Error('Request failed (' + r.status + ')');
   return r.json();
@@ -356,8 +365,9 @@ function wireTables(box) {
   box.querySelectorAll('[data-toggle]').forEach((b) => { b.onclick = () => { const t = $('#' + b.dataset.toggle); t.hidden = !t.hidden; b.textContent = t.hidden ? 'Show data' : 'Hide data'; }; });
   box.querySelectorAll('[data-csv]').forEach((b) => { b.onclick = () => {
     const rows = [...$('#' + b.dataset.csv).querySelectorAll('tr')].map((tr) => [...tr.children].map((c) => '"' + c.textContent.replace(/"/g, '""') + '"').join(','));
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' }));
     a.download = 'nerx-' + b.dataset.csv + '.csv'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }; });
 }
 /* Vertical bars, optionally stacked: items = [{label, sub?, parts:[{v, color, name}]}] */
@@ -387,8 +397,8 @@ function bars(items, opts) {
       if (!p.v) return;
       const top = y(acc + p.v), bottom = y(acc) - (acc ? gap : 0);
       svg += '<rect class="bar" x="' + x + '" y="' + top + '" width="' + w + '" height="' + Math.max(0, bottom - top) + '" fill="' + p.color +
-             '" data-tip="' + esc('<b>' + d.label + (d.sub ? ' ' + d.sub : '') + '</b><br>' + (p.name ? p.name + ': ' : '') + (opts.fmt ? opts.fmt(p.v) : p.v) +
-             (d.parts.length > 1 ? '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) : '') + (d.tip ? '<br>' + d.tip : '')) + '"/>';
+             '" data-tip="' + esc('<b>' + esc(d.label) + (d.sub ? ' ' + esc(d.sub) : '') + '</b><br>' + (p.name ? esc(p.name) + ': ' : '') + (opts.fmt ? opts.fmt(p.v) : p.v) +
+             (d.parts.length > 1 ? '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) : '') + (d.tip ? '<br>' + esc(d.tip) : '')) + '"/>';
       acc += p.v;
     });
     if (tot(d) && (opts.values !== false) && n <= 16) svg += '<text class="val" x="' + (x + w / 2) + '" y="' + (y(tot(d)) - 4) + '" text-anchor="middle">' + esc(opts.fmt ? opts.fmt(tot(d)) : tot(d)) + '</text>';
@@ -411,12 +421,13 @@ function hbars(items, opts) {
   let svg = svgOpen(W, H, opts.label);
   items.forEach((d, i) => {
     const yy = 8 + i * rowH, h = rowH - 8;
-    svg += '<text class="lbl" x="' + (padL - 8) + '" y="' + (yy + h / 2 + 4) + '" text-anchor="end">' + esc(d.label.length > 26 ? d.label.slice(0, 25) + '…' : d.label) + '</text>';
+    const maxChars = Math.max(12, Math.floor((padL - 10) / 6.5));   // what fits in the label column
+    svg += '<text class="lbl" x="' + (padL - 8) + '" y="' + (yy + h / 2 + 4) + '" text-anchor="end">' + esc(d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + '…' : d.label) + '</text>';
     let acc = 0;
     d.parts.forEach((p) => {
       if (!p.v) return;
       svg += '<rect class="bar" x="' + (x(acc) + (acc ? 2 : 0)) + '" y="' + yy + '" width="' + Math.max(0, x(acc + p.v) - x(acc) - (acc ? 2 : 0)) + '" height="' + h + '" fill="' + p.color +
-             '" data-tip="' + esc('<b>' + d.label + '</b><br>' + p.name + ': ' + (opts.fmt ? opts.fmt(p.v) : p.v) + '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) + (d.tip ? '<br>' + d.tip : '')) + '"/>';
+             '" data-tip="' + esc('<b>' + esc(d.label) + '</b><br>' + esc(p.name) + ': ' + (opts.fmt ? opts.fmt(p.v) : p.v) + '<br>Total: ' + (opts.fmt ? opts.fmt(tot(d)) : tot(d)) + (d.tip ? '<br>' + esc(d.tip) : '')) + '"/>';
       acc += p.v;
     });
     svg += '<text class="val" x="' + (x(tot(d)) + 6) + '" y="' + (yy + h / 2 + 4) + '">' + esc(opts.fmt ? opts.fmt(tot(d)) : tot(d)) + '</text>';
@@ -558,7 +569,7 @@ function chartCurve() {
     const up = !past(l.s);
     const d = l.pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + (up ? '' : ' H' + x(0));
     svg += '<path d="' + d + '" fill="none" stroke="' + (up ? TRACK[trackOf(l.s)] : '#b8bec4') + '" stroke-width="' + (up ? 2.2 : 1.4) + '" stroke-linejoin="round" stroke-linecap="round"' +
-      ' data-tip="' + esc('<b>' + l.s.course_name + '</b><br>' + fmtDT(l.s.starts_at) + '<br>' + l.final + ' of ' + l.s.capacity + ' seats' + (up ? ' so far' : '')) + '"/>';
+      ' data-tip="' + esc('<b>' + esc(l.s.course_name) + '</b><br>' + fmtDT(l.s.starts_at) + '<br>' + l.final + ' of ' + l.s.capacity + ' seats' + (up ? ' so far' : '')) + '"/>';
   });
   const box = $('#chCurve');
   box.innerHTML = '<h3>How bookings build up</h3><div class="sub">Seats booked (as % of capacity) against days before class. Grey: dates that have run. Colour: upcoming dates, by track — is this one on pace?</div>' +
@@ -637,7 +648,13 @@ function chartLead() {
 // then by spend. A visible table shows the top 40; the hidden "Show data" table has everyone.
 function chartRepeat() {
   const byEmail = {};
-  TICKETS.filter((t) => t.status !== 'void').forEach((t) => { (byEmail[t.buyer_email] = byEmail[t.buyer_email] || []).push(t); });
+  // All time (not the date range), but honouring the test-date filter; emails are grouped
+  // case-insensitively so Doug@x.com and doug@x.com are one person.
+  const hideTest = $('#hideTest').checked;
+  TICKETS.filter((t) => t.status !== 'void' && !(hideTest && t.amount_usd <= 1)).forEach((t) => {
+    const k = String(t.buyer_email || '').trim().toLowerCase();
+    (byEmail[k] = byEmail[k] || []).push(t);
+  });
   const bySess = S.bySess;
   const repeaters = Object.keys(byEmail).filter((e) => byEmail[e].length > 1).map((e) => {
     const list = byEmail[e].slice().sort((a, b) => new Date(a.issued_at) - new Date(b.issued_at));
@@ -674,7 +691,8 @@ function chartRepeat() {
 // in the subtitle) so the bars show organizations. Top 12 drawn; the table lists every domain.
 function chartDomains() {
   const { tix } = S;
-  const PERSONAL = /^(gmail|yahoo|hotmail|outlook|live|icloud|aol|me|msn|comcast|att|sbcglobal|verizon|protonmail|proton)\./i;
+  // Whole domains (not prefixes, so me.utility.com is a company). Common webmail hosts.
+  const PERSONAL = /^(gmail\.com|googlemail\.com|yahoo\.(com|co\.uk|ca)|ymail\.com|hotmail\.(com|co\.uk)|outlook\.com|live\.(com|ca)|msn\.com|icloud\.com|me\.com|mac\.com|aol\.com|comcast\.net|att\.net|sbcglobal\.net|verizon\.net|protonmail\.com|proton\.me|pm\.me|gmx\.(com|net)|yandex\.com|mail\.com)$/i;
   const g = {}; let personal = 0;
   tix.filter((t) => t.status !== 'void').forEach((t) => {
     const dom = String(t.buyer_email).split('@')[1]?.toLowerCase() || '?';
@@ -698,9 +716,9 @@ function chartWaitlist() {
   const g = {};
   WAITLIST.filter((w) => sid.has(w.session_id)).forEach((w) => {
     const s = bySess[w.session_id]; const k = fmtDT(s.starts_at) + ' · ' + s.course_name;
-    (g[k] = g[k] || { waiting: 0, held: 0, booked: 0, expired: 0, removed: 0 }); g[k][w.status] = (g[k][w.status] || 0) + 1;
+    (g[k] = g[k] || { waiting: 0, held: 0, booked: 0, expired: 0, removed: 0, at: new Date(s.starts_at).getTime() }); g[k][w.status] = (g[k][w.status] || 0) + 1;
   });
-  const keys = Object.keys(g);
+  const keys = Object.keys(g).sort((a, b) => (g[a].at || 0) - (g[b].at || 0));
   const box = $('#chWaitlist');
   box.innerHTML = '<h3>Waitlist demand</h3><div class="sub">Dates people waited for, and what came of it. Repeated waitlists on a track mean it wants a second section.</div>' +
     (keys.length ? legend([[COLORS[3], 'Took the seat'], [COLORS[1], 'Holding an offer'], [COLORS[0], 'Still waiting'], ['#9aa0a6', 'Lapsed / left']]) +
@@ -715,10 +733,20 @@ function chartWaitlist() {
 // never touches the network. The forum boxes do not depend on the filters but are redrawn too
 // (cheap, and it keeps one code path). There is no per-chart error guard: if one chart throws,
 // the ones after it are not drawn.
+// Each chart is drawn on its own: if one throws (an unexpected field, a bad date), the error
+// is written into THAT chart's box and the others still draw.
+const CHARTS = [['tiles', tiles], ['chCourses', chartCourses], ['chRevenue', chartRevenue], ['chTimeline', chartTimeline],
+  ['chCurve', chartCurve], ['chHeat', chartHeat], ['chNoShow', chartNoShow], ['chLead', chartLead],
+  ['chRepeat', chartRepeat], ['chDomains', chartDomains], ['chWaitlist', chartWaitlist], ['chForumWeekly', chartForum]];
 function renderAll() {
   scope();
-  tiles(); chartCourses(); chartRevenue(); chartTimeline(); chartCurve(); chartHeat(); chartNoShow(); chartLead(); chartRepeat(); chartDomains(); chartWaitlist();
-  chartForum();
+  CHARTS.forEach(([id, draw]) => {
+    try { draw(); }
+    catch (e) {
+      const box = $('#' + id);
+      if (box) box.innerHTML = '<h3>' + esc(id) + '</h3><p class="err">This chart could not be drawn: ' + esc(e.message) + '</p>';
+    }
+  });
 }
 
 /* ---- the forum ------------------------------------------------------------
@@ -774,18 +802,23 @@ function chartForum() {
 // exists, then reveal the dashboard and draw. Any error (including a rejected token) is written
 // into the Connect box message.
 async function load() {
-  $('#authMsg').textContent = 'Loading…';
+  $('#authMsg').textContent = 'Loading…'; $('#authMsg').className = 'meta';
   try {
     [SESSIONS, TICKETS, WAITLIST] = await Promise.all([api('/admin/sessions'), api('/admin/tickets'), api('/admin/waitlist')]);
     try { FORUM_STATS = await api('/admin/forum/stats?weeks=26'); } catch (e) { FORUM_STATS = null; }
     // Course dropdown: every distinct course name across ALL sessions (cancelled and test dates
     // included), alphabetical.
     const sel = $('#course'); const cur = sel.value; sel.innerHTML = '<option value="">All courses</option>';
-    [...new Set(SESSIONS.map((s) => s.course_name))].sort().forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    const listed = SESSIONS.filter((s) => s.status !== 'cancelled' && !(s.price_usd <= 1 || /^test$/i.test(String(s.course_name).trim())));
+    [...new Set(listed.map((s) => s.course_name))].sort().forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (cur) sel.value = cur;
     $('#authBox').hidden = true; $('#ui').hidden = false; $('#authMsg').textContent = '';
     renderAll();
-  } catch (e) { $('#authMsg').textContent = e.message; $('#authMsg').className = 'err'; }
+  } catch (e) {
+    $('#authMsg').textContent = e.message; $('#authMsg').className = 'err';
+    // Once connected the Connect box is hidden, so say it where it can be seen.
+    if (!$('#ui').hidden) $('#scope').textContent = 'Reload failed: ' + e.message;
+  }
 }
 
 // ---- wiring --------------------------------------------------------------------
@@ -797,6 +830,10 @@ async function load() {
 $('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} $('#tok').value = ''; load(); };
 $('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
 $('#reload').onclick = load;
+// The sticky filter bar sits just under the sticky site header; the header's height changes
+// when the nav wraps on narrow screens, so measure it rather than hard-code it.
+const _setHeaderH = () => document.documentElement.style.setProperty('--header-h', document.querySelector('header').offsetHeight + 'px');
+_setHeaderH(); window.addEventListener('resize', _setHeaderH);
 ['range', 'course', 'hideTest'].forEach((id) => { $('#' + id).onchange = renderAll; });
 if (token()) load();
 </script>

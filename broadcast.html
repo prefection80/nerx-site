@@ -26,7 +26,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Email the List — NERX Training Admin</title>
 <meta name="robots" content="noindex, nofollow">
-<script>document.documentElement.classList.add('js');</script>
+<!-- Frame guard (same as the other admin pages): never run inside another site's frame. -->
+<script>document.documentElement.classList.add('js');
+  if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <!-- Page-only styles on top of styles.css. -->
@@ -136,7 +138,12 @@
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+try {
+  if (_qApi === 'clear' || _qApi === '') localStorage.removeItem('nerx_tickets_api');
+  else if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi);
+} catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);

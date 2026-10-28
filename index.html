@@ -113,6 +113,7 @@
         <li><a href="#about">About</a></li>
         <li><a href="#approach">Our Approach</a></li>
         <li><a href="#contact" class="cta">Contact Us</a></li>
+        <!-- nav: this is the source of truth — the same seven links are hand-copied into every other page. -->
       </ul>
     </nav>
   </div>
@@ -366,14 +367,15 @@
         </div>
       </div>
     </div>
-    <!-- The course sequence box. The intro text lists the weekly time slots in prose and is
-         hand-maintained; the calendar legend just below it is generated from the live data. -->
+    <!-- The course sequence box. The weekly time slots in the intro (#homeTrackList) and the
+         calendar legend below it are both rewritten from the live data once it loads; the text
+         in the markup is only the fallback. -->
     <div class="schedule reveal">
       <div class="schedule-head">
         <h3>Live Online Series — 2026 Course Sequence</h3>
         <p>Instructor-led sessions delivered live online, building from analytical foundations
            through advanced protection topics. Each course runs in several weekly time
-           slots — <b>Sundays 5:00 PM and 7:00 PM</b>, <b>Tuesdays 11:00 AM</b>, <b>Wednesdays 6:00 PM</b>, <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM and 10:00 AM</b> (Central). Every session is a single ~90-minute meeting at <b>$150 per session</b>,
+           slots — <span id="homeTrackList"><b>Sundays 5:00 PM and 7:00 PM</b>, <b>Tuesdays 11:00 AM</b>, <b>Wednesdays 6:00 PM</b>, <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM and 10:00 AM</b></span> (Central). Every session is a single ~90-minute meeting at <b>$150 per session</b>,
            booked individually. Courses that span two weeks run as consecutive weekly
            meetings, and <b>Arc Flash Analysis &amp; Coordination</b> is offered as Part 1 and
            Part 2. Pick a session on the calendar below to reserve a seat, or open the
@@ -393,17 +395,17 @@
           <a class="home-cal-link" href="ticket.html#calendarSection">Open the full calendar &rarr;</a>
         </div>
         <div class="cal-legend" id="hcLegend" hidden></div>
-        <div class="cal-scroll"><div class="cal-grid" id="hcGrid" role="grid"></div></div>
+        <div class="cal-scroll"><div class="cal-grid" id="hcGrid"></div></div>
         <ol class="cal-list" id="hcList"></ol>
         <p class="home-cal-foot" id="hcFoot" hidden>All times Central. Each session is one ~90-minute
            live online meeting at $150 &mdash; click it to reserve a seat.</p>
         <p class="err" id="hcErr" hidden></p>
       </div>
 
-      <!-- One row per course in teaching order. The "Weeks of ..." labels are typed by hand and
-           are not read from the ticket server; the calendar above is the live source of dates. -->
+      <!-- One row per course in teaching order. The date label of each row is filled from the
+           live schedule by fillCourseDates() in the calendar script (next date + how many). -->
       <div class="course-row">
-        <div class="dates">Weeks of Aug 11 &amp; Aug 18</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Symmetrical Components</h3>
           <p>The analytical foundation of protection engineering: per-unit analysis and
@@ -412,7 +414,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Aug 25 &amp; Sep 1</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Fault Analysis</h3>
           <p>Calculating three-phase, line-to-ground, line-to-line, and double-line-to-ground
@@ -421,7 +423,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Sep 8 &amp; Sep 15</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Relay Coordination</h3>
           <p>Time-current coordination from first principles: overcurrent element behavior,
@@ -430,7 +432,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Sep 22 &amp; Sep 29</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Differential Protection</h3>
           <p>Percentage-restrained and high-impedance differential principles applied to
@@ -439,7 +441,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Oct 6 &amp; Oct 13</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Forensic Event Analysis</h3>
           <p>Reconstructing events from relay and DFR records: reading oscillography and
@@ -448,7 +450,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Oct 20 &amp; Oct 27</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Pilot &amp; Communication Schemes</h3>
           <p>Communication-assisted line protection: permissive overreaching transfer trip,
@@ -457,7 +459,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 3</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Transfer Schemes &amp; Reclosing</h3>
           <p>Automatic bus transfer methods, reclosing philosophy and practices, and
@@ -465,7 +467,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 10</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Arc Flash Analysis &amp; Coordination — Part 1</h3>
           <p>Incident energy fundamentals and the IEEE 1584 calculation model: data
@@ -473,7 +475,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 17</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Arc Flash Analysis &amp; Coordination — Part 2</h3>
           <p>From study to safer system: the interaction between coordination and incident
@@ -481,7 +483,7 @@
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Nov 24 &amp; Dec 1</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Transmission Planning</h3>
           <p>How the planned system is assessed: contingency analysis, thermal and voltage
@@ -555,9 +557,10 @@
 /* Home-page training calendar. Read-only view of the open sessions on
    tickets.nerxpower.com; every chip links to ticket.html, which owns booking. */
 (function () {
-  // Fixed on purpose: the public calendar always reads the live schedule. (The signup script
-  // below honours a localStorage override for local development; this one does not.)
-  var API = 'https://tickets.nerxpower.com';
+  // Dev override only when it points at localhost (same rule as ticket.html); otherwise live.
+  var _st = null; try { _st = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+  var _isLocal = false; try { var _h = new URL(_st || '').hostname; _isLocal = _h === 'localhost' || _h === '127.0.0.1' || _h === '[::1]'; } catch (e) {}
+  var API = _isLocal ? _st : 'https://tickets.nerxpower.com';
   var grid = document.getElementById('hcGrid'), list = document.getElementById('hcList'),
       title = document.getElementById('hcTitle'), legend = document.getElementById('hcLegend'),
       prev = document.getElementById('hcPrev'), next = document.getElementById('hcNext'),
@@ -636,14 +639,14 @@
     var first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
     var dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
     var rows = Math.ceil((first + dim) / 7);
-    var html = DAYS.map(function (d) { return '<div class="cal-head" role="columnheader">' + d + '</div>'; }).join('');
+    var html = DAYS.map(function (d) { return '<div class="cal-head">' + d + '</div>'; }).join('');
     for (var i = 0; i < rows * 7; i++) {
       var dn = i - first + 1;                                   // day number in this month
       var d = new Date(Date.UTC(y, m - 1, dn));                 // rolls into neighbors
       var k = key(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
       var other = dn < 1 || dn > dim;
       html += '<div class="cal-day' + (other ? ' other' : '') + (k === todayKey ? ' today' : '') +
-              '" role="gridcell"><span class="dnum">' + d.getUTCDate() + '</span>' +
+              '"><span class="dnum">' + d.getUTCDate() + '</span>' +
               (byDay[k] || []).map(chip).join('') + '</div>';
     }
     grid.innerHTML = html;
@@ -680,6 +683,17 @@
              times.join(' &amp; ') + '</span>';
     });
     if (parts.length) { legend.innerHTML = parts.join(''); legend.hidden = false; }
+    // The same slots, as the sentence in the intro paragraph ("Sundays 5:00 PM and 7:00 PM, ...").
+    var sentence = DAYS.filter(function (d) { return byWeekday[d]; }).map(function (d) {
+      var times = Object.keys(byWeekday[d]).sort(function (a, b) { return a - b; })
+                    .map(function (k) { return byWeekday[d][k]; });
+      var joined = times.length > 1 ? times.slice(0, -1).join(', ') + ' and ' + times[times.length - 1] : times[0];
+      return '<b>' + PLURAL[d] + ' ' + joined + '</b>';
+    });
+    var tl = document.getElementById('homeTrackList');
+    if (tl && sentence.length) {
+      tl.innerHTML = sentence.length > 1 ? sentence.slice(0, -1).join(', ') + ', and ' + sentence[sentence.length - 1] : sentence[0];
+    }
   }
 
   // If the API is unreachable, hide the empty grid and show one sentence with the fallback
@@ -696,6 +710,25 @@
 
   // Load, filter to open sessions from this month onward, sort by start, and show the month
   // of the next upcoming session.
+  // Fill each course row's date label from the live schedule: the next upcoming date for that
+  // course (matched by name) and how many dates are on the calendar. The markup carries a neutral
+  // fallback ("Dates on the calendar") that stays if the API is unreachable, so nothing here can
+  // go stale the way hand-typed dates did.
+  function fillCourseDates(sessions) {
+    var CT = 'America/Chicago', now = Date.now();
+    var norm = function (t) { return String(t || '').toLowerCase().replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); };
+    var upcoming = (sessions || []).filter(function (s) { return s.status === 'open' && s.starts_at && new Date(s.starts_at).getTime() > now; })
+      .sort(function (a, b) { return a.starts_at < b.starts_at ? -1 : 1; });
+    document.querySelectorAll('.course-row').forEach(function (row) {
+      var h = row.querySelector('h3'), label = row.querySelector('.dates');
+      if (!h || !label) return;
+      var mine = upcoming.filter(function (s) { return norm(s.course_name) === norm(h.textContent); });
+      if (!mine.length) { label.textContent = 'No dates posted yet'; return; }
+      var next = new Date(mine[0].starts_at).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric' });
+      label.textContent = 'Next ' + next + ' · ' + mine.length + (mine.length === 1 ? ' date' : ' dates');
+    });
+  }
+
   fetch(API + '/sessions')
     .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function (rows) {
@@ -709,6 +742,7 @@
         // Keep this month's past sessions (greyed, so the cadence is visible) and everything ahead.
         .filter(function (e) { return ym(e.k) >= thisMonth; })
         .sort(function (a, b) { return a.s.starts_at < b.s.starts_at ? -1 : 1; });
+      fillCourseDates(rows);
       if (!S.length) { fail('no upcoming sessions are posted'); return; }
 
       lo = { y: +ym(S[0].k).slice(0, 4), m: +ym(S[0].k).slice(5) };
@@ -731,7 +765,10 @@
 (function () {
   // The mailing-list form. Nothing here runs until the signup box scrolls into view (or the
   // email field is focused), so the puzzle is only fetched for visitors who get that far.
-  var API = localStorage.getItem('nerx_tickets_api') || 'https://tickets.nerxpower.com';
+  // Dev override only when it points at localhost (same rule as ticket.html); otherwise live.
+  var _st = null; try { _st = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+  var _isLocal = false; try { var _h = new URL(_st || '').hostname; _isLocal = _h === 'localhost' || _h === '127.0.0.1' || _h === '[::1]'; } catch (e) {}
+  var API = _isLocal ? _st : 'https://tickets.nerxpower.com';
   var form = document.getElementById('signupForm');
   if (!form) return;
   var email = document.getElementById('signupEmail');
@@ -749,12 +786,15 @@
   // `challenge` is the puzzle the server handed out ({id, values, prompt, answer_unit, ...});
   // its id is sent back with the answer. `loaded` stops the first fetch happening twice.
   // ---- themed circuit schematic (SVG) ----
-  // NOTE: not an escaper despite the name — it only stringifies. The values it wraps are the
-  // numbers the server generated for the puzzle, so this is safe, but see the review notes.
-  function esc(s) { return String(s); }
+  // HTML-escape the puzzle values before they go into the SVG markup (they are numbers from
+  // the server today, but the name promises escaping, so it escapes).
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
   // Draws the puzzle: a battery and a resistor in a loop, with V, R and I labelled. The one
   // the visitor must find is null in `values` and is drawn as a highlighted "?".
-  function circuitSVG(values, solveFor) {
+  function circuitSVG(values) {
     // Two-line label: symbol on top, value (or highlighted "?") below.
     function label(x, sym, key, unit) {
       var v = values[key];
@@ -803,7 +843,7 @@
     fetch(API + '/subscribe/challenge').then(function (r) { return r.json(); })
       .then(function (c) {
         challenge = c;
-        diagram.innerHTML = circuitSVG(c.values, c.solve_for);
+        diagram.innerHTML = circuitSVG(c.values);
         prompt.textContent = c.prompt;
         unitEl.textContent = c.answer_unit;
       }).catch(function () {

@@ -30,7 +30,7 @@
 
   Page map, in order:
     script 1     frame-buster (refuses to run inside another site's iframe)
-    style block  color tokens, reset, [unused .toolbar], certificate sheet + frames,
+    style block  color tokens, reset, certificate sheet + frames,
                  certificate text block, bottom row (date | seal | signature), print
                  rules, app shell (.appbar / .gate / .certbar), class-materials panel,
                  the scale wrapper for narrow screens
@@ -69,22 +69,6 @@
   *{ box-sizing:border-box; margin:0; padding:0; }
 
   html,body{ background:#4a4f57; font-family:Georgia,'Times New Roman',serif; }
-
-  /* ---------- Screen control bar (never prints) ---------- */
-  /* Not used: no element on this page has class "toolbar". The live control bar is
-     .certbar (app shell section below), which repeats these rules almost exactly. */
-  .toolbar{
-    max-width:11in; margin:0 auto; padding:14px 18px;
-    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
-    color:#e8e8e8; font-family:Verdana,Arial,sans-serif; font-size:13px;
-  }
-  .toolbar .hint{ opacity:.85; }
-  .toolbar button{
-    font-family:inherit; font-size:13px; padding:7px 16px; cursor:pointer;
-    background:#e8e0cc; color:#1b2a41; border:1px solid #a67c2e; border-radius:3px;
-  }
-  .toolbar button:hover{ background:#f5efdd; }
-  .toolbar label{ display:flex; gap:5px; align-items:center; cursor:pointer; }
 
   /* ---------- Certificate sheet: exactly 11 x 8.5 in ---------- */
   /* Everything inside the sheet is positioned in inches, so the print matches the screen. */
@@ -195,8 +179,6 @@
     font-size:13pt; padding-bottom:3px; min-height:0.32in;
     display:flex; align-items:flex-end; justify-content:center;
   }
-  /* .sig-script is not used on this page (the signature is the SVG drawing below). */
-  .sig-script{ font-style:italic; font-size:16pt; }
   .signature{ height:0.52in; width:auto; display:block; margin:0 auto -3px auto; overflow:visible; }
   .sig-caption{
     margin-top:5px; font-family:Verdana,Arial,sans-serif;
@@ -223,9 +205,7 @@
   @page{ size:11in 8.5in; margin:0; }
   @media print{
     html,body{ background:#fff; }
-    .toolbar{ display:none !important; }
-    .sheet{ margin:0; box-shadow:none; page-break-inside:avoid; page-break-after:always; }
-    .sheet:last-child{ page-break-after:auto; }
+    .sheet{ margin:0; box-shadow:none; page-break-inside:avoid; }
   }
 
 
@@ -263,7 +243,7 @@
   .gate .ok{ color:#2f6b42; font-size:13px; margin-top:10px; }
   .gate .locked{ background:#f3eedd; border-left:3px solid #a67c2e;
     padding:10px 14px; margin-bottom:14px; }
-  /* Control bar shown above the finished certificate. Near-copy of .toolbar above. */
+  /* Control bar shown above the finished certificate (never prints). */
   .certbar{
     max-width:11in; margin:0 auto; padding:14px 18px;
     display:flex; flex-wrap:wrap; gap:14px; align-items:center;
@@ -274,6 +254,8 @@
     background:#e8e0cc; color:#1b2a41; border:1px solid #a67c2e; border-radius:3px;
   }
   .certbar button:hover{ background:#f5efdd; }
+  .certbar button.ghost{ background:transparent; color:#e8e8e8; border-color:#8a7a52; }
+  .certbar button.ghost:hover{ background:rgba(255,255,255,.08); }
   .certbar .hint{ opacity:.85; }
 
   /* ---------- class materials for the course (screen only) ---------- */
@@ -314,7 +296,7 @@
   @media screen{ html,body{ overflow-x:hidden; } }
   @media print{
     .appbar, .gate, .certbar, .files{ display:none !important; }
-    .scale-wrap{ transform:none !important; height:auto !important; }
+    .scale-wrap{ transform:none !important; height:auto !important; width:auto !important; margin-left:0 !important; }
   }
 </style>
 </head>
@@ -531,7 +513,9 @@
   };
   var qs = new URLSearchParams(location.search);
   var qApi = qs.get('api');
-  if (qApi && isLocalApi(qApi)) { try { localStorage.setItem('nerx_tickets_api', qApi); } catch (e) {} }
+  // ?api=clear (or an empty ?api=) forgets a stored override (see the other pages).
+  if (qApi === 'clear' || qApi === '') { try { localStorage.removeItem('nerx_tickets_api'); } catch (e) {} }
+  else if (qApi && isLocalApi(qApi)) { try { localStorage.setItem('nerx_tickets_api', qApi); } catch (e) {} }
   var stApi = null; try { stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
   var API = (stApi && isLocalApi(stApi)) ? stApi : 'https://tickets.nerxpower.com';
 
@@ -557,9 +541,11 @@
       body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) {
-        if (!r.ok) throw new Error(d.detail || ('Request failed (' + r.status + ')'));
+        if (!r.ok) throw new Error((typeof d.detail === 'string' && d.detail) || ('Request failed (' + r.status + ')'));
         return d;
       });
+    }, function () {
+      throw new Error('Could not reach the ticket server. Check your connection and try again.');
     });
   }
 
@@ -652,12 +638,14 @@
     $('#codeGo').onclick = function () {
       var v = $('#codeIn').value.trim();
       if (!v) return;
+      $('#codeGo').disabled = true;             // lookup() replaces this screen either way
       code = v; lsSet('nerx_cert_code', v);
       lookup();
     };
     $('#codeIn').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') $('#codeGo').click();
     });
+    $('#codeIn').focus();
   }
 
   // Screen: first-time name entry. Reached only when the server says the certificate is
@@ -684,7 +672,8 @@
         $('#nameErr').textContent = 'Please enter the full name to print.';
         return;
       }
-      issue(n);
+      $('#nameGo').disabled = true;
+      issue(n).then(function () { if ($('#nameGo')) $('#nameGo').disabled = false; });
     };
     $('#nameIn').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') $('#nameGo').click();
@@ -698,6 +687,17 @@
   // size, so the wrapper's height is set by hand to the scaled height or the page would
   // keep a blank area the size of the unscaled sheet below it. When the window is wide
   // enough (k == 1) all inline styles are cleared so the CSS rules alone apply.
+  // A long name or course title is shrunk (down to 60% of its size) until it fits on one line,
+  // so it never wraps and pushes the date / seal / signature row off the frame.
+  function fitLine(el) {
+    if (!el) return;
+    el.style.fontSize = '';
+    var base = parseFloat(getComputedStyle(el).fontSize), size = base;
+    while (el.scrollWidth > el.clientWidth && size > base * 0.6) {
+      size -= 1; el.style.fontSize = size + 'px';
+    }
+  }
+
   function fitSheet() {
     var wrap = $('#sheetWrap');
     if (wrap.hidden) return;
@@ -723,6 +723,7 @@
   function render(c) {
     $('#fName').textContent = c.name;
     $('#fCourse').textContent = c.course_name;
+    fitLine($('#fName')); fitLine($('#fCourse'));
     var sub = $('#fSub');
     sub.textContent = c.course_subtitle || '';
     sub.style.display = c.course_subtitle ? '' : 'none';
@@ -748,11 +749,11 @@
   function issue(name) {
     var body = { code: code };
     if (name) body.name = name;
-    api('/tickets/certificate', body).then(render).catch(function (e) {
+    return api('/tickets/certificate', body).then(render).catch(function (e) {
       if ($('#nameErr')) { $('#nameErr').hidden = false; $('#nameErr').textContent = e.message; }
       else show('<p class="err">' + esc(e.message) + '</p>' +
         '<button class="btn ghost" id="retry">Use a different code</button>',
-        'Certificate not available yet');
+        'Could not create the certificate');
       if ($('#retry')) $('#retry').onclick = function () { askForCode(''); };
     });
   }

@@ -207,7 +207,10 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+if (_qApi === 'clear' || _qApi === '') { try { localStorage.removeItem('nerx_tickets_api'); } catch (e) {} }
+else if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
 const _stApi = lsGet('nerx_tickets_api');
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 // Shorthands. CT = every time shown is US Central, whatever the visitor's zone.
@@ -258,7 +261,7 @@ const priceOf = (l) => testOn() ? 1
 
 // Draw one block per seat with its attendee fields. Also prunes dated seats whose session
 // is no longer open (e.g. the instructor cancelled it). Typing in the fields saves straight
-// back to the cart, so a reload keeps them. Returns the display total (currently unused).
+// back to the cart, so a reload keeps them.
 function renderOrder() {
   const wrap = $('#orderLines');
   wrap.innerHTML = '';
@@ -267,11 +270,9 @@ function renderOrder() {
   saveCart();
   $('#emptyNote').hidden = CART.length > 0;
   $('#summaryBox').hidden = CART.length === 0;
-  let total = 0;
   CART.forEach((l, i) => {
     const open = isOpen(l);
     const s = open ? null : sessionById(l.sid);
-    total += priceOf(l);
     const div = document.createElement('div');
     div.className = 'order-line' + (open ? ' order-open' : '');
     div.innerHTML =
@@ -315,7 +316,6 @@ function renderOrder() {
     };
     wrap.appendChild(div);
   });
-  return total;
 }
 
 // The summary table: one row per session (× seats), one row for open seats, then the total.

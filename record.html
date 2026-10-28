@@ -125,7 +125,12 @@
 // admin token somewhere else.
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+try {
+  if (_qApi === 'clear' || _qApi === '') localStorage.removeItem('nerx_tickets_api');
+  else if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi);
+} catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
@@ -170,8 +175,8 @@ function render(d) {
   $('#course').innerHTML =
     '<dt>Course</dt><dd>' + esc(s.course_name) + (s.course_subtitle ? ' <span class="note">— ' + esc(s.course_subtitle) + '</span>' : '') + '</dd>' +
     '<dt>Date and time</dt><dd>' + esc(fmtDT(s.starts_at)) + ' to ' + esc(fmtT(s.ends_at)) + ' Central</dd>' +
-    '<dt>Duration</dt><dd>' + s.duration_min + ' minutes</dd>' +
-    '<dt>Credit</dt><dd>' + pdh + ' PDH awarded for ' + s.duration_min + ' minutes of live instruction</dd>' +
+    '<dt>Duration</dt><dd>' + esc(s.duration_min) + ' minutes</dd>' +
+    '<dt>Credit</dt><dd>' + esc(pdh) + ' PDH awarded for ' + esc(s.duration_min) + ' minutes of live instruction</dd>' +
     '<dt>Delivery</dt><dd>Live online instruction with interactive Q&amp;A (video meeting); attendance verified by individual join link and participant report</dd>' +
     '<dt>Instructor</dt><dd>' + esc(d.instructor) + '</dd>' +
     '<dt>Session ID</dt><dd>' + esc(s.id) + '</dd>';

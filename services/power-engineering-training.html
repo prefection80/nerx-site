@@ -11,7 +11,7 @@
   PAGE MAP
     topbar · header/nav (relative links back to ../index.html#...) · page hero with
     breadcrumb · article + deliverables aside · related-service chips · CTA band ·
-    footer · a small video-autoplay script (only matters on the training page).
+    footer · the video-autoplay script.
 
   THIS PAGE IS THE LONG ONE
     Besides the standard template it repeats the home page's NERX-PFSA panel, the written
@@ -47,8 +47,7 @@
   </div>
 </div>
 
-<!-- Header/nav. NOTE: the nav here lacks the Forum link that index.html, toolkits.html,
-     ticket.html and 404.html carry — see the review notes. -->
+<!-- Header/nav (same links as index.html). -->
 <header>
   <div class="nav">
     <a class="brand" href="../index.html" aria-label="NERX Power Consultants home">
@@ -58,7 +57,9 @@
       <ul>
         <li><a href="../index.html#services">Services</a></li>
         <li><a href="../index.html#training">Training</a></li>
+        <li><a href="https://forum.nerxpower.com/">Forum</a></li>
         <li><a href="../toolkits.html">Toolkits</a></li>
+        <!-- nav: keep in sync with index.html — Services · Training · Forum · Toolkits · About · Our Approach · Contact Us -->
         <li><a href="../index.html#about">About</a></li>
         <li><a href="../index.html#approach">Our Approach</a></li>
         <li><a href="../index.html#contact" class="cta">Contact Us</a></li>
@@ -152,70 +153,70 @@
         <p>Each course runs in several weekly time slots — <b>Sundays 5:00 PM and 7:00 PM</b>, <b>Tuesdays 11:00 AM</b>, <b>Wednesdays 6:00 PM</b>, <b>Thursdays 12:00 PM</b>, and <b>Saturdays 6:00 AM and 10:00 AM</b> (Central). Every session is a single ~90-minute meeting at <b>$150 per session</b>, booked individually; two-part courses run as Part 1 and Part 2 on consecutive weeks. <a href="../ticket.html">Buy a seat and book your dates on the training calendar</a>.</p>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Aug 11 &amp; Aug 18</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Symmetrical Components</h3>
           <p>The analytical foundation of protection engineering: per-unit analysis and positive-, negative-, and zero-sequence networks — and how sequence quantities reveal what a fault actually looks like to a relay.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Aug 25 &amp; Sep 1</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Fault Analysis</h3>
           <p>Calculating three-phase, line-to-ground, line-to-line, and double-line-to-ground fault currents; building and reducing sequence networks; and applying the results to equipment ratings and relay settings.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Sep 8 &amp; Sep 15</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Relay Coordination</h3>
           <p>Time-current coordination from first principles: overcurrent element behavior, time-current characteristic curves, coordination intervals, and coordinating relays with fuses and reclosers across a real system.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Sep 22 &amp; Sep 29</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Differential Protection</h3>
           <p>Percentage-restrained and high-impedance differential principles applied to transformers, buses, and generators — slope characteristics, inrush restraint, and CT saturation considerations.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Oct 6 &amp; Oct 13</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Forensic Event Analysis</h3>
           <p>Reconstructing events from relay and DFR records: reading oscillography and phasors, interpreting targets, distinguishing correct operations from misoperations, and finding root cause.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Oct 20 &amp; Oct 27</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Pilot &amp; Communication Schemes</h3>
           <p>Communication-assisted line protection: permissive overreaching transfer trip, directional comparison blocking, and direct transfer trip schemes, channel considerations, and how scheme logic behaves during real events.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 3</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Transfer Schemes &amp; Reclosing</h3>
           <p>Automatic bus transfer methods, reclosing philosophy and practices, and supervision such as sync-check and voltage blocking.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 10</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Arc Flash Analysis &amp; Coordination — Part 1</h3>
           <p>Incident energy fundamentals and the IEEE 1584 calculation model: data collection, study setup, and the system factors that drive arc flash results.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Week of Nov 17</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Arc Flash Analysis &amp; Coordination — Part 2</h3>
           <p>From study to safer system: the interaction between coordination and incident energy, mitigation options, labeling, and NFPA 70E application.</p>
         </div>
       </div>
       <div class="course-row">
-        <div class="dates">Weeks of Nov 24 &amp; Dec 1</div>
+        <div class="dates">Dates on the calendar</div>
         <div>
           <h3>Transmission Planning</h3>
           <p>How the planned system is assessed: contingency analysis, thermal and voltage criteria, and the study practices behind NERC TPL compliance.</p>
@@ -249,8 +250,7 @@
   </div>
 </footer>
 
-<!-- Video autoplay respecting the OS reduced-motion setting. Copied to every service page;
-     only the training page has a video, so on the others it finds nothing to do. -->
+<!-- Video autoplay respecting the OS reduced-motion setting (this is the one service page with a video). -->
 <script>
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.querySelectorAll('video[autoplay]').forEach(function (v) {
@@ -266,6 +266,34 @@
 </script>
 
 <!-- floating cart button: shows what's in the training cart while the buy section is in view -->
+<!-- Live course dates for the rows above (same function as index.html). -->
+<script>
+(function () {
+  // Fill each course row's date label from the live schedule: the next upcoming date for that
+  // course (matched by name) and how many dates are on the calendar. The markup carries a neutral
+  // fallback ("Dates on the calendar") that stays if the API is unreachable, so nothing here can
+  // go stale the way hand-typed dates did.
+  function fillCourseDates(sessions) {
+    var CT = 'America/Chicago', now = Date.now();
+    var norm = function (t) { return String(t || '').toLowerCase().replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); };
+    var upcoming = (sessions || []).filter(function (s) { return s.status === 'open' && s.starts_at && new Date(s.starts_at).getTime() > now; })
+      .sort(function (a, b) { return a.starts_at < b.starts_at ? -1 : 1; });
+    document.querySelectorAll('.course-row').forEach(function (row) {
+      var h = row.querySelector('h3'), label = row.querySelector('.dates');
+      if (!h || !label) return;
+      var mine = upcoming.filter(function (s) { return norm(s.course_name) === norm(h.textContent); });
+      if (!mine.length) { label.textContent = 'No dates posted yet'; return; }
+      var next = new Date(mine[0].starts_at).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric' });
+      label.textContent = 'Next ' + next + ' · ' + mine.length + (mine.length === 1 ? ' date' : ' dates');
+    });
+  }
+  fetch('https://tickets.nerxpower.com/sessions')
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(fillCourseDates)
+    .catch(function () { /* the neutral fallback text stays */ });
+})();
+</script>
+
 <!-- Floating cart button (same script as index.html, with ../ paths). -->
 <button class="cart-fab" id="cartFab" aria-label="Open training cart">
   Cart <span class="n" id="cartN">0</span>

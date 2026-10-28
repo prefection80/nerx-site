@@ -240,7 +240,6 @@
   }
   .tabs .tab-link { margin-left: auto; padding: 10px 6px; font-weight: 600; font-size: 0.9rem; color: var(--blue); }
   /* Already covered by the global [hidden] rule at the top of this block; kept as-is. */
-  .tab-panel[hidden] { display: none; }
 
   /* ---- attendance, waitlist, courses, numbers, activity ---- */
   .att-table td.dim { color: #9aa0a6; }
@@ -455,8 +454,7 @@
         </div>
       </div>
 
-      <!-- Waitlist for the selected session (loadWaitlist). NOTE: this box's closing </div> is
-           after the Forum box below, so the Forum box is nested inside it - see the review. -->
+      <!-- Waitlist for the selected session (loadWaitlist). -->
       <div class="admin-box" id="waitBox">
         <h3 style="margin-bottom:4px">Waitlist
           <span class="meta" id="waitFor" style="font-weight:400;font-size:0.9rem"></span></h3>
@@ -474,10 +472,11 @@
                   title="Offer any free seat to the next person waiting right now (this also happens on its own within a minute of a seat freeing)">Offer free seats now</button>
           <span id="waitMsg" class="meta"></span>
         </div>
+      </div>
 
       <!-- Forum moderation (loadForum, from GET /mod/queue): posts held for approval with
-           Approve / Delete / Ban, topics nobody answered, and the moderation log. Loaded once
-           at connect and after each moderation action; not part of the 15 s refresh. -->
+           Approve / Delete / Ban, topics nobody answered, and the moderation log. Loaded at
+           connect, after each moderation action, and by the 15 s refresh while this tab shows. -->
       <div class="admin-box" id="forumBox">
         <h3 style="margin-bottom:4px">Forum
           <span class="meta" id="forumStats" style="font-weight:400;font-size:0.9rem"></span>
@@ -495,7 +494,6 @@
         <table><thead><tr><th>When</th><th>Action</th><th>What</th><th>By</th><th>Reason</th></tr></thead>
           <tbody id="forumActions"></tbody></table>
         <p id="forumMsg"></p>
-      </div>
       </div>
       </section>
 
@@ -897,7 +895,12 @@
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-try { if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi); } catch (e) {}
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+try {
+  if (_qApi === 'clear' || _qApi === '') localStorage.removeItem('nerx_tickets_api');
+  else if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi);
+} catch (e) {}
 let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 // $ = one-element lookup; used for every fixed id on the page.
@@ -1015,7 +1018,10 @@ function _weekTargetDate(iso, dow) {
 function prefillWeeklyRange() {
   if (!SESSIONS.length) return;
   const keys = SESSIONS.map((s) => centralDateKey(s.starts_at)).sort();
-  if (!$('#wkFrom').value) $('#wkFrom').value = keys[0];
+  // "from" starts at today (Central), never earlier: the plan should add future sections, not
+  // back-fill past weeks (the earliest session on file can be months ago).
+  const today = centralDateKey(new Date().toISOString());
+  if (!$('#wkFrom').value) $('#wkFrom').value = keys[0] > today ? keys[0] : today;
   if (!$('#wkTo').value)   $('#wkTo').value = _addDaysKey(keys[keys.length - 1], 6);
 }
 // Builds the list of sessions the generator WOULD add, without calling the server, so the
@@ -1115,10 +1121,10 @@ function renderCalendar() {
       const cnt = s.booked + '/' + s.capacity;
       const taken = s.booked + (s.held || 0);
       chip.innerHTML = esc(s.course_name) +
-        '<small>' + centralClock(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
+        '<small>' + centralClock(s.starts_at) + ' · $' + Number(s.price_usd || 0).toFixed(0) +
         ' · <span class="' + (taken >= s.capacity ? 'cnt-full' : '') + '">' +
         cnt + ' booked</span>' + (s.held ? ' · ' + s.held + ' held' : '') +
-        (s.status !== 'open' ? ' · ' + s.status : '') + '</small>';
+        (s.status !== 'open' ? ' · ' + esc(s.status) : '') + '</small>';
       chip.title = s.id;
       // One chip, two jobs: pick the destination while a ticket is being moved, else select.
       chip.onclick = () => MOVING ? moveTo(s) : selectSession(s.id);
@@ -1137,7 +1143,7 @@ function prefillAdd(dateKey) {
   $('#nStarts').value = dateKey + 'T11:00';
   $('#nMsg').textContent = 'Date set to ' + dateKey + ' 11:00 AM Central — adjust and fill in the rest.';
   $('#nMsg').className = 'ok-msg';
-  $('#addBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  revealBox('#addBox');                      // the form lives on the Sessions tab: switch to it first
   $('#nName').focus();
 }
 
@@ -1170,8 +1176,11 @@ async function moveTo(s) {
   if (s.id === MOVING.from) { alert('That ticket is already on this session.'); return; }
   const when = centralParts(s.starts_at);
   let force = false;
-  if (s.booked >= s.capacity) {
+  // Same arithmetic as the calendar chip: a seat held for a waitlisted person counts as taken.
+  const taken = s.booked + (s.held || 0);
+  if (taken >= s.capacity) {
     if (!confirm(s.course_name + ' is FULL (' + s.booked + '/' + s.capacity +
+                 (s.held ? ', ' + s.held + ' held for the waitlist' : '') +
                  '). Overbook it anyway?')) return;
     force = true;
   } else if (!confirm('Move ' + MOVING.label + ' to:\n\n' + s.course_name + '\n' +
@@ -1217,7 +1226,7 @@ function renderUnassigned() {
   rows.forEach((t) => {
     const tr = document.createElement('tr');
     tr.innerHTML = '<td>' + (esc(t.buyer_name) || '—') + '</td><td>' + esc(t.buyer_email) +
-      '</td><td class="mono">' + esc(t.code) + '</td><td>$' + t.amount_usd.toFixed(2) +
+      '</td><td class="mono">' + esc(t.code) + '</td><td>$' + Number(t.amount_usd || 0).toFixed(2) +
       '</td><td>' + fmt(t.issued_at) + '</td><td class="row-actions"></td>';
     const actions = tr.querySelector('.row-actions');
     const assign = document.createElement('button');
@@ -1333,7 +1342,7 @@ async function showForumPerson(email) {
     box.innerHTML = '<b>Forum:</b> <span class="meta">' + esc(email) + ' has not registered on the forum.</span>';
     return;
   }
-  const role = { instructor: 'Instructor', moderator: 'Moderator', student: 'Student', member: 'Member' }[r.role] || r.role;
+  const role = { instructor: 'Instructor', moderator: 'Moderator', student: 'Student', member: 'Member' }[r.role] || esc(r.role);
   const flags = [];
   if (r.banned) flags.push('<span class="status-pill st-void">banned</span>');
   if (r.held) flags.push('<span class="status-pill st-issued">' + r.held + ' awaiting approval</span>');
@@ -1389,7 +1398,7 @@ function fillEditor() {
   $('#eStarts').value = centralLocalValue(s.starts_at);
   $('#eCap').value = s.capacity;
   $('#eMins').value = s.duration_min || 90;
-  $('#ePrice').value = s.price_usd.toFixed(2);
+  $('#ePrice').value = Number(s.price_usd || 0).toFixed(2);
   $('#eStatus').value = s.status;
   $('#eLink').value = s.meeting_link || '';
   // Blank = derive the PDH credit from the class length.
@@ -1614,7 +1623,7 @@ async function loadSessions() {
   SESSIONS.forEach((s) => {
     const o = document.createElement('option');
     o.value = s.id;
-    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) + ' — $' + s.price_usd.toFixed(0) +
+    o.textContent = s.course_name + ' — ' + fmt(s.starts_at) + ' — $' + Number(s.price_usd || 0).toFixed(0) +
                     ' · ' + (s.duration_min || 90) + 'min (' + s.seats_left + '/' + s.capacity + ' free, ' + s.status + ')';
     sel.appendChild(o);
   });
@@ -1739,8 +1748,6 @@ async function loadRoster() {
       }
       body.appendChild(tr);
     });
-    // ROSTER_ROWS is kept but nothing reads it (see the review).
-    ROSTER_ROWS = rows;
     renderAfterClass(sid, rows);
     loadWaitlist(sid);
     loadClassThread(sid);
@@ -1748,9 +1755,8 @@ async function loadRoster() {
 }
 
 // ---- attendance & after class --------------------------------------------
-// These `let`s sit below loadRoster, which assigns ROSTER_ROWS; that works because loadRoster
-// only runs after the whole script has been evaluated.
-let ROSTER_ROWS = [];
+// This `let` sits below the functions that use it; that works because they only run after
+// the whole script has been evaluated.
 let ZOOM_MATCH = null;      // the server's match result for the current report
 // Counts behind the number badge on the Today tab. noShows/waiting are for the SELECTED
 // session; forum is the whole moderation queue.
@@ -2051,7 +2057,12 @@ const FORUM = _isLocalApi(API) ? API + '/forum' : 'https://forum.nerxpower.com';
 // so callers wrap them as new Date(x * 1000) before fmt().
 const forumApi = (path, opts = {}) => fetch(FORUM + path, { ...opts,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...tokenHdr(), ...(opts.headers || {}) } })
-  .then(async (r) => { if (!r.ok) throw new Error('Forum request failed (' + r.status + ')'); return r.json(); });
+  .then(async (r) => {
+    if (r.ok) return r.json();
+    // Like api(): show the server's own message when it sent one.
+    const d = await r.json().catch(() => ({}));
+    throw new Error((d && typeof d.detail === 'string' && d.detail) || ('Forum request failed (' + r.status + ')'));
+  });
 /* The selected class's forum thread (GET /mod/session/<id> on the forum). */
 // CT_FOR guards against a slow answer for a previously selected session overwriting the
 // current one. Also re-run by the 15 s timer while the Today tab is open.
@@ -2080,8 +2091,9 @@ async function loadClassThread(sid) {
     '<span class="meta"><b>' + r.replies + '</b> repl' + (r.replies === 1 ? 'y' : 'ies') + ' · <b>' + r.subscribers + '</b> subscribed' +
     (r.held ? ' · <span class="mat-warn">' + r.held + ' awaiting approval</span>' : '') +
     (r.pinned ? ' · pinned' : '') + (r.locked ? ' · locked' : '') + '</span>';
-  if (!r.latest.length) { posts.innerHTML = '<p class="meta">No posts yet.</p>'; return; }
-  posts.innerHTML = r.latest.map((p) =>
+  const latest = r.latest || [];
+  if (!latest.length) { posts.innerHTML = '<p class="meta">No posts yet.</p>'; return; }
+  posts.innerHTML = latest.map((p) =>
     '<div class="course-card" style="padding:8px 12px;margin-bottom:6px' + (p.status === 'held' ? ';border-left:3px solid #d6771a' : '') + '">' +
     '<div class="flex" style="justify-content:space-between"><b>' + esc(p.author) + (p.instructor ? ' <span class="meta">(you)</span>' : '') + '</b>' +
     '<span class="meta">' + fmt(new Date(p.created_at * 1000).toISOString()) + (p.status === 'held' ? ' · awaiting approval' : '') +
@@ -2434,8 +2446,13 @@ function showTab(name, push) {
   try { localStorage.setItem('nerx_roster_tab', name); } catch (e) {}
   if (push !== false) history.replaceState(null, '', '#' + name);
   // Charts are redrawn each visit; the activity log is fetched only the first time (empty
-  // table). This is not gated on being logged in - see the review about the Reports tab.
-  if (name === 'reports') { renderNumbers(); if (!$('#actBody').children.length) loadActivity(); }
+  // table) — and only once logged in. showTab() also runs at page load, before the token is
+  // restored; a fetch then would 401 and api() would wipe the remembered token. The connect
+  // handler loads the log itself when the page opens on this tab.
+  if (name === 'reports') {
+    renderNumbers();
+    if (!$('#adminUi').hidden && !$('#actBody').children.length) loadActivity();
+  }
 }
 document.querySelectorAll('#tabs .tab').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
 /* Which tab a box lives in, so a jump from elsewhere lands on it. */
@@ -2492,11 +2509,10 @@ $('#eLink').oninput = syncLinkOpen;
 // CSV downloads: the server builds the file; the browser gets it as text (api() returns text
 // for non-JSON) and a temporary blob link triggers the save. No error message if it fails.
 $('#certCsvBtn').onclick = async () => {
-  const text = await api('/admin/certificates.csv');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
-  a.download = 'nerx-certificate-register.csv';
-  a.click();
+  try {
+    const text = await api('/admin/certificates.csv');
+    downloadText(text, 'nerx-certificate-register.csv');
+  } catch (e) { alert('Export failed: ' + e.message); }
 };
 
 // ---- wiring ---------------------------------------------------------------
@@ -2730,11 +2746,10 @@ $('#subImportBtn').onclick = async () => {
   finally { $('#subImportBtn').disabled = false; }
 };
 $('#subCsv').onclick = async () => {
-  const text = await api('/admin/subscribers.csv');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'}));
-  a.download = 'nerx-subscribers.csv';
-  a.click();
+  try {
+    const text = await api('/admin/subscribers.csv');
+    downloadText(text, 'nerx-subscribers.csv');
+  } catch (e) { alert('Export failed: ' + e.message); }
 };
 // ---- session save / clone / delete / add --------------------------------------
 // Changing the dropdown does the same three things as selectSession() (it cannot call it
@@ -2772,7 +2787,7 @@ $('#eClone').onclick = () => {
   $('#nName').value = s.course_name;
   $('#nMins').value = s.duration_min || 90;
   $('#nCap').value = s.capacity;
-  $('#nPrice').value = s.price_usd.toFixed(2);
+  $('#nPrice').value = Number(s.price_usd || 0).toFixed(2);
   $('#nMsg').textContent = 'Copied "' + s.course_name + '" — now pick the new date (or a + on the calendar).';
   $('#nMsg').className = 'ok-msg';
   revealBox('#addBox');
@@ -2791,15 +2806,16 @@ $('#eDelete').onclick = async () => {
     loadSessions();
   } catch (e) { $('#eMsg').textContent = e.message; $('#eMsg').className = 'err'; }
 };
-// Add Session. The id is made HERE, not by the server: a slug of the name plus the date, e.g.
-// "symmetrical-components-2026-03-10". The same course twice on one date would collide.
+// Add Session. The id is made HERE, not by the server: a slug of the name plus the date and
+// start time, e.g. "symmetrical-components-2026-03-10-1100", so two sections of one course on
+// the same day (a morning and an evening run) get different ids.
 $('#nCreate').onclick = async () => {
   try {
     const name = $('#nName').value.trim();
     const starts = $('#nStarts').value;
     if (!name || !starts) throw new Error('Course name and start date are required.');
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-                 + '-' + starts.slice(0, 10);
+                 + '-' + starts.slice(0, 10) + '-' + starts.slice(11, 16).replace(':', '');
     // A new date of an existing course starts with that course's class materials and
     // certificate subtitle, so the course stays consistent without re-typing.
     const g = courseGroups().find((x) => x.key === normCourse(name));
@@ -2861,13 +2877,25 @@ $('#wkGen').onclick = async () => {
 };
 // Reload = the full refresh (sessions, tickets, roster); it does not reload the forum,
 // subscribers or settings, which have their own loads.
-$('#reloadBtn').onclick = loadSessions;
-$('#csvBtn').onclick = async () => {
-  const text = await api('/admin/export.csv');
+// Reload refreshes everything the timer does plus the forum queue, and says so if it fails.
+$('#reloadBtn').onclick = async () => {
+  try { await loadSessions(); loadForum(); }
+  catch (e) { alert('Reload failed: ' + e.message); }
+};
+// Save text as a file. The UTF-8 byte-order mark makes Excel on Windows read non-ASCII
+// characters (names with accents, dashes) correctly; the object URL is freed afterwards.
+function downloadText(text, filename, type) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'}));
-  a.download = 'nerx-tickets.csv';
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: type || 'text/csv;charset=utf-8' }));
+  a.download = filename;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('#csvBtn').onclick = async () => {
+  try {
+    const text = await api('/admin/export.csv');
+    downloadText(text, 'nerx-tickets.csv');
+  } catch (e) { alert('Export failed: ' + e.message); }
 };
 // Manual issue: the server creates and emails the codes. The reply is either a `codes` list
 // or a single `code`; both shapes are handled.
@@ -2898,8 +2926,11 @@ setInterval(async () => {
     [SESSIONS, TICKETS] = await Promise.all([api('/admin/sessions'), api('/admin/tickets')]);
     if (prev && SESSIONS.some((s) => s.id === prev)) sel.value = prev;
     renderCalendar(); renderStats(); renderUnassigned(); renderTicketSearch();
-    // posts arriving during class show up without a reload
-    if (!$('[data-panel="today"]').hidden && sel.value) loadClassThread(sel.value);
+    // posts arriving during class, and new forum posts to approve, show up without a reload
+    if (!$('[data-panel="today"]').hidden) {
+      if (sel.value) loadClassThread(sel.value);
+      loadForum();
+    }
   } catch (e) { /* transient network errors are fine */ }
 }, 15000);
 

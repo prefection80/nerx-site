@@ -141,10 +141,15 @@
   .cal-legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; font-size: 0.85rem; }
   .cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
   .cal-legend .lg-locked { background: #9aa0a6; }
-  .lg-tue { background: #2f90b0; }
-  .lg-thu { background: #1e7e34; }
-  .lg-sat { background: #c77414; }
-  .lg-other { background: #6c757d; }
+  .cal-legend i { background: var(--d, #6c757d); }
+  /* one colour per weekday, shared by chips and legend swatches (same palette as the home page) */
+  .day-sun { --d: #6d4ba8; --dbg: rgba(109,75,168,0.13); }
+  .day-mon { --d: #5f6368; --dbg: rgba(95,99,104,0.13); }
+  .day-tue { --d: #2f90b0; --dbg: rgba(47,144,176,0.14); }
+  .day-wed { --d: #b5307a; --dbg: rgba(181,48,122,0.12); }
+  .day-thu { --d: #1e7e34; --dbg: rgba(40,167,69,0.13); }
+  .day-fri { --d: #8a4f1d; --dbg: rgba(138,79,29,0.13); }
+  .day-sat { --d: #c77414; --dbg: rgba(199,116,20,0.14); }
   .cal-scroll { overflow-x: auto; }
   .cal-grid {
     display: grid; grid-template-columns: repeat(7, 1fr);
@@ -171,10 +176,7 @@
     font-family: inherit;
   }
   .cal-chip small { display: block; font-weight: 400; color: #5f6368; }
-  .track-tue { background: rgba(47,144,176,0.14); border-left: 3px solid #2f90b0; }
-  .track-thu { background: rgba(40,167,69,0.13); border-left: 3px solid #1e7e34; }
-  .track-sat { background: rgba(199,116,20,0.14); border-left: 3px solid #c77414; }
-  .track-other { background: rgba(108,117,125,0.13); border-left: 3px solid #6c757d; }
+  .cal-chip { background: var(--dbg, rgba(108,117,125,0.13)); border-left: 3px solid var(--d, #6c757d); }
   .cal-chip .cnt-full { color: #b02a37; font-weight: 700; }
   .cal-chip.full { opacity: 0.45; cursor: not-allowed; }
   .cal-chip.locked { opacity: 0.5; cursor: not-allowed; background: #eceff1;
@@ -417,11 +419,11 @@
     <div class="pick-banner" id="pickBanner">
       Your ticket is ready — click a session below to book it.
     </div>
+    <!-- The weekday swatches are rebuilt from the live sessions by updateTrackList(). -->
     <div class="cal-legend">
-      <span><i class="lg-tue"></i>Tuesday track · 11:00 AM</span>
-      <span><i class="lg-thu"></i>Thursday track · 12:00 PM</span>
-      <span><i class="lg-sat"></i>Saturday track · 6:00 AM</span>
-      <span><i class="lg-other"></i>Other day</span>
+      <span id="legendDays"><span><i class="day-tue"></i>Tuesdays · 11:00 AM</span>
+      <span><i class="day-thu"></i>Thursdays · 12:00 PM</span>
+      <span><i class="day-sat"></i>Saturdays · 6:00 AM</span></span>
       <span><i class="lg-locked"></i>Closed &mdash; signups ended</span>
       <span class="meta">Each session shows its price and bookings, e.g. "3/20 booked".</span>
     </div>
@@ -612,7 +614,10 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
 const _qApi = new URLSearchParams(location.search).get('api');
-if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
+// ?api=clear (or an empty ?api=) forgets a stored override — the only way back to the live server
+// for a browser that once used ?api=http://localhost:... on any page of the site.
+if (_qApi === 'clear' || _qApi === '') { try { localStorage.removeItem('nerx_tickets_api'); } catch (e) {} }
+else if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
 const _stApi = lsGet('nerx_tickets_api');
 const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
 const $ = (s) => document.querySelector(s);
@@ -632,16 +637,12 @@ const ctKey = (iso) => { const p = ctParts(iso); return p.year + '-' + p.month +
 const ctTime = (iso) => { const p = ctParts(iso); return p.hour + ':' + p.minute + ' ' + p.dayPeriod; };
 const ctDay = (iso) => { const p = ctParts(iso); return p.weekday; };
 
-// "Tracks" colour the chips by weekday. Only Tue/Thu/Sat have their own colour; any other
-// weekday is "other" (grey) — see the review notes, the schedule now also has Sun/Wed slots.
-function trackOf(s) {
-  const d = ctDay(s.starts_at);
-  return d === 'Tue' ? 'tue' : d === 'Thu' ? 'thu' : d === 'Sat' ? 'sat' : 'other';
-}
-function trackName(s) {
-  return { tue: 'Tuesday', thu: 'Thursday', sat: 'Saturday',
-           other: ctDay(s.starts_at) }[trackOf(s)];
-}
+// Chips are coloured by weekday (.day-sun ... .day-sat, see the styles); trackName() is the
+// weekday's full name for the ticket card ("Fault Analysis — Sunday track").
+const DAY_FULL = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday',
+                   Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' };
+function trackOf(s) { return ctDay(s.starts_at).toLowerCase(); }
+function trackName(s) { return DAY_FULL[ctDay(s.starts_at)] || ctDay(s.starts_at); }
 // Human-readable "when" strings used all over the page.
 function sessionDates(s) {
   const p = ctParts(s.starts_at);
@@ -657,6 +658,16 @@ function describe(s) {
 // when none); bookingMode = a lookup is waiting for the user to click a session; calMonth =
 // the month on screen; CUTOFF_HOURS = the signup cutoff from /config.
 let SESSIONS = [], TICKET = null, bookingMode = false, calMonth = null, CUTOFF_HOURS = null;
+
+// /config is read by four different parts of the page (cutoff, waitlist hold, open-seat price,
+// PayPal client id). Fetch it once and share the promise; a failure is retried on the next ask.
+let _cfgPromise = null;
+function getConfig() {
+  if (!_cfgPromise) {
+    _cfgPromise = fetch(API + '/config').then((r) => r.json()).catch((e) => { _cfgPromise = null; throw e; });
+  }
+  return _cfgPromise;
+}
 
 // GET when no body is given, otherwise POST JSON; a non-2xx answer becomes an Error carrying
 // the server's "detail" text (shown to the user).
@@ -710,15 +721,15 @@ function renderCalendar() {
       const full = s.seats_left <= 0 && !mine;
       // The server decides: a session inside the signup cutoff is not bookable.
       const locked = s.bookable === false && !mine;
-      const cls = 'cal-chip track-' + trackOf(s) + (mine ? ' mine' : '') +
+      const cls = 'cal-chip day-' + trackOf(s) + (mine ? ' mine' : '') +
                   (full ? ' full' : '') + (locked ? ' locked' : '');
       const booked = (s.booked !== undefined) ? s.booked + '/' + s.capacity + ' booked'
                                               : s.seats_left + ' seats left';
       const lockNote = locked ? (s.started ? ' · class has run' : ' · signups closed')
                               : (s.seats_left <= 0 ? ' · click to join the waitlist' : '');
       html += '<button type="button" class="' + cls + '" data-sid="' + s.id +
-        '" title="' + describe(s).replace(/"/g, '&quot;') + ' · ' + booked + lockNote +
-        '">' + (locked ? '<i class="lock">&#128274;</i> ' : '') + s.course_name +
+        '" title="' + esc(describe(s)) + ' · ' + booked + lockNote +
+        '">' + (locked ? '<i class="lock">&#128274;</i> ' : '') + esc(s.course_name) +
         '<small>' + ctTime(s.starts_at) + ' · $' + s.price_usd.toFixed(0) +
         ' · <span class="' + (s.seats_left <= 0 ? 'cnt-full' : '') + '">' +
         (mine ? 'YOUR SESSION · ' : '') + (s.seats_left <= 0 ? 'FULL · ' : '') +
@@ -807,13 +818,19 @@ function updateTrackList() {
   el.innerHTML = parts.length > 1
     ? parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]
     : parts[0];
+  // The legend: one swatch per weekday that has sessions, with its times.
+  const lg = $('#legendDays');
+  if (lg) lg.innerHTML = DAY_ORDER.filter((d) => byDay[d]).map((d) => {
+    const times = Object.keys(byDay[d]).sort((a, b) => a - b).map((k) => byDay[d][k]);
+    return '<span><i class="day-' + d.toLowerCase() + '"></i>' + DAY_PLURAL[d] + ' · ' + times.join(' & ') + '</span>';
+  }).join('');
 }
 
 /* The signup cutoff is set in the roster, so the page asks the server for it
    rather than hard-coding 24 hours in two places. */
 async function loadCutoff() {
   try {
-    const cfg = await (await fetch(API + '/config')).json();
+    const cfg = await getConfig();
     CUTOFF_HOURS = cfg.signup_cutoff_hours;
     // Keep every stated number honest, and drop the rule entirely if it is turned off.
     document.querySelectorAll('.cutoff-hrs').forEach((n) => { n.textContent = CUTOFF_HOURS; });
@@ -860,7 +877,8 @@ function certBlock(t) {
 function threadBlock(t, attended) {
   const url = t.session && t.session.thread_url;
   if (!url) return '';
-  return '<p style="margin-top:10px"><a class="btn btn-outline small" href="' + url + '" target="_blank" rel="noopener">' +
+  if (!/^https?:\/\//i.test(url)) return '';          // only a real web link gets a button
+  return '<p style="margin-top:10px"><a class="btn btn-outline small" href="' + esc(url) + '" target="_blank" rel="noopener">' +
     (attended ? 'Class discussion &amp; follow-up questions &rarr;' : 'Class discussion &amp; questions &rarr;') + '</a>' +
     '<br><span class="meta">Register on the forum with this ticket\'s email and you are subscribed to this class\'s thread.</span></p>';
 }
@@ -928,16 +946,16 @@ async function renderTicket(code) {
         '. <a href="mailto:douglas.millner@nerxpower.com">Contact us</a> with questions.</p>';
     } else if (t.status === 'used') {
       html += '<p class="assign-yes">&#10004; This ticket was used for: <b>' +
-              t.session.course_name + ' — ' + trackName(t.session) + ' track</b></p>' +
-              '<p class="meta">' + describe(t.session) + '. Thanks for attending!</p>';
+              esc(t.session.course_name) + ' — ' + trackName(t.session) + ' track</b></p>' +
+              '<p class="meta">' + esc(describe(t.session)) + '. Thanks for attending!</p>';
       if (t.link_available) html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
       html += threadBlock(t, true);
       html += materialsBlock(t, true);
       html += certBlock(t);
     } else if (t.status === 'booked') {
       html += '<p class="assign-yes">&#10004; This ticket IS assigned to a session:</p>' +
-              '<p><b>' + t.session.course_name + ' — ' + trackName(t.session) + ' track</b><br>' +
-              'Meets ' + sessionDates(t.session) + '</p>';
+              '<p><b>' + esc(t.session.course_name) + ' — ' + trackName(t.session) + ' track</b><br>' +
+              'Meets ' + esc(sessionDates(t.session)) + '</p>';
       if (t.link_available) {
         html += '<button class="btn btn-primary small" id="joinBtn" style="margin-top:10px">Join Training</button>';
       } else {
@@ -983,7 +1001,7 @@ async function renderTicket(code) {
     };
   } catch (e) {
     TICKET = null;
-    box.innerHTML = '<p class="err">' + e.message + '</p>';
+    box.innerHTML = '<p class="err">' + esc(e.message) + '</p>';
     renderCalendar();
   }
 }
@@ -994,7 +1012,7 @@ async function renderTicket(code) {
 let sdkPromise = null;
 function loadPayPalSdk() {
   if (sdkPromise) return sdkPromise;
-  sdkPromise = fetch(API + '/config').then((r) => r.json()).then((cfg) => {
+  sdkPromise = getConfig().then((cfg) => {
     if (!cfg.paypal_client_id) return null;
     return new Promise((resolve) => {
       const sc = document.createElement('script');
@@ -1072,7 +1090,7 @@ $('#wlForm').onsubmit = async (e) => {
   }
 };
 // The hold window is a roster setting; show the real number.
-fetch(API + '/config').then((r) => r.json()).then((cfg) => {
+getConfig().then((cfg) => {
   if (cfg.waitlist_hold_hours) document.querySelectorAll('.wl-hold-hrs').forEach((n) => { n.textContent = cfg.waitlist_hold_hours; });
 }).catch(() => {});
 
@@ -1204,7 +1222,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isOpen = (l) => !l.sid;                       // no session = open seat
 const priceOf = (l) => isOpen(l) ? OPEN_PRICE : (sessionById(l.sid) || {price_usd: 0}).price_usd;
 // keep the open-seat price in sync (used for cart display; server is authoritative)
-api('/config').then((c) => { if (c && c.open_ticket_price_usd) OPEN_PRICE = c.open_ticket_price_usd; }).catch(() => {});
+getConfig().then((c) => { if (c && c.open_ticket_price_usd) OPEN_PRICE = c.open_ticket_price_usd; }).catch(() => {});
 
 function saveCart() {
   lsSet('nerx_cart', JSON.stringify(CART));
@@ -1353,9 +1371,10 @@ refreshSessions().then(() => {
   $('#calTitle').textContent = 'Schedule unavailable';
 });
 
-// Live enrollment: re-pull session counts every 10 s (paused while the tab is hidden).
+// Live enrollment: re-pull session counts every 10 s (paused while the tab is hidden, and
+// while a buy / waitlist / cart dialog is open so the page does not redraw under it).
 setInterval(() => {
-  if (!document.hidden) refreshSessions().catch(() => {});
+  if (!document.hidden && !document.querySelector('.buy-overlay.open')) refreshSessions().catch(() => {});
 }, 10000);
 </script>
 

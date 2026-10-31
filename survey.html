@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<!--
+  survey.html — the post-class feedback survey an attendee fills in after a live class.
+
+  WHO ARRIVES HERE
+    Someone whose ticket was used on a class (they joined it), via the link in the class
+    follow-up email ("Your PDH certificate is ready") and, a little later, in the survey
+    reminder email ("How was the class?"). The link is survey.html?t=<ticket id>&sig=<hmac>;
+    the signature is bound to the ticket and the class, so a guessed or forwarded link
+    answers for nobody else. There is no login and the ticket code is never asked for.
+
+  WHAT IT DOES
+    1. GET  /survey/context?t=&sig=   -> the class (course, date, instructor), the question
+                                         list, and whether this ticket already answered.
+    2. Draws the form FROM THAT LIST (the questions live on the ticket server, in
+       app/survey.py, so they can change without touching this page): ratings 1-5,
+       single choices, free text, then the name question.
+    3. POST /survey {t, sig, answers, share_name, name?, quote_ok}   -> 201 once per ticket.
+
+  PRIVACY PROMISE MADE ON THE PAGE
+    Answers are stored without the ticket, name or email unless the attendee chooses
+    "Include my name" (the server enforces this; see nerx-tickets app/main.py survey_submit).
+
+  TALKS TO  tickets.nerxpower.com (the FastAPI ticket server, private repo nerx-tickets).
+            The dev override ?api=http://localhost:... is honoured only for localhost,
+            and ?api=clear forgets it (same convention as every other page).
+
+  PAGE MAP
+    <head>       frame guard, styles.css + the form styles below
+    .topbar / header   the shared contact strip and nav (keep in sync with index.html)
+    .page-hero   title + the class line (#classLine, filled by the script)
+    #main        #status (loading / refusals / thanks) and #form (drawn by the script)
+    footer
+    script       API base, helpers, loadContext(), draw(), submit()
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class Feedback — NERX Power Consultants</title>
+<meta name="robots" content="noindex, nofollow">
+<!-- Frame guard: never let this form be shown inside another site's frame. -->
+<script>document.documentElement.classList.add('js');
+  if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) {} }</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="styles.css">
+<!-- Page styles on top of styles.css: the survey card, the question blocks, the 1-5 rating
+     pills, the single-choice chips, text boxes, the name section and the submit row. -->
+<style>
+  .survey-wrap { max-width: 820px; margin: 0 auto; }
+  .page-hero .class-line { color: var(--grey-light); margin-top: 10px; font-size: 1.02rem; }
+  .page-hero .class-line b { color: var(--white); }
+  .survey-card {
+    background: var(--white); border-top: 3px solid var(--blue); border-radius: 6px;
+    padding: 28px 30px; box-shadow: 0 1px 4px rgba(33,35,39,0.08); margin-top: -34px; position: relative;
+  }
+  .survey-card .intro { color: #5f6368; font-size: 0.96rem; margin-bottom: 6px; }
+  /* Section headers inside the form carry the site's "// " mark. */
+  /* styles.css pads every <section> 76px top and bottom (the home-page bands); these are
+     form groups, so the padding is reset here and only a hairline separates them. */
+  .q-section { margin-top: 26px; padding: 22px 0 0; border-top: 1px solid #eceef0; }
+  .q-section:first-of-type { margin-top: 18px; border-top: none; padding-top: 0; }
+  .q-section h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+  .q-section h2::before { content: "// "; color: var(--blue); font-style: italic; }
+  .q-section .hint { color: #5f6368; font-size: 0.9rem; margin-bottom: 14px; }
+  .q { margin: 0 0 20px; }
+  .q .label { font-weight: 600; display: block; margin-bottom: 8px; line-height: 1.35; }
+  .q .label .req { color: var(--blue); font-weight: 800; margin-left: 4px; }
+  /* Rating: five real radio buttons drawn as pills; the inputs are visually hidden but
+     focusable, so keyboard users move with the arrow keys and see the focus ring. */
+  .scale { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .scale .end { font-size: 0.82rem; color: #5f6368; min-width: 86px; }
+  .scale .end.hi { text-align: right; }
+  .pills { display: flex; gap: 6px; }
+  .pill { position: relative; }
+  .pill input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .pill span {
+    display: flex; align-items: center; justify-content: center; width: 44px; height: 42px;
+    border: 1.5px solid #c9cdd2; border-radius: 6px; font-weight: 700; color: var(--charcoal); background: #fff;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .pill:hover span { border-color: var(--blue); }
+  .pill input:checked + span { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .pill input:focus-visible + span { outline: 2px solid var(--blue-light); outline-offset: 2px; }
+  /* Single choice: the same pills, sized to their words. */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chips .pill span { width: auto; height: auto; padding: 8px 14px; font-weight: 600; font-size: 0.93rem; }
+  textarea, input[type="text"] {
+    width: 100%; font: inherit; font-size: 0.97rem; padding: 10px 12px; border: 1.5px solid #c9cdd2;
+    border-radius: 6px; background: #fff; color: var(--charcoal);
+  }
+  textarea { min-height: 86px; resize: vertical; }
+  textarea:focus, input[type="text"]:focus { outline: 2px solid var(--blue-light); border-color: var(--blue); }
+  .q .count { font-size: 0.8rem; color: #9aa0a6; text-align: right; margin-top: 2px; }
+  /* The name section: two stacked radio rows, the name box only when "include" is chosen. */
+  .name-opts label.row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; cursor: pointer; }
+  .name-opts input[type="radio"], .name-opts input[type="checkbox"] { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--blue); flex-shrink: 0; }
+  .name-opts .sub { color: #5f6368; font-size: 0.9rem; display: block; }
+  #nameFields { margin: 8px 0 0 28px; }
+  #nameFields label.row { padding-top: 10px; }
+  .submit-row { margin-top: 28px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .submit-row .btn { padding: 12px 26px; }
+  .submit-row .note { color: #5f6368; font-size: 0.88rem; }
+  .msg { font-weight: 600; min-height: 1.3em; }
+  .msg.err { color: #b3261e; }
+  .msg.ok { color: #1d7a3e; }
+  #status { padding: 10px 0; }
+  #status h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 10px; }
+  #status p { color: #3c4043; margin-bottom: 12px; }
+  @media (max-width: 560px) {
+    .survey-card { padding: 22px 18px; }
+    .scale .end { min-width: 0; width: 100%; }
+    .scale .end.hi { text-align: left; order: 3; }
+    .pill span { width: 40px; height: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pill span { transition: none; } }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- Contact strip and header, same as the home page. -->
+<div class="topbar">
+  <div class="container">
+    <span><strong>Email:</strong> <a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a></span>
+    <span><strong>Location:</strong> Houston, TX</span>
+    <span><strong>Hours:</strong> 8:00 am – 6:00 pm Central</span>
+  </div>
+</div>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home">
+      <img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo">
+    </a>
+    <nav aria-label="Main navigation">
+      <ul>
+        <li><a href="index.html#services">Services</a></li>
+        <li><a href="index.html#training">Training</a></li>
+        <li><a href="https://forum.nerxpower.com/">Forum</a></li>
+        <li><a href="toolkits.html">Toolkits</a></li>
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="index.html#approach">Our Approach</a></li>
+        <li><a href="index.html#contact" class="cta">Contact Us</a></li>
+        <!-- nav: keep in sync with index.html — Services · Training · Forum · Toolkits · About · Our Approach · Contact Us -->
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<!-- Title band. #classLine is filled from /survey/context ("Symmetrical Components · Tuesday …"). -->
+<section class="page-hero" style="padding-bottom:70px">
+  <div class="container survey-wrap">
+    <a class="breadcrumb" href="index.html#training">Training</a>
+    <h1>How was the class?</h1>
+    <p class="class-line" id="classLine">Loading your class…</p>
+  </div>
+</section>
+
+<main id="main">
+  <div class="container survey-wrap">
+    <div class="survey-card">
+      <!-- Status: the loading line, a refusal (bad link, not attended, already answered), or the thank-you. -->
+      <div id="status" aria-live="polite"><p>Loading the survey…</p></div>
+      <!-- The form is drawn into here by draw() once the questions arrive. -->
+      <form id="form" hidden novalidate></form>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <img src="nerx-logo-transparent.png" alt="NERX Power Consultants">
+    <div>&copy; 2026 NERX Power Consultants LLC. All Rights Reserved.</div>
+  </div>
+</footer>
+
+<script>
+// ---------------- API base and small helpers (same conventions as ticket.html) ----------------
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+// Only honour an ?api= override that points at localhost (development); ?api=clear forgets it.
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+if (_qApi === 'clear' || _qApi === '') { try { localStorage.removeItem('nerx_tickets_api'); } catch (e) {} }
+else if (_qApi && _isLocalApi(_qApi)) lsSet('nerx_tickets_api', _qApi);
+const _stApi = lsGet('nerx_tickets_api');
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDT = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago',
+  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+
+// The link's credentials. Both come from the emailed link and are sent back as given.
+const params = new URLSearchParams(location.search);
+const T = parseInt(params.get('t') || '0', 10);
+const SIG = params.get('sig') || '';
+
+// One request to the ticket server. Errors carry the server's `detail` when it is a string.
+async function api(path, opts) {
+  let r;
+  try { r = await fetch(API + path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {})); }
+  catch (e) { throw new Error('Could not reach the ticket server — check your connection and try again.'); }
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(typeof d.detail === 'string' ? d.detail : 'Request failed (' + r.status + ')'); err.status = r.status; throw err; }
+  return d;
+}
+
+// ---------------- the status panel ----------------
+function showStatus(title, html) {
+  $('#status').innerHTML = (title ? '<h2>' + esc(title) + '</h2>' : '') + html;
+  $('#status').hidden = false;
+}
+
+// ---------------- load the class + questions, then draw ----------------
+let CTX = null;
+async function loadContext() {
+  if (!T || !SIG) {
+    showStatus('This link is incomplete',
+      '<p>Open the survey from the link in your class follow-up email. If that link does not work, email ' +
+      '<a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>.</p>');
+    $('#classLine').textContent = 'NERX training';
+    return;
+  }
+  try {
+    CTX = await api('/survey/context?t=' + encodeURIComponent(T) + '&sig=' + encodeURIComponent(SIG));
+  } catch (e) {
+    $('#classLine').textContent = 'NERX training';
+    showStatus(e.status === 400 ? 'This link is not valid' : 'Not available',
+      '<p>' + esc(e.message) + '</p>' +
+      '<p><a class="btn btn-ghost" href="index.html#training">Back to training</a></p>');
+    return;
+  }
+  $('#classLine').innerHTML = '<b>' + esc(CTX.course_name) + '</b>' +
+    (CTX.course_subtitle ? ' — ' + esc(CTX.course_subtitle) : '') +
+    ' · ' + esc(fmtDT(CTX.starts_at)) + ' Central · ' + esc(CTX.pdh_hours) + ' PDH';
+  document.title = 'Class Feedback — ' + CTX.course_name + ' — NERX';
+  if (CTX.already_submitted) {
+    showStatus('Thank you — your feedback is already in',
+      '<p>Your answers for this class were received. Each ticket can answer once.</p>' +
+      '<p><a class="btn btn-ghost" href="index.html#training">See upcoming classes</a> &nbsp; ' +
+      '<a class="btn btn-ghost" href="https://forum.nerxpower.com/">Visit the forum</a></p>');
+    return;
+  }
+  draw(CTX);
+}
+
+// ---------------- draw the form from the server's question list ----------------
+// Questions arrive in one flat list; here they are shown in three groups by kind so the
+// quick ratings come first and the writing last. The name question is fixed on this page.
+function ratingHTML(q) {
+  return '<div class="scale" role="radiogroup" aria-labelledby="lbl-' + esc(q.id) + '">' +
+    '<span class="end">' + esc(q.low || '1') + '</span><div class="pills">' +
+    [1, 2, 3, 4, 5].map((n) => '<label class="pill"><input type="radio" name="' + esc(q.id) + '" value="' + n +
+      '" aria-label="' + n + ' of 5"><span>' + n + '</span></label>').join('') +
+    '</div><span class="end hi">' + esc(q.high || '5') + '</span></div>';
+}
+function choiceHTML(q) {
+  return '<div class="chips" role="radiogroup" aria-labelledby="lbl-' + esc(q.id) + '">' +
+    (q.options || []).map((o) => '<label class="pill"><input type="radio" name="' + esc(q.id) + '" value="' + esc(o) +
+      '"><span>' + esc(o) + '</span></label>').join('') + '</div>';
+}
+function textHTML(q, max) {
+  return '<textarea name="' + esc(q.id) + '" id="' + esc(q.id) + '" maxlength="' + max + '" rows="3"></textarea>' +
+    '<div class="count" data-for="' + esc(q.id) + '"></div>';
+}
+function qHTML(q, max) {
+  const body = q.kind === 'rating' ? ratingHTML(q) : q.kind === 'choice' ? choiceHTML(q) : textHTML(q, max);
+  const tag = q.kind === 'text' ? 'label' : 'span';
+  return '<div class="q" data-q="' + esc(q.id) + '"><' + tag + ' class="label" id="lbl-' + esc(q.id) + '"' +
+    (q.kind === 'text' ? ' for="' + esc(q.id) + '"' : '') + '>' + esc(q.label) +
+    (q.required ? '<span class="req" title="Required">*</span>' : '') + '</' + tag + '>' + body + '</div>';
+}
+
+function draw(ctx) {
+  const qs = ctx.questions || [];
+  const max = ctx.text_max || 2000;
+  const ratings = qs.filter((q) => q.kind === 'rating');
+  const choices = qs.filter((q) => q.kind === 'choice');
+  const texts = qs.filter((q) => q.kind === 'text');
+  const who = ctx.instructor ? esc(ctx.instructor.split(' - ')[0]) : 'Doug';
+  const f = $('#form');
+  f.innerHTML =
+    '<p class="intro">About two minutes. Only the first question is required — skip anything you like. ' +
+    'Your answers are <b>anonymous</b> unless you choose to include your name at the end.</p>' +
+    '<section class="q-section"><h2>The class</h2><p class="hint">1 = ' + esc(ratings[0] && ratings[0].low || 'low') +
+    ', 5 = ' + esc(ratings[0] && ratings[0].high || 'high') + ' for the first question; the rest run from strongly disagree to strongly agree.</p>' +
+    ratings.map((q) => qHTML(q, max)).join('') + '</section>' +
+    (choices.length ? '<section class="q-section"><h2>Was it pitched right?</h2><p class="hint">Pick the answer closest to how it felt.</p>' +
+      choices.map((q) => qHTML(q, max)).join('') + '</section>' : '') +
+    (texts.length ? '<section class="q-section"><h2>In your own words</h2><p class="hint">These are the most useful answers — a sentence or two is plenty.</p>' +
+      texts.map((q) => qHTML(q, max)).join('') + '</section>' : '') +
+    '<section class="q-section name-opts"><h2>Your name</h2>' +
+    '<p class="hint">Would you like your name recorded with your answers?</p>' +
+    '<label class="row"><input type="radio" name="share_name" value="no" checked><span><b>No — keep my answers anonymous</b>' +
+    '<span class="sub">Nothing identifying is stored with your answers: not your name, email or ticket.</span></span></label>' +
+    '<label class="row"><input type="radio" name="share_name" value="yes"><span><b>Yes — include my name</b>' +
+    '<span class="sub">So ' + who + ' can follow up with you about what you wrote.</span></span></label>' +
+    '<div id="nameFields" hidden>' +
+    '<label for="name" class="label">Name</label><input type="text" id="name" name="name" maxlength="120" autocomplete="name" value="' + esc(ctx.buyer_name || '') + '">' +
+    '<label class="row"><input type="checkbox" name="quote_ok" value="1"><span>You may quote my comments (first name and company only) when describing this class.</span></label>' +
+    '</div></section>' +
+    '<div class="submit-row"><button type="submit" class="btn btn-primary" id="send">Send feedback</button>' +
+    '<span class="note">Sent to NERX Power Consultants and stored with this class.</span></div>' +
+    '<p class="msg" id="msg" aria-live="polite"></p>';
+  // Name fields appear with "Yes"; the first field gets focus.
+  f.querySelectorAll('input[name="share_name"]').forEach((r) => r.addEventListener('change', () => {
+    const yes = f.querySelector('input[name="share_name"]:checked').value === 'yes';
+    $('#nameFields').hidden = !yes;
+    if (yes) $('#name').focus();
+  }));
+  // Character counters on the text boxes, shown once a box is a quarter full.
+  f.querySelectorAll('textarea').forEach((ta) => {
+    const c = f.querySelector('.count[data-for="' + ta.name + '"]');
+    const upd = () => { c.textContent = ta.value.length > max / 4 ? ta.value.length + ' / ' + max : ''; };
+    ta.addEventListener('input', upd); upd();
+  });
+  // Any answer clears a "Please answer…" message left by an earlier Send.
+  f.addEventListener('change', () => { const m = $('#msg'); if (m.classList.contains('err')) { m.textContent = ''; m.className = 'msg'; } });
+  f.addEventListener('submit', submit);
+  $('#status').hidden = true;
+  f.hidden = false;
+}
+
+// ---------------- collect and send ----------------
+function collect(ctx) {
+  const f = $('#form');
+  const answers = {};
+  for (const q of ctx.questions || []) {
+    if (q.kind === 'text') { const v = (f.elements[q.id].value || '').trim(); if (v) answers[q.id] = v; }
+    else { const el = f.querySelector('input[name="' + CSS.escape(q.id) + '"]:checked'); if (el) answers[q.id] = q.kind === 'rating' ? parseInt(el.value, 10) : el.value; }
+  }
+  const share = f.querySelector('input[name="share_name"]:checked').value === 'yes';
+  return { t: T, sig: SIG, answers, share_name: share,
+           name: share ? ($('#name').value || '').trim() : null,
+           quote_ok: share && f.querySelector('input[name="quote_ok"]').checked };
+}
+
+async function submit(e) {
+  e.preventDefault();
+  const msg = $('#msg'); msg.textContent = ''; msg.className = 'msg';
+  const body = collect(CTX);
+  // The same checks the server makes, so the first problem is pointed at on the page.
+  const required = (CTX.questions || []).filter((q) => q.required && body.answers[q.id] == null);
+  if (required.length) {
+    msg.textContent = 'Please answer: ' + required[0].label; msg.className = 'msg err';
+    const el = document.querySelector('.q[data-q="' + CSS.escape(required[0].id) + '"]');
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); const first = el.querySelector('input'); if (first) first.focus(); }
+    return;
+  }
+  if (body.share_name && !body.name) { msg.textContent = 'Enter your name, or choose to stay anonymous.'; msg.className = 'msg err'; $('#name').focus(); return; }
+  const btn = $('#send'); btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await api('/survey', { method: 'POST', body: JSON.stringify(body) });
+    $('#form').hidden = true;
+    showStatus('Thank you',
+      '<p>Your feedback is in' + (body.share_name ? ', with your name' : ', anonymously') + '. It goes straight to the instructor, and it shapes how the class is taught next time.</p>' +
+      '<p>If you wrote something you would like a reply to and chose to stay anonymous, just email ' +
+      '<a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>.</p>' +
+      '<p><a class="btn btn-primary" href="index.html#training">See upcoming classes</a> &nbsp; ' +
+      '<a class="btn btn-ghost" href="https://forum.nerxpower.com/">Continue on the forum</a></p>');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Send feedback';
+    if (err.status === 409) {
+      $('#form').hidden = true;
+      showStatus('Already received', '<p>' + esc(err.message) + '</p>');
+      return;
+    }
+    msg.textContent = err.message; msg.className = 'msg err';
+  }
+}
+
+loadContext();
+</script>
+</body>
+</html>

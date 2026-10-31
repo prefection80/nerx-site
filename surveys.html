@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<!--
+  surveys.html — the instructor's review page for post-class survey responses.
+
+  WHAT IT IS
+    Everything attendees have sent through survey.html: the response rate per class, the
+    average of every 1-5 question with its distribution, the split of every multiple-choice
+    question, every written comment, and the raw response list. Filter by course and by
+    class date; download the filtered set as CSV. Reading only - nothing on this page
+    changes anything on the server.
+
+  ACCESS
+    Admin token, read like analytics.html does: this tab's sessionStorage, or the roster's
+    "remember on this computer" copy in localStorage.nerx_admin_token_keep. A 401 forgets
+    both and shows the Connect box again; a 429 keeps them and says so.
+
+  TALKS TO (tickets.nerxpower.com, "Authorization: Bearer <token>")
+    GET /admin/surveys        {questions[], responses[], sessions[]}  - every response, newest
+                              first, with the question list to read it by, and per-session
+                              counts of attended / invited / answered
+    GET /admin/sessions       to label the per-session counts with a course and date
+    GET /admin/surveys.csv    the download (fetched with the token, saved client-side)
+
+  PAGE MAP
+    head script   frame guard  ·  style block  ·  header/nav (Roster, Analytics, Ticket Page)
+    #authBox      the Connect box
+    #ui           filters (course, class date, named only) · KPI tiles · response rate table
+                  · rating questions · choice questions · comments · raw responses
+    script        API base + helpers, api(), load(), scope(), render*(), CSV download
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class Feedback — NERX Training Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<script>
+  document.documentElement.classList.add('js');
+  if (window.top !== window.self) { try { window.top.location = window.location; } catch (e) { document.documentElement.innerHTML = ''; } }
+</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  [hidden] { display: none !important; }
+  :root { --ink: #3c4043; --muted: #5f6368; --grid: #e4e6e8; --good: #2e9b5f; --mid: #d6771a; --bad: #b03a5b; }
+  .admin-box {
+    background: var(--white); border-radius: 6px; border-top: 3px solid var(--blue);
+    box-shadow: 0 1px 4px rgba(33,35,39,0.08); padding: 22px 26px; margin-bottom: 22px;
+  }
+  .admin-box h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+  .admin-box h2::before { content: "// "; color: var(--blue); font-style: italic; }
+  .admin-box .lead { color: var(--muted); font-size: 0.9rem; margin-bottom: 14px; }
+  .admin-box label { font-weight: 600; margin-right: 8px; }
+  .admin-box input, .admin-box select { padding: 9px 12px; border: 1.5px solid #c3c7cb; border-radius: 4px; font-size: 0.95rem; font-family: inherit; }
+  .btn.small { padding: 9px 16px; font-size: 0.88rem; }
+  .btn-outline { border: 1.5px solid var(--blue); color: var(--blue); background: #fff; }
+  .btn-outline:hover { background: #eaf4f8; }
+  .flex { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .err { color: #b02a37; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 0.88rem; }
+  /* KPI tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .tile { background: var(--charcoal); color: var(--grey-light); border-radius: 6px; padding: 16px 20px; border-left: 3px solid var(--blue); }
+  .tile b { display: block; color: var(--white); font-size: 1.6rem; line-height: 1.2; }
+  .tile span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tile small { display: block; color: #9aa0a6; font-size: 0.78rem; margin-top: 4px; }
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  /* Rating rows: label, big average, then a five-cell distribution strip. */
+  .rq { display: grid; grid-template-columns: minmax(220px, 1.4fr) 70px 2fr 60px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+  .rq:last-child { border-bottom: none; }
+  .rq .lbl { font-weight: 600; font-size: 0.93rem; line-height: 1.3; }
+  .rq .avg { font-size: 1.5rem; font-weight: 800; color: var(--charcoal); }
+  .rq .avg.good { color: var(--good); } .rq .avg.mid { color: var(--mid); } .rq .avg.bad { color: var(--bad); }
+  .dist { display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #f0f1f3; }
+  .dist i { display: block; height: 100%; font-style: normal; font-size: 0.72rem; color: #fff; text-align: center; line-height: 22px; overflow: hidden; white-space: nowrap; }
+  .dist .d1 { background: #b03a5b; } .dist .d2 { background: #d6771a; } .dist .d3 { background: #9aa0a6; } .dist .d4 { background: #4db3d4; } .dist .d5 { background: #1a7690; }
+  .legend { display: flex; gap: 14px; font-size: 0.78rem; color: var(--muted); margin: 6px 0 10px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  /* Choice questions: one block each, horizontal bars per option. */
+  .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 28px; }
+  .cq .lbl { font-weight: 600; font-size: 0.93rem; margin-bottom: 8px; }
+  .hb { display: grid; grid-template-columns: 110px 1fr 36px; gap: 8px; align-items: center; font-size: 0.86rem; padding: 3px 0; }
+  .hb .track { height: 14px; background: #f0f1f3; border-radius: 3px; overflow: hidden; }
+  .hb .track i { display: block; height: 100%; background: var(--blue); }
+  .hb .track i.warn { background: var(--mid); }
+  .hb .n { text-align: right; color: var(--muted); }
+  /* Comments */
+  .comment { padding: 12px 0; border-bottom: 1px solid var(--grid); }
+  .comment:last-child { border-bottom: none; }
+  .comment .who { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .comment .who b { color: var(--charcoal); }
+  .comment .q { font-size: 0.8rem; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
+  .comment p { margin: 2px 0 0; white-space: pre-wrap; }
+  .badge { display: inline-block; font-size: 0.72rem; padding: 1px 7px; border-radius: 10px; background: #e6f4ea; color: #1d7a3e; font-weight: 700; margin-left: 6px; vertical-align: 1px; }
+  .badge.anon { background: #f0f1f3; color: var(--muted); }
+  .badge.rate { background: #eaf4f8; color: var(--blue); }
+  /* Raw responses: a row per response, expandable. */
+  details.resp { border-bottom: 1px solid var(--grid); }
+  details.resp summary { cursor: pointer; padding: 9px 4px; display: grid; grid-template-columns: 150px 1fr 1fr 60px; gap: 10px; font-size: 0.9rem; align-items: center; }
+  details.resp summary:hover { background: #f7f8f9; }
+  details.resp .body { padding: 6px 4px 14px 14px; font-size: 0.88rem; }
+  details.resp dl { display: grid; grid-template-columns: minmax(200px, 1fr) 2fr; gap: 4px 14px; }
+  details.resp dt { color: var(--muted); } details.resp dd { margin: 0; white-space: pre-wrap; }
+  .empty { color: var(--muted); font-style: italic; padding: 10px 0; }
+  @media (max-width: 760px) {
+    .rq { grid-template-columns: 1fr 60px; }
+    .rq .dist, .rq .cnt { grid-column: 1 / -1; }
+    details.resp summary { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header>
+  <div class="nav">
+    <a class="brand" href="index.html" aria-label="NERX Power Consultants home"><img src="nerx-logo-transparent.png" alt="NERX Power Consultants logo"></a>
+    <nav aria-label="Main navigation"><ul>
+      <li><a href="roster.html">Roster</a></li>
+      <li><a href="analytics.html">Analytics</a></li>
+      <li><a href="ticket.html">Ticket Page</a></li>
+    </ul></nav>
+  </div>
+</header>
+<main id="main">
+<div class="page-hero"><div class="container"><h1>Class Feedback</h1></div></div>
+<section><div class="container">
+
+  <div class="admin-box flex" id="authBox">
+    <label for="tok">Admin token</label>
+    <input id="tok" type="password" autocomplete="off" style="min-width:280px">
+    <button class="btn btn-primary small" id="go">Connect</button>
+    <span id="authMsg" class="meta"></span>
+  </div>
+
+  <div id="ui" hidden>
+    <!-- Filters: course, then the class dates of that course; "named only" keeps the responses
+         where the attendee gave their name. Every change redraws from the data already loaded. -->
+    <div class="admin-box flex">
+      <label for="course">Course</label>
+      <select id="course"><option value="">All courses</option></select>
+      <label for="session">Class date</label>
+      <select id="session"><option value="">All dates</option></select>
+      <label style="font-weight:400;display:flex;align-items:center;gap:6px"><input type="checkbox" id="namedOnly" style="width:auto"> Named responses only</label>
+      <span class="meta" id="scope" style="margin-left:auto"></span>
+      <button class="btn btn-outline small" id="csv">Download CSV</button>
+      <button class="btn btn-outline small" id="reload">Reload</button>
+    </div>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="admin-box">
+      <h2>Response rate by class</h2>
+      <p class="lead">Attended = tickets used on the date. Invited = sent the separate survey reminder (the follow-up email carries the link too, so people answer before an invite goes out).</p>
+      <div style="overflow-x:auto"><table id="rateTbl"><thead><tr><th>Class</th><th>Date</th><th class="n">Attended</th><th class="n">Invited</th><th class="n">Answered</th><th class="n">Rate</th><th class="n">Overall avg</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="admin-box">
+      <h2>Ratings</h2>
+      <p class="lead">Average out of 5 and how the answers split. Colour: green 4.5 and up, amber under 4.</p>
+      <div class="legend"><span><i style="background:#b03a5b"></i>1</span><span><i style="background:#d6771a"></i>2</span><span><i style="background:#9aa0a6"></i>3</span><span><i style="background:#4db3d4"></i>4</span><span><i style="background:#1a7690"></i>5</span></div>
+      <div id="ratings"></div>
+    </div>
+
+    <div class="admin-box">
+      <h2>Pitch, pace and the rest</h2>
+      <p class="lead">Multiple-choice answers. For depth, pace and length the middle answer is the target; anything else is drawn in amber.</p>
+      <div class="choices" id="choices"></div>
+    </div>
+
+    <div class="admin-box">
+      <h2>Comments</h2>
+      <p class="lead">Every written answer, newest first. "May quote" means the attendee gave their name and agreed to be quoted by first name and company.</p>
+      <div id="comments"></div>
+    </div>
+
+    <div class="admin-box">
+      <h2>All responses</h2>
+      <p class="lead">Click a row for the full response.</p>
+      <div id="responses"></div>
+    </div>
+  </div>
+</div></section>
+</main>
+
+<script>
+// ---------------- API base + helpers (same conventions as the other admin pages) ----------------
+const _isLocalApi = (u) => { try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch (e) { return false; } };
+const _qApi = new URLSearchParams(location.search).get('api');
+try {
+  if (_qApi === 'clear' || _qApi === '') localStorage.removeItem('nerx_tickets_api');
+  else if (_qApi && _isLocalApi(_qApi)) localStorage.setItem('nerx_tickets_api', _qApi);
+} catch (e) {}
+let _stApi = null; try { _stApi = localStorage.getItem('nerx_tickets_api'); } catch (e) {}
+const API = (_stApi && _isLocalApi(_stApi)) ? _stApi : 'https://tickets.nerxpower.com';
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CT = 'America/Chicago';
+const fmtD = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const fmtDT = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: CT, month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+const token = () => { try { return sessionStorage.getItem('nerx_admin_token') || localStorage.getItem('nerx_admin_token_keep'); } catch (e) { return null; } };
+
+// One GET with the token. 401 forgets the token (it was wrong); 429 keeps it (see the
+// analytics page notes: on an admin route a 429 only follows a wrong token, but say so plainly).
+async function api(path, raw) {
+  const r = await fetch(API + path, { headers: { Authorization: 'Bearer ' + (token() || '') } });
+  if (r.status === 429) throw new Error('Too many failed attempts — wait a minute and check the token.');
+  if (r.status === 401) {
+    try { sessionStorage.removeItem('nerx_admin_token'); localStorage.removeItem('nerx_admin_token_keep'); } catch (e) {}
+    $('#ui').hidden = true; $('#authBox').hidden = false;
+    throw new Error('Unauthorized — check the token.');
+  }
+  if (!r.ok) throw new Error('Request failed (' + r.status + ')');
+  return raw ? r.text() : r.json();
+}
+
+// ---------------- data ----------------
+let DATA = { questions: [], responses: [], sessions: [] };
+let SESSIONS = {};   // session_id -> {course_name, starts_at}
+
+async function load() {
+  $('#authMsg').textContent = 'Loading…'; $('#authMsg').className = 'meta';
+  try {
+    const [d, sess] = await Promise.all([api('/admin/surveys'), api('/admin/sessions')]);
+    DATA = d;
+    SESSIONS = {};
+    (sess || []).forEach((s) => { SESSIONS[s.id] = s; });
+    fillFilters();
+    render();
+    $('#authBox').hidden = true; $('#ui').hidden = false; $('#authMsg').textContent = '';
+  } catch (e) {
+    $('#authMsg').textContent = e.message; $('#authMsg').className = 'err';
+  }
+}
+
+// The course list comes from the responses AND the sessions with attendees, so a class
+// that has had no answers yet still shows (with its zero) in the rate table.
+function fillFilters() {
+  const courses = new Set(DATA.responses.map((r) => r.course_name));
+  DATA.sessions.forEach((c) => { const s = SESSIONS[c.session_id]; if (s) courses.add(s.course_name); });
+  const sel = $('#course'); const cur = sel.value;
+  sel.innerHTML = '<option value="">All courses</option>' + [...courses].sort().map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+  sel.value = [...courses].includes(cur) ? cur : '';
+  fillSessions();
+}
+function fillSessions() {
+  const course = $('#course').value;
+  const ids = new Set(DATA.responses.filter((r) => !course || r.course_name === course).map((r) => r.session_id));
+  DATA.sessions.forEach((c) => { const s = SESSIONS[c.session_id]; if (s && (!course || s.course_name === course)) ids.add(c.session_id); });
+  const rows = [...ids].map((id) => ({ id, s: SESSIONS[id] || {} })).sort((a, b) => (b.s.starts_at || '').localeCompare(a.s.starts_at || ''));
+  const sel = $('#session'); const cur = sel.value;
+  sel.innerHTML = '<option value="">All dates</option>' + rows.map((r) => '<option value="' + esc(r.id) + '">' +
+    esc(fmtDT(r.s.starts_at)) + (course ? '' : ' — ' + esc(r.s.course_name || r.id)) + '</option>').join('');
+  sel.value = ids.has(cur) ? cur : '';
+}
+
+// The responses the filters leave in view.
+function scope() {
+  const course = $('#course').value, sid = $('#session').value, named = $('#namedOnly').checked;
+  return DATA.responses.filter((r) => (!course || r.course_name === course) && (!sid || r.session_id === sid) && (!named || r.name));
+}
+const avg = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+const fmtAvg = (a) => a == null ? '—' : (Math.round(a * 10) / 10).toFixed(1);
+const avgClass = (a) => a == null ? '' : a >= 4.5 ? 'good' : a < 4 ? (a < 3 ? 'bad' : 'mid') : '';
+
+// ---------------- render ----------------
+function render() {
+  const rs = scope();
+  const Q = DATA.questions;
+  $('#scope').textContent = rs.length + ' response' + (rs.length === 1 ? '' : 's') + ' in view · ' + DATA.responses.length + ' total';
+  renderTiles(rs);
+  renderRates();
+  renderRatings(rs, Q);
+  renderChoices(rs, Q);
+  renderComments(rs, Q);
+  renderResponses(rs, Q);
+}
+
+function renderTiles(rs) {
+  const overall = avg(rs.map((r) => r.answers.overall).filter((v) => v != null));
+  const rec = rs.map((r) => r.answers.recommend).filter(Boolean);
+  const recYes = rec.length ? Math.round(100 * rec.filter((v) => v === 'Yes').length / rec.length) : null;
+  const course = $('#course').value, sid = $('#session').value;
+  const counts = DATA.sessions.filter((c) => (!sid || c.session_id === sid) && (!course || (SESSIONS[c.session_id] || {}).course_name === course));
+  const attended = counts.reduce((a, c) => a + c.attended, 0), answered = counts.reduce((a, c) => a + c.answered, 0);
+  const named = rs.filter((r) => r.name).length;
+  $('#tiles').innerHTML =
+    tile(rs.length, 'Responses', named + ' with a name'
+      ) +
+    tile(fmtAvg(overall), 'Overall rating', 'out of 5' + (overall != null && rs.length ? ', ' + rs.filter((r) => r.answers.overall >= 4).length + ' of ' + rs.length + ' gave 4 or 5' : '')) +
+    tile(recYes == null ? '—' : recYes + '%', 'Would recommend', rec.length ? '"Yes" · ' + rec.filter((v) => v === 'Yes' || v === 'Probably').length + ' of ' + rec.length + ' yes or probably' : 'no answers yet') +
+    tile(attended ? Math.round(100 * answered / attended) + '%' : '—', 'Response rate', answered + ' of ' + attended + ' attendees');
+}
+const tile = (b, label, small) => '<div class="tile"><b>' + esc(b) + '</b><span>' + esc(label) + '</span>' + (small ? '<small>' + esc(small) + '</small>' : '') + '</div>';
+
+function renderRates() {
+  const course = $('#course').value;
+  const rows = DATA.sessions.map((c) => ({ c, s: SESSIONS[c.session_id] || { course_name: c.session_id, starts_at: null } }))
+    .filter((r) => !course || r.s.course_name === course)
+    .sort((a, b) => (b.s.starts_at || '').localeCompare(a.s.starts_at || ''));
+  const body = $('#rateTbl tbody');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="empty">No attended classes yet.</td></tr>'; return; }
+  body.innerHTML = rows.map(({ c, s }) => {
+    const ov = avg(DATA.responses.filter((r) => r.session_id === c.session_id).map((r) => r.answers.overall).filter((v) => v != null));
+    const rate = c.attended ? Math.round(100 * c.answered / c.attended) : 0;
+    return '<tr><td>' + esc(s.course_name) + '</td><td>' + esc(fmtDT(s.starts_at)) + '</td><td class="n">' + c.attended +
+      '</td><td class="n">' + c.invited + '</td><td class="n">' + c.answered + '</td><td class="n">' + (c.attended ? rate + '%' : '—') +
+      '</td><td class="n"><b class="' + avgClass(ov) + '">' + fmtAvg(ov) + '</b></td></tr>';
+  }).join('');
+}
+
+function renderRatings(rs, Q) {
+  const qs = Q.filter((q) => q.kind === 'rating');
+  $('#ratings').innerHTML = qs.map((q) => {
+    const vals = rs.map((r) => r.answers[q.id]).filter((v) => v != null);
+    const a = avg(vals);
+    const dist = [1, 2, 3, 4, 5].map((n) => vals.filter((v) => v === n).length);
+    return '<div class="rq"><div class="lbl">' + esc(q.label) + '</div><div class="avg ' + avgClass(a) + '">' + fmtAvg(a) + '</div>' +
+      '<div class="dist" title="' + dist.map((n, i) => (i + 1) + ': ' + n).join(' · ') + '">' +
+      dist.map((n, i) => n ? '<i class="d' + (i + 1) + '" style="width:' + (100 * n / vals.length) + '%">' + (100 * n / vals.length >= 12 ? n : '') + '</i>' : '').join('') +
+      '</div><div class="cnt meta">n = ' + vals.length + '</div></div>';
+  }).join('') || '<p class="empty">No ratings in view.</p>';
+}
+
+function renderChoices(rs, Q) {
+  const target = { depth: 'About right', pace: 'About right', length: 'About right' };
+  const qs = Q.filter((q) => q.kind === 'choice');
+  $('#choices').innerHTML = qs.map((q) => {
+    const vals = rs.map((r) => r.answers[q.id]).filter(Boolean);
+    const n = vals.length || 1;
+    return '<div class="cq"><div class="lbl">' + esc(q.label) + ' <span class="meta">n = ' + vals.length + '</span></div>' +
+      q.options.map((o) => { const c = vals.filter((v) => v === o).length;
+        const warn = target[q.id] && o !== target[q.id] && c > 0;
+        return '<div class="hb"><span>' + esc(o) + '</span><div class="track"><i class="' + (warn ? 'warn' : '') + '" style="width:' + (100 * c / n) + '%"></i></div><span class="n">' + c + '</span></div>'; }).join('') +
+      '</div>';
+  }).join('') || '<p class="empty">No choice questions.</p>';
+}
+
+function who(r) {
+  return (r.name ? '<b>' + esc(r.name) + '</b>' + (r.email ? ' · ' + esc(r.email) : '') + (r.quote_ok ? '<span class="badge">may quote</span>' : '')
+    : '<span class="badge anon">anonymous</span>') +
+    (r.answers.overall != null ? '<span class="badge rate">' + r.answers.overall + '/5</span>' : '') +
+    ' · ' + esc(r.course_name) + ' · ' + esc(fmtD(r.starts_at)) + ' · sent ' + esc(fmtDT(r.created_at));
+}
+
+function renderComments(rs, Q) {
+  const texts = Q.filter((q) => q.kind === 'text');
+  const items = rs.filter((r) => texts.some((q) => r.answers[q.id]));
+  $('#comments').innerHTML = items.map((r) => '<div class="comment"><div class="who">' + who(r) + '</div>' +
+    texts.filter((q) => r.answers[q.id]).map((q) => '<div class="q">' + esc(q.label) + '</div><p>' + esc(r.answers[q.id]) + '</p>').join('') + '</div>').join('')
+    || '<p class="empty">No written comments in view.</p>';
+}
+
+function renderResponses(rs, Q) {
+  $('#responses').innerHTML = rs.map((r) => '<details class="resp"><summary><span>' + esc(fmtDT(r.created_at)) + '</span><span>' + esc(r.course_name) + ' · ' + esc(fmtD(r.starts_at)) +
+    '</span><span>' + (r.name ? esc(r.name) : '<span class="meta">anonymous</span>') + '</span><span class="n">' + (r.answers.overall != null ? r.answers.overall + '/5' : '—') + '</span></summary>' +
+    '<div class="body"><dl>' + Q.filter((q) => r.answers[q.id] != null).map((q) => '<dt>' + esc(q.label) + '</dt><dd>' + esc(r.answers[q.id]) + (q.kind === 'rating' ? ' / 5' : '') + '</dd>').join('') +
+    Object.keys(r.answers).filter((k) => !Q.some((q) => q.id === k)).map((k) => '<dt>' + esc(k) + ' <span class="meta">(retired question)</span></dt><dd>' + esc(r.answers[k]) + '</dd>').join('') +
+    (r.email ? '<dt>Email</dt><dd>' + esc(r.email) + (r.quote_ok ? ' — agreed to be quoted' : '') + '</dd>' : '') +
+    '</dl></div></details>').join('') || '<p class="empty">No responses in view.</p>';
+}
+
+// ---------------- CSV: the server's export for the current course/date filter ----------------
+$('#csv').onclick = async () => {
+  const b = $('#csv'); b.disabled = true;
+  try {
+    const q = new URLSearchParams(); if ($('#session').value) q.set('session_id', $('#session').value); else if ($('#course').value) q.set('course', $('#course').value);
+    const text = await api('/admin/surveys.csv' + (q.toString() ? '?' + q : ''), true);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'nerx-survey-responses.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) { alert(e.message); }
+  b.disabled = false;
+};
+
+// ---------------- wiring ----------------
+$('#course').addEventListener('change', () => { fillSessions(); render(); });
+$('#session').addEventListener('change', render);
+$('#namedOnly').addEventListener('change', render);
+$('#reload').onclick = load;
+$('#go').onclick = () => { try { sessionStorage.setItem('nerx_admin_token', $('#tok').value.trim()); } catch (e) {} $('#tok').value = ''; load(); };
+$('#tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#go').click(); });
+if (token()) load();
+</script>
+</body>
+</html>

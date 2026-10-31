@@ -377,6 +377,7 @@
         <button class="tab" data-tab="settings">Settings</button>
         <button class="tab" data-tab="reports">Reports</button>
         <a class="tab-link" href="analytics.html">Analytics &rarr;</a>
+        <a class="tab-link" href="surveys.html">Feedback &rarr;</a>
       </nav>
 
       <!-- ===== TAB: Today - the selected session's roster and everything that happens around
@@ -547,6 +548,7 @@
           <span class="meta">Send me a test of the email students on this date get:</span>
           <button class="btn btn-outline tiny" data-test="reminder">Class-time reminder</button>
           <button class="btn btn-outline tiny" data-test="followup">After-class certificate</button>
+          <button class="btn btn-outline tiny" data-test="survey">Survey reminder</button>
           <button class="btn btn-outline tiny" data-test="booked">Booking confirmation</button>
           <button class="btn btn-outline tiny" data-test="cancelled">Cancellation</button>
           <span id="testMsg" class="meta"></span>
@@ -782,6 +784,19 @@
           <button class="btn btn-primary small" id="oFupSave">Save Follow-up</button>
         </div>
         <p id="oFupMsg"></p>
+        <!-- Post-class survey (survey.html). The follow-up email above carries the survey link
+             whenever this is on; this separate reminder goes to attendees who have not answered. -->
+        <p class="meta" style="margin-top:16px">The follow-up email also carries a link to the
+          class feedback survey. Attendees who have not answered get a separate reminder this long
+          after class; 0 turns the survey off. Read the answers on the
+          <a href="surveys.html">Feedback page</a>.</p>
+        <div class="flex">
+          <label for="oSurvey">Survey reminder</label>
+          <input id="oSurvey" type="number" min="0" max="10080" step="5" style="width:90px">
+          <span class="meta">minutes after class ends</span>
+          <button class="btn btn-primary small" id="oSurveySave">Save Survey</button>
+        </div>
+        <p id="oSurveyMsg"></p>
         <p class="meta" style="margin-top:16px">A seat offered to someone on the waitlist is
           held for them this long before it passes to the next person (never past the signup
           cutoff).</p>
@@ -871,6 +886,7 @@
             <option value="cert">Certificates</option>
             <option value="reminder">Reminders</option>
             <option value="followup">Follow-ups</option>
+            <option value="survey">Surveys</option>
             <option value="waitlist">Waitlist</option>
             <option value="void">Voids</option>
           </select>
@@ -1683,6 +1699,10 @@ async function loadRoster() {
                                       t.attended_minutes + ' min in meeting</span>' : '') +
         (t.followup_at ? '<br><span class="meta" title="Certificate + materials email sent">' +
                          'emailed ' + fmt(t.followup_at) + '</span>' : '') +
+        (t.survey_at ? '<br><span class="meta" title="Answered the class feedback survey">' +
+                       'survey answered ' + fmt(t.survey_at) + '</span>'
+          : t.survey_sent_at ? '<br><span class="meta" title="Survey reminder emailed, not yet answered">' +
+                               'survey sent ' + fmt(t.survey_sent_at) + '</span>' : '') +
         '</td><td>' + certCell(t) +
         '</td><td class="row-actions"></td>';
       const actions = tr.querySelector('.row-actions');
@@ -2401,6 +2421,7 @@ const ACT_WORDS = { issue: 'ticket issued', book: 'booked', rebook: 'rescheduled
   'admin.use': 'checked in', 'admin.move': 'moved', 'admin.release': 'released', 'admin.void': 'voided',
   'admin.recode': 'new code', 'admin.issue': 'issued by admin', 'cert.issue': 'certificate printed',
   'cert.admin': 'certificate changed', reminder: 'reminder emailed', followup: 'follow-up emailed',
+  survey_invite: 'survey reminder emailed', survey: 'survey answered', 'admin.set_survey_minutes': 'survey timing set',
   'waitlist.join': 'joined waitlist', 'waitlist.offer': 'seat offered', 'waitlist.booked': 'took held seat',
   'waitlist.expired': 'hold expired', 'waitlist.removed': 'left waitlist', void: 'voided',
   'admin.session_create': 'session added', 'admin.session_patch': 'session edited',
@@ -2562,6 +2583,7 @@ async function loadOpenPrice() {
     $('#oCut').value = r.signup_cutoff_hours;
     if (r.reminder_minutes != null) $('#oRem').value = r.reminder_minutes;
     if (r.followup_minutes != null) $('#oFup').value = r.followup_minutes;
+    if (r.survey_minutes != null) $('#oSurvey').value = r.survey_minutes;
     if (r.waitlist_hold_hours != null) { $('#oHold').value = r.waitlist_hold_hours; $('#waitHoldHrs').textContent = r.waitlist_hold_hours; }
     fillBackup(r);
     if (r.instructor != null) $('#oInstr').value = r.instructor;
@@ -2659,6 +2681,18 @@ $('#oFupSave').onclick = async () => {
       : 'Saved — attendees get their certificate link and class materials ' + r.followup_minutes + ' minute(s) after class ends.';
     $('#oFupMsg').className = 'ok-msg';
   } catch (e) { $('#oFupMsg').textContent = e.message; $('#oFupMsg').className = 'err'; }
+};
+$('#oSurveySave').onclick = async () => {
+  try {
+    const v = parseInt($('#oSurvey').value, 10);
+    if (!(v >= 0)) throw new Error('Enter a whole number of minutes (0 or more).');
+    const r = await api('/admin/settings', {method: 'PATCH', body: JSON.stringify({survey_minutes: v})});
+    $('#oSurvey').value = r.survey_minutes;
+    $('#oSurveyMsg').textContent = r.survey_minutes === 0
+      ? 'Saved — the survey is off: no link in the follow-up email and no reminders.'
+      : 'Saved — the follow-up email carries the survey link, and anyone who has not answered is reminded ' + r.survey_minutes + ' minute(s) after class ends.';
+    $('#oSurveyMsg').className = 'ok-msg';
+  } catch (e) { $('#oSurveyMsg').textContent = e.message; $('#oSurveyMsg').className = 'err'; }
 };
 $('#oHoldSave').onclick = async () => {
   try {

@@ -17,6 +17,9 @@
        single choices, free text, then the name question.
     3. POST /survey {t, sig, answers, share_name, name?, quote_ok}   -> 201 once per ticket.
 
+    survey.html?preview=1 draws the same form for a sample class from GET /survey/preview
+    and sends nothing (the roster's "Survey reminder" test email links here).
+
   PRIVACY PROMISE MADE ON THE PAGE
     Answers are stored without the ticket, name or email unless the attendee chooses
     "Include my name" (the server enforces this; see nerx-tickets app/main.py survey_submit).
@@ -198,6 +201,9 @@ const fmtDT = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: '
 const params = new URLSearchParams(location.search);
 const T = parseInt(params.get('t') || '0', 10);
 const SIG = params.get('sig') || '';
+// ?preview=1: the form for a sample class, so the instructor can look at the live page
+// (the roster's "Survey reminder" test email links here). Nothing is sent from a preview.
+const PREVIEW = params.get('preview') === '1';
 
 // One request to the ticket server. Errors carry the server's `detail` when it is a string.
 async function api(path, opts) {
@@ -219,7 +225,7 @@ function showStatus(title, html) {
 // ---------------- load the class + questions, then draw ----------------
 let CTX = null;
 async function loadContext() {
-  if (!T || !SIG) {
+  if (!PREVIEW && (!T || !SIG)) {
     showStatus('This link is incomplete',
       '<p>Open the survey from the link in your class follow-up email. If that link does not work, email ' +
       '<a href="mailto:douglas.millner@nerxpower.com">douglas.millner@nerxpower.com</a>.</p>');
@@ -227,7 +233,8 @@ async function loadContext() {
     return;
   }
   try {
-    CTX = await api('/survey/context?t=' + encodeURIComponent(T) + '&sig=' + encodeURIComponent(SIG));
+    CTX = await api(PREVIEW ? '/survey/preview'
+                            : '/survey/context?t=' + encodeURIComponent(T) + '&sig=' + encodeURIComponent(SIG));
   } catch (e) {
     $('#classLine').textContent = 'NERX training';
     showStatus(e.status === 400 ? 'This link is not valid' : 'Not available',
@@ -247,6 +254,13 @@ async function loadContext() {
     return;
   }
   draw(CTX);
+  if (PREVIEW) {
+    const note = document.createElement('p');
+    note.className = 'intro';
+    note.style.cssText = 'background:#fff4e0;border-left:3px solid #d6771a;padding:10px 14px;border-radius:4px;margin-bottom:14px';
+    note.innerHTML = '<b>Preview.</b> This is the form attendees see; nothing you enter here is sent or stored.';
+    $('#form').prepend(note);
+  }
 }
 
 // ---------------- draw the form from the server's question list ----------------
@@ -353,6 +367,11 @@ async function submit(e) {
     return;
   }
   if (body.share_name && !body.name) { msg.textContent = 'Enter your name, or choose to stay anonymous.'; msg.className = 'msg err'; $('#name').focus(); return; }
+  if (PREVIEW) {
+    msg.textContent = 'Preview only — in a real survey this would now be sent and the thank-you screen shown.';
+    msg.className = 'msg ok';
+    return;
+  }
   const btn = $('#send'); btn.disabled = true; btn.textContent = 'Sending…';
   try {
     await api('/survey', { method: 'POST', body: JSON.stringify(body) });

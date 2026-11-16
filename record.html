@@ -191,18 +191,23 @@ function render(d) {
   const c = d.counts;
   $('#counts').innerHTML =
     '<div><b>' + (c.attended + c.booked) + '</b>registered</div>' +
-    '<div><b>' + c.attended + '</b>attended</div>' +
+    '<div><b>' + (c.attended - (c.assumed || 0)) + '</b>attended</div>' +
+    (c.assumed ? '<div><b>' + c.assumed + '</b>assumed attended</div>' : '') +
     '<div><b>' + c.booked + '</b>did not attend</div>' +
     (c.with_minutes ? '<div><b>' + c.with_minutes + '</b>with meeting minutes recorded</div>' : '');
   $('#rows').innerHTML = d.attendees.map((a, i) =>
     '<tr class="' + (a.attended ? '' : 'absent') + '"><td>' + (i + 1) + '</td><td>' + esc(a.name || '—') + '</td><td>' + esc(a.email) + '</td><td>' +
-    (a.attended ? 'Yes · ' + esc(fmtT(a.attended_at)) : 'No') + '</td><td class="n">' +
+    (!a.attended ? 'No' : a.attendance_basis === 'automatic' ? 'Assumed <span class="note">(automatic check-in)</span>'
+      : 'Yes' + (a.attended_at ? ' · ' + esc(fmtT(a.attended_at)) : '')) + '</td><td class="n">' +
     (a.attended_minutes != null ? a.attended_minutes : '—') + '</td><td>' +
     (a.certificate_no ? esc(a.certificate_no) + ' <span class="note">(' + esc(a.certificate_status) + ')</span>' : '—') + '</td></tr>').join('') ||
     '<tr><td colspan="6" class="note">No one was registered on this date.</td></tr>';
   $('#minNote').textContent = c.with_minutes
     ? 'Minutes are the time each attendee was present in the meeting per the video platform’s participant report. Attendance without minutes was recorded by the attendee’s individual join link or by the instructor.'
     : 'Attendance was recorded by each attendee’s individual join link or by the instructor.';
+  // A seat still booked a day after class is checked in automatically by the server: nobody
+  // observed that attendance, and the sheet has to say so.
+  if (c.assumed) $('#minNote').textContent += ' “Assumed” marks a registered seat checked in automatically a day after class: that attendance was not observed.';
   $('#prov').textContent = d.provider_numbers ? 'Provider registrations: ' + d.provider_numbers : '';
   $('#gen').textContent = 'Generated ' + fmtDT(d.generated_at) + ' Central';
   $('#sheet').hidden = false;

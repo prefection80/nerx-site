@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STINK-DETECTOR 5000™ — Mk. IX Bio-Chemical Lab Suite</title>
+<style>
+  :root {
+    --bg-deep: #070b0e;
+    --panel-bg: #10171d;
+    --panel-elevated: #17212a;
+    --brass: #d4a748;
+    --brass-dark: #8c6620;
+    --cyan: #2cf3ff;
+    --toxic: #a8ff1a;
+    --toxic-dark: #4c8c00;
+    --purple-goo: #c43bff;
+    --danger: #ff2d46;
+    --amber: #ffb800;
+    --glass-border: rgba(160, 230, 255, 0.28);
+    --text-main: #e6f1f5;
+    --text-dim: #7f97a6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(44, 243, 255, 0.08) 0%, transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(168, 255, 26, 0.08) 0%, transparent 45%),
+      linear-gradient(180deg, #06090c 0%, #0d1419 100%);
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding: 18px 14px 80px;
+    overflow-x: hidden;
+  }
+
+  /* Fullscreen FX Canvas (air streams, toxic fog, flies, sparks, slime splashes) */
+  #fx-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 60;
+  }
+
+  /* Screen-wide emergency strobe vignette */
+  #alarm-vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 55;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: inset 0 0 130px rgba(255, 30, 50, 0.75);
+  }
+  #alarm-vignette.active {
+    animation: vignettePulse 0.4s infinite alternate;
+  }
+  @keyframes vignettePulse {
+    0% { opacity: 0.15; box-shadow: inset 0 0 120px rgba(255, 30, 50, 0.85); }
+    100% { opacity: 0.85; box-shadow: inset 0 0 160px rgba(168, 255, 26, 0.75); }
+  }
+
+  /* Slime drips from top of viewport during breach */
+  .top-slime-bar {
+    position: fixed;
+    top: -120px;
+    left: 0;
+    right: 0;
+    height: 110px;
+    pointer-events: none;
+    z-index: 58;
+    transition: top 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .top-slime-bar.ooze {
+    top: -8px;
+  }
+
+  /* Main Lab Console Container */
+  .lab-console {
+    max-width: 1080px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #131c24 0%, #0c1217 100%);
+    border: 2px solid #2a3a47;
+    border-radius: 22px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,0.8),
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 0 40px rgba(44, 243, 255, 0.06);
+    padding: 18px 20px 24px;
+    position: relative;
+    z-index: 10;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+  }
+  .lab-console.shake-mild { animation: shakeMild 0.14s infinite; }
+  .lab-console.shake-wild { animation: shakeWild 0.08s infinite; }
+  .lab-console.breached {
+    border-color: var(--toxic);
+    box-shadow:
+      0 30px 80px rgba(0,0,0,0.85),
+      0 0 55px rgba(168, 255, 26, 0.25);
+  }
+
+  @keyframes shakeMild {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(-2px, 1px); }
+    50% { transform: translate(2px, -1px); }
+    75% { transform: translate(-1px, -2px); }
+    100% { transform: translate(1px, 1px); }
+  }
+  @keyframes shakeWild {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(-7px, 4px) rotate(-0.7deg); }
+    40% { transform: translate(7px, -5px) rotate(0.8deg); }
+    60% { transform: translate(-6px, -3px) rotate(-0.6deg); }
+    80% { transform: translate(6px, 5px) rotate(0.7deg); }
+    100% { transform: translate(-3px, 2px) rotate(-0.4deg); }
+  }
+
+  /* Top Beacons & Header */
+  .top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #22313d;
+    flex-wrap: wrap;
+  }
+
+  .brand-cluster {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* Spinning Emergency Beacons */
+  .beacon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #555, #1b2228);
+    border: 3px solid #2e3d49;
+    position: relative;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.8);
+    flex-shrink: 0;
+  }
+  .beacon.active-cyan {
+    background: radial-gradient(circle, #c4fcff 0%, #00c8ff 55%, #004e66 100%);
+    box-shadow: 0 0 22px #2cf3ff;
+  }
+  .beacon.active-alarm {
+    animation: beaconFlash 0.25s infinite alternate;
+  }
+  @keyframes beaconFlash {
+    0% {
+      background: radial-gradient(circle, #fff 0%, #ff2d46 50%, #7a0010 100%);
+      box-shadow: 0 0 28px #ff2d46, 0 0 60px rgba(255,45,70,0.6);
+    }
+    100% {
+      background: radial-gradient(circle, #fff 0%, #a8ff1a 50%, #3d6b00 100%);
+      box-shadow: 0 0 28px #a8ff1a, 0 0 60px rgba(168,255,26,0.6);
+    }
+  }
+
+  .title-block h1 {
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #f6d365 0%, #a8ff1a 55%, #2cf3ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .title-block p {
+    font-size: 0.72rem;
+    letter-spacing: 1.8px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .phase-pill {
+    font-family: 'Courier New', monospace;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #16232d;
+    border: 1px solid #2d4454;
+    color: var(--cyan);
+    letter-spacing: 1px;
+  }
+  .phase-pill.danger {
+    background: rgba(255, 45, 70, 0.18);
+    border-color: var(--danger);
+    color: #ff6b7c;
+  }
+  .sfx-btn {
+    background: #1a2630;
+    color: #d7e6ee;
+    border: 1px solid #354b5c;
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .sfx-btn:hover { background: #223340; }
+
+  /* Control Input Bar */
+  .input-deck {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    background: #0b1116;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid #22323f;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .input-group {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    align-items: center;
+    background: #131e27;
+    border: 2px solid #2a3e4d;
+    border-radius: 10px;
+    padding: 0 12px;
+    transition: border-color 0.2s;
+  }
+  .input-group:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 0 0 16px rgba(44, 243, 255, 0.2);
+  }
+  .input-tag {
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: var(--brass);
+    letter-spacing: 1px;
+    margin-right: 10px;
+    white-space: nowrap;
+  }
+  .name-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 1.15rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    padding: 11px 0;
+  }
+  .name-input::placeholder { color: #546c7d; font-weight: normal; text-transform: none; }
+
+  .launch-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.98rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: #09100a;
+    background: linear-gradient(135deg, #c6ff38 0%, #7be617 100%);
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(168, 255, 26, 0.35);
+    transition: transform 0.1s, filter 0.15s;
+  }
+  .launch-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  .launch-btn:active:not(:disabled) { transform: translateY(2px); }
+  .launch-btn:disabled { filter: grayscale(0.7) brightness(0.6); cursor: not-allowed; }
+
+  .reset-btn {
+    display: none;
+    padding: 12px 18px;
+    border: 1px solid #3c586b;
+    border-radius: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #c8f6ff;
+    background: linear-gradient(135deg, #1b3847 0%, #10242e 100%);
+    cursor: pointer;
+  }
+  .reset-btn.visible { display: inline-block; }
+
+  /* 3-Column Lab Apparatus Grid */
+  .lab-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1.25fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .module {
+    background: var(--panel-elevated);
+    border: 1px solid #263845;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--brass);
+    border-bottom: 1px solid #233340;
+    padding-bottom: 6px;
+  }
+  .mod-status {
+    color: var(--text-dim);
+    font-size: 0.66rem;
+  }
+  .mod-status.active { color: var(--cyan); }
+  .mod-status.toxic { color: var(--toxic); }
+  .mod-status.err { color: var(--danger); }
+
+  /* === MODULE 1: VACUUM INTAKE & REAGENT PIPETTES === */
+  .vacuum-hood {
+    background: linear-gradient(180deg, #1e2c36 0%, #0f171d 100%);
+    border: 2px solid #354c5c;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .turbine-ring {
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 6px;
+    border-radius: 50%;
+    background: #0a1014;
+    border: 3px solid #486375;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 14px #000;
+  }
+  .turbine-svg {
+    width: 52px;
+    height: 52px;
+    transition: filter 0.3s;
+  }
+  .turbine-svg.idle { animation: spin 5s linear infinite; }
+  .turbine-svg.turbo { animation: spin 0.18s linear infinite; filter: drop-shadow(0 0 8px #2cf3ff); }
+  .turbine-svg.jammed { animation: wobble 0.22s infinite; filter: drop-shadow(0 0 10px #a8ff1a); }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes wobble {
+    0% { transform: rotate(0deg); }
+    50% { transform: rotate(22deg); }
+    100% { transform: rotate(-18deg); }
+  }
+  .intake-meter {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    color: #9bb8c9;
+  }
+
+  /* 4 Chemical Reagent Test Tubes */
+  .reagent-rack {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 6px;
+  }
+  .tube-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .test-tube {
+    width: 30px;
+    height: 98px;
+    border: 2px solid var(--glass-border);
+    border-top: 3px solid #7590a1;
+    border-radius: 4px 4px 16px 16px;
+    background: rgba(10, 20, 28, 0.75);
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 3px 0 6px rgba(255,255,255,0.12);
+  }
+  .tube-liquid {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 78%;
+    transition: height 0.9s ease-in-out, filter 0.3s;
+  }
+  .tube-liquid.draining {
+    height: 18% !important;
+    filter: brightness(1.4);
+  }
+  .tube-1 { background: linear-gradient(180deg, #42f5ff 0%, #0088cc 100%); }
+  .tube-2 { background: linear-gradient(180deg, #ff5ee2 0%, #8e00b5 100%); }
+  .tube-3 { background: linear-gradient(180deg, #ffe247 0%, #d47c00 100%); }
+  .tube-4 { background: linear-gradient(180deg, #8cff3b 0%, #278000 100%); }
+
+  .tube-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.56rem;
+    text-align: center;
+    color: #9ab2c2;
+    line-height: 1.2;
+  }
+
+  /* === MODULE 2: CENTRAL CHEMICAL REACTION CHAMBER === */
+  .chamber-module {
+    background: radial-gradient(circle at 50% 60%, #15252e 0%, #0d151b 100%);
+  }
+  .beaker-stage {
+    position: relative;
+    height: 235px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #beaker-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .chem-formula-bar {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    background: #0a1014;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #21323d;
+    margin-top: 6px;
+  }
+  .chem-formula-bar span strong { color: var(--toxic); }
+
+  /* === MODULE 3: GAS CHROMATOGRAPH & STICKINESS RADAR === */
+  #spectro-canvas {
+    width: 100%;
+    height: 122px;
+    background: #070e12;
+    border: 1px solid #243845;
+    border-radius: 8px;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .chem-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .bar-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bar-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Courier New', monospace;
+    font-size: 0.64rem;
+    color: #a9c0cf;
+  }
+  .bar-track {
+    height: 8px;
+    background: #091015;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #1e2e38;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 4%;
+    border-radius: 4px;
+    transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+  }
+
+  /* === WIDE HOLO-TERMINAL FOR LIVE ROASTS === */
+  .terminal-deck {
+    background: #070d11;
+    border: 2px solid #253947;
+    border-radius: 14px;
+    padding: 14px 16px;
+    min-height: 132px;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.85);
+  }
+  .terminal-deck::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.22) 0px,
+      rgba(0,0,0,0.22) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+    pointer-events: none;
+  }
+  .terminal-deck.toxic-mode {
+    border-color: var(--toxic);
+    box-shadow: inset 0 0 35px rgba(168, 255, 26, 0.16);
+  }
+  .terminal-deck.danger-mode {
+    border-color: var(--danger);
+    box-shadow: inset 0 0 40px rgba(255, 45, 70, 0.25);
+  }
+  #term-log {
+    position: relative;
+    z-index: 2;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: #79f2ff;
+    white-space: pre-wrap;
+  }
+  .insult-flash {
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(255,45,70,0.24), rgba(168,255,26,0.18));
+    border-left: 4px solid var(--danger);
+    color: #fff380;
+    font-size: 1.02rem;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    animation: popInsult 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  }
+  @keyframes popInsult {
+    0% { transform: scale(0.86); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* === OFFICIAL PRINTED LAB DOSSIER (SLIDES OUT AT BOTTOM) === */
+  .printer-housing {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .printer-slot {
+    width: 90%;
+    max-width: 680px;
+    height: 16px;
+    background: #05080a;
+    border-radius: 8px;
+    border: 2px solid #354957;
+    box-shadow: inset 0 4px 8px #000;
+    position: relative;
+    z-index: 5;
+  }
+  .dossier-clip {
+    width: 86%;
+    max-width: 640px;
+    overflow: hidden;
+    margin-top: -6px;
+    z-index: 4;
+  }
+  .dossier {
+    background: #fbf7ea;
+    color: #1c1f21;
+    padding: 22px 24px 26px;
+    font-family: 'Courier New', monospace;
+    border-left: 1px dashed #b5ad96;
+    border-right: 1px dashed #b5ad96;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.65);
+    transform: translateY(-106%);
+    transition: transform 1.8s steps(18, end);
+    position: relative;
+  }
+  .dossier.printed {
+    transform: translateY(0%);
+  }
+  .dossier::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -9px;
+    height: 9px;
+    background:
+      linear-gradient(135deg, #fbf7ea 50%, transparent 50%) 0 0,
+      linear-gradient(225deg, #fbf7ea 50%, transparent 50%) 0 0;
+    background-size: 14px 14px;
+    background-repeat: repeat-x;
+  }
+  .dossier-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px double #222;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+  .dossier-head h2 {
+    font-size: 1.08rem;
+    letter-spacing: 1px;
+  }
+  .dossier-head small {
+    display: block;
+    font-size: 0.68rem;
+    color: #555;
+    margin-top: 2px;
+  }
+  .dossier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    font-size: 0.78rem;
+    margin-bottom: 12px;
+  }
+  .dossier-chem-box {
+    background: #f0ead7;
+    border: 1px solid #c7be9f;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    margin-bottom: 12px;
+  }
+  .dossier-verdict {
+    font-size: 0.88rem;
+    font-weight: 900;
+    color: #111;
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+  .dossier-action {
+    border-top: 2px dashed #444;
+    padding-top: 9px;
+    font-size: 0.76rem;
+    font-weight: bold;
+    color: #9e1b1b;
+    text-align: center;
+  }
+
+  /* Slam-Down Red Biohazard Stamp */
+  .bio-stamp {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    border: 4px solid #c91d22;
+    color: #c91d22;
+    padding: 5px 10px;
+    font-size: 0.95rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transform: rotate(-11deg) scale(2.4);
+    opacity: 0;
+    background: rgba(251, 247, 234, 0.86);
+    pointer-events: none;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
+  }
+  .dossier.stamped .bio-stamp {
+    transform: rotate(-11deg) scale(1);
+    opacity: 0.92;
+  }
+
+  @media (max-width: 900px) {
+    .lab-grid { grid-template-columns: 1fr; }
+    .beaker-stage { height: 220px; }
+    .dossier-grid { grid-template-columns: 1fr; }
+    .bio-stamp { position: static; display: inline-block; margin-bottom: 10px; transform: rotate(-3deg) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="fx-canvas"></canvas>
+<div id="alarm-vignette"></div>
+
+<!-- Top Oozing Slime SVG -->
+<svg class="top-slime-bar" id="top-slime" viewBox="0 0 1200 110" preserveAspectRatio="none">
+  <path d="M0,0 L1200,0 L1200,32 C1160,32 1150,82 1120,82 C1090,82 1085,36 1040,36 C995,36 985,98 945,98 C905,98 900,30 850,30 C800,30 790,74 755,74 C720,74 710,34 655,34 C600,34 590,104 548,104 C506,104 495,30 445,30 C395,30 385,84 345,84 C305,84 295,38 240,38 C185,38 175,92 135,92 C95,92 85,32 40,32 L0,32 Z"
+        fill="url(#slimeGrad)" opacity="0.92"/>
+  <defs>
+    <linearGradient id="slimeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7be800"/>
+      <stop offset="65%" stop-color="#a8ff1a"/>
+      <stop offset="100%" stop-color="#d4ff66"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="lab-console" id="lab-console">
+  <!-- Header -->
+  <div class="top-header">
+    <div class="brand-cluster">
+      <div class="beacon" id="beacon-left"></div>
+      <div class="title-block">
+        <h1>☣ STINK-DETECTOR 5000™ <span style="font-size:0.75rem;opacity:0.85;">MK. IX LAB SUITE</span></h1>
+        <p>Pneumatic Air-Sniffer &bull; Wet-Chemistry Titration &bull; Stickiness Spectrometer</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="phase-pill" id="phase-pill">STATUS: STANDBY</div>
+      <button class="sfx-btn" id="sfx-btn" type="button">🔊 LAB AUDIO: ON</button>
+      <div class="beacon" id="beacon-right"></div>
+    </div>
+  </div>
+
+  <!-- Subject Input Deck -->
+  <form class="input-deck" id="lab-form" autocomplete="off">
+    <div class="input-group">
+      <span class="input-tag">SUBJECT ID //</span>
+      <input type="text" id="subject-name" class="name-input" placeholder="Enter name..." maxlength="30" required />
+    </div>
+    <button type="submit" class="launch-btn" id="launch-btn">☣ RUN FULL CHEMICAL ANALYSIS</button>
+    <button type="button" class="reset-btn" id="reset-btn">🚿 EMERGENCY DECON</button>
+  </form>
+
+  <!-- 3-Column Scientific Apparatus -->
+  <div class="lab-grid">
+
+    <!-- MODULE 1: Vacuum Sniffer + 4 Reagent Test Tubes -->
+    <div class="module">
+      <div class="module-header">
+        <span>01 // AIR INTAKE &amp; REAGENTS</span>
+        <span class="mod-status" id="mod1-status">IDLE</span>
+      </div>
+
+      <div class="vacuum-hood" id="vacuum-hood">
+        <div class="turbine-ring">
+          <svg class="turbine-svg idle" id="turbine-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="10" fill="#d4a748"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7" transform="rotate(60 50 50)"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7" transform="rotate(120 50 50)"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7" transform="rotate(180 50 50)"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7" transform="rotate(240 50 50)"/>
+            <path d="M50 40 C42 15, 62 5, 66 25 C69 36, 58 42, 50 40 Z" fill="#8bb0c7" transform="rotate(300 50 50)"/>
+          </svg>
+        </div>
+        <div class="intake-meter" id="intake-meter">SUCTION: 0.0 CFM (STANDBY)</div>
+      </div>
+
+      <div class="reagent-rack">
+        <div class="tube-wrap">
+          <div class="test-tube"><div class="tube-liquid tube-1" id="tube-1"></div></div>
+          <div class="tube-label">SOAP<br>SERUM</div>
+        </div>
+        <div class="tube-wrap">
+          <div class="test-tube"><div class="tube-liquid tube-2" id="tube-2"></div></div>
+          <div class="tube-label">STICKY<br>DYE-9</div>
+        </div>
+        <div class="tube-wrap">
+          <div class="test-tube"><div class="tube-liquid tube-3" id="tube-3"></div></div>
+          <div class="tube-label">SOCK<br>SOLVENT</div>
+        </div>
+        <div class="tube-wrap">
+          <div class="test-tube"><div class="tube-liquid tube-4" id="tube-4"></div></div>
+          <div class="tube-label">FEBREZE<br>MAX</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODULE 2: Live Boiling Chemical Reaction Chamber -->
+    <div class="module chamber-module">
+      <div class="module-header">
+        <span>02 // REACTION VAT (LIVE)</span>
+        <span class="mod-status" id="mod2-status">CLEAR</span>
+      </div>
+
+      <div class="beaker-stage">
+        <canvas id="beaker-canvas" width="380" height="235"></canvas>
+      </div>
+
+      <div class="chem-formula-bar">
+        <span>pH: <strong id="ph-val">7.0</strong></span>
+        <span>VISCOSITY: <strong id="visc-val">WATER</strong></span>
+        <span>TEMP: <strong id="temp-val">70°F</strong></span>
+      </div>
+    </div>
+
+    <!-- MODULE 3: Gas Chromatograph & Compound Breakdown -->
+    <div class="module">
+      <div class="module-header">
+        <span>03 // SPECTROMETER</span>
+        <span class="mod-status" id="mod3-status">CALIBRATED</span>
+      </div>
+
+      <canvas id="spectro-canvas" width="300" height="122"></canvas>
+
+      <div class="chem-bars">
+        <div class="bar-row">
+          <div class="bar-meta"><span>MYSTERY SYRUP POLYMER</span><span id="pct-1">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="bar-1" style="background:#ff9f1a;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta"><span>WET DOG / GYM SOCK ESTER</span><span id="pct-2">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="bar-2" style="background:#a8ff1a;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta"><span>UNEXPLAINED FINGER GOO</span><span id="pct-3">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="bar-3" style="background:#d64dff;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta"><span>OVERALL BIOHAZARD INDEX</span><span id="pct-4">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="bar-4" style="background:#ff2d46;"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Wide Holo-Terminal -->
+  <div class="terminal-deck" id="terminal-deck">
+    <div id="term-log">&gt; STINK-DETECTOR 5000 MK. IX CHEMICAL LAB INITIALIZED.
+&gt; ALL GLASSWARE STERILIZED. REAGENTS LOADED.
+&gt; ENTER SUBJECT NAME ABOVE TO BEGIN PNEUMATIC AIR EXTRACTION &amp; WET-CHEM TESTING._</div>
+  </div>
+
+  <!-- Official Printed Biohazard Lab Dossier -->
+  <div class="printer-housing">
+    <div class="printer-slot"></div>
+    <div class="dossier-clip">
+      <div class="dossier" id="dossier">
+        <div class="bio-stamp" id="bio-stamp">QUARANTINE!</div>
+        <div class="dossier-head">
+          <div>
+            <h2>☣ DEPARTMENT OF STINK &amp; STICKINESS ☣</h2>
+            <small>CERTIFIED CHEMICAL LAB REPORT // CASE #SKUNK-5000</small>
+          </div>
+        </div>
+        <div class="dossier-grid">
+          <div><strong>SUBJECT:</strong> <span id="doc-name">---</span></div>
+          <div><strong>STICKY GRADE:</strong> <span id="doc-sticky">---</span></div>
+          <div><strong>ODOR CLASS:</strong> <span id="doc-odor">---</span></div>
+          <div><strong>VAT STATUS:</strong> <span id="doc-vat">GLASS CRACKED</span></div>
+        </div>
+        <div class="dossier-chem-box" id="doc-chem">---</div>
+        <div class="dossier-verdict" id="doc-verdict">---</div>
+        <div class="dossier-action" id="doc-action">---</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // === DOM REFS ===
+  const form = document.getElementById('lab-form');
+  const nameInput = document.getElementById('subject-name');
+  const launchBtn = document.getElementById('launch-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const sfxBtn = document.getElementById('sfx-btn');
+  const labConsole = document.getElementById('lab-console');
+  const beaconL = document.getElementById('beacon-left');
+  const beaconR = document.getElementById('beacon-right');
+  const phasePill = document.getElementById('phase-pill');
+  const alarmVignette = document.getElementById('alarm-vignette');
+  const topSlime = document.getElementById('top-slime');
+
+  const vacuumHood = document.getElementById('vacuum-hood');
+  const turbineSvg = document.getElementById('turbine-svg');
+  const intakeMeter = document.getElementById('intake-meter');
+  const mod1Status = document.getElementById('mod1-status');
+  const mod2Status = document.getElementById('mod2-status');
+  const mod3Status = document.getElementById('mod3-status');
+
+  const tubes = [
+    document.getElementById('tube-1'),
+    document.getElementById('tube-2'),
+    document.getElementById('tube-3'),
+    document.getElementById('tube-4')
+  ];
+
+  const phVal = document.getElementById('ph-val');
+  const viscVal = document.getElementById('visc-val');
+  const tempVal = document.getElementById('temp-val');
+
+  const bars = [1,2,3,4].map(i => document.getElementById('bar-' + i));
+  const pcts = [1,2,3,4].map(i => document.getElementById('pct-' + i));
+
+  const termDeck = document.getElementById('terminal-deck');
+  const termLog = document.getElementById('term-log');
+
+  const dossier = document.getElementById('dossier');
+  const bioStamp = document.getElementById('bio-stamp');
+  const docName = document.getElementById('doc-name');
+  const docSticky = document.getElementById('doc-sticky');
+  const docOdor = document.getElementById('doc-odor');
+  const docChem = document.getElementById('doc-chem');
+  const docVerdict = document.getElementById('doc-verdict');
+  const docAction = document.getElementById('doc-action');
+
+  // === STATE ===
+  let running = false;
+  let sfxEnabled = true;
+  let timers = [];
+  let intervals = [];
+
+  // Visual simulation state
+  let fxMode = 'idle'; // 'idle' | 'sucking' | 'reacting' | 'breach' | 'lingering'
+  let beakerState = {
+    level: 0.22,
+    targetLevel: 0.22,
+    r: 44, g: 210, b: 245,
+    tr: 44, tg: 210, tb: 245,
+    boil: 0.3,
+    foam: 0,
+    cracked: false,
+    droplets: []
+  };
+  let spectroState = {
+    intensity: 0.08,
+    chaos: false,
+    color: '#2cf3ff'
+  };
+
+  // === INSULT & REPORT POOLS ===
+  const meltdownInsults = [
+    "CRITICAL: STICKIER THAN A MELTED GUMMY BEAR ON A CAR SEAT!",
+    "CHEMICAL MATCH: 52% MYSTERY SYRUP, 48% FERMENTED GYM SOCK!",
+    "WARNING: SOAP SERUM INSTANTLY EVAPORATED ON CONTACT!",
+    "HER HANDS ARE SO STICKY SHE CAN CLIMB WALLS LIKE SPIDER-MAN!",
+    "FEBREZE CONCENTRATE JUST GAVE UP AND FILED FOR RETIREMENT!",
+    "ALERT: EVEN THE LAB FLIES ARE DEMANDING HAZARD PAY!",
+    "DO NOT LET HER TOUCH THE COUCH, REMOTE, OR FAMILY PET!",
+    "SMELL DETECTED BY WEATHER SATELLITES IN LOW EARTH ORBIT!",
+    "STICKINESS RATING EXCEEDS INDUSTRIAL SUPERGLUE!",
+    "LOCAL SKUNKS JUST ISSUED A FORMAL APOLOGY — THEY CAN'T COMPETE!"
+  ];
+
+  const labReports = [
+    {
+      stamp: "BIOHAZARD: STICKY!",
+      sticky: "LEVEL 10 (FLY-PAPER)",
+      odor: "CLASS-5 WET RACCOON",
+      chem: "DETECTED COMPOUNDS: 44% Unidentified Maple-Jam Polymer, 31% Vintage Sneaker Vapor, 24% Mystery Finger Goo, 1% Actual Kid.",
+      verdict: "OFFICIAL FINDING: So impossibly sticky that loose change, dog hair, and homework automatically orbit her like tiny moons.",
+      action: "MANDATORY TREATMENT: 1) Garden hose outside. 2) Three bottles of bubble bath. 3) Burn the sticky socks."
+    },
+    {
+      stamp: "ILLEGALLY STINKY!",
+      sticky: "INDUSTRIAL DUCT TAPE",
+      odor: "EXPIRED CHEESE NUKE",
+      chem: "DETECTED COMPOUNDS: 49% Melted Popsicle Residue, 33% Hot Garbage Breeze, 18% Sticky Doorknob Essence, 0% Soap Traces.",
+      verdict: "OFFICIAL FINDING: She touched the TV remote three days ago and scientists still cannot pry it off the coffee table.",
+      action: "MANDATORY TREATMENT: Drive slowly through an automatic car wash with the windows rolled down."
+    },
+    {
+      stamp: "QUARANTINE NOW!",
+      sticky: "99.9% MYSTERY GOO",
+      odor: "SKUNK-LEVEL OMEGA",
+      chem: "DETECTED COMPOUNDS: 38% Fermented Fruit-Snack Syrup, 37% Damp Swamp Sock, 25% Weaponized Cootie Slime.",
+      verdict: "OFFICIAL FINDING: Our $4,000,000 spectrometer literally cried and asked to be transferred to a sewage plant instead.",
+      action: "MANDATORY TREATMENT: Immediate Hazmat scrub-down with industrial dish soap and a push broom."
+    }
+  ];
+
+  function pickRandom(arr, n) {
+    const copy = [...arr];
+    const out = [];
+    while (out.length < n && copy.length) {
+      out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    }
+    return out;
+  }
+
+  // === WEB AUDIO SYNTHESIZER ===
+  let audioCtx = null;
+  function getAudio() {
+    if (!sfxEnabled) return null;
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playVacuum(dur = 2.6) {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 3;
+    const now = ctx.currentTime;
+    filter.frequency.setValueAtTime(220, now);
+    filter.frequency.exponentialRampToValueAtTime(1650, now + dur * 0.78);
+    filter.frequency.exponentialRampToValueAtTime(520, now + dur);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.005, now);
+    g.gain.linearRampToValueAtTime(0.18, now + 0.35);
+    g.gain.setValueAtTime(0.16, now + dur - 0.3);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+    src.start(now);
+  }
+
+  function playBubblePop(pitch = 420) {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(pitch * 0.65, now);
+    osc.frequency.exponentialRampToValueAtTime(pitch * 1.9, now + 0.09);
+    g.gain.setValueAtTime(0.11, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.11);
+  }
+
+  function playGlassCrack() {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const len = Math.floor(ctx.sampleRate * 0.25);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.18));
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2400;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.28, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    src.connect(hp); hp.connect(g); g.connect(ctx.destination);
+    src.start(now);
+  }
+
+  function playKlaxon(high = true) {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(high ? 820 : 510, now);
+    g.gain.setValueAtTime(0.085, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.18);
+  }
+
+  function playStampThud() {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(34, now + 0.22);
+    g.gain.setValueAtTime(0.32, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.25);
+  }
+
+  function playCartoonFoghorn() {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const lfoG = ctx.createGain();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(175, now);
+    osc.frequency.exponentialRampToValueAtTime(62, now + 1.05);
+    lfo.frequency.value = 24;
+    lfoG.gain.value = 14;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 680;
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.linearRampToValueAtTime(0.22, now + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+    osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
+    osc.start(now); lfo.start(now);
+    osc.stop(now + 1.12); lfo.stop(now + 1.12);
+  }
+
+  sfxBtn.addEventListener('click', () => {
+    sfxEnabled = !sfxEnabled;
+    sfxBtn.textContent = sfxEnabled ? '🔊 LAB AUDIO: ON' : '🔇 LAB AUDIO: OFF';
+  });
+
+  // === CANVAS 1: BOILING CHEMICAL REACTION VAT ===
+  const beakerCanvas = document.getElementById('beaker-canvas');
+  const bCtx = beakerCanvas.getContext('2d');
+  const vatBubbles = [];
+  for (let i = 0; i < 34; i++) {
+    vatBubbles.push({
+      x: 110 + Math.random() * 160,
+      y: 120 + Math.random() * 90,
+      r: 2 + Math.random() * 5,
+      s: 0.6 + Math.random() * 1.8
+    });
+  }
+
+  function dropReagent(color) {
+    for (let i = 0; i < 6; i++) {
+      beakerState.droplets.push({
+        x: 165 + Math.random() * 50,
+        y: 12 - i * 16,
+        vy: 3.5 + Math.random() * 2,
+        color
+      });
+    }
+  }
+
+  function drawBeaker(time) {
+    const w = beakerCanvas.width;
+    const h = beakerCanvas.height;
+    bCtx.clearRect(0, 0, w, h);
+
+    // Smoothly interpolate color & level
+    beakerState.level += (beakerState.targetLevel - beakerState.level) * 0.045;
+    beakerState.r += (beakerState.tr - beakerState.r) * 0.05;
+    beakerState.g += (beakerState.tg - beakerState.g) * 0.05;
+    beakerState.b += (beakerState.tb - beakerState.b) * 0.05;
+
+    const r = Math.round(beakerState.r);
+    const g = Math.round(beakerState.g);
+    const b = Math.round(beakerState.b);
+
+    // Top dripper nozzle
+    bCtx.fillStyle = '#314554';
+    bCtx.fillRect(160, 0, 60, 14);
+    bCtx.fillStyle = '#6d8ca1';
+    bCtx.fillRect(178, 14, 24, 10);
+
+    // Falling reagent droplets
+    for (let i = beakerState.droplets.length - 1; i >= 0; i--) {
+      const d = beakerState.droplets[i];
+      d.y += d.vy;
+      bCtx.fillStyle = d.color;
+      bCtx.beginPath();
+      bCtx.arc(d.x, d.y, 4.5, 0, Math.PI * 2);
+      bCtx.fill();
+      if (d.y > 190 - beakerState.level * 130) {
+        beakerState.droplets.splice(i, 1);
+      }
+    }
+
+    // Erlenmeyer / Lab Vat Clip Path
+    const defineVatPath = () => {
+      bCtx.beginPath();
+      bCtx.moveTo(148, 36);
+      bCtx.lineTo(232, 36);
+      bCtx.lineTo(232, 82);
+      bCtx.lineTo(295, 198);
+      bCtx.quadraticCurveTo(302, 218, 280, 220);
+      bCtx.lineTo(100, 220);
+      bCtx.quadraticCurveTo(78, 218, 85, 198);
+      bCtx.lineTo(148, 82);
+      bCtx.closePath();
+    };
+
+    // Draw liquid inside clipped vat
+    bCtx.save();
+    defineVatPath();
+    bCtx.clip();
+
+    const surfaceY = 220 - beakerState.level * 155;
+    const waveAmp = 2 + beakerState.boil * 5.5;
+
+    // Liquid body
+    const liqGrad = bCtx.createLinearGradient(0, surfaceY, 0, 220);
+    liqGrad.addColorStop(0, `rgba(${Math.min(255, r + 45)}, ${Math.min(255, g + 45)}, ${Math.min(255, b + 45)}, 0.92)`);
+    liqGrad.addColorStop(1, `rgba(${Math.max(0, r - 45)}, ${Math.max(0, g - 45)}, ${Math.max(0, b - 45)}, 0.96)`);
+    bCtx.fillStyle = liqGrad;
+    bCtx.beginPath();
+    bCtx.moveTo(70, 230);
+    for (let x = 70; x <= 310; x += 10) {
+      const y = surfaceY + Math.sin(x * 0.055 + time * 0.008 * (1 + beakerState.boil)) * waveAmp;
+      bCtx.lineTo(x, y);
+    }
+    bCtx.lineTo(310, 230);
+    bCtx.closePath();
+    bCtx.fill();
+
+    // Rising bubbles
+    vatBubbles.forEach(bub => {
+      bub.y -= bub.s * (0.5 + beakerState.boil * 2.2);
+      if (bub.y < surfaceY + 4) {
+        bub.y = 216;
+        bub.x = 100 + Math.random() * 180;
+      }
+      bCtx.fillStyle = `rgba(255,255,255,${0.25 + beakerState.boil * 0.25})`;
+      bCtx.beginPath();
+      bCtx.arc(bub.x + Math.sin(time * 0.01 + bub.y * 0.08) * 3, bub.y, bub.r, 0, Math.PI * 2);
+      bCtx.fill();
+    });
+
+    // Overflowing toxic foam
+    if (beakerState.foam > 0.05) {
+      bCtx.fillStyle = `rgba(215, 255, 130, ${beakerState.foam * 0.85})`;
+      for (let x = 95; x <= 285; x += 16) {
+        const fy = surfaceY - 2 + Math.sin(x + time * 0.01) * 5;
+        bCtx.beginPath();
+        bCtx.arc(x, fy, 8 + beakerState.foam * 8, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+    }
+
+    bCtx.restore();
+
+    // Glass Outline + Graduation Marks
+    defineVatPath();
+    bCtx.strokeStyle = beakerState.cracked ? '#c8ff59' : 'rgba(170, 235, 255, 0.55)';
+    bCtx.lineWidth = 3;
+    bCtx.stroke();
+
+    // Glass highlight
+    bCtx.strokeStyle = 'rgba(255,255,255,0.22)';
+    bCtx.lineWidth = 4;
+    bCtx.beginPath();
+    bCtx.moveTo(156, 46);
+    bCtx.lineTo(156, 84);
+    bCtx.lineTo(106, 185);
+    bCtx.stroke();
+
+    // Measurement ticks
+    bCtx.strokeStyle = 'rgba(200,240,255,0.35)';
+    bCtx.lineWidth = 1.5;
+    for (let y = 110; y <= 190; y += 20) {
+      bCtx.beginPath();
+      bCtx.moveTo(215, y);
+      bCtx.lineTo(232, y);
+      bCtx.stroke();
+    }
+
+    // Cracked glass lines on breach
+    if (beakerState.cracked) {
+      bCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      bCtx.lineWidth = 2;
+      bCtx.beginPath();
+      bCtx.moveTo(235, 130);
+      bCtx.lineTo(205, 150);
+      bCtx.lineTo(218, 178);
+      bCtx.moveTo(205, 150);
+      bCtx.lineTo(175, 142);
+      bCtx.moveTo(205, 150);
+      bCtx.lineTo(190, 185);
+      bCtx.stroke();
+    }
+  }
+
+  // === CANVAS 2: LIVE GAS CHROMATOGRAPH ===
+  const spectroCanvas = document.getElementById('spectro-canvas');
+  const sCtx = spectroCanvas.getContext('2d');
+  let wavePhase = 0;
+
+  function drawSpectro() {
+    const w = spectroCanvas.width;
+    const h = spectroCanvas.height;
+    sCtx.fillStyle = 'rgba(7, 14, 18, 0.35)';
+    sCtx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    sCtx.strokeStyle = 'rgba(44, 243, 255, 0.1)';
+    sCtx.lineWidth = 1;
+    for (let x = 0; x < w; x += 30) {
+      sCtx.beginPath(); sCtx.moveTo(x, 0); sCtx.lineTo(x, h); sCtx.stroke();
+    }
+    for (let y = 0; y < h; y += 30) {
+      sCtx.beginPath(); sCtx.moveTo(0, y); sCtx.lineTo(w, y); sCtx.stroke();
+    }
+
+    wavePhase += spectroState.chaos ? 0.32 : 0.09;
+    sCtx.strokeStyle = spectroState.color;
+    sCtx.lineWidth = 2.2;
+    sCtx.shadowColor = spectroState.color;
+    sCtx.shadowBlur = 8;
+    sCtx.beginPath();
+    for (let x = 0; x < w; x += 3) {
+      const mid = h * 0.56;
+      const n1 = Math.sin(x * 0.06 + wavePhase) * 26 * spectroState.intensity;
+      const n2 = Math.sin(x * 0.19 - wavePhase * 1.7) * 18 * spectroState.intensity;
+      const spike = spectroState.chaos ? (Math.random() - 0.5) * 44 : 0;
+      const y = Math.max(8, Math.min(h - 8, mid + n1 + n2 + spike));
+      if (x === 0) sCtx.moveTo(x, y); else sCtx.lineTo(x, y);
+    }
+    sCtx.stroke();
+    sCtx.shadowBlur = 0;
+  }
+
+  // === CANVAS 3: FULLSCREEN FX (AIR STREAMS, TOXIC CLOUDS, FLIES, SPARKS) ===
+  const fxCanvas = document.getElementById('fx-canvas');
+  const fxCtx = fxCanvas.getContext('2d');
+  let particles = [];
+  let flies = [];
+
+  function resizeFx() {
+    fxCanvas.width = window.innerWidth;
+    fxCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeFx);
+  resizeFx();
+
+  function spawnAirLine() {
+    const r = vacuumHood.getBoundingClientRect();
+    const tx = r.left + r.width / 2;
+    const ty = r.top + r.height / 2;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 140 + Math.random() * 200;
+    particles.push({
+      kind: 'air',
+      x: tx + Math.cos(angle) * dist,
+      y: ty + Math.sin(angle) * dist,
+      tx: tx + (Math.random() - 0.5) * 24,
+      ty: ty + (Math.random() - 0.5) * 24,
+      speed: 0.09 + Math.random() * 0.06,
+      life: 0,
+      maxLife: 22 + Math.random() * 12
+    });
+  }
+
+  function spawnToxicCloud(heavy = true) {
+    const r = labConsole.getBoundingClientRect();
+    const x = r.left + r.width * (0.15 + Math.random() * 0.7);
+    const y = r.top + 80 + Math.random() * 140;
+    particles.push({
+      kind: 'cloud',
+      x, y,
+      vx: (Math.random() - 0.5) * (heavy ? 2.4 : 1.0),
+      vy: -(1.1 + Math.random() * (heavy ? 2.4 : 1.1)),
+      size: heavy ? 22 + Math.random() * 26 : 14 + Math.random() * 14,
+      grow: heavy ? 0.85 : 0.45,
+      alpha: heavy ? 0.5 : 0.26,
+      life: 0,
+      maxLife: 70 + Math.random() * 55
+    });
+  }
+
+  function spawnSparks(count = 16) {
+    const r = labConsole.getBoundingClientRect();
+    const ox = r.left + r.width * (0.25 + Math.random() * 0.5);
+    const oy = r.top + 130 + Math.random() * 120;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 4 + Math.random() * 8;
+      particles.push({
+        kind: 'spark',
+        x: ox, y: oy,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd - 2,
+        color: Math.random() < 0.5 ? '#fff066' : '#a8ff1a',
+        life: 0,
+        maxLife: 18 + Math.random() * 18
+      });
+    }
+  }
+
+  function initFlies(n = 11) {
+    flies = [];
+    for (let i = 0; i < n; i++) {
+      flies.push({
+        a: Math.random() * Math.PI * 2,
+        rx: 100 + Math.random() * 260,
+        ry: 45 + Math.random() * 120,
+        spd: (0.035 + Math.random() * 0.05) * (Math.random() < 0.5 ? 1 : -1),
+        wob: Math.random() * 10
+      });
+    }
+  }
+
+  function masterLoop(time) {
+    drawBeaker(time);
+    drawSpectro();
+
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    if (fxMode === 'sucking') {
+      spawnAirLine(); spawnAirLine(); spawnAirLine();
+    } else if (fxMode === 'breach') {
+      spawnToxicCloud(true);
+      if (Math.random() < 0.65) spawnToxicCloud(true);
+      if (Math.random() < 0.08) spawnSparks(10);
+    } else if (fxMode === 'lingering') {
+      if (Math.random() < 0.2) spawnToxicCloud(false);
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life++;
+      if (p.life >= p.maxLife) { particles.splice(i, 1); continue; }
+
+      if (p.kind === 'air') {
+        const px = p.x, py = p.y;
+        p.x += (p.tx - p.x) * p.speed;
+        p.y += (p.ty - p.y) * p.speed;
+        const a = Math.sin((p.life / p.maxLife) * Math.PI) * 0.85;
+        fxCtx.strokeStyle = `rgba(44, 243, 255, ${a})`;
+        fxCtx.lineWidth = 2.4;
+        fxCtx.beginPath(); fxCtx.moveTo(px, py); fxCtx.lineTo(p.x, p.y); fxCtx.stroke();
+      } else if (p.kind === 'cloud') {
+        p.x += p.vx + Math.sin(p.life * 0.1) * 0.6;
+        p.y += p.vy;
+        p.size += p.grow;
+        const a = p.alpha * (1 - p.life / p.maxLife);
+        const grd = fxCtx.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.size);
+        grd.addColorStop(0, `rgba(168, 255, 26, ${a})`);
+        grd.addColorStop(0.6, `rgba(92, 168, 10, ${a * 0.55})`);
+        grd.addColorStop(1, 'rgba(50, 90, 5, 0)');
+        fxCtx.fillStyle = grd;
+        fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); fxCtx.fill();
+      } else if (p.kind === 'spark') {
+        const px = p.x, py = p.y;
+        p.vy += 0.35; p.x += p.vx; p.y += p.vy;
+        fxCtx.strokeStyle = p.color;
+        fxCtx.globalAlpha = 1 - p.life / p.maxLife;
+        fxCtx.lineWidth = 2.4;
+        fxCtx.beginPath(); fxCtx.moveTo(px, py); fxCtx.lineTo(p.x, p.y); fxCtx.stroke();
+        fxCtx.globalAlpha = 1;
+      }
+    }
+
+    if (fxMode === 'breach' || fxMode === 'lingering') {
+      const r = labConsole.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + 140;
+      flies.forEach(f => {
+        f.a += f.spd; f.wob += 0.25;
+        const x = cx + Math.cos(f.a) * f.rx;
+        const y = cy + Math.sin(f.a) * f.ry + Math.sin(f.wob) * 7;
+        fxCtx.fillStyle = 'rgba(235,255,215,0.8)';
+        fxCtx.beginPath();
+        fxCtx.ellipse(x - 3, y - 3, 4.5, 2.2, -0.5, 0, Math.PI * 2);
+        fxCtx.ellipse(x + 3, y - 3, 4.5, 2.2, 0.5, 0, Math.PI * 2);
+        fxCtx.fill();
+        fxCtx.fillStyle = '#0c0c0c';
+        fxCtx.beginPath(); fxCtx.arc(x, y, 3.2, 0, Math.PI * 2); fxCtx.fill();
+      });
+    }
+
+    requestAnimationFrame(masterLoop);
+  }
+  requestAnimationFrame(masterLoop);
+
+  // === HELPERS ===
+  function schedule(fn, ms) { const id = setTimeout(fn, ms); timers.push(id); return id; }
+  function clearAll() {
+    timers.forEach(clearTimeout);
+    intervals.forEach(clearInterval);
+    timers = []; intervals = [];
+  }
+  function setBar(idx, pct) {
+    bars[idx].style.width = Math.min(100, pct) + '%';
+    pcts[idx].textContent = pct + '%';
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // === MAIN 5-STAGE LAB SEQUENCE ===
+  function startLabTest(rawName) {
+    const name = rawName.trim().toUpperCase();
+    if (!name || running) return;
+
+    running = true;
+    clearAll();
+    nameInput.disabled = true;
+    launchBtn.disabled = true;
+    resetBtn.classList.remove('visible');
+    dossier.classList.remove('printed', 'stamped');
+    topSlime.classList.remove('ooze');
+    alarmVignette.classList.remove('active');
+    labConsole.classList.remove('shake-mild', 'shake-wild', 'breached');
+    termDeck.className = 'terminal-deck';
+    tubes.forEach(t => t.classList.remove('draining'));
+
+    // Reset visuals
+    beakerState = { level: 0.2, targetLevel: 0.2, r: 44, g: 210, b: 245, tr: 44, tg: 210, tb: 245, boil: 0.3, foam: 0, cracked: false, droplets: [] };
+    [0,1,2,3].forEach(i => setBar(i, 4));
+
+    const insults = pickRandom(meltdownInsults, 4);
+    const report = labReports[Math.floor(Math.random() * labReports.length)];
+
+    // --- STAGE 1: ATMOSPHERIC VACUUM EXTRACTION (0s - 2.6s) ---
+    fxMode = 'sucking';
+    beaconL.className = 'beacon active-cyan';
+    beaconR.className = 'beacon active-cyan';
+    phasePill.textContent = 'STAGE 1/4: VACUUM EXTRACTION';
+    phasePill.className = 'phase-pill';
+    mod1Status.textContent = 'TURBO SUCTION'; mod1Status.className = 'mod-status active';
+    mod2Status.textContent = 'RECEIVING AIR'; mod2Status.className = 'mod-status active';
+    mod3Status.textContent = 'SAMPLING...'; mod3Status.className = 'mod-status active';
+    turbineSvg.className = 'turbine-svg turbo';
+    intakeMeter.textContent = 'SUCTION: 940 CFM (*SNIFFFFF*)';
+    spectroState = { intensity: 0.45, chaos: false, color: '#2cf3ff' };
+    beakerState.targetLevel = 0.42;
+    beakerState.boil = 0.7;
+
+    termLog.textContent =
+`> SUBJECT ACQUIRED: ${name}
+> ENGAGING TURBO AIR-SNIFFER AT 940 CFM...
+> VACUUMING AMBIENT ODOR & STICKY AIRBORNE MOLECULES INTO REACTION VAT...`;
+    playVacuum(2.6);
+
+    // --- STAGE 2: CHEMICAL REAGENT TITRATION (2.7s - 6.2s) ---
+    schedule(() => {
+      fxMode = 'reacting';
+      turbineSvg.className = 'turbine-svg idle';
+      intakeMeter.textContent = 'SAMPLE SEALED IN VAT';
+      phasePill.textContent = 'STAGE 2/4: CHEMICAL TITRATION';
+      mod1Status.textContent = 'INJECTING REAGENTS';
+      mod2Status.textContent = 'REACTING...'; mod2Status.className = 'mod-status toxic';
+      termLog.textContent =
+`> AIR SAMPLE CAPTURED. BEGINNING 4-STAGE CHEMICAL TITRATION...
+> [TEST 1] DROPPING SOAP SERUM...`;
+
+      // Reagent 1: Soap Serum
+      tubes[0].classList.add('draining');
+      dropReagent('#42f5ff');
+      playBubblePop(440);
+      beakerState.targetLevel = 0.56;
+      beakerState.tr = 170; beakerState.tg = 230; beakerState.tb = 40;
+      phVal.textContent = '5.2';
+      viscVal.textContent = 'SYRUPY';
+      tempVal.textContent = '118°F';
+      setBar(0, 38);
+      setBar(1, 29);
+    }, 2700);
+
+    schedule(() => {
+      // Reagent 2: Sticky Dye-9
+      tubes[1].classList.add('draining');
+      dropReagent('#ff5ee2');
+      playBubblePop(560);
+      beakerState.targetLevel = 0.72;
+      beakerState.tr = 195; beakerState.tg = 55; beakerState.tb = 245;
+      beakerState.boil = 1.4;
+      spectroState = { intensity: 0.8, chaos: false, color: '#d64dff' };
+      phVal.textContent = '2.8 (GLUE)';
+      viscVal.textContent = 'FLY-PAPER!';
+      tempVal.textContent = '192°F';
+      setBar(0, 74);
+      setBar(2, 82);
+      labConsole.classList.add('shake-mild');
+      termLog.textContent += '\n> [TEST 2] DROPPING STICKY DYE-9... WHOA! IT TURNED PURPLE GOO!!';
+    }, 3850);
+
+    schedule(() => {
+      // Reagent 3: Sock Solvent + Reagent 4: Febreze Max
+      tubes[2].classList.add('draining');
+      tubes[3].classList.add('draining');
+      dropReagent('#ffe247');
+      dropReagent('#8cff3b');
+      playBubblePop(320);
+      setTimeout(() => playBubblePop(680), 140);
+      beakerState.targetLevel = 0.92;
+      beakerState.tr = 158; beakerState.tg = 255; beakerState.tb = 22;
+      beakerState.boil = 2.4;
+      beakerState.foam = 0.9;
+      spectroState = { intensity: 1.15, chaos: true, color: '#a8ff1a' };
+      phVal.textContent = '0.0 (TOXIC)';
+      viscVal.textContent = 'SUPERGLUE';
+      tempVal.textContent = '480°F!!';
+      setBar(0, 96);
+      setBar(1, 98);
+      setBar(2, 100);
+      setBar(3, 99);
+      termLog.textContent += '\n> [TEST 3 & 4] SOCK SOLVENT + FEBREZE MAX ADDED... OH NO, IT\'S BOILING OVER!!';
+    }, 5050);
+
+    // --- STAGE 3: CONTAINMENT BREACH & INSULT MELTDOWN (6.3s - 10.9s) ---
+    schedule(() => {
+      fxMode = 'breach';
+      initFlies(12);
+      beakerState.cracked = true;
+      playGlassCrack();
+      spawnSparks(26);
+
+      labConsole.classList.remove('shake-mild');
+      labConsole.classList.add('shake-wild', 'breached');
+      alarmVignette.classList.add('active');
+      topSlime.classList.add('ooze');
+      beaconL.className = 'beacon active-alarm';
+      beaconR.className = 'beacon active-alarm';
+      turbineSvg.className = 'turbine-svg jammed';
+      intakeMeter.textContent = 'ERROR: CLOGGED WITH GOO!';
+      phasePill.textContent = 'STAGE 3/4: CONTAINMENT BREACH!';
+      phasePill.className = 'phase-pill danger';
+      mod1Status.textContent = 'JAMMED!'; mod1Status.className = 'mod-status err';
+      mod2Status.textContent = 'VAT CRACKED!'; mod2Status.className = 'mod-status err';
+      mod3Status.textContent = 'OFF THE CHARTS!'; mod3Status.className = 'mod-status err';
+      termDeck.className = 'terminal-deck danger-mode';
+      spectroState = { intensity: 1.5, chaos: true, color: '#ff2d46' };
+
+      setBar(0, 100); setBar(1, 100); setBar(2, 100); setBar(3, 100);
+      pcts[3].textContent = '999%!!';
+
+      let tick = 0;
+      const alarmInt = setInterval(() => {
+        tick++;
+        playKlaxon(tick % 2 === 0);
+        if (tick % 3 === 0) playBubblePop(250 + Math.random() * 450);
+      }, 210);
+      intervals.push(alarmInt);
+
+      // Flash live insults one by one
+      insults.forEach((insult, idx) => {
+        schedule(() => {
+          termLog.innerHTML =
+`!!! BIOHAZARD CONTAINMENT BREACH // SUBJECT: ${escapeHtml(name)} !!!
+&gt; REACTION VAT COMPROMISED — STICKY VAPORS ESCAPING LAB!
+<div class="insult-flash">☣ ${escapeHtml(insult)}</div>`;
+        }, idx * 1120);
+      });
+
+      // End meltdown
+      schedule(() => {
+        clearInterval(alarmInt);
+        labConsole.classList.remove('shake-wild');
+        alarmVignette.classList.remove('active');
+        fxMode = 'lingering';
+        beakerState.boil = 0.9;
+        playCartoonFoghorn();
+      }, 4550);
+    }, 6300);
+
+    // --- STAGE 4: PRINT OFFICIAL LAB DOSSIER (11.0s) ---
+    schedule(() => {
+      phasePill.textContent = 'STAGE 4/4: REPORT PRINTED';
+      termDeck.className = 'terminal-deck toxic-mode';
+      termLog.innerHTML =
+`&gt; ANALYSIS COMPLETE FOR <strong>${escapeHtml(name)}</strong>.
+&gt; PRINTING CERTIFIED BIOHAZARD LAB DOSSIER BELOW...
+<div class="insult-flash" style="border-left-color:#a8ff1a;color:#c8ff66;">VERDICT: ${escapeHtml(report.stamp)} — ${escapeHtml(report.verdict)}</div>`;
+
+      docName.textContent = name;
+      docSticky.textContent = report.sticky;
+      docOdor.textContent = report.odor;
+      docChem.textContent = report.chem;
+      docVerdict.textContent = report.verdict;
+      docAction.textContent = report.action;
+      bioStamp.textContent = report.stamp;
+
+      dossier.classList.add('printed');
+
+      // Slam down the red stamp after paper finishes sliding out
+      schedule(() => {
+        dossier.classList.add('stamped');
+        playStampThud();
+        running = false;
+        resetBtn.classList.add('visible');
+        nameInput.disabled = false;
+        launchBtn.disabled = false;
+      }, 1750);
+    }, 11000);
+  }
+
+  function resetLab() {
+    clearAll();
+    running = false;
+    fxMode = 'idle';
+    flies = [];
+    labConsole.classList.remove('shake-mild', 'shake-wild', 'breached');
+    alarmVignette.classList.remove('active');
+    topSlime.classList.remove('ooze');
+    beaconL.className = 'beacon';
+    beaconR.className = 'beacon';
+    turbineSvg.className = 'turbine-svg idle';
+    intakeMeter.textContent = 'SUCTION: 0.0 CFM (STANDBY)';
+    phasePill.textContent = 'STATUS: STANDBY';
+    phasePill.className = 'phase-pill';
+    mod1Status.textContent = 'IDLE'; mod1Status.className = 'mod-status';
+    mod2Status.textContent = 'CLEAR'; mod2Status.className = 'mod-status';
+    mod3Status.textContent = 'CALIBRATED'; mod3Status.className = 'mod-status';
+    tubes.forEach(t => t.classList.remove('draining'));
+    beakerState = { level: 0.22, targetLevel: 0.22, r: 44, g: 210, b: 245, tr: 44, tg: 210, tb: 245, boil: 0.3, foam: 0, cracked: false, droplets: [] };
+    spectroState = { intensity: 0.08, chaos: false, color: '#2cf3ff' };
+    phVal.textContent = '7.0';
+    viscVal.textContent = 'WATER';
+    tempVal.textContent = '70°F';
+    [0,1,2,3].forEach(i => setBar(i, 0));
+    termDeck.className = 'terminal-deck';
+    termLog.textContent = '> LAB HOSED DOWN WITH INDUSTRIAL BLEACH & AIR FRESHENER.\n> GLASSWARE REPLACED. READY FOR NEXT SUBJECT._';
+    dossier.classList.remove('printed', 'stamped');
+    resetBtn.classList.remove('visible');
+    nameInput.value = '';
+    nameInput.disabled = false;
+    launchBtn.disabled = false;
+    nameInput.focus();
+    playBubblePop(620);
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    startLabTest(nameInput.value);
+  });
+  resetBtn.addEventListener('click', resetLab);
+})();
+</script>
+</body>
+</html>
